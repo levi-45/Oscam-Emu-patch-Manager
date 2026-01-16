@@ -79,4 +79,6 @@ Technical Notes:
 - Fully open-source under the MIT license.
 
 - Designed for Linux-based systems with OSCam Emu installed.
-  https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/blob/main/oscam-patch-generator.png
+
+
+https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/scam-patch-generator.png
