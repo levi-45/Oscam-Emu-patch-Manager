@@ -21,11 +21,17 @@
 #  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 # ============================================================================
 
-import os, sys, subprocess, shutil, json
+import os, sys, subprocess, shutil, json, zipfile
+from datetime import datetime
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
 from PyQt6.QtCore import *
 from PIL import Image, ImageDraw, ImageFont
+
+# =====================
+# APP VERSION
+# =====================
+APP_VERSION = "1.0.0"
 
 # ===================== PATHS & CONFIG =====================
 PATCH_DIR = "/opt/patch/oscam-patching"
@@ -46,80 +52,116 @@ STREAMREPO = "https://git.streamboard.tv/common/oscam.git"
 REQUIRED_TOOLS = ["git", "zip", "unzip", "python3", "pip3"]
 
 NEVER_DELETE = [
-    "oscam_patch_manager.py",
-    "oscam-patch-manager.sh",
+    "oscam_patch_manager.py", 
+    "oscam-patch-manager.sh", 
     "oscam-patch-manager-gui.sh",
-    "oscam-emu-patch.sh",
-    "oscam-patch-manager-gui-eng.sh",
+    "oscam-emu-patch.sh", 
+    "oscam-patch-manager-gui-eng.sh", 
     "github_upload_config.json",
-    "oscam-patch.sh",
-    "config.json",
-    "icons"
+    "oscam-patch.sh", 
+    "config.json", "icons"
 ]
 
 # ===================== LANGUAGE & TEXT =====================
 LANG = "en"
 TEXTS = {
-    "en": {
-        "patch_create": "Create Patch",
-        "patch_renew": "Renew Patch",
-        "patch_check": "Check Patch",
-        "patch_apply": "Apply Patch",
-        "git_status": "View Commits",
-        "patch_zip": "Zip Patch",
-        "backup_old": "Backup/Renew Patch",
-        "clean_folder": "Clean Patch Folder",
-        "clean_emu_git": "Clean OSCam Emu Git",
-        "patch_emu_git": "Oscam Emu Git create",
-        "upload_github": "Upload to GitHub",
-        "change_old_dir": "Change Old Patch Dir",
-        "save": "Save",
-        "cancel": "Cancel",
-        "exit": "Exit",
-        "exit_question": "Do you really want to exit?",
-        "yes": "Yes",
-        "no": "No",
-        "language_label": "Language:",
-        "color_label": "Color:",
-        "missing_tools": "Missing tools: {}",
-        "all_tools_ok": "All required tools installed"
-    },
     "de": {
+        "info_tooltip": "Info / Hilfe",
+        "info_title": "Information",
+        "info_text": "Dieses Tool erstellt OSCam-Emu-Patches und verwaltet GitHub-Uploads.\n\nAnleitung:\n- Sprache und Farbe wählen\n- Patch erstellen oder hochladen\n- OSCam-Emu Git updaten...",
+        "language_label": "Sprache:",
+        "color_label": "Farbe:",
+        "git_status": "Commits ansehen",
+        "clean_emu_git": "Oscam Emu Git leeren",
+        "patch_emu_git": "Oscam Emu Git erstellen",
         "patch_create": "Patch erstellen",
         "patch_renew": "Patch erneuern",
         "patch_check": "Patch prüfen",
         "patch_apply": "Patch anwenden",
-        "git_status": "Commits ansehen",
         "patch_zip": "Patch packen",
         "backup_old": "Patch sichern/erneuern",
         "clean_folder": "Oscam-Patch leeren",
-        "clean_emu_git": "Oscam Emu Git leeren",
-        "patch_emu_git": "Oscam Emu Git erstellen",
-        "upload_github": "Auf GitHub hochladen",
         "change_old_dir": "Pfad zu s3 ändern",
-        "save": "Speichern",
-        "cancel": "Abbrechen",
         "exit": "Beenden",
         "exit_question": "Willst du das Programm wirklich beenden?",
         "yes": "Ja",
-        "no": "Nein",
-        "language_label": "Sprache:",
-        "color_label": "Farbe:",
-        "missing_tools": "Fehlende Tools: {}",
-        "all_tools_ok": "Alle benötigten Tools installiert"
+        "no": "Nein"
+    },
+    "en": {
+        "info_tooltip": "Info / Help",
+        "info_title": "Information",
+        "info_text": "This tool creates OSCam-Emu patches and manages GitHub uploads.\n\nInstructions:\n- Choose language and color\n- Create or upload patch\n- Update OSCam-Emu Git...",
+        "language_label": "Language:",
+        "color_label": "Color:",
+        "git_status": "View Commits",
+        "clean_emu_git": "Clean OSCam Emu Git",
+        "patch_emu_git": "Patch OSCam Emu Git",
+        "patch_create": "Create Patch",
+        "patch_renew": "Renew Patch",
+        "patch_check": "Check Patch",
+        "patch_apply": "Apply Patch",
+        "patch_zip": "Zip Patch",
+        "backup_old": "Backup/Renew Patch",
+        "clean_folder": "Clean Patch Folder",
+        "change_old_dir": "Change Old Patch Dir",
+        "exit": "Exit",
+        "exit_question": "Do you really want to close the tool?",
+        "yes": "Yes",
+        "no": "No"
     }
 }
 
-# ===================== COLORS =====================
+# =====================
+# COLORS
+# =====================
 DIFF_COLORS = {
-    "classic": {"bg": "#87CEEB", "text": "black"},
-    "blue-orange": {"bg": "#FF8C00", "text": "white"},
-    "yellow-purple": {"bg": "#800080", "text": "yellow"},
-    "green-red": {"bg": "#228B22", "text": "white"}
+    "Classic":       {"bg": "#1E1E1E", "text": "#FFFFFF"},  # Dunkles Terminal
+    "Ocean":         {"bg": "#2B3A67", "text": "#A8D0E6"},  # Blau-Töne
+    "Sunset":        {"bg": "#FF6B6B", "text": "#FFE66D"},  # Warmes Orange/Rot
+    "Forest":        {"bg": "#2E8B57", "text": "#E0F2F1"},  # Grün/Türkis
+    "Candy":         {"bg": "#FFB6C1", "text": "#4B0082"},  # Rosa/Lila Kontrast
+    "Cyberpunk":     {"bg": "#0D0D0D", "text": "#FF00FF"},  # Schwarz mit Neonpink
+    "CoolMint":      {"bg": "#A8FFF0", "text": "#003F3F"},  # Hellmint mit dunklem Text
+    "Sunrise":       {"bg": "#FFD580", "text": "#B22222"},  # Gelb-orange mit dunkelrot
+    "DeepSea":       {"bg": "#001F3F", "text": "#7FDBFF"},  # Sehr dunkelblau mit hellblau
+    "Lavender":      {"bg": "#E6E6FA", "text": "#4B0082"},  # Helles Lila mit dunklem Lila
+    "Blue-Orange":   {"bg": "#FF8C00", "text": "#FFFFFF"},  # Orange Hintergrund, weiße Schrift
+    "Yellow-Purple": {"bg": "#800080", "text": "#FFFF00"},  # Lila Hintergrund, gelbe Schrift
+    "Green-Red":     {"bg": "#228B22", "text": "#FFFFFF"},  # Dunkelgrün Hintergrund, weiße Schrift
+    "Midnight":      {"bg": "#121212", "text": "#BB86FC"},  # Dunkles Lila/Schwarz
+    "Solarized":     {"bg": "#002B36", "text": "#839496"},  # Solarized Dark
+    "Neon":          {"bg": "#0B0C10", "text": "#66FCF1"},  # Neonblau auf Schwarz
+    "Fire":          {"bg": "#7F0000", "text": "#FF4500"},  # Dunkelrot + Orange
+    "Moss":          {"bg": "#2E3A23", "text": "#A9BA9D"},  # Grün-Töne
+    "Peach":         {"bg": "#FFDAB9", "text": "#8B4513"},  # Hellorange + Braun
+    "Galaxy":        {"bg": "#1B1B2F", "text": "#E94560"},  # Dunkelblau + Pink
+    "Aqua":          {"bg": "#004D4D", "text": "#00FFFF"},  # Dunkles Aqua + Cyan
+    "Lavish":        {"bg": "#3D2B56", "text": "#F1C40F"},  # Lila + Gold
+    "Tech":          {"bg": "#0F0F0F", "text": "#00FF00"},  # Schwarz + Neon Grün
+    "NeonPink":      {"bg": "#1A1A1D", "text": "#FF6EC7"},  # Dunkel + knallpink
+    "ElectricBlue":  {"bg": "#0B0C10", "text": "#00FFFF"},  # Schwarz + Cyan
+    "CyberGreen":    {"bg": "#050A05", "text": "#39FF14"},  # Dunkel + Neongrün
+    "SunsetVibes":   {"bg": "#FF4500", "text": "#FFF8DC"},  # Orange + Creme
+    "PurpleHaze":    {"bg": "#2E004F", "text": "#D580FF"},  # Dunkellila + Lila
+    "MintyFresh":    {"bg": "#002B2B", "text": "#7FFFD4"},  # Dunkeltürkis + Mint
+    "HotMagenta":    {"bg": "#1B0B1B", "text": "#FF00FF"},  # Sehr dunkel + Magenta
+    "GoldenHour":    {"bg": "#2F1E00", "text": "#FFD700"},  # Dunkelbraun + Gold
+    "OceanDeep":     {"bg": "#001F3F", "text": "#00BFFF"},  # Tiefblau + Hellblau
+    "Tropical":      {"bg": "#003300", "text": "#FFDD00"},  # Dunkelgrün + Gelb
+    "MagentaGlow":   {"bg": "#1C001C", "text": "#FF00FF"},  # Dunkel + Neonmagenta
+    "CyanWave":      {"bg": "#001F1F", "text": "#00FFFF"},  # Tiefes Cyan + Hellcyan
+    "SunriseGold":   {"bg": "#2B1A00", "text": "#FFD700"},  # Dunkelbraun + Gold
+    "CoralReef":     {"bg": "#2F0A0A", "text": "#FF7F50"},  # Dunkelrot + Korall
+    "LimePunch":     {"bg": "#0A1F00", "text": "#BFFF00"},  # Dunkelgrün + Neonlime
+    "VioletStorm":   {"bg": "#1E003F", "text": "#D580FF"},  # Dunkelviolett + Lila
+    "OceanMist":     {"bg": "#002B3A", "text": "#7FDBFF"},  # Dunkelblau + Hellblau
+    "PeachySun":     {"bg": "#3F1E00", "text": "#FFA07A"},  # Dunkelbraun + Peach
+    "NeonOrange":    {"bg": "#1A0A00", "text": "#FF8C00"},  # Schwarz + Neonorange
+    "TurquoiseDream":{"bg": "#002222", "text": "#40E0D0"},  # Tiefes Türkis + Cyan
 }
-current_diff_colors = DIFF_COLORS["classic"]
-current_color_name = "classic"
-GITHUB_CONF_FILE = os.path.join(PATCH_DIR, "github_upload_config.json")
+
+current_diff_colors = DIFF_COLORS["Classic"]
+current_color_name = "Classic"
 
 # ===================== CONFIG UTIL =====================
 def load_config():
@@ -129,15 +171,14 @@ def load_config():
             with open(CONFIG_FILE,"r") as f:
                 cfg = json.load(f)
                 LANG = cfg.get("language", LANG)
-                current_color_name = cfg.get("color", "classic")
-                current_diff_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["classic"])
+                current_color_name = cfg.get("color", "Classic")
+                current_diff_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
         except: pass
 
 def save_config():
     cfg = {"language": LANG,"color": current_color_name}
-    try: 
-        with open(CONFIG_FILE,"w") as f:
-            json.dump(cfg,f)
+    try:
+        with open(CONFIG_FILE,"w") as f: json.dump(cfg,f)
     except: pass
 
 def ensure_dir(path):
@@ -151,7 +192,8 @@ def append_info(info_widget, text):
 def run_bash(cmd, cwd=None, info_widget=None):
     if info_widget: append_info(info_widget,f"▶ {cmd}")
     if cwd: ensure_dir(cwd)
-    process = subprocess.Popen(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    process = subprocess.Popen(cmd, shell=True, cwd=cwd,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     for line in process.stdout:
         line = line.rstrip()
         if info_widget: append_info(info_widget,line)
@@ -164,17 +206,15 @@ def copy_file(src,dst):
 
 def check_tools(info_widget=None):
     missing = [t for t in REQUIRED_TOOLS if shutil.which(t) is None]
-    if missing: append_info(info_widget,TEXTS[LANG]["missing_tools"].format(", ".join(missing)))
-    else: append_info(info_widget,TEXTS[LANG]["all_tools_ok"])
+    if missing: append_info(info_widget,f"❌ Missing tools: {', '.join(missing)}")
+    else: append_info(info_widget,"✅ All required tools installed")
     return missing
 
 # ===================== ICONS =====================
 def create_icons():
     ensure_dir(ICON_DIR)
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-    ICON_ACTIONS = {text:color for text,color in zip(TEXTS[LANG].values(),
-                                                     ["green","orange","blue","purple","cyan","yellow","magenta",
-                                                      "red","brown","darkgreen","pink","grey","grey"])}
+    ICON_ACTIONS = {text:"green" for text in TEXTS[LANG].values()}
     for name,color in ICON_ACTIONS.items():
         safe_name = name.replace(" ","_").replace("/","_").replace("\\","_")
         file_name = os.path.join(ICON_DIR,safe_name+".png")
@@ -196,7 +236,8 @@ def get_icon_for(name):
     path = os.path.join(ICON_DIR,safe_name+".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
 
-# ===================== GITHUB CONFIG =====================
+GITHUB_CONF_FILE = os.path.join(PATCH_DIR, "github_upload_config.json")
+
 def load_github_config():
     if os.path.exists(GITHUB_CONF_FILE):
         try:
@@ -214,17 +255,14 @@ def load_github_config():
     return {}
 
 def save_github_config(cfg):
-    try: 
+    try:
         with open(GITHUB_CONF_FILE,"w") as f: json.dump(cfg,f)
     except: pass
 
-# ============================================================================
-# OSCam Emu Patch Generator – Teil 2: Patch & Git Funktionen
-# ============================================================================
 
-import os, subprocess, shutil, zipfile
-from datetime import datetime
-#from part1 import TEMP_REPO, PATCH_FILE, PATCH_EMU_GIT_DIR, PATCH_MODIFIER, STREAMREPO, EMUREPO, OLD_PATCH_DIR, OLD_PATCH_FILE, ALT_PATCH_FILE, ensure_dir, append_info, run_bash, load_github_config
+# ============================================================================
+# OSCam Emu Patch & Git Funktionen
+# ============================================================================
 
 # ===================== OSCAM VERSION & PATCH HEADER =====================
 def get_oscam_version_from_globals(repo_dir=None):
@@ -288,48 +326,24 @@ def clean_oscam_emu_git(info_widget=None):
     append_info(info_widget,"✅ OSCam Emu Git folder cleaned")
 
 def patch_oscam_emu_git(info_widget=None):
-    """
-    Lokales Patchen von OSCam-Emu-Git nur,
-    kein automatisches Pushen auf GitHub.
-    Commit-Message dynamisch mit aktueller Version + Build.
-    """
     append_info(info_widget,"🔄 Patching OSCam Emu Git …")
     if os.path.exists(PATCH_EMU_GIT_DIR): shutil.rmtree(PATCH_EMU_GIT_DIR)
     ensure_dir(PATCH_EMU_GIT_DIR)
-
-    # OSCam Emu klonen
     run_bash(f"git clone {EMUREPO} .", cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
     run_bash(f"git remote add streamboard {STREAMREPO}", cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
     run_bash("git fetch --all", cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
     run_bash("git checkout -B streamboard-master streamboard/master", cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
-
-    # Patch anwenden
     code = run_bash(f"git apply --whitespace=fix {PATCH_FILE}", cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
     if code != 0:
-        append_info(info_widget,"❌ Patch fehlgeschlagen – Basis passt nicht")
+        append_info(info_widget,"❌ Patch failed – base mismatch")
         return
-
-    # GitHub Config laden
     cfg = load_github_config()
-    user_name = cfg.get("user_name","speedy005")
-    user_email = cfg.get("user_email","patch@oscam.local")
-
-    # Lokale Git Identity setzen
-    run_bash(f'git config user.name "{user_name}"', cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
+    run_bash(f'git config user.name "{cfg.get("user_name","speedy005")}"', cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
     run_bash(f'git config user.email "noreply@users.noreply.github.com"', cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
-
-    # Aktuelle OSCam-Version + Build
-    osc_version_build = get_oscam_version_from_globals(TEMP_REPO)
-    if osc_version_build is None:
-        osc_version_build = "unknown"
-
-    # Commit-Message dynamisch
+    osc_version_build = get_oscam_version_from_globals(TEMP_REPO) or "unknown"
     commit_msg = f"Sync patch with {osc_version_build}"
-
-    # Commit erstellen
     run_bash(f'git commit -am "{commit_msg}" --allow-empty', cwd=PATCH_EMU_GIT_DIR, info_widget=info_widget)
-    append_info(info_widget,f"✅ Patch lokal angewendet und committet ({commit_msg})")
-
+    append_info(info_widget,f"✅ Patch applied locally ({commit_msg})")
 
 # ===================== BACKUP & ZIP =====================
 def backup_old_patch(info_widget=None):
@@ -346,65 +360,38 @@ def zip_patch(info_widget=None):
 
 # ===================== GITHUB UPLOAD =====================
 def github_upload_patch_file(info_widget=None):
-    """Upload der oscam-emu.patch Datei auf das Patch-Repo"""
     cfg = load_github_config()
-    patch_repo_url = cfg.get("repo_url")  # Muss auf oscam-emu-patch zeigen
-    branch = cfg.get("branch", "master")
+    patch_repo_url = cfg.get("repo_url")
+    branch = cfg.get("branch","master")
     if not all([patch_repo_url, cfg.get("username"), cfg.get("token")]):
-        append_info(info_widget, "❌ GitHub-Patch-Zugangsdaten nicht gesetzt!")
+        append_info(info_widget, "❌ GitHub patch credentials missing!")
         return
-
     append_info(info_widget, "🔄 Uploading oscam-emu.patch …")
     if not os.path.exists(PATCH_FILE):
         append_info(info_widget, "❌ Patch file does not exist!")
         return
-
     temp_patch_repo = os.path.join(PATCH_DIR, "temp_patch_git")
-    if os.path.exists(temp_patch_repo):
-        shutil.rmtree(temp_patch_repo)
-
-    # --- 1. Repo klonen ---
+    if os.path.exists(temp_patch_repo): shutil.rmtree(temp_patch_repo)
     token_url = patch_repo_url.replace("https://", f"https://{cfg['username']}:{cfg['token']}@")
     run_bash(f"git clone --branch {branch} {token_url} {temp_patch_repo}", info_widget=info_widget)
-
-    # --- 2. Patch-Datei kopieren ---
     shutil.copy2(PATCH_FILE, os.path.join(temp_patch_repo, "oscam-emu.patch"))
-
-    # --- 3. Git Config (optional anonym für Email) ---
     run_bash(f'git config user.name "{cfg.get("user_name","patcher")}"', cwd=temp_patch_repo, info_widget=info_widget)
     run_bash(f'git config user.email "anon@patch.local"', cwd=temp_patch_repo, info_widget=info_widget)
-
-    # --- 4. Add & Commit ---
     run_bash("git add oscam-emu.patch", cwd=temp_patch_repo, info_widget=info_widget)
     osc_version_build = get_oscam_version_from_globals(TEMP_REPO) or "unknown"
-    commit_msg = f"Update patch {osc_version_build}"
-    run_bash(f'git commit -m "{commit_msg}" --allow-empty', cwd=temp_patch_repo, info_widget=info_widget)
-
-    # --- 5. Push (kein --force nötig) ---
+    run_bash(f'git commit -m "Update patch {osc_version_build}" --allow-empty', cwd=temp_patch_repo, info_widget=info_widget)
     code = run_bash(f"git push origin {branch}", cwd=temp_patch_repo, info_widget=info_widget)
-    append_info(info_widget, "✅ Patch uploaded successfully!" if code == 0 else "❌ Upload failed!")
-
-    # --- 6. Aufräumen ---
+    append_info(info_widget,"✅ Patch uploaded" if code==0 else "❌ Upload failed")
     shutil.rmtree(temp_patch_repo)
 
-
-
-
 def _github_upload(dir_path, repo_url, info_widget=None, branch="master", commit_msg="Apply OSCam Emu Patch"):
-    """Interne Hilfsfunktion für Git Upload"""
     cfg = load_github_config()
-    username = cfg.get("username")
-    token = cfg.get("token")
-    user_name = cfg.get("user_name","speedy005")
-    user_email = cfg.get("user_email","patch@oscam.local")
-
-    if not os.path.exists(dir_path):
-        append_info(info_widget,"❌ Git-Ordner existiert nicht!"); return
-
+    username, token = cfg.get("username"), cfg.get("token")
+    user_name, user_email = cfg.get("user_name","speedy005"), cfg.get("user_email","patch@oscam.local")
+    if not os.path.exists(dir_path): append_info(info_widget,"❌ Git folder missing!"); return
     token_url = repo_url.replace("https://", f"https://{username}:{token}@")
     git_dir = os.path.join(dir_path,".git")
     if os.path.exists(git_dir): shutil.rmtree(git_dir)
-
     run_bash("git init", cwd=dir_path, info_widget=info_widget)
     run_bash(f"git remote add origin {token_url}", cwd=dir_path, info_widget=info_widget)
     run_bash(f"git checkout -b {branch}", cwd=dir_path, info_widget=info_widget)
@@ -413,30 +400,24 @@ def _github_upload(dir_path, repo_url, info_widget=None, branch="master", commit
     run_bash("git add -A", cwd=dir_path, info_widget=info_widget)
     run_bash(f'git commit -m "{commit_msg}" --allow-empty', cwd=dir_path, info_widget=info_widget)
     code = run_bash(f"git push origin {branch} --force", cwd=dir_path, info_widget=info_widget)
-    append_info(info_widget,"✅ Emu Git uploaded successfully" if code==0 else "❌ Upload failed")
-
+    append_info(info_widget,"✅ Emu Git uploaded" if code==0 else "❌ Upload failed")
 
 def github_upload_oscam_emu_folder(info_widget=None):
-    """Upload des OSCam-Emu-Git-Ordners auf GitHub"""
     cfg = load_github_config()
     repo_url = cfg.get("emu_repo_url")
-    branch = cfg.get("emu_branch", "master")
-
+    branch = cfg.get("emu_branch","master")
     if not all([repo_url, cfg.get("username"), cfg.get("token")]):
-        append_info(info_widget, "❌ GitHub-Emu-Zugangsdaten nicht gesetzt!")
+        append_info(info_widget, "❌ GitHub Emu credentials missing!")
         return
-
     if not os.path.exists(PATCH_EMU_GIT_DIR):
-        append_info(info_widget, "❌ OSCam-Emu-Git-Ordner existiert nicht! Bitte vorher patch_oscam_emu_git ausführen.")
+        append_info(info_widget, "❌ OSCam-Emu Git folder missing! Run patch_oscam_emu_git first.")
         return
-
     commit_msg = f"Sync OSCam-Emu patch {get_oscam_version_from_globals(TEMP_REPO)}"
     _github_upload(PATCH_EMU_GIT_DIR, repo_url, info_widget=info_widget, branch=branch, commit_msg=commit_msg)
 
 
-
 # ============================================================================
-# OSCam Emu Patch Generator – Teil 3: GUI + Main
+# OSCam Emu Patch Generator – GUI + Main
 # ============================================================================
 
 import sys
@@ -447,14 +428,13 @@ from PyQt6.QtGui import *
 from PyQt6.QtCore import *
 
 # -----------------------------
-# EMU GITHUB CONFIG DIALOG (wenn Daten fehlen)
+# GITHUB CONFIG DIALOG
 # -----------------------------
 class GithubConfigDialog(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("GitHub Zugangsdaten / Repos")
         self.setMinimumWidth(520)
-
         layout = QFormLayout(self)
 
         self.patch_repo = QLineEdit()
@@ -508,9 +488,8 @@ class GithubConfigDialog(QDialog):
         save_github_config(cfg)
         self.accept()
 
-
 # -----------------------------
-# PATCH MANAGER GUI – KOMPLETT
+# PATCH MANAGER GUI
 # -----------------------------
 class PatchManagerGUI(QWidget):
     BUTTON_HEIGHT = 60
@@ -519,10 +498,26 @@ class PatchManagerGUI(QWidget):
     def __init__(self):
         super().__init__()
         load_config()
-        self.setWindowTitle("OSCam Emu Patch Generator – by speedy005")
+        self.setWindowTitle("OSCam Emu Toolkit – by speedy005")
         self.setGeometry(50, 50, 1600, 900)
         create_icons()
+        
         self.init_ui()
+        self.change_colors()
+        self.change_language()
+
+    # -----------------------------
+    # INFO BUTTON CALLBACK
+    # -----------------------------
+    def show_info(self):
+        text = TEXTS[LANG].get("info_text", "Keine Info verfügbar.")
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle(TEXTS[LANG].get("info_title", "Info"))
+        dlg.setText(text)
+        dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dlg.exec()
+
+
 
     # =====================
     # INIT UI
@@ -532,20 +527,53 @@ class PatchManagerGUI(QWidget):
         layout.setSpacing(10)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # TITLE
-        title = QLabel("OSCam Emu Patch Generator – by speedy005")
+        # -----------------------------
+        # TITEL + VERSION + INFO BUTTON
+        # -----------------------------
+        title_layout = QHBoxLayout()
+
+        # Info-Button links außen
+        self.info_button = QPushButton("ℹ️")
+        self.info_button.setFixedSize(40, 40)
+        self.info_button.setToolTip(TEXTS[LANG]["info_tooltip"])
+        self.info_button.clicked.connect(self.show_info)
+        title_layout.addWidget(self.info_button)
+
+        # Spacer vor Titel
+        title_layout.addStretch()
+
+        # Titel zentriert
+        title = QLabel("OSCam Emu Toolkit – by speedy005")
         title.setFont(QFont("Arial", 28, QFont.Weight.Bold))
         title.setStyleSheet("color:red;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        title_layout.addWidget(title, stretch=2)
 
+        # Spacer nach Titel
+        title_layout.addStretch()
+
+        # Versionsnummer rechts außen
+        version_label = QLabel(f"v{APP_VERSION}")
+        version_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        version_label.setStyleSheet("color:red;")
+        version_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        title_layout.addWidget(version_label)
+
+        layout.addLayout(title_layout)
+
+        # -----------------------------
         # INFO TEXT
+        # -----------------------------
         self.info_text = QTextEdit()
         self.info_text.setFont(QFont("Courier", 14))
         self.info_text.setReadOnly(True)
         self.info_text.setMinimumHeight(500)
         self.info_text.setStyleSheet("background-color:black; color:white;")
         layout.addWidget(self.info_text)
+
+        # … restlicher Code bleibt wie zuvor …
+        self.setLayout(layout)
+
 
         # -----------------------------
         # OPTIONSLEISTE (Sprache, Farbe, Commit-Anzahl, Buttons)
@@ -554,26 +582,17 @@ class PatchManagerGUI(QWidget):
         options_layout.setSpacing(10)
         options_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
+
         # Sprache
         self.lang_label = QLabel(TEXTS[LANG]["language_label"])
         self.lang_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lang_label.setMinimumHeight(self.BUTTON_HEIGHT)
-        self.lang_label.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; "
-            f"color:{current_diff_colors['text']}; "
-            f"border-radius:{self.BUTTON_RADIUS}px;"
-        )
         options_layout.addWidget(self.lang_label)
 
         self.language_box = QComboBox()
         self.language_box.addItems(["EN","DE"])
         self.language_box.setCurrentText("DE" if LANG=="de" else "EN")
         self.language_box.setFixedHeight(self.BUTTON_HEIGHT)
-        self.language_box.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; "
-            f"color:{current_diff_colors['text']}; "
-            f"border-radius:{self.BUTTON_RADIUS}px;"
-        )
         self.language_box.currentIndexChanged.connect(self.change_language)
         options_layout.addWidget(self.language_box)
 
@@ -581,22 +600,12 @@ class PatchManagerGUI(QWidget):
         self.color_label = QLabel(TEXTS[LANG]["color_label"])
         self.color_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.color_label.setMinimumHeight(self.BUTTON_HEIGHT)
-        self.color_label.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; "
-            f"color:{current_diff_colors['text']}; "
-            f"border-radius:{self.BUTTON_RADIUS}px;"
-        )
         options_layout.addWidget(self.color_label)
 
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
         self.color_box.setCurrentText(current_color_name)
         self.color_box.setFixedHeight(self.BUTTON_HEIGHT)
-        self.color_box.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; "
-            f"color:{current_diff_colors['text']}; "
-            f"border-radius:{self.BUTTON_RADIUS}px;"
-        )
         self.color_box.currentIndexChanged.connect(self.change_colors)
         options_layout.addWidget(self.color_box)
 
@@ -605,22 +614,13 @@ class PatchManagerGUI(QWidget):
         self.commit_spin.setRange(1, 20)
         self.commit_spin.setValue(5)
         self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT)
-        self.commit_spin.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; "
-            f"color:{current_diff_colors['text']}; "
-            f"border-radius:{self.BUTTON_RADIUS}px;"
-        )
         options_layout.addWidget(self.commit_spin)
 
-        # -----------------------------
-        # OPTION BUTTONS
-        # -----------------------------
+        # Option Buttons
         def create_option_button(text, color, callback, fg="white"):
             btn = QPushButton(text)
             btn.setMinimumHeight(self.BUTTON_HEIGHT)
-            btn.setStyleSheet(
-                f"background-color:{color}; color:{fg}; border-radius:{self.BUTTON_RADIUS}px;"
-            )
+            btn.setStyleSheet(f"background-color:{color}; color:{fg}; border-radius:{self.BUTTON_RADIUS}px;")
             btn.clicked.connect(callback)
             return btn
 
@@ -637,21 +637,13 @@ class PatchManagerGUI(QWidget):
         self.github_emu_config_button = create_option_button("Zugangsdaten/URL", "#FFA500",
                                                              self.edit_emu_github_config, fg="black")
 
-        for btn in [
-            self.commits_button,
-            self.clean_emu_button,
-            self.patch_emu_git_button,
-            self.github_upload_patch_button,
-            self.github_upload_emu_button,
-            self.github_emu_config_button
-        ]:
+        for btn in [self.commits_button,self.clean_emu_button,self.patch_emu_git_button,
+                    self.github_upload_patch_button,self.github_upload_emu_button,self.github_emu_config_button]:
             options_layout.addWidget(btn)
 
         layout.addLayout(options_layout)
 
-        # -----------------------------
         # PROGRESS BAR
-        # -----------------------------
         self.progress = QProgressBar()
         self.progress.setMinimum(0)
         self.progress.setMaximum(100)
@@ -659,9 +651,7 @@ class PatchManagerGUI(QWidget):
         self.progress.setTextVisible(True)
         layout.addWidget(self.progress)
 
-        # -----------------------------
         # GRID BUTTONS
-        # -----------------------------
         grid_layout = QGridLayout()
         actions = [
             ("patch_create", lambda: create_patch(self.info_text)),
@@ -680,118 +670,58 @@ class PatchManagerGUI(QWidget):
             btn.setIcon(get_icon_for(TEXTS[LANG][key]))
             btn.setFont(QFont("Arial", 16))
             btn.setMinimumHeight(self.BUTTON_HEIGHT)
-            btn.setStyleSheet(
-                f"background-color:{current_diff_colors['bg']}; "
-                f"color:{current_diff_colors['text']}; "
-                f"border-radius:{self.BUTTON_RADIUS}px;"
-            )
             btn.clicked.connect(lambda checked=False, k=key, f=func: self.set_active_button(k) or f())
             self.buttons[key] = btn
             row, col = divmod(idx, 3)
             grid_layout.addWidget(btn, row, col)
         layout.addLayout(grid_layout)
-
         self.setLayout(layout)
         self.check_emu_credentials()
 
     # =====================
-    # AKTIVE BUTTONS HIGHLIGHT
+    # BUTTON & COLOR HANDLING
     # =====================
     def set_active_button(self, active_key):
-        # Grid Buttons
         for key, btn in self.buttons.items():
             if key == active_key:
                 btn.setStyleSheet(f"background-color:#FFD700; color:black; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;")
             else:
                 btn.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;")
 
-        # Option Buttons
-        options = [
-            ("git_status", self.commits_button, "#1E90FF"),
-            ("clean_emu_git", self.clean_emu_button, "#8B4513"),
-            ("patch_emu_git", self.patch_emu_git_button, "#006400"),
-            ("github_upload_patch", self.github_upload_patch_button, "#1E90FF"),
-            ("github_upload_emu", self.github_upload_emu_button, "#1E90FF"),
-            ("github_emu_config", self.github_emu_config_button, "#FFA500", "black")
-        ]
-        for item in options:
-            key, btn, color = item[0], item[1], item[2]
-            fg = item[3] if len(item) > 3 else "white"
-            if key == active_key:
-                btn.setStyleSheet(f"background-color:#FFD700; color:black; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;")
-            else:
-                btn.setStyleSheet(f"background-color:{color}; color:{fg}; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;")
-
-    # =====================
-    # SPRACHE / FARBE ÄNDERN
-    # =====================
     def change_colors(self):
         global current_diff_colors, current_color_name
         current_color_name = self.color_box.currentText()
         current_diff_colors = DIFF_COLORS[current_color_name]
-
-        # Alle Buttons aktualisieren
-        all_buttons = list(self.buttons.values()) + [
-            self.commits_button,
-            self.clean_emu_button,
-            self.patch_emu_git_button,
-            self.github_upload_patch_button,
-            self.github_upload_emu_button,
-            self.github_emu_config_button
-        ]
-        for btn in all_buttons:
-            btn.setStyleSheet(
-                f"background-color:{current_diff_colors['bg']}; "
-                f"color:{current_diff_colors['text']}; "
-                f"border-radius:{self.BUTTON_RADIUS}px; "
-                f"min-height:{self.BUTTON_HEIGHT}px;"
-            )
-
-        # Sprache/Farbe ComboBoxes anpassen
-        self.lang_label.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;"
-        )
-        self.color_label.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;"
-        )
-        self.language_box.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;"
-        )
-        self.color_box.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;"
-        )
-        self.commit_spin.setStyleSheet(
-            f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;"
-        )
-
+        self.set_active_button("")  # reset
+        self.lang_label.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;")
+        self.color_label.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;")
+        self.language_box.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;")
+        self.color_box.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px;")
         save_config()
 
     def change_language(self):
         global LANG
         LANG = "de" if self.language_box.currentText() == "DE" else "en"
         save_config()
-
         self.lang_label.setText(TEXTS[LANG]["language_label"])
         self.color_label.setText(TEXTS[LANG]["color_label"])
+        for key, btn in self.buttons.items():
+            btn.setText(TEXTS[LANG][key])
         self.clean_emu_button.setText(TEXTS[LANG]["clean_emu_git"])
         self.patch_emu_git_button.setText(TEXTS[LANG]["patch_emu_git"])
         self.commits_button.setText(TEXTS[LANG]["git_status"])
-        for key, btn in self.buttons.items():
-            btn.setText(TEXTS[LANG][key])
 
     # =====================
     # EMU CREDENTIALS
     # =====================
     def check_emu_credentials(self):
         cfg = load_github_config()
-        self.github_emu_config_button.show()
         if not all([cfg.get("emu_repo_url"), cfg.get("username"), cfg.get("token")]):
             append_info(self.info_text,"⚠️ GitHub-Emu-Zugangsdaten fehlen!")
 
     def edit_emu_github_config(self):
         dialog = GithubConfigDialog()
-        if dialog.exec():
-            self.check_emu_credentials()
+        if dialog.exec(): self.check_emu_credentials()
 
     # =====================
     # BUTTON CALLBACKS
@@ -802,41 +732,32 @@ class PatchManagerGUI(QWidget):
     def github_upload_emu(self):
         cfg = load_github_config()
         if not all([cfg.get("emu_repo_url"), cfg.get("username"), cfg.get("token")]):
-            append_info(self.info_text,"⚠️ GitHub-Emu-Zugangsdaten fehlen, bitte eintragen!")
+            append_info(self.info_text,"⚠️ GitHub-Emu-Zugangsdaten fehlen!")
             self.edit_emu_github_config()
             return
         github_upload_oscam_emu_folder(self.info_text)
 
     def show_commits(self):
         append_info(self.info_text,"🔄 Showing last commits …")
-        code = run_bash(f"git -C {TEMP_REPO} log -n {self.commit_spin.value()} --oneline", info_widget=self.info_text)
-        append_info(self.info_text,"✅ Done" if code==0 else "❌ Error fetching commits")
+        run_bash(f"git -C {TEMP_REPO} log -n {self.commit_spin.value()} --oneline", info_widget=self.info_text)
 
     def check_patch(self):
         if not os.path.exists(PATCH_FILE):
-            append_info(self.info_text,"❌ Patch file does not exist!")
-            return
-        code = run_bash(f"git apply --check {PATCH_FILE}", cwd=TEMP_REPO, info_widget=self.info_text)
-        append_info(self.info_text,"✅ Patch is valid" if code==0 else "❌ Patch cannot be applied")
+            append_info(self.info_text,"❌ Patch file does not exist!"); return
+        run_bash(f"git apply --check {PATCH_FILE}", cwd=TEMP_REPO, info_widget=self.info_text)
 
     def apply_patch(self):
         if not os.path.exists(PATCH_FILE):
-            append_info(self.info_text,"❌ Patch file does not exist!")
-            return
-        code = run_bash(f"git apply {PATCH_FILE}", cwd=TEMP_REPO, info_widget=self.info_text)
-        append_info(self.info_text,"✅ Patch applied" if code==0 else "❌ Error applying patch")
+            append_info(self.info_text,"❌ Patch file does not exist!"); return
+        run_bash(f"git apply {PATCH_FILE}", cwd=TEMP_REPO, info_widget=self.info_text)
 
     def clean_patch_folder(self):
         append_info(self.info_text,"🧹 Cleaning folder …")
         for f in os.listdir(PATCH_DIR):
-            if f in NEVER_DELETE:
-                append_info(self.info_text,f"⚠️ Skipping protected: {f}")
-                continue
+            if f in NEVER_DELETE: continue
             path = os.path.join(PATCH_DIR,f)
-            try:
-                shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
-            except Exception as e:
-                append_info(self.info_text,f"❌ Error deleting {f}: {str(e)}")
+            try: shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
+            except: pass
         append_info(self.info_text,"✅ Patch folder cleaned")
 
     def change_old_patch_dir(self):
@@ -847,8 +768,6 @@ class PatchManagerGUI(QWidget):
             OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR,"oscam-emu.patch")
             ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR,"oscam-emu.altpatch")
             append_info(self.info_text,f"✅ Path changed: {OLD_PATCH_DIR}")
-        else:
-            append_info(self.info_text,"⚠️ Change cancelled")
 
     def close_with_confirm(self):
         msg = QMessageBox(self)
@@ -861,25 +780,21 @@ class PatchManagerGUI(QWidget):
             save_config()
             QApplication.quit()
 
-
-
-
-
-
-
-
-
 # -----------------------------
 # MAIN
 # -----------------------------
-if __name__=="__main__":
+if __name__ == "__main__":
     os.environ["NO_AT_BRIDGE"] = "1"
     ensure_dir(ICON_DIR); ensure_dir(PATCH_DIR); ensure_dir(TEMP_REPO)
     load_config()
     app = QApplication(sys.argv)
     window = PatchManagerGUI()
     window.show()
+    
+    # Jetzt existiert info_text
     check_tools(window.info_text)
+
     sys.exit(app.exec())
+
 
 
