@@ -1,76 +1,81 @@
-OSCam Emu Patch Manager – Features
-1. Patch Management
+OSCam Emu Patch Generator – Overview
 
-    Create Patch: Generates a patch file from the OSCam repositories (streamboard + emu-repo).
 
-    Renew Patch: Recreates the patch including the latest commits.
+The OSCam Emu Patch Generator is a comprehensive, GUI-based tool for managing, creating, and applying patches for OSCam Emu. It is designed to simplify patching workflows while providing advanced Git integration, backup options, and GitHub deployment.
 
-    Check Patch: Verifies if a patch can be applied cleanly.
 
-    Apply Patch: Applies the patch directly to the temporary OSCam repository.
+Key Features:
 
-    Zip Patch: Packages the patch into a .zip file for backup or distribution.
 
-    Backup/Renew Old Patch: Saves the current patch to a backup folder and preserves the old patch.
+1. Patch Creation & Management
 
-2. Repository & Git Support
+- Automatically generate patches by comparing the OSCam Emu repository with a streaming OSCam source.
 
-    Maintains a temporary Git repository (temp_repo) automatically.
+- Supports creating, renewing, and checking patches.
 
-    Can fetch commits from upstream repositories (streamboard and emu-repo).
+- Includes automatic patch headers with version, commit hash, and patch modifier information.
 
-    Shows the last X commits for tracking changes.
 
-    Supports Git status checking to verify patch application.
+2. Git Integration
 
-3. GUI Features
+- Clone and manage OSCam and OSCam Emu repositories.
 
-    Fully graphical interface with buttons for all operations.
+- Apply patches directly to the Git repository.
 
-    Information window displays real-time logs for all operations.
+- Check patch compatibility using Git’s `apply --check`.
 
-    Commit counter to specify how many commits to include in patch creation.
+- View the latest commits directly in the GUI.
 
-    Color scheme selection: change button colors in the GUI.
+- Manage OSCam Emu Git folder with one-click cleanup and patching.
 
-    Language selection: switch instantly between English and German.
 
-    Animated buttons for better user interaction.
+3. Backup & Version Control
 
-4. Safety & Maintenance
+- Backup existing patches to a configurable location.
 
-    Clean Patch Folder safely deletes temporary files but never deletes protected files:
+- Automatically create alternative backups to prevent accidental overwrites.
 
-        oscam_patch_manager.py
+- Maintain patch history with clear date and version metadata.
 
-        oscam_patch_manager_gui.py
 
-        oscam-patch-manager.sh
+4. GitHub Deployment
 
-        oscam-patch-manager-gui.sh
+- Upload patches to a GitHub repository using credentials stored in a secure configuration file.
 
-        icons folder
+- Supports forcing commits and pushing all changes to a selected branch.
 
-    The icons folder is automatically created and maintained by the tool.
+- No private credentials are stored in the code; all user info comes from a secure JSON configuration.
 
-5. Config & Settings
 
-    Stores user settings in a config.json file, including:
+5. Patch Distribution
 
-        Language (EN/DE)
+- Export patches as ZIP files for easy distribution.
 
-        Selected color scheme
+- Includes optional icons for quick identification of actions.
 
-    Restores settings automatically on startup.
 
-6. Additional Features
+6. Customizable GUI
 
-    Handles missing tools gracefully and informs the user (git, zip, unzip, python3, pip3).
+- Modern PyQt6-based interface with a dynamic info log window.
 
-    Provides exit confirmation with localized buttons (Yes/No in English, Ja/Nein in German).
+- Supports multiple languages (English and German) and customizable color themes.
 
-    Fully cross-platform compatible with Python 3.
+- Includes progress bars, active button highlighting, and an easy-to-use layout for patch actions.
 
-Summary:
 
-This tool is a complete patch management solution for OSCam Emu: it lets you create, check, apply, backup, and zip patches, track commits, and safely manage the patch folder – all via a friendly GUI with language and color customization.
+7. Safety & Convenience
+
+- Never deletes critical files from the patch folder.
+
+- Provides user confirmations for destructive actions (cleaning folder, exiting, etc.).
+
+- Ensures all required tools (git, zip, Python3, pip3) are installed.
+
+
+Technical Notes:
+
+- Developed in Python 3 with PyQt6 and PIL for icons.
+
+- Fully open-source under the MIT license.
+
+- Designed for Linux-based systems with OSCam Emu installed.
