@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtCore import QDateTime
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.3.2"
+APP_VERSION = "1.3.3"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -247,6 +247,8 @@ TEXTS = {
         "update_fail": "Update failed: {error}",
         "update_not_available": "No new version available.",
         "plugin_update": "Plugin Update",
+        "restart_required_title": "Restart required",
+        "restart_required_msg": "The update was installed successfully.\n\nThe tool must be restarted.\n\nRestart now?",
         "patch_file_missing": "Patch file does not exist!"
     },
     "de": {
@@ -350,6 +352,8 @@ TEXTS = {
         "update_fail": "Update fehlgeschlagen: {error}",
         "update_not_available": "Keine neue Version verfügbar.",
         "plugin_update": "Plugin Update",
+        "restart_required_title": "Neustart erforderlich",
+        "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "patch_file_missing": "Patch-Datei existiert nicht!"
     }
 }
@@ -361,61 +365,40 @@ def ensure_dir(path):
         os.makedirs(path)
 
 
-def save_config(commit_count_value=None):
+def save_config(self, commit_count_value=None):
     cfg = {}
-
-    # bestehende Config laden
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r") as f:
-                cfg = json.load(f)
-        except Exception:
+            cfg = json.load(open(CONFIG_FILE, "r"))
+        except:
             cfg = {}
 
-    # Pflichtwerte immer setzen
     cfg["language"] = LANG
     cfg["color"] = current_color_name
-
-    # Commit-Count nur setzen, wenn übergeben
-    if commit_count_value is not None:
-        cfg["commit_count"] = commit_count_value
-
-    # 🔹 Old-Patch / S3 Pfad sichern (falls vorhanden)
-    if "OLD_PATCH_DIR" in globals():
-        cfg["old_patch_dir"] = OLD_PATCH_DIR
+    cfg["commit_count"] = commit_count_value if commit_count_value else commit_count
+    cfg["old_patch_dir"] = getattr(self, "old_patch_dir", "/opt/s3_neu/support/patches")  # Fallback
 
     try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(cfg, f, indent=2)
-    except Exception:
+        json.dump(cfg, open(CONFIG_FILE, "w"), indent=2)
+    except:
         pass
-
 
 # ===================== CONFIG =====================
 def load_config():
-    global LANG, current_diff_colors, current_color_name, commit_count, OLD_PATCH_DIR
-
-    commit_count = 10  # Default
+    global LANG, current_color_name, current_diff_colors, commit_count, old_patch_dir
+    commit_count = 10
+    old_patch_dir = "/opt/s3_neu/support/patches"  # Standardwert
 
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r") as f:
-                cfg = json.load(f)
-
+            cfg = json.load(open(CONFIG_FILE, "r"))
             LANG = cfg.get("language", LANG)
             current_color_name = cfg.get("color", "Classic")
-            current_diff_colors = DIFF_COLORS.get(
-                current_color_name, DIFF_COLORS["Classic"]
-            )
-
+            current_diff_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
             commit_count = cfg.get("commit_count", commit_count)
-
-            # 🔹 Old-Patch / S3 Pfad laden
-            OLD_PATCH_DIR = cfg.get("old_patch_dir", OLD_PATCH_DIR)
-
-        except Exception:
+            old_patch_dir = cfg.get("old_patch_dir", old_patch_dir)
+        except:
             pass
-
 
 # ===================== INFOSCREEN =====================
 def append_info(info_widget, text, status="info"):
@@ -962,6 +945,33 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     # PATCH HEADER BEARBEITEN
     # ---------------------
+    
+    def restart_application(self, *args, **kwargs):
+        """
+        Startet das Tool neu aus dem gleichen Ordner.
+        Ignoriert alle überflüssigen Argumente, z.B. progress_callback.
+        """
+        import subprocess
+        import sys
+        from PyQt6.QtWidgets import QApplication
+
+        python = sys.executable               # Python-Interpreter
+        script = os.path.abspath(__file__)    # Pfad zur aktuellen .py-Datei
+        args_list = sys.argv                   # alle übergebenen Args übernehmen
+
+        # Neues Tool starten
+        subprocess.Popen([python, script] + args_list[1:])
+
+        # Aktuelles Tool sauber beenden
+        QApplication.quit()
+
+
+
+
+
+
+
+
     def edit_patch_header(self):
         try:
             with open(PATCH_FILE, "r", encoding="utf-8") as f:
@@ -1006,6 +1016,7 @@ class PatchManagerGUI(QWidget):
         - Backup der alten Dateien (.py, config, github config, patch)
         - Download der neuen oscam_patch_manager.py
         - Info- und Erfolgsmeldung
+        - Optional Neustart des Tools
         """
         GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_started"], "info")
 
@@ -1036,19 +1047,23 @@ class PatchManagerGUI(QWidget):
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
             with open(plugin_file, "w", encoding="utf-8") as f:
                 f.write(resp.text)
- 
+
             GithubConfigDialog.append_info(
                 self.info_text,
-                TEXTS[LANG]["update_success"] + f" (v{latest_version})",
+                TEXTS[LANG]["update_success"] + (f" (v{latest_version})" if latest_version else ""),
                 "success"
             )
 
-            # Info-Dialog
-            QMessageBox.information(
+            # 🔹 NEU: Neustart-Abfrage
+            reply = QMessageBox.question(
                 self,
-                TEXTS[LANG]["update_available_title"],
-                TEXTS[LANG]["update_success"]
+                TEXTS[LANG]["restart_required_title"],
+                TEXTS[LANG]["restart_required_msg"],
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                self.restart_application()
 
         except Exception as e:
             GithubConfigDialog.append_info(
@@ -1158,18 +1173,20 @@ class PatchManagerGUI(QWidget):
         else:
             GithubConfigDialog.append_info(self.info_text, "❌ Einige Tools fehlen oder Fehler aufgetreten", "error")
 
-
-
         # =====================
         # INIT UI
         # =====================
     def init_ui(self):
+        TITLE_HEIGHT = 60
+
+        # -------------------
+        # Haupt-Layout
+        # -------------------
         layout = QVBoxLayout()
         layout.setSpacing(10)
         layout.setContentsMargins(20, 20, 20, 20)
         self.all_buttons = []
         self.active_button_key = None
-        TITLE_HEIGHT = 60
 
         # -------------------
         # HEADER
@@ -1177,62 +1194,29 @@ class PatchManagerGUI(QWidget):
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Linke Buttons: Info + digitale Uhr
-        self.info_button = QPushButton("ℹ️")
-        self.info_button.setFixedSize(60, TITLE_HEIGHT)
-        self.info_button.setToolTip(TEXTS[LANG]["info_tooltip"])
-        self.info_button.clicked.connect(self.show_info)
-
-        #self.edit_header_button = QPushButton("Patch Header bearbeiten")
-        #self.edit_header_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        #self.edit_header_button.setFixedHeight(TITLE_HEIGHT)
-        #self.edit_header_button.setToolTip("Patch-Header bearbeiten")
-        #self.edit_header_button.clicked.connect(self.edit_patch_header)
-
-        # -------------------
-        # HEADER
-        # -------------------
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-
-        # -------------------
         # Linke Widgets: Info + digitale Uhr
-        # -------------------
         self.info_button = QPushButton("ℹ️")
         self.info_button.setFixedSize(60, TITLE_HEIGHT)
         self.info_button.setToolTip(TEXTS[LANG]["info_tooltip"])
         self.info_button.clicked.connect(self.show_info)
 
-        # Alte Patch Header Button Zeilen bleiben kommentiert
-        #self.edit_header_button = QPushButton("Patch Header bearbeiten")
-        #self.edit_header_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        #self.edit_header_button.setFixedHeight(TITLE_HEIGHT)
-        #self.edit_header_button.setToolTip("Patch-Header bearbeiten")
-        #self.edit_header_button.clicked.connect(self.edit_patch_header)
-
-        # Digitale Uhr
         self.digital_clock = QLabel()
         self.digital_clock.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        self.digital_clock.setFixedHeight(TITLE_HEIGHT)   # gleiche Höhe wie Buttons
-        self.digital_clock.setMinimumWidth(120)           # ausreichend Breite
+        self.digital_clock.setFixedHeight(TITLE_HEIGHT)
+        self.digital_clock.setMinimumWidth(120)
         self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Linkes Layout
-        left_widget = QWidget()
         left_layout = QHBoxLayout()
-        left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(5)
-
-        # Widgets einfügen
+        left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.addWidget(self.info_button)
-        left_layout.addWidget(self.digital_clock, stretch=1)  # Stretch, damit Uhr sichtbar wird
+        left_layout.addWidget(self.digital_clock, stretch=1)
 
+        left_widget = QWidget()
         left_widget.setLayout(left_layout)
         header_layout.addWidget(left_widget, 1, Qt.AlignmentFlag.AlignLeft)
 
-        # -------------------
         # Titel in der Mitte
-        # -------------------
         title = QLabel("OSCam Emu Toolkit – by speedy005")
         title.setFont(QFont("Arial", 28, QFont.Weight.Bold))
         title.setStyleSheet("color:red;")
@@ -1240,16 +1224,13 @@ class PatchManagerGUI(QWidget):
         title.setFixedHeight(TITLE_HEIGHT)
         header_layout.addWidget(title, 1)
 
-        # -------------------
         # Version rechts
-        # -------------------
         version_label = QLabel(f"v{APP_VERSION}")
         version_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         version_label.setStyleSheet("color:red;")
         version_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         version_label.setFixedHeight(TITLE_HEIGHT)
         header_layout.addWidget(version_label, 1, Qt.AlignmentFlag.AlignRight)
-
 
         layout.addLayout(header_layout)
 
@@ -1264,22 +1245,20 @@ class PatchManagerGUI(QWidget):
         layout.addWidget(self.info_text)
 
         # -------------------
-        # OPTIONS LEISTE (Sprache, Farbe, Commit Spinbox, Button)
+        # OPTIONS LEISTE (Controls)
         # -------------------
         controls_layout = QHBoxLayout()
         controls_layout.setSpacing(10)
         controls_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        # 🔹 Patch Header bearbeiten (NEU)
+        # 🔹 Patch Header bearbeiten
         self.edit_header_button = QPushButton("Patch Header bearbeiten")
         self.edit_header_button.setFixedHeight(self.BUTTON_HEIGHT)
         self.edit_header_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         self.edit_header_button.clicked.connect(self.edit_patch_header)
-
         controls_layout.addWidget(self.edit_header_button)
 
-
-        # Sprache
+        # 🔹 Sprache
         self.lang_label = QLabel(TEXTS[LANG]["language_label"])
         self.lang_label.setMinimumHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.lang_label)
@@ -1292,7 +1271,7 @@ class PatchManagerGUI(QWidget):
         self.language_box.currentIndexChanged.connect(self.change_language)
         controls_layout.addWidget(self.language_box)
 
-        # Farbe
+        # 🔹 Farbe
         self.color_label = QLabel(TEXTS[LANG]["color_label"])
         self.color_label.setMinimumHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.color_label)
@@ -1305,16 +1284,15 @@ class PatchManagerGUI(QWidget):
         self.color_box.currentIndexChanged.connect(self.change_colors)
         controls_layout.addWidget(self.color_box)
 
-        # Commit-Spinbox
+        # 🔹 Commit-Spinbox
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
-        self.commit_spin.setValue(5)
+        self.commit_spin.setValue(commit_count)  # aus load_config()
         self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT)
         self.commit_spin.setFixedWidth(50)
-        self.commit_spin.setValue(commit_count)  # commit_count kommt aus load_config()
         controls_layout.addWidget(self.commit_spin)
 
-        # Commits ansehen Button
+        # 🔹 Commits ansehen Button
         self.commits_button = self.create_option_button(
             key="git_status",
             text=TEXTS[LANG]["git_status"],
@@ -1324,19 +1302,29 @@ class PatchManagerGUI(QWidget):
         self.commits_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.commits_button)
 
-        # 🔹 Plugin Update Button direkt daneben
+        # 🔹 Plugin Update Button
         self.plugin_update_button = self.create_option_button(
-        key="plugin_update",
-        text=TEXTS[LANG]["plugin_update"],
-        color=current_diff_colors['bg'],  # dynamisch
-        callback=self.plugin_update_action,
-        fg=current_diff_colors['text']    # Schriftfarbe auch dynamisch
+            key="plugin_update",
+            text=TEXTS[LANG]["plugin_update"],
+            color=current_diff_colors['bg'],
+            fg=current_diff_colors['text'],
+            callback=self.plugin_update_action
         )
         self.plugin_update_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.plugin_update_button)
 
-
-        # Widget für Controls
+        # 🔹 Tool Neustarten Button
+        self.restart_tool_button = self.create_option_button(
+            key="restart_tool",
+            text=TEXTS[LANG].get("restart_tool", "Tool Neustarten"),
+            color=current_diff_colors['bg'],
+            fg=current_diff_colors['text'],
+            callback=self.restart_application
+        )
+        self.restart_tool_button.setFixedHeight(self.BUTTON_HEIGHT)
+        controls_layout.addWidget(self.restart_tool_button)
+     
+        # Container-Widget für die Controls (vermeidet Doppel-Layouts)
         controls_container = QWidget()
         controls_container.setLayout(controls_layout)
         layout.addWidget(controls_container)
@@ -1344,51 +1332,22 @@ class PatchManagerGUI(QWidget):
         # -------------------
         # OPTION BUTTONS (Patch & Git)
         # -------------------
-        self.clean_emu_button = self.create_option_button(
-            key="clean_emu_git",
-            text=TEXTS[LANG]["clean_emu_git"],
-            color="#8B4513",
-            callback=clean_oscam_emu_git
-        )
-        self.patch_emu_git_button = self.create_option_button(
-            key="patch_emu_git",
-            text=TEXTS[LANG]["patch_emu_git"],
-            color="#006400",
-            callback=patch_oscam_emu_git
-        )
-        self.github_upload_patch_button = self.create_option_button(
-            key="github_upload_patch",
-            text=TEXTS[LANG]["github_upload_patch"],
-            color="#1E90FF",
-            callback=github_upload_patch_file
-        )
-        self.github_upload_emu_button = self.create_option_button(
-            key="github_upload_emu",
-            text=TEXTS[LANG]["github_upload_emu"],
-            color="#1E90FF",
-            callback=github_upload_oscam_emu_folder
-        )
-        self.github_emu_config_button = self.create_option_button(
-            key="github_config",
-            text=TEXTS[LANG]["github_config_button"],
-            color="#FFA500",
-            callback=self.edit_emu_github_config,
-            fg="black"
-        )
-
         buttons_list = [
-            self.clean_emu_button,
-            self.patch_emu_git_button,
-            self.github_upload_patch_button,
-            self.github_upload_emu_button,
-            self.github_emu_config_button
+            ("clean_emu_git", TEXTS[LANG]["clean_emu_git"], "#8B4513", clean_oscam_emu_git),
+            ("patch_emu_git", TEXTS[LANG]["patch_emu_git"], "#006400", patch_oscam_emu_git),
+            ("github_upload_patch", TEXTS[LANG]["github_upload_patch"], "#1E90FF", github_upload_patch_file),
+            ("github_upload_emu", TEXTS[LANG]["github_upload_emu"], "#1E90FF", github_upload_oscam_emu_folder),
+            ("github_config", TEXTS[LANG]["github_config_button"], "#FFA500", self.edit_emu_github_config, "black")
         ]
 
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        for btn in buttons_list:
+        for btn_data in buttons_list:
+            key, text, color, callback = btn_data[:4]
+            fg = btn_data[4] if len(btn_data) == 5 else current_diff_colors['text']
+            btn = self.create_option_button(key=key, text=text, color=color, callback=callback, fg=fg)
             btn.setMinimumHeight(self.BUTTON_HEIGHT)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             buttons_layout.addWidget(btn)
@@ -1420,6 +1379,7 @@ class PatchManagerGUI(QWidget):
             self.buttons[key] = btn
             row, col = divmod(idx, 3)
             grid_layout.addWidget(btn, row, col)
+
         layout.addLayout(grid_layout)
 
         # -------------------
@@ -1440,11 +1400,11 @@ class PatchManagerGUI(QWidget):
         self.setLayout(layout)
         self.change_colors()
         self.check_emu_credentials()
-        # Timer für digitale Uhr starten
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self.update_digital_clock)
-        self.clock_timer.start(1000)  # jede Sekunde aktualisieren
-        self.update_digital_clock()  # sofort die aktuelle Zeit anzeigen
+        self.clock_timer.start(1000)
+        self.update_digital_clock()
+
 
 
     # =====================
@@ -1701,6 +1661,7 @@ class PatchManagerGUI(QWidget):
         new_dir = QFileDialog.getExistingDirectory(self, TEXTS[LANG]["change_old_dir"], OLD_)
         if new_dir:
             OLD_ = new_dir
+            self.old_patch_dir = OLD_  # 🔹 Wichtig: für save_config()
             OLD_PATCH_FILE = os.path.join(OLD_, "oscam-emu.patch")
             ALT_PATCH_FILE = os.path.join(OLD_, "oscam-emu.altpatch")
             append_info(self.info_text, TEXTS[LANG]["old_patch_path_changed"].format(OLD_=OLD_), "success")
@@ -1708,6 +1669,7 @@ class PatchManagerGUI(QWidget):
             append_info(self.info_text, TEXTS[LANG]["old_patch_path_cancelled"], "info")
         if progress_callback:
             progress_callback(100)
+
 
 
     def close_with_confirm(self):
