@@ -29,21 +29,29 @@ from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtCore import QDateTime
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.3.1"
-PATCH_DIR = "/opt/patch/oscam-patching"
-CONFIG_FILE = os.path.join(PATCH_DIR, "config.json")
-CHECK_TOOLS_SCRIPT = "/opt/patch/oscam-patching/check_tools.sh"
-PATCH_FILE = "/opt/patch/oscam-patching/oscam-emu.patch"
-PATCH_FILE = os.path.join("/opt/patch/oscam-patching", "oscam-emu.patch")
-ICON_DIR = os.path.join(PATCH_DIR, "icons")
-TEMP_REPO = os.path.join(PATCH_DIR, "temp_repo")
-PATCH_FILE = os.path.join(PATCH_DIR, "oscam-emu.patch")
-PATCH_EMU_GIT_DIR = os.path.join(PATCH_DIR, "oscam-emu-git")
-ZIP_FILE = os.path.join(PATCH_DIR, "oscam-emu.zip")
+APP_VERSION = "1.3.2"
+# =====================
+# Pfade & Plugin-Konstanten
+# =====================
+# Aktueller Plugin-Ordner (von dem das Plugin gestartet wird)
+PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(PLUGIN_DIR, "config.json")
+GITHUB_CONF_FILE = os.path.join(PLUGIN_DIR, "github_upload_config.json")
+PATCH_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.patch")
+ICON_DIR = os.path.join(PLUGIN_DIR, "icons")
+TEMP_REPO = os.path.join(PLUGIN_DIR, "temp_repo")
+PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
+ZIP_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.zip")
 OLD_PATCH_DIR_DEFAULT = "/opt/s3_neu/support/patches"
-OLD_PATCH_DIR = OLD_PATCH_DIR_DEFAULT
-OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
-ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
+OLD__DEFAULT = os.path.join(PLUGIN_DIR, "old_patches")
+OLD_ = OLD__DEFAULT
+OLD_PATCH_FILE = os.path.join(OLD_, "oscam-emu.patch")
+ALT_PATCH_FILE = os.path.join(OLD_, "oscam-emu.altpatch")
+PATCH_MANAGER_OLD = os.path.join(OLD_, "oscam_patch_manager_old.py")
+CONFIG_OLD = os.path.join(OLD_, "config_old.json")
+GITHUB_CONFIG_OLD = os.path.join(OLD_, "github_upload_config_old.json")
+CHECK_TOOLS_SCRIPT = os.path.join(PLUGIN_DIR, "check_tools.sh")
+# Patch Modifier / Repos (unverändert)
 PATCH_MODIFIER = "speedy005"
 EMUREPO = "https://github.com/oscam-mirror/oscam-emu.git"
 STREAMREPO = "https://git.streamboard.tv/common/oscam.git"
@@ -146,7 +154,7 @@ TEXTS = {
         "patch_zip": "Zip Patch",
         "backup_old": "Backup/Renew Patch",
         "clean_folder": "Clean Patch Folder",
-        "change_old_dir": "Select folder for old patch",
+        "change_old_dir": "Select S3 Patch Folder",
         "exit": "Exit",
         "exit_question": "Do you really want to close the tool?",
         "yes": "Yes",
@@ -160,7 +168,7 @@ TEXTS = {
         "patch_applied_success": "✅ OSCam Emu Git patched successfully ({commit_msg})",
         "patch_created_success": "✅ Patch created: {patch_file}",
         "patch_zipped_success": "📦 Patch zipped: {zip_file}",
-        "backup_done": "💾 Patch backed up: {old_patch_dir}",
+        "backup_done": "💾 Patch backed up: {old_}",
         "patch_failed": "❌ Patch failed – base mismatch",
         "not_installed": "is not installed",
         "all_tools_installed": "✅ All required tools installed",
@@ -196,7 +204,7 @@ TEXTS = {
         "patch_apply_success_msg": "Patch successfully applied",
         "patch_apply_fail_msg": "Error applying the patch",
         "github_emu_credentials_missing": "GitHub Emu credentials missing!",
-        "old_patch_path_changed": "Path changed: {OLD_PATCH_DIR}",
+        "old_patch_path_changed": "Path changed: {OLD_}",
         "old_patch_path_cancelled": "Path change cancelled",
         "github_config_saved": "✔ GitHub configuration saved.",
         "patch_repo_label": "Patch Repo URL:",
@@ -249,7 +257,7 @@ TEXTS = {
         "patch_zip": "Patch zippen",
         "backup_old": "Patch sichern/erneuern",
         "clean_folder": "Patch-Ordner leeren",
-        "change_old_dir": "Ordner für alten Patch auswählen",
+        "change_old_dir": "S3 Patch-Ordner auswählen",
         "exit": "Beenden",
         "exit_question": "Möchten Sie das Tool wirklich schließen?",
         "yes": "Ja",
@@ -263,7 +271,7 @@ TEXTS = {
         "patch_applied_success": "✅ OSCam Emu Git erfolgreich gepatcht ({commit_msg})",
         "patch_created_success": "✅ Patch erstellt: {patch_file}",
         "patch_zipped_success": "📦 Patch gezippt: {zip_file}",
-        "backup_done": "💾 Patch gesichert: {old_patch_dir}",
+        "backup_done": "💾 Patch gesichert: {old_}",
         "patch_failed": "❌ Patch fehlgeschlagen – Basis stimmt nicht",
         "not_installed": "nicht installiert",
         "all_tools_installed": "✅ Alle benötigten Tools installiert",
@@ -281,7 +289,7 @@ TEXTS = {
         "patch_apply_success_msg": "Patch erfolgreich angewendet",
         "patch_apply_fail_msg": "Fehler beim Anwenden des Patches",
         "github_emu_credentials_missing": "GitHub-Emu-Zugangsdaten fehlen!",
-        "old_patch_path_changed": "Pfad geändert: {OLD_PATCH_DIR}",
+        "old_patch_path_changed": "Pfad geändert: {OLD_}",
         "old_patch_path_cancelled": "Pfadänderung abgebrochen",
         "github_config_saved": "✔ GitHub-Konfiguration gespeichert.",
         "info_text": "Dieses Tool ist ein umfassender OSCam Emu Patch Manager.\n\n"
@@ -352,39 +360,61 @@ def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-# ===================== CONFIG =====================
-def load_config():
-    global LANG, current_diff_colors, current_color_name, commit_count
-    commit_count = 10  # Standardwert
 
-    if os.path.exists(CONFIG_FILE):
-        try:
-            cfg = json.load(open(CONFIG_FILE, "r"))
-            LANG = cfg.get("language", LANG)
-            current_color_name = cfg.get("color", "Classic")
-            current_diff_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
-
-            # Commit-Count laden
-            commit_count = cfg.get("commit_count", commit_count)
-        except:
-            pass
-
-def save_config(commit_count_value):
+def save_config(commit_count_value=None):
     cfg = {}
+
+    # bestehende Config laden
     if os.path.exists(CONFIG_FILE):
         try:
-            cfg = json.load(open(CONFIG_FILE, "r"))
-        except:
+            with open(CONFIG_FILE, "r") as f:
+                cfg = json.load(f)
+        except Exception:
             cfg = {}
 
+    # Pflichtwerte immer setzen
     cfg["language"] = LANG
     cfg["color"] = current_color_name
-    cfg["commit_count"] = commit_count_value
+
+    # Commit-Count nur setzen, wenn übergeben
+    if commit_count_value is not None:
+        cfg["commit_count"] = commit_count_value
+
+    # 🔹 Old-Patch / S3 Pfad sichern (falls vorhanden)
+    if "OLD_PATCH_DIR" in globals():
+        cfg["old_patch_dir"] = OLD_PATCH_DIR
 
     try:
-        json.dump(cfg, open(CONFIG_FILE, "w"), indent=2)
-    except:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception:
         pass
+
+
+# ===================== CONFIG =====================
+def load_config():
+    global LANG, current_diff_colors, current_color_name, commit_count, OLD_PATCH_DIR
+
+    commit_count = 10  # Default
+
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                cfg = json.load(f)
+
+            LANG = cfg.get("language", LANG)
+            current_color_name = cfg.get("color", "Classic")
+            current_diff_colors = DIFF_COLORS.get(
+                current_color_name, DIFF_COLORS["Classic"]
+            )
+
+            commit_count = cfg.get("commit_count", commit_count)
+
+            # 🔹 Old-Patch / S3 Pfad laden
+            OLD_PATCH_DIR = cfg.get("old_patch_dir", OLD_PATCH_DIR)
+
+        except Exception:
+            pass
 
 
 # ===================== INFOSCREEN =====================
@@ -536,12 +566,12 @@ def create_patch(info_widget=None, progress_callback=None):
 
 # ===================== PATCH BACKUP =====================
 def backup_old_patch(info_widget=None, progress_callback=None):
-    ensure_dir(OLD_PATCH_DIR)
+    ensure_dir(OLD_)
     try:
         if os.path.exists(OLD_PATCH_FILE):
             shutil.copy2(OLD_PATCH_FILE, ALT_PATCH_FILE)
         shutil.copy2(PATCH_FILE, OLD_PATCH_FILE)
-        append_info(info_widget, TEXTS[LANG]["backup_done"].format(old_patch_dir=OLD_PATCH_DIR), "success")
+        append_info(info_widget, TEXTS[LANG]["backup_done"].format(old_=OLD_), "success")
     except Exception as e:
         append_info(info_widget, f"Fehler beim Sichern des Patches: {str(e)}", "error")
     if progress_callback:
@@ -561,17 +591,26 @@ def zip_patch(info_widget=None, progress_callback=None):
 # ===================== CLEAN PATCH FOLDER =====================
 def clean_patch_folder(info_widget=None, progress_callback=None):
     append_info(info_widget, TEXTS[LANG]["cleaning_patch_folder"], "warning")
-    for f in os.listdir(PATCH_DIR):
-        if f in NEVER_DELETE: continue
-        path = os.path.join(PATCH_DIR, f)
+
+    # Nur diese Ordner/Dateien im Plugin-Ordner löschen
+    targets = ["temp_repo", "oscam-emu-git", "oscam-emu.zip"]
+
+    for f in targets:
+        path = os.path.join(PLUGIN_DIR, f)
+        if not os.path.exists(path):
+            continue
         try:
-            if os.path.isdir(path): shutil.rmtree(path)
-            else: os.remove(path)
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
         except Exception as e:
             append_info(info_widget, f"Fehler beim Löschen {f}: {str(e)}", "error")
+
     append_info(info_widget, TEXTS[LANG]["patch_folder_cleaned"], "success")
     if progress_callback:
         progress_callback(100)
+
 
 # ===================== ICONS =====================
 ICON_SIZE = 64
@@ -648,7 +687,7 @@ def patch_oscam_emu_git(info_widget=None, progress_callback=None):
         progress_callback(100)
 
 # ===================== GITHUB CONFIG =====================
-GITHUB_CONF_FILE = os.path.join(PATCH_DIR, "github_upload_config.json")
+GITHUB_CONF_FILE = os.path.join(PLUGIN_DIR, "github_upload_config.json")
 
 def load_github_config():
     if os.path.exists(GITHUB_CONF_FILE):
@@ -736,7 +775,7 @@ def github_upload_patch_file(info_widget=None, progress_callback=None):
         return
 
     # Temp-Verzeichnis vorbereiten
-    temp_repo = os.path.join(PATCH_DIR, "temp_patch_git")
+    temp_repo = os.path.join(PLUGIN_DIR, "temp_patch_git")
     os.makedirs(temp_repo, exist_ok=True)
 
     token_url = repo_url.replace("https://", f"https://{username}:{token}@")
@@ -961,68 +1000,84 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     # PLUGIN UPDATE
     # ---------------------
-    def plugin_update_action(self):
-        GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["plugin_update"] + " gestartet...", "info")
-    
-        import requests
+    def plugin_update_action(self, latest_version=None):
+        """
+        Führt das Plugin-Update durch:
+        - Backup der alten Dateien (.py, config, github config, patch)
+        - Download der neuen oscam_patch_manager.py
+        - Info- und Erfolgsmeldung
+        """
+        GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_started"], "info")
 
+        # Ordner, von dem das Plugin gestartet wird
+        plugin_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Backup-Ordner erstellen
+        backup_dir = os.path.join(plugin_dir, "backup_old")
+        os.makedirs(backup_dir, exist_ok=True)
+
+        # Alte Dateien sichern
+        for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
+            src = os.path.join(plugin_dir, fname)
+            if os.path.exists(src):
+                shutil.copy(src, os.path.join(backup_dir, fname))
+                GithubConfigDialog.append_info(
+                    self.info_text, f"Backup erstellt: {fname}", "success"
+                )
+
+        # Neue Plugin-Datei herunterladen
         try:
-            # 1️⃣ Version prüfen
-            version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/master/version.txt"
-            resp = requests.get(version_url, timeout=10)
+            import requests
+
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            resp = requests.get(url, timeout=10)
             resp.raise_for_status()
-            latest_version = resp.text.strip()
 
-            if APP_VERSION == latest_version:
-                GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
-                return
+            plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
+            with open(plugin_file, "w", encoding="utf-8") as f:
+                f.write(resp.text)
+ 
+            GithubConfigDialog.append_info(
+                self.info_text,
+                TEXTS[LANG]["update_success"] + f" (v{latest_version})",
+                "success"
+            )
 
-            # 2️⃣ Backup erstellen
-            backup_dir = os.path.join(os.getcwd(), "plugin_backup")
-            os.makedirs(backup_dir, exist_ok=True)
-            shutil.copy("oscam_patch_manager.py", os.path.join(backup_dir, "oscam_patch_manager_old.py"))
-
-            # 3️⃣ Neue .py herunterladen
-            py_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/master/oscam_patch_manager.py"
-            new_py = requests.get(py_url, timeout=10)
-            new_py.raise_for_status()
-
-            # Alte Datei ersetzen
-            with open("oscam_patch_manager.py", "w", encoding="utf-8") as f:
-                f.write(new_py.text)
-
-            # 4️⃣ Erfolgsmeldung
+            # Info-Dialog
             QMessageBox.information(
                 self,
-                TEXTS[LANG]["update_success_title"],
-                TEXTS[LANG]["update_success_msg"]
+                TEXTS[LANG]["update_available_title"],
+                TEXTS[LANG]["update_success"]
             )
-            GithubConfigDialog.append_info(self.info_text, f"Update auf Version {latest_version} abgeschlossen.", "success")
 
         except Exception as e:
-            GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_fail"].format(error=str(e)), "error")
-
-
-
+            GithubConfigDialog.append_info(
+                self.info_text,
+                TEXTS[LANG]["update_fail"].format(error=str(e)),
+                "error"
+            )
 
     # ---------------------
     # UPDATE CHECK
     # ---------------------
     def check_for_updates_on_start(self):
+        """
+        Prüft beim Start die GitHub-Version und bietet Update an, wenn nötig.
+        """
         GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_check_start"], "info")
 
-        import requests
-
         try:
-            # 1️⃣ Aktuelle Version vom GitHub-Repo holen
-            version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/master/version.txt"
+            import requests
+
+            # URL zur version.txt im GitHub
+            version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
-            latest_version = resp.text.strip()
+            latest_version = resp.text.strip()  # aktuelle Version auf GitHub
 
-            # 2️⃣ Mit laufender Version vergleichen
+            # Lokale Version aus APP_VERSION
             if APP_VERSION != latest_version:
-                # Update verfügbar – Benutzer fragen
+                # Update verfügbar
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle(TEXTS[LANG]["update_available_title"])
                 msg_box.setText(TEXTS[LANG]["update_available_msg"])
@@ -1031,17 +1086,19 @@ class PatchManagerGUI(QWidget):
                 msg_box.exec()
 
                 if msg_box.clickedButton() == yes_button:
-                    # Update starten
-                    self.plugin_update_action()
+                    self.plugin_update_action(latest_version=latest_version)
                 else:
                     GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
             else:
+                # keine neue Version
                 GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
 
         except Exception as e:
-            GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_fail"].format(error=str(e)), "error")
-
-
+            GithubConfigDialog.append_info(
+                self.info_text,
+                TEXTS[LANG]["update_fail"].format(error=str(e)),
+                "error"
+            )
 
     # ---------------------
     # TOOLS CHECK
@@ -1350,7 +1407,7 @@ class PatchManagerGUI(QWidget):
             ("patch_zip", lambda: self.run_action(zip_patch)),
             ("backup_old", lambda: self.run_action(backup_old_patch)),
             ("clean_folder", lambda: self.run_action(clean_patch_folder)),
-            ("change_old_dir", lambda: self.run_action(self.change_old_patch_dir)),
+            ("change_old_dir", lambda: self.run_action(self.change_old_)),
             ("exit", self.close_with_confirm)
         ]
         self.buttons = {}
@@ -1639,14 +1696,14 @@ class PatchManagerGUI(QWidget):
             progress_callback(100)
 
 
-    def change_old_patch_dir(self, info_widget=None, progress_callback=None):
-        global OLD_PATCH_DIR, OLD_PATCH_FILE, ALT_PATCH_FILE
-        new_dir = QFileDialog.getExistingDirectory(self, TEXTS[LANG]["change_old_dir"], OLD_PATCH_DIR)
+    def change_old_(self, info_widget=None, progress_callback=None):
+        global OLD_, OLD_PATCH_FILE, ALT_PATCH_FILE
+        new_dir = QFileDialog.getExistingDirectory(self, TEXTS[LANG]["change_old_dir"], OLD_)
         if new_dir:
-            OLD_PATCH_DIR = new_dir
-            OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
-            ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
-            append_info(self.info_text, TEXTS[LANG]["old_patch_path_changed"].format(OLD_PATCH_DIR=OLD_PATCH_DIR), "success")
+            OLD_ = new_dir
+            OLD_PATCH_FILE = os.path.join(OLD_, "oscam-emu.patch")
+            ALT_PATCH_FILE = os.path.join(OLD_, "oscam-emu.altpatch")
+            append_info(self.info_text, TEXTS[LANG]["old_patch_path_changed"].format(OLD_=OLD_), "success")
         else:
             append_info(self.info_text, TEXTS[LANG]["old_patch_path_cancelled"], "info")
         if progress_callback:
@@ -1667,7 +1724,7 @@ class PatchManagerGUI(QWidget):
 if __name__ == "__main__":
     os.environ["NO_AT_BRIDGE"] = "1"
 
-    ensure_dir(PATCH_DIR)
+    ensure_dir(PLUGIN_DIR)
     ensure_dir(ICON_DIR)
     ensure_dir(TEMP_REPO)
 
@@ -1677,4 +1734,3 @@ if __name__ == "__main__":
     window = PatchManagerGUI()
     window.showMaximized()
     sys.exit(app.exec())
-
