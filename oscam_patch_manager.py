@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtCore import QDateTime
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.3.3"
+APP_VERSION = "1.3.0"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -1269,6 +1269,7 @@ class PatchManagerGUI(QWidget):
         self.language_box.setFixedHeight(self.BUTTON_HEIGHT)
         self.language_box.setFixedWidth(60)
         self.language_box.currentIndexChanged.connect(self.change_language)
+        self.language_box.currentIndexChanged.connect(self.change_language)
         controls_layout.addWidget(self.language_box)
 
         # 🔹 Farbe
@@ -1449,13 +1450,18 @@ class PatchManagerGUI(QWidget):
                 btn.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;")
 
     def change_colors(self):
+        """
+        Update UI colors based on the selected theme (from color_box)
+        Applies to labels, buttons, info text, digital clock, grid buttons, and progress bar.
+        Saves the current commit count to config.
+        """
         global current_diff_colors, current_color_name
 
-        # aktuelle Farbe merken
+        # Aktuelle Farbe aus ComboBox laden
         current_color_name = self.color_box.currentText()
-        current_diff_colors = DIFF_COLORS[current_color_name]
+        current_diff_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
 
-        # ---------- Labels & Comboboxen ----------
+        # ---------- Labels & ComboBoxes ----------
         for w in [
             getattr(self, "lang_label", None),
             getattr(self, "color_label", None),
@@ -1464,8 +1470,8 @@ class PatchManagerGUI(QWidget):
         ]:
             if w:
                 w.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; "
-                    f"color:{current_diff_colors['text']};"
+                f"background-color:{current_diff_colors['bg']}; "
+                f"color:{current_diff_colors['text']};"
                 )
 
         # ---------- Patch Header Button ----------
@@ -1476,7 +1482,7 @@ class PatchManagerGUI(QWidget):
                 f"border-radius:10px;"
             )
 
-        # ---------- Options Buttons ----------
+        # ---------- Option Buttons ----------
         for btn in [
             getattr(self, "commits_button", None),
             getattr(self, "clean_emu_button", None),
@@ -1484,6 +1490,8 @@ class PatchManagerGUI(QWidget):
             getattr(self, "github_upload_patch_button", None),
             getattr(self, "github_upload_emu_button", None),
             getattr(self, "github_emu_config_button", None),
+            getattr(self, "plugin_update_button", None),
+            getattr(self, "restart_tool_button", None),
         ]:
             if btn:
                 btn.setStyleSheet(
@@ -1492,7 +1500,7 @@ class PatchManagerGUI(QWidget):
                     f"border-radius:10px;"
                 )
 
-        # Digitale Uhr einfärben
+        # ---------- Digitale Uhr ----------
         if hasattr(self, "digital_clock"):
             self.digital_clock.setStyleSheet(
                 f"color:{current_diff_colors['text']}; "
@@ -1500,7 +1508,12 @@ class PatchManagerGUI(QWidget):
                 f"border-radius:10px;"
             )
 
-        
+        # ---------- Info-Textfeld ----------
+        if hasattr(self, "info_text"):
+            self.info_text.setStyleSheet(
+                f"background-color:black; color:{current_diff_colors['text']};"
+            )
+
         # ---------- Grid Buttons ----------
         for btn in getattr(self, "buttons", {}).values():
             btn.setStyleSheet(
@@ -1517,34 +1530,42 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "progress"):
             self.progress.setStyleSheet(
                 f"QProgressBar::chunk {{background-color:{current_diff_colors['bg']};}}"
-            )
+            ) 
 
-        # ---------- Repaint ----------
+        # ---------- Repaint UI ----------
         self.repaint()
         QApplication.processEvents()
 
-        # aktuelle Commit-Anzahl speichern
+        # ---------- Commit Count speichern ----------
         save_config(self.commit_spin.value())
 
 
-    def change_language(self):
-        global LANG
-        LANG = "de" if self.language_box.currentText() == "DE" else "en"
-        save_config()
 
-        # Texte im Hauptfenster aktualisieren
+    def change_language(self):
+        """
+        Called when the language dropdown changes.
+        Updates the global LANG variable and refreshes all text labels.
+        """
+        global LANG
+        selected = self.language_box.currentText()
+        LANG = "de" if selected == "DE" else "en"
+
+        # Update all text labels that depend on LANG
         self.lang_label.setText(TEXTS[LANG]["language_label"])
         self.color_label.setText(TEXTS[LANG]["color_label"])
-        for key, btn in self.buttons.items():
-            btn.setText(TEXTS[LANG][key])
-        self.clean_emu_button.setText(TEXTS[LANG]["clean_emu_git"])
-        self.patch_emu_git_button.setText(TEXTS[LANG]["patch_emu_git"])
+        self.edit_header_button.setText(TEXTS[LANG].get("edit_patch_header", "Patch Header bearbeiten"))
+        self.plugin_update_button.setText(TEXTS[LANG]["plugin_update"])
+        self.restart_tool_button.setText(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
         self.commits_button.setText(TEXTS[LANG]["git_status"])
-        self.github_emu_config_button.setText(TEXTS[LANG]["github_config_button"])
 
-        # 🔹 Offene Dialoge aktualisieren
-        if hasattr(self, "github_dialog") and self.github_dialog.isVisible():
-            self.github_dialog.update_language()
+        # Update all grid buttons
+        for key, btn in self.buttons.items():
+            if key in TEXTS[LANG]:
+                btn.setText(TEXTS[LANG][key])
+
+        # Optional: update any other dynamic texts
+        append_info(self.info_text, f"Language changed to {selected}", "info")
+
 
     # =====================
     # GITHUB EMU CREDENTIALS
