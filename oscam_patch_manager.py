@@ -1012,7 +1012,7 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(5000, lambda: self.update_banner.hide())
 
     
-    def restart_application(self, *args, **kwargs):
+    def restart_application(self, updated=False):
         import subprocess, sys, os
         from PyQt6.QtWidgets import QApplication
 
@@ -1020,18 +1020,19 @@ class PatchManagerGUI(QWidget):
         script = os.path.abspath(__file__)
         args_list = sys.argv[1:]
 
-        # 🔹 Markiere, dass wir gerade ein Update gestartet haben
-        if kwargs.get("updated", False):
+        # 🔹 Falls Update, Flag hinzufügen
+        if updated:
             args_list.append("--updated")
 
         # 1️⃣ Aktuelles Fenster schließen
         self.hide()  # oder self.close() – hide wirkt sanfter
 
-        # 2️⃣ Neues Plugin sofort starten
+        # 2️⃣ Neues Plugin sofort starten – mit Flag falls Update
         subprocess.Popen([python, script] + args_list)
 
         # 3️⃣ Aktuelles Tool komplett beenden
         QApplication.quit()
+
 
 
 
