@@ -20,37 +20,33 @@
 #  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 #  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 # ============================================================================
+# -------------------
+# IMPORTS
+# -------------------
 import os
 import sys
-import subprocess
 import shutil
-import json
-import zipfile
 import time
+import subprocess
+import json
 import tempfile
-from datetime import datetime, timezone
+import atexit
 
-# PyQt6 Widgets & GUI
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
-    QDialog,
     QLabel,
-    QPushButton,
-    QLineEdit,
-    QTextEdit,
     QProgressBar,
     QVBoxLayout,
-    QHBoxLayout,
-    QFormLayout,
     QMessageBox,
-    QDialogButtonBox
+    QDialog,
+    QLineEdit,
+    QTextEdit,
+    QDialogButtonBox,
 )
-from PyQt6.QtGui import QColor, QTextCursor, QFont
 from PyQt6.QtCore import Qt, QTimer
-
+from PyQt6.QtGui import QColor, QTextCursor, QFont
 # Optional PIL, falls du Images bearbeitest
-from PIL import Image, ImageDraw, ImageFont
 # ===================== APP CONFIG =====================
 APP_VERSION = "1.3.7"
 # =====================
@@ -410,7 +406,7 @@ TEXTS = {
 
 LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".oscam_patch_manager.lock")
 
-LOCK_FILE = os.path.join(tempfile.gettempdir(), "oscam_patch_manager.lock")
+#LOCK_FILE = os.path.join(tempfile.gettempdir(), "oscam_patch_manager.lock")
 
 def check_single_instance():
     import os, sys, psutil
@@ -433,12 +429,11 @@ def check_single_instance():
     # Lock neu anlegen
     with open(LOCK_FILE, "w") as f:
         f.write(str(os.getpid()))
+    atexit.register(cleanup_lock)
 
 def cleanup_lock():
     if os.path.exists(LOCK_FILE):
         os.remove(LOCK_FILE)
-
-    atexit.register(cleanup_lock)
 
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
@@ -1435,14 +1430,13 @@ class PatchManagerGUI(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         self.all_buttons = []
         self.active_button_key = None
-        # 🔹 Progressbar für Plugin-Update
         self.update_progress = QProgressBar()
         self.update_progress.setMinimum(0)
         self.update_progress.setMaximum(100)
         self.update_progress.setValue(0)
         self.update_progress.setTextVisible(True)
         self.update_progress.setFormat("Update Fortschritt: %p%")
-        layout.addWidget(self.update_progress)
+        self.layout_main.addWidget(self.update_progress)
       
         
         # -------------------
@@ -1985,24 +1979,15 @@ class PatchManagerGUI(QWidget):
 if __name__ == "__main__":
     os.environ["NO_AT_BRIDGE"] = "1"
 
-    # 🔹 Single-Instance prüfen
-    check_single_instance()
+    if os.path.exists(LOCK_FILE):
+        print("Tool läuft bereits!")
+        sys.exit(1)
+    else:
+        with open(LOCK_FILE, "w") as f:
+            f.write(str(os.getpid()))
 
-    # 🔹 Verzeichnisse sicherstellen
-    ensure_dir(PLUGIN_DIR)
-    ensure_dir(ICON_DIR)
-    ensure_dir(TEMP_REPO)
-
-    # 🔹 Konfiguration laden
-    load_config()
-
-    # 🔹 QApplication zuerst erstellen
     app = QApplication(sys.argv)
-
-    # 🔹 Hauptfenster erstellen
     window = PatchManagerGUI()
     window.showMaximized()
-
-    # 🔹 Event-Loop starten
     sys.exit(app.exec())
 
