@@ -980,6 +980,11 @@ class PatchManagerGUI(QWidget):
         self.active_button_key = ""
         self.init_ui()
         self.check_for_updates_on_start()  # 🔹 automatische Update-Prüfung beim Start
+        # 🔹 Wenn das Tool gerade aktualisiert wurde, Banner direkt zeigen
+        if "--updated" in sys.argv:
+            # latest_version_from_config z.B. aus config.json oder APP_VERSION
+            latest_version_from_config = APP_VERSION
+            self.show_update_success_banner(latest_version_from_config)
     # ---------------------
     # PATCH HEADER BEARBEITEN
     # ---------------------
@@ -1008,19 +1013,27 @@ class PatchManagerGUI(QWidget):
 
     
     def restart_application(self, *args, **kwargs):
-        """
-        Startet das Tool neu und schließt das aktuelle Fenster zuverlässig.
-        Akzeptiert beliebige Args (z.B. progress_callback).
-        """
-        import subprocess
-        import sys
+        import subprocess, sys, os
         from PyQt6.QtWidgets import QApplication
-        from PyQt6.QtCore import QTimer
-        import os
 
         python = sys.executable
         script = os.path.abspath(__file__)
         args_list = sys.argv[1:]
+
+        # 🔹 Markiere, dass wir gerade ein Update gestartet haben
+        if kwargs.get("updated", False):
+            args_list.append("--updated")
+
+        # 1️⃣ Aktuelles Fenster schließen
+        self.hide()  # oder self.close() – hide wirkt sanfter
+
+        # 2️⃣ Neues Plugin sofort starten
+        subprocess.Popen([python, script] + args_list)
+
+        # 3️⃣ Aktuelles Tool komplett beenden
+        QApplication.quit()
+
+
 
     def do_restart():
         subprocess.Popen([python, script] + args_list)
@@ -1158,7 +1171,8 @@ class PatchManagerGUI(QWidget):
             )
 
             if reply == QMessageBox.StandardButton.Yes:
-                self.restart_application()
+                # 🔹 Neustart mit Update-Flag
+                self.restart_application(updated=True)
 
         except Exception as e:
             GithubConfigDialog.append_info(
