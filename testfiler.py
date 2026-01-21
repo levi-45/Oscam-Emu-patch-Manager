@@ -31,19 +31,23 @@ import subprocess
 import json
 import tempfile
 import atexit
-
+LOCK_FILE = os.path.join(tempfile.gettempdir(), "oscam_patch_manager.lock")
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
     QLabel,
-    QProgressBar,
-    QVBoxLayout,
-    QMessageBox,
-    QDialog,
+    QPushButton,
     QLineEdit,
     QTextEdit,
+    QProgressBar,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFormLayout,
+    QMessageBox,
     QDialogButtonBox,
+    QDialog
 )
+from PyQt6.QtWidgets import QProgressBar
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QTextCursor, QFont
 # Optional PIL, falls du Images bearbeitest
@@ -1576,7 +1580,7 @@ class PatchManagerGUI(QWidget):
         self.plugin_update_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.plugin_update_button)
         
-        from PyQt6.QtWidgets import QProgressBar
+        
 
         # 🔹 Progressbar für Plugin-Update
         self.update_progress = QProgressBar()
@@ -1983,16 +1987,19 @@ class PatchManagerGUI(QWidget):
 
 if __name__ == "__main__":
     os.environ["NO_AT_BRIDGE"] = "1"
-
-   # if os.path.exists(LOCK_FILE):
-        #print("Tool läuft bereits!")
-        #sys.exit(1)
-   # else:
-       # with open(LOCK_FILE, "w") as f:
-           # f.write(str(os.getpid()))
+    
+    # Lockfile prüfen
+    if os.path.exists(LOCK_FILE):
+        print("Tool läuft bereits!")
+        sys.exit(0)
+    
+    # Lockfile erstellen
+    with open(LOCK_FILE, "w") as f:
+        f.write(str(os.getpid()))
+    
+    atexit.register(lambda: os.remove(LOCK_FILE) if os.path.exists(LOCK_FILE) else None)
 
     app = QApplication(sys.argv)
     window = PatchManagerGUI()
     window.showMaximized()
     sys.exit(app.exec())
-
