@@ -404,7 +404,12 @@ TEXTS = {
     }
 }
 
-LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".oscam_patch_manager.lock")
+lock_file = os.path.join(tempfile.gettempdir(), "oscam_patch_manager.lock")
+if os.path.exists(lock_file):
+    os.remove(lock_file)
+    print("Lockfile gelöscht")
+else:
+    print("Kein Lockfile vorhanden")
 
 #LOCK_FILE = os.path.join(tempfile.gettempdir(), "oscam_patch_manager.lock")
 
@@ -1979,12 +1984,12 @@ class PatchManagerGUI(QWidget):
 if __name__ == "__main__":
     os.environ["NO_AT_BRIDGE"] = "1"
 
-    if os.path.exists(LOCK_FILE):
-        print("Tool läuft bereits!")
-        sys.exit(1)
-    else:
-        with open(LOCK_FILE, "w") as f:
-            f.write(str(os.getpid()))
+   # if os.path.exists(LOCK_FILE):
+        #print("Tool läuft bereits!")
+        #sys.exit(1)
+   # else:
+       # with open(LOCK_FILE, "w") as f:
+           # f.write(str(os.getpid()))
 
     app = QApplication(sys.argv)
     window = PatchManagerGUI()
