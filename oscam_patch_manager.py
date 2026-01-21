@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtCore import QDateTime
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.3.6"
+APP_VERSION = "1.3.7"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
