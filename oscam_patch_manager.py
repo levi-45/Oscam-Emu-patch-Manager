@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtCore import QDateTime
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.3.3"
+APP_VERSION = "1.3.4"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -357,7 +357,6 @@ TEXTS = {
         "patch_file_missing": "Patch-Datei existiert nicht!"
     }
 }
-
 
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
@@ -840,9 +839,6 @@ def github_upload_oscam_emu_folder(info_widget=None, progress_callback=None):
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
-# =====================
-# GITHUB CONFIG DIALOG
-# =====================
 class GithubConfigDialog(QDialog):
     """Dialog for entering GitHub credentials"""
     def __init__(self):
@@ -945,32 +941,30 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     # PATCH HEADER BEARBEITEN
     # ---------------------
-    
     def restart_application(self, *args, **kwargs):
         """
-        Startet das Tool neu aus dem gleichen Ordner.
-        Ignoriert alle überflüssigen Argumente, z.B. progress_callback.
+        Startet das Tool neu und schließt das aktuelle Fenster zuverlässig.
+        Akzeptiert beliebige Args (z.B. progress_callback).
         """
         import subprocess
         import sys
         from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QTimer
+        import os
 
-        python = sys.executable               # Python-Interpreter
-        script = os.path.abspath(__file__)    # Pfad zur aktuellen .py-Datei
-        args_list = sys.argv                   # alle übergebenen Args übernehmen
+        python = sys.executable
+        script = os.path.abspath(__file__)
+        args_list = sys.argv[1:]
 
-        # Neues Tool starten
-        subprocess.Popen([python, script] + args_list[1:])
-
-        # Aktuelles Tool sauber beenden
+    def do_restart():
+        subprocess.Popen([python, script] + args_list)
         QApplication.quit()
 
+        # 1️⃣ aktuelles Fenster sofort schließen
+        self.close()
 
-
-
-
-
-
+        # 2️⃣ Neustart minimal verzögert (sehr wichtig!)
+        QTimer.singleShot(200, do_restart)
 
     def edit_patch_header(self):
         try:
@@ -1406,11 +1400,9 @@ class PatchManagerGUI(QWidget):
         self.clock_timer.start(1000)
         self.update_digital_clock()
 
-
-
-    # =====================
-    # update_buttons_
-    # =====================
+        # =====================
+        # update_buttons_
+        # =====================
     def update_digital_clock(self):
         now = QDateTime.currentDateTime()
         current_time = now.toString("HH:mm:ss dd.MM.yyyy")  # 14:35:10 20.01.2026  # Datum + Uhrzeit
@@ -1423,9 +1415,9 @@ class PatchManagerGUI(QWidget):
         self.github_upload_patch_button.setText(TEXTS[LANG]["github_upload_patch"])
         self.github_upload_emu_button.setText(TEXTS[LANG]["github_upload_emu"])
 
-    # =====================
-    # BUTTON & COLOR HANDLING
-    # =====================
+        # =====================
+        # BUTTON & COLOR HANDLING
+        # =====================
     def create_option_button(self, key, text, color, callback, fg="white"):
         btn = QPushButton(text)
         btn.setMinimumHeight(self.BUTTON_HEIGHT)
@@ -1539,8 +1531,6 @@ class PatchManagerGUI(QWidget):
         # ---------- Commit Count speichern ----------
         save_config(self.commit_spin.value())
 
-
-
     def change_language(self):
         """
         Called when the language dropdown changes.
@@ -1566,10 +1556,9 @@ class PatchManagerGUI(QWidget):
         # Optional: update any other dynamic texts
         append_info(self.info_text, f"Language changed to {selected}", "info")
 
-
-    # =====================
-    # GITHUB EMU CREDENTIALS
-    # =====================
+        # =====================
+        # GITHUB EMU CREDENTIALS
+        # =====================
     def check_emu_credentials(self):
         cfg = load_github_config()
         if not all([cfg.get("emu_repo_url"), cfg.get("username"), cfg.get("token")]):
@@ -1617,9 +1606,9 @@ class PatchManagerGUI(QWidget):
         if progress_callback:
             progress_callback(100)
 
-    # =====================
-    # INFO BUTTON CALLBACK
-    # =====================
+        # =====================
+        # INFO BUTTON CALLBACK
+        # =====================
     def show_info(self):
         text = TEXTS[LANG].get("info_text", "Keine Info verfügbar.")
         dlg = QMessageBox(self)
@@ -1628,9 +1617,9 @@ class PatchManagerGUI(QWidget):
         dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
         dlg.exec()
 
-    # =====================
-    # RUN ACTION WRAPPER
-    # =====================
+        # =====================
+        # RUN ACTION WRAPPER
+        # =====================
     def run_action(self, action_func):
         try:
             self.progress.setValue(0)
@@ -1641,9 +1630,9 @@ class PatchManagerGUI(QWidget):
             append_info(self.info_text, f"Fehler: {str(e)}", "error")
             self.progress.setValue(0)
 
-    # =====================
-    # BUTTON CALLBACKS
-    # =====================
+        # =====================
+        # BUTTON CALLBACKS
+        # =====================
     def show_commits(self, info_widget=None, progress_callback=None):
         append_info(self.info_text, TEXTS[LANG]["showing_commits"], "info")
         run_bash(f"git -C {TEMP_REPO} log -n {self.commit_spin.value()} --oneline", info_widget=self.info_text)
@@ -1676,7 +1665,6 @@ class PatchManagerGUI(QWidget):
         if progress_callback:
             progress_callback(100)
 
-
     def change_old_(self, info_widget=None, progress_callback=None):
         global OLD_, OLD_PATCH_FILE, ALT_PATCH_FILE
         new_dir = QFileDialog.getExistingDirectory(self, TEXTS[LANG]["change_old_dir"], OLD_)
@@ -1690,8 +1678,6 @@ class PatchManagerGUI(QWidget):
             append_info(self.info_text, TEXTS[LANG]["old_patch_path_cancelled"], "info")
         if progress_callback:
             progress_callback(100)
-
-
 
     def close_with_confirm(self):
         msg = QMessageBox(self)
@@ -1710,9 +1696,7 @@ if __name__ == "__main__":
     ensure_dir(PLUGIN_DIR)
     ensure_dir(ICON_DIR)
     ensure_dir(TEMP_REPO)
-
     load_config()
-
     app = QApplication(sys.argv)
     window = PatchManagerGUI()
     window.showMaximized()
