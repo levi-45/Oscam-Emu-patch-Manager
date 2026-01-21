@@ -20,8 +20,17 @@
 #  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 #  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 # ============================================================================
-import os, sys, subprocess, shutil, json, zipfile, time
+import os
+import sys
+import subprocess
+import shutil
+import json
+import zipfile
+import time
+import tempfile
 from datetime import datetime, timezone
+
+# PyQt6 Widgets & GUI
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
@@ -29,8 +38,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QLineEdit,
-    
-QTextEdit,
+    QTextEdit,
     QProgressBar,
     QVBoxLayout,
     QHBoxLayout,
@@ -38,9 +46,10 @@ QTextEdit,
     QMessageBox,
     QDialogButtonBox
 )
-
-from PyQt6.QtGui import QColor, QTextCursor
+from PyQt6.QtGui import QColor, QTextCursor, QFont
 from PyQt6.QtCore import Qt, QTimer
+
+# Optional PIL, falls du Images bearbeitest
 from PIL import Image, ImageDraw, ImageFont
 # ===================== APP CONFIG =====================
 APP_VERSION = "1.3.7"
@@ -401,18 +410,35 @@ TEXTS = {
 
 LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".oscam_patch_manager.lock")
 
-def check_single_instance():
-    if os.path.exists(LOCK_FILE):
-        QMessageBox.critical(
-            None,
-            "Already running",
-            "The OSCam Patch Manager is already running."
-        )
-        sys.exit(0)
+LOCK_FILE = os.path.join(tempfile.gettempdir(), "oscam_patch_manager.lock")
 
+def check_single_instance():
+    import os, sys, psutil
+
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, "r") as f:
+                pid = int(f.read().strip())
+
+            if psutil.pid_exists(pid):
+                print("Tool läuft bereits")
+                sys.exit(0)
+            else:
+                # verwaister Lock → löschen
+                os.remove(LOCK_FILE)
+
+        except Exception:
+            os.remove(LOCK_FILE)
+
+    # Lock neu anlegen
     with open(LOCK_FILE, "w") as f:
         f.write(str(os.getpid()))
 
+def cleanup_lock():
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
+
+    atexit.register(cleanup_lock)
 
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
@@ -1417,6 +1443,7 @@ class PatchManagerGUI(QWidget):
         self.update_progress.setTextVisible(True)
         self.update_progress.setFormat("Update Fortschritt: %p%")
         layout.addWidget(self.update_progress)
+      
         
         # -------------------
         # HEADER
@@ -1956,21 +1983,26 @@ class PatchManagerGUI(QWidget):
             QApplication.quit()
 
 if __name__ == "__main__":
-    import sys
-    import os
-
     os.environ["NO_AT_BRIDGE"] = "1"
 
-    app = QApplication(sys.argv)   # 🔴 MUSS ALS ERSTES KOMMEN
+    # 🔹 Single-Instance prüfen
+    check_single_instance()
 
-    check_single_instance()        # darf JETZT QMessageBox benutzen
+    # 🔹 Verzeichnisse sicherstellen
     ensure_dir(PLUGIN_DIR)
     ensure_dir(ICON_DIR)
     ensure_dir(TEMP_REPO)
+
+    # 🔹 Konfiguration laden
     load_config()
 
+    # 🔹 QApplication zuerst erstellen
+    app = QApplication(sys.argv)
+
+    # 🔹 Hauptfenster erstellen
     window = PatchManagerGUI()
     window.showMaximized()
 
+    # 🔹 Event-Loop starten
     sys.exit(app.exec())
 
