@@ -136,6 +136,21 @@ DIFF_COLORS = {
     "FlamingSun":       {"bg": "#4B0000", "text": "#FFCC33"},
     "CobaltSky":        {"bg": "#00114D", "text": "#66CCFF"},
     "PinkGalaxy":       {"bg": "#1A0022", "text": "#FF66FF"},
+    "NeonInferno":      {"bg": "#FF073A", "text": "#FFFFFF"},  
+    "LaserLime":        {"bg": "#00FF00", "text": "#000000"},  
+    "ElectricSky":      {"bg": "#00FFFF", "text": "#000033"},  
+    "CyberOrange":      {"bg": "#FF6F00", "text": "#FFFFFF"},  
+    "VividViolet":      {"bg": "#8A2BE2", "text": "#FFFFFF"},  
+    "HotPinkBlaze":     {"bg": "#FF1493", "text": "#000000"},  
+    "NeonTeal":         {"bg": "#00FFD5", "text": "#001F1F"},  
+    "SolarFlare":       {"bg": "#FF4500", "text": "#FFFFFF"},  
+    "RadicalRed":       {"bg": "#FF004F", "text": "#FFFFFF"},  
+    "LimeShock":        {"bg": "#CCFF00", "text": "#000000"},  
+    "ElectricPurple":   {"bg": "#BF00FF", "text": "#FFFFFF"},  
+    "AquaPulse":        {"bg": "#00BFFF", "text": "#FFFFFF"},  
+    "FlamingMagenta":   {"bg": "#FF00AA", "text": "#FFFFFF"},  
+    "HyperOrange":      {"bg": "#FF8800", "text": "#000000"},  
+    "GlacialCyan":      {"bg": "#00FFFF", "text": "#003333"},   
     "TurquoiseDream":{"bg": "#002222", "text": "#40E0D0"}
 }
 
@@ -249,6 +264,12 @@ TEXTS = {
         "plugin_update": "Plugin Update",
         "restart_required_title": "Restart required",
         "restart_required_msg": "The update was installed successfully.\n\nThe tool must be restarted.\n\nRestart now?",
+        "update_success_banner": "✅ Update successful! Version {version} is now running.",
+        "rollback_info": "🔄 Backup restored from backup_old.",
+        "backup_cleanup_done": "🗑️ Old backups (older than 7 days) deleted.",
+        "rollback_no_backup": "⚠️ No backup found to restore!",
+        "rollback_success": "🔄 Rollback completed: {files}",
+        "rollback_prompt_restart": "Rollback done.\n\nThe tool must be restarted.\n\nRestart now?",
         "patch_file_missing": "Patch file does not exist!"
     },
     "de": {
@@ -353,6 +374,12 @@ TEXTS = {
         "update_not_available": "Keine neue Version verfügbar.",
         "plugin_update": "Plugin Update",
         "restart_required_title": "Neustart erforderlich",
+        "update_success_banner": "✅ Update erfolgreich! Version {version} läuft jetzt.",
+        "rollback_info": "🔄 Backup aus backup_old wiederhergestellt.",
+        "backup_cleanup_done": "🗑️ Alte Backups (älter als 7 Tage) gelöscht.",
+        "rollback_no_backup": "⚠️ Kein Backup gefunden zum Wiederherstellen!",
+        "rollback_success": "🔄 Rollback erfolgreich: {files}",
+        "rollback_prompt_restart": "Rollback durchgeführt.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "patch_file_missing": "Patch-Datei existiert nicht!"
     }
