@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtCore import QDateTime
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.3.4"
+APP_VERSION = "1.3.5"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -357,6 +357,21 @@ TEXTS = {
         "patch_file_missing": "Patch-Datei existiert nicht!"
     }
 }
+
+LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".oscam_patch_manager.lock")
+
+def check_single_instance():
+    if os.path.exists(LOCK_FILE):
+        QMessageBox.critical(
+            None,
+            "Already running",
+            "The OSCam Patch Manager is already running."
+        )
+        sys.exit(0)
+
+    with open(LOCK_FILE, "w") as f:
+        f.write(str(os.getpid()))
+
 
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
@@ -925,10 +940,10 @@ class GithubConfigDialog(QDialog):
         }
         color = colors.get(level, "gray")
         info_widget.append(f'<span style="color:{color}">{text}</span>')
-
-# =====================
-# PATCH MANAGER GUI
-# =====================
+    
+    # =====================
+    # PATCH MANAGER GUI
+    # =====================
 class PatchManagerGUI(QWidget):
     BUTTON_HEIGHT = 60
     BUTTON_RADIUS = 10
@@ -941,6 +956,30 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     # PATCH HEADER BEARBEITEN
     # ---------------------
+    def show_update_success_banner(self, version=None):
+        """
+        Zeigt ein kleines Banner am oberen Fensterrand an, dass die neue Version läuft.
+        """
+        version = version or APP_VERSION
+        banner_text = f"✅ Update erfolgreich – Version {version} läuft"
+    
+        # Einfaches QLabel am oberen Rand der GUI
+        if not hasattr(self, "update_banner"):
+            self.update_banner = QLabel(banner_text, self)
+            self.update_banner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.update_banner.setStyleSheet(
+                "background-color: #28a745; color: white; font-weight: bold; padding: 5px; border-radius: 5px;"
+            )
+            self.update_banner.setFixedHeight(30)
+            self.layout().insertWidget(0, self.update_banner)  # Banner oben einfügen
+        else:
+            self.update_banner.setText(banner_text)
+            self.update_banner.show()
+
+        # Banner nach 5 Sekunden automatisch ausblenden
+        QTimer.singleShot(5000, lambda: self.update_banner.hide())
+
+    
     def restart_application(self, *args, **kwargs):
         """
         Startet das Tool neu und schließt das aktuelle Fenster zuverlässig.
@@ -966,6 +1005,17 @@ class PatchManagerGUI(QWidget):
         # 2️⃣ Neustart minimal verzögert (sehr wichtig!)
         QTimer.singleShot(200, do_restart)
 
+        # -------------------
+        # CLOSE EVENT (Lock entfernen)
+        # -------------------
+    def closeEvent(self, event):
+        try:
+            if os.path.exists(LOCK_FILE):
+                os.remove(LOCK_FILE)
+        except:
+            pass
+        event.accept()
+    
     def edit_patch_header(self):
         try:
             with open(PATCH_FILE, "r", encoding="utf-8") as f:
@@ -1009,28 +1059,36 @@ class PatchManagerGUI(QWidget):
         Führt das Plugin-Update durch:
         - Backup der alten Dateien (.py, config, github config, patch)
         - Download der neuen oscam_patch_manager.py
-        - Info- und Erfolgsmeldung
+        - Anzeige eines Success-Banners
+        - Update-Log schreiben
         - Optional Neustart des Tools
         """
         GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_started"], "info")
 
-        # Ordner, von dem das Plugin gestartet wird
         plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Backup-Ordner erstellen
+        # 🔹 Backup-Ordner erstellen
         backup_dir = os.path.join(plugin_dir, "backup_old")
         os.makedirs(backup_dir, exist_ok=True)
 
-        # Alte Dateien sichern
-        for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
+        # 🔹 Alte Dateien sichern
+        backup_files = ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]
+        for fname in backup_files:
             src = os.path.join(plugin_dir, fname)
             if os.path.exists(src):
                 shutil.copy(src, os.path.join(backup_dir, fname))
-                GithubConfigDialog.append_info(
-                    self.info_text, f"Backup erstellt: {fname}", "success"
-                )
+                GithubConfigDialog.append_info(self.info_text, f"Backup erstellt: {fname}", "success")
 
-        # Neue Plugin-Datei herunterladen
+        # 🔹 Alte Backups automatisch bereinigen (älter als 7 Tage)
+        for f in os.listdir(backup_dir):
+            path = os.path.join(backup_dir, f)
+            if os.path.isfile(path):
+                age_days = (time.time() - os.path.getmtime(path)) / 86400
+                if age_days > 7:
+                    os.remove(path)
+                    GithubConfigDialog.append_info(self.info_text, f"Altes Backup gelöscht: {f}", "info")
+
+        # 🔹 Neue Plugin-Datei herunterladen
         try:
             import requests
 
@@ -1042,13 +1100,29 @@ class PatchManagerGUI(QWidget):
             with open(plugin_file, "w", encoding="utf-8") as f:
                 f.write(resp.text)
 
+            # 🔹 Update erfolgreich – Banner
             GithubConfigDialog.append_info(
                 self.info_text,
                 TEXTS[LANG]["update_success"] + (f" (v{latest_version})" if latest_version else ""),
                 "success"
             )
+            self.show_update_success_banner(latest_version)  # Banner anzeigen
 
-            # 🔹 NEU: Neustart-Abfrage
+            # 🔹 Update-Log (einfach in info_text einfügen)
+            GithubConfigDialog.append_info(
+                self.info_text,
+                f"Update Log: Alte Version gesichert, neue Version v{latest_version} installiert",
+                "info"
+            )
+
+            # 🔹 Rollback vorbereiten (nur Info, Button später einbauen)
+            GithubConfigDialog.append_info(
+                self.info_text,
+                f"Rollback verfügbar im Backup-Ordner: {backup_dir}",
+                "warning"
+            )
+
+            # 🔹 Neustart-Abfrage
             reply = QMessageBox.question(
                 self,
                 TEXTS[LANG]["restart_required_title"],
@@ -1065,6 +1139,45 @@ class PatchManagerGUI(QWidget):
                 TEXTS[LANG]["update_fail"].format(error=str(e)),
                 "error"
             )
+
+    def rollback_plugin_action(self):
+        """
+        Rollback des Plugins aus dem Backup-Ordner.
+        Stellt die alte .py, config und Patch-Datei wieder her.
+        """
+        plugin_dir = os.path.dirname(os.path.abspath(__file__))
+        backup_dir = os.path.join(plugin_dir, "backup_old")
+
+        if not os.path.exists(backup_dir):
+            GithubConfigDialog.append_info(self.info_text, "⚠️ Kein Backup gefunden!", "warning")
+            return
+
+        # Dateien zurückkopieren
+        files_to_restore = ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]
+        restored_files = []
+
+        for fname in files_to_restore:
+            backup_file = os.path.join(backup_dir, fname)
+            target_file = os.path.join(plugin_dir, fname)
+            if os.path.exists(backup_file):
+                shutil.copy(backup_file, target_file)
+                restored_files.append(fname)
+
+        if restored_files:
+            GithubConfigDialog.append_info(
+                self.info_text, f"🔄 Rollback erfolgreich: {', '.join(restored_files)}", "success"
+            )
+            # Optional: Neustart direkt anbieten
+            reply = QMessageBox.question(
+                self,
+                "Neustart erforderlich",
+                "Rollback durchgeführt.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self.restart_application()
+        else:
+            GithubConfigDialog.append_info(self.info_text, "⚠️ Keine Dateien zum Wiederherstellen gefunden!", "warning")
 
     # ---------------------
     # UPDATE CHECK
@@ -1308,6 +1421,18 @@ class PatchManagerGUI(QWidget):
         self.plugin_update_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.plugin_update_button)
 
+        # 🔹 Rollback Button
+        self.rollback_button = self.create_option_button(
+            key="rollback_plugin",
+            text="Rollback Plugin",
+            color="#FF8C00",  # orange
+            fg="#FFFFFF",
+            callback=self.rollback_plugin_action
+        )
+        self.rollback_button.setFixedHeight(self.BUTTON_HEIGHT)
+        controls_layout.addWidget(self.rollback_button)
+
+        
         # 🔹 Tool Neustarten Button
         self.restart_tool_button = self.create_option_button(
             key="restart_tool",
@@ -1692,7 +1817,7 @@ class PatchManagerGUI(QWidget):
 
 if __name__ == "__main__":
     os.environ["NO_AT_BRIDGE"] = "1"
-
+    check_single_instance()  # 🔹 Single-Instance prüfen
     ensure_dir(PLUGIN_DIR)
     ensure_dir(ICON_DIR)
     ensure_dir(TEMP_REPO)
