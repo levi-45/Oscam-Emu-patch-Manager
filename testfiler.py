@@ -1437,6 +1437,8 @@ class PatchManagerGUI(QWidget):
         layout = QVBoxLayout()
         layout.setSpacing(10)
         layout.setContentsMargins(20, 20, 20, 20)
+        self.active_button_key = None
+        TITLE_HEIGHT = 60
         self.all_buttons = []
         self.active_button_key = None
         self.update_progress = QProgressBar()
