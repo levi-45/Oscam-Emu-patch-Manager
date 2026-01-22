@@ -26,7 +26,8 @@ from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
 from PyQt6.QtCore import *
 from PIL import Image, ImageDraw, ImageFont
-from PyQt6.QtCore import QDateTime
+from PyQt6.QtCore import QTimer, QDateTime, Qt
+
 
 # ===================== APP CONFIG =====================
 APP_VERSION = "1.4.1"
@@ -944,7 +945,8 @@ class PatchManagerGUI(QWidget):
         super().__init__()
         self.active_button_key = ""
         self.init_ui()
-        self.check_for_updates_on_start()  # 🔹 automatische Update-Prüfung beim Start
+        # 🔹 automatische Update-Prüfung 1 Sekunde nach Start
+        QTimer.singleShot(1000, self.check_for_updates_on_start)
     # ---------------------
     # PATCH HEADER BEARBEITEN
     # ---------------------
