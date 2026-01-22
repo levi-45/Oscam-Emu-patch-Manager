@@ -20,6 +20,8 @@
 #  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 #  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 # ============================================================================
+import requests
+from io import BytesIO
 import os, sys, subprocess, shutil, json, zipfile, time
 from datetime import datetime, timezone
 from PyQt6.QtWidgets import *
@@ -30,7 +32,7 @@ from PyQt6.QtCore import QTimer, QDateTime, Qt
 
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.4.5"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -385,44 +387,50 @@ def ensure_dir(path):
         os.makedirs(path)
 
 
-def save_config(commit_count=None):
+def save_config(value=None):
+    """
+    Speichert die Config in CONFIG_FILE.
+    Wenn value gesetzt ist, wird commit_count aktualisiert.
+    """
     cfg = {}
-
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r") as f:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-        except Exception:
-            cfg = {}
+        except Exception as e:
+            append_info(None, f"⚠️ Config konnte nicht gelesen werden: {e}", "warning")
 
-    if commit_count is not None:
-        cfg["commit_count"] = commit_count
+    if value is not None:
+        cfg["commit_count"] = value
 
-    if "OLD_" in globals():
-        cfg["old_patch_dir"] = OLD_
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
 
-    cfg["color"] = current_color_name
-
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(cfg, f, indent=2)
 
 
 # ===================== CONFIG =====================
 def load_config():
-    global LANG, current_color_name, current_diff_colors, commit_count, old_patch_dir
-    commit_count = 10
-    old_patch_dir = "/opt/s3_neu/support/patches"  # Standardwert
-
+    """
+    Lädt die Config aus CONFIG_FILE.
+    Gibt ein Dictionary zurück, mindestens mit 'commit_count'.
+    """
+    cfg = {}
     if os.path.exists(CONFIG_FILE):
         try:
-            cfg = json.load(open(CONFIG_FILE, "r"))
-            LANG = cfg.get("language", LANG)
-            current_color_name = cfg.get("color", "Classic")
-            current_diff_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
-            commit_count = cfg.get("commit_count", commit_count)
-            old_patch_dir = cfg.get("old_patch_dir", old_patch_dir)
-        except:
-            pass
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception as e:
+            append_info(None, f"⚠️ Config konnte nicht gelesen werden: {e}", "warning")
+
+    # Standardwert, falls noch nicht vorhanden
+    if "commit_count" not in cfg:
+        cfg["commit_count"] = 5  # z.B. default 5
+
+    return cfg
+
 
 # ===================== INFOSCREEN =====================
 def append_info(info_widget, text, status="info"):
@@ -989,6 +997,14 @@ class PatchManagerGUI(QWidget):
         # Aktuelles Tool sauber beenden
         QApplication.quit()
 
+    def commit_value_changed(self, value):
+        try:
+            save_config({"commit_count": value})  # speichert den neuen Wert
+            GithubConfigDialog.append_info(self.info_text, f"Commit-Anzahl auf {value} gesetzt", "success")
+        except Exception as e:
+            GithubConfigDialog.append_info(self.info_text, f"Fehler beim Speichern: {e}", "error")
+
+    
     def edit_patch_header(self):
         try:
             with open(PATCH_FILE, "r", encoding="utf-8") as f:
@@ -1278,7 +1294,7 @@ class PatchManagerGUI(QWidget):
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Linke Widgets: Info + digitale Uhr
+        # 🔹 Linke Widgets: Info + digitale Uhr
         self.info_button = QPushButton("ℹ️")
         self.info_button.setFixedSize(60, TITLE_HEIGHT)
         self.info_button.setToolTip(TEXTS[LANG]["info_tooltip"])
@@ -1300,23 +1316,62 @@ class PatchManagerGUI(QWidget):
         left_widget.setLayout(left_layout)
         header_layout.addWidget(left_widget, 1, Qt.AlignmentFlag.AlignLeft)
 
-        # Titel in der Mitte
-        title = QLabel("OSCam Emu Toolkit – by speedy005")
-        title.setFont(QFont("Arial", 28, QFont.Weight.Bold))
-        title.setStyleSheet("color:red;")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setFixedHeight(TITLE_HEIGHT)
-        header_layout.addWidget(title, 1)
+        # 🔹 Mitte: Logo direkt von GitHub laden
+        self.logo_label = QLabel()
+        logo_height = TITLE_HEIGHT
+        logo_width = TITLE_HEIGHT * 4  # 4× so breit wie hoch
+        self.logo_label.setFixedSize(logo_width, logo_height)
+        self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Version rechts
+        try:
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_emu_toolkit2.png"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            image_data = BytesIO(resp.content)
+            pixmap = QPixmap()
+            pixmap.loadFromData(image_data.read())
+
+            # ⚡ Bild auf feste Breite + Höhe strecken
+            scaled_pixmap = pixmap.scaled(
+                logo_width,
+                logo_height,
+                Qt.AspectRatioMode.IgnoreAspectRatio,  # hier wird die Breite gestreckt
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.logo_label.setPixmap(scaled_pixmap)
+
+        except Exception as e:
+            print(f"Fehler beim Laden des Logos von GitHub: {e}")
+            self.logo_label.setText("Logo ❌")
+
+        header_layout.addWidget(self.logo_label, 0, Qt.AlignmentFlag.AlignCenter)
+
+
+        # 🔹 Rechte Widgets: Version + by speedy005
+        right_widget = QWidget()
+        right_layout = QHBoxLayout()
+        right_layout.setSpacing(5)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        by_label = QLabel("by speedy005")
+        by_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        by_label.setStyleSheet("color:blue;")
+        by_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        by_label.setFixedHeight(TITLE_HEIGHT)
+        right_layout.addWidget(by_label)
+
         version_label = QLabel(f"v{APP_VERSION}")
         version_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         version_label.setStyleSheet("color:red;")
         version_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         version_label.setFixedHeight(TITLE_HEIGHT)
-        header_layout.addWidget(version_label, 1, Qt.AlignmentFlag.AlignRight)
+        right_layout.addWidget(version_label)
+
+        right_widget.setLayout(right_layout)
+        header_layout.addWidget(right_widget, 1, Qt.AlignmentFlag.AlignRight)
 
         layout.addLayout(header_layout)
+
 
         # -------------------
         # INFO TEXT
@@ -1382,17 +1437,16 @@ class PatchManagerGUI(QWidget):
         commit_layout.addWidget(commit_label)
 
         # 🔹 Commit-Spinbox
+        cfg = load_config()  # Config aus config.json laden
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
-        self.commit_spin.setValue(commit_count)  # aus load_config()
+        self.commit_spin.setValue(cfg.get("commit_count", 5))  # gespeicherter Wert oder default 5
         self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT)
         self.commit_spin.setFixedWidth(50)
         commit_layout.addWidget(self.commit_spin)
 
-        # 🔹 Commit-Anzahl sofort speichern beim Ändern
-        self.commit_spin.valueChanged.connect(
-            lambda value: self.save_config_value("commit_count", value)
-        )
+        # Änderung sofort speichern
+        self.commit_spin.valueChanged.connect(self.commit_value_changed)
 
         # 🔹 Commits ansehen Button
         self.commits_button = self.create_option_button(
