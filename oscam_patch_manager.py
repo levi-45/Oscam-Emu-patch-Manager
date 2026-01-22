@@ -32,7 +32,7 @@ from PyQt6.QtCore import QTimer, QDateTime, Qt
 
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.4.8"
+APP_VERSION = "1.4.9"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -154,6 +154,21 @@ DIFF_COLORS = {
     "LemonYellow":    {"bg": "#1A1A1D", "text": "#FFF44F"},
     "HotPink":        {"bg": "#1A1A1D", "text": "#FF69B4"},
     "BrightOrange":   {"bg": "#1A1A1D", "text": "#FFA500"},
+    "MagentaPop":    {"bg": "#1A1A1D", "text": "#FF00FF"},
+    "NeonCyan":      {"bg": "#0D0D0D", "text": "#00FFFF"},
+    "ElectricLime":  {"bg": "#1B1B1B", "text": "#00FF00"},
+    "CrimsonNight":  {"bg": "#1C1C1F", "text": "#DC143C"},
+    "RoyalPurple":   {"bg": "#161618", "text": "#800080"},
+    "OrangeFever":   {"bg": "#1F1F1F", "text": "#FFA500"},
+    "BlueSteel":     {"bg": "#101018", "text": "#4682B4"},
+    "PinkGalaxy":    {"bg": "#1A101A", "text": "#FF69B4"},
+    "AmberGlow":     {"bg": "#1C1B10", "text": "#FFBF00"},
+    "TealShadow":    {"bg": "#121212", "text": "#008080"},
+    "VioletHaze":    {"bg": "#1A1A2E", "text": "#EE82EE"},
+    "RedStorm":      {"bg": "#1B0B0B", "text": "#FF4500"},
+    "CyanIce":       {"bg": "#0F1A1A", "text": "#00CED1"},
+    "LimePulse":     {"bg": "#101810", "text": "#32CD32"},
+    "FuchsiaDream":  {"bg": "#1A1018", "text": "#FF00FF"},
     "TurquoiseDream":{"bg": "#002222", "text": "#40E0D0"}
 }
 
