@@ -32,7 +32,7 @@ from PyQt6.QtCore import QTimer, QDateTime, Qt
 
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.4.5"
+APP_VERSION = "1.4.6"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -1108,26 +1108,21 @@ class PatchManagerGUI(QWidget):
         if progress_callback:
             progress_callback(100)
 
-    def plugin_update_button_clicked(self, progress_callback=None):
+    def plugin_update_button_clicked(self, checked=False, progress_callback=None):
         """
-        Prüft die GitHub-Version und zeigt einen Hinweisdialog:
-        - Update verfügbar → nach Bestätigung downloaden
-        - Bereits aktuell → Meldung
+        Prüft die GitHub-Version und zeigt einen Hinweisdialog.
+        checked wird automatisch vom QPushButton.clicked Signal übergeben (WinError-Problem).
         """
         GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_check_start"], "info")
 
         try:
             import requests
-
-            # URL zur version.txt im GitHub
             version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
-            latest_version = resp.text.strip()  # aktuelle Version auf GitHub
- 
-            # Prüfen, ob Update verfügbar
+            latest_version = resp.text.strip()
+
             if APP_VERSION != latest_version:
-                # Update verfügbar → Hinweisdialog
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle(TEXTS[LANG]["update_available_title"])
                 msg_box.setText(TEXTS[LANG]["update_available_msg"])
@@ -1136,10 +1131,8 @@ class PatchManagerGUI(QWidget):
                 msg_box.exec()
 
                 if msg_box.clickedButton() == yes_button:
-                    # Update ausführen
                     self.plugin_update_action(latest_version=latest_version)
 
-                    # Nach erfolgreichem Update: Neustart abfragen
                     reply = QMessageBox.question(
                         self,
                         TEXTS[LANG]["restart_required_title"],
@@ -1154,10 +1147,7 @@ class PatchManagerGUI(QWidget):
                             "⚠️ Update installiert, Neustart erforderlich für Aktivierung.",
                             "info"
                         )
-                else:
-                    GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
             else:
-                # Keine neue Version
                 GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
 
         except Exception as e:
@@ -1167,9 +1157,9 @@ class PatchManagerGUI(QWidget):
                 "error"
             )
 
-        # Optional: Fortschritt auf 100%
         if progress_callback:
             progress_callback(100)
+
 
 
     # ---------------------
