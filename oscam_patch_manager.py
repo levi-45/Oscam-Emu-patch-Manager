@@ -30,7 +30,7 @@ from PyQt6.QtCore import QTimer, QDateTime, Qt
 
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.4.2"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -137,6 +137,21 @@ DIFF_COLORS = {
     "FlamingSun":       {"bg": "#4B0000", "text": "#FFCC33"},
     "CobaltSky":        {"bg": "#00114D", "text": "#66CCFF"},
     "PinkGalaxy":       {"bg": "#1A0022", "text": "#FF66FF"},
+    "NeonPink":       {"bg": "#1A1A1D", "text": "#FF6EC7"},
+    "ElectricBlue":   {"bg": "#1A1A1D", "text": "#00FFFF"},
+    "LimeGreen":      {"bg": "#1A1A1D", "text": "#32CD32"},
+    "SunsetOrange":   {"bg": "#1A1A1D", "text": "#FF4500"},
+    "VioletDream":    {"bg": "#1A1A1D", "text": "#8A2BE2"},
+    "GoldenYellow":   {"bg": "#1A1A1D", "text": "#FFD700"},
+    "CandyRed":       {"bg": "#1A1A1D", "text": "#FF1493"},
+    "AquaMarine":     {"bg": "#1A1A1D", "text": "#7FFFD4"},
+    "CoralPink":      {"bg": "#1A1A1D", "text": "#FF7F50"},
+    "Turquoise":      {"bg": "#1A1A1D", "text": "#40E0D0"},
+    "MagentaPop":     {"bg": "#1A1A1D", "text": "#FF00FF"},
+    "SkyBlue":        {"bg": "#1A1A1D", "text": "#87CEEB"},
+    "LemonYellow":    {"bg": "#1A1A1D", "text": "#FFF44F"},
+    "HotPink":        {"bg": "#1A1A1D", "text": "#FF69B4"},
+    "BrightOrange":   {"bg": "#1A1A1D", "text": "#FFA500"},
     "TurquoiseDream":{"bg": "#002222", "text": "#40E0D0"}
 }
 
@@ -250,6 +265,8 @@ TEXTS = {
         "plugin_update": "Plugin Update",
         "restart_required_title": "Restart required",
         "restart_required_msg": "The update was installed successfully.\n\nThe tool must be restarted.\n\nRestart now?",
+        "commit_count_label": "Number of commits to show",  # EN
+        "restart_tool": "Restart Tool",
         "patch_file_missing": "Patch file does not exist!"
     },
     "de": {
@@ -354,6 +371,8 @@ TEXTS = {
         "update_not_available": "Keine neue Version verfügbar.",
         "plugin_update": "Plugin Update",
         "restart_required_title": "Neustart erforderlich",
+        "commit_count_label": "Anzahl der anzuzeigenden Commits",  # DE
+        "restart_tool": "Tool Neustarten",
         "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "patch_file_missing": "Patch-Datei existiert nicht!"
     }
@@ -1073,7 +1092,7 @@ class PatchManagerGUI(QWidget):
         if progress_callback:
             progress_callback(100)
 
-    def plugin_update_button_clicked(self, info_widget=None, progress_callback=None):
+    def plugin_update_button_clicked(self, progress_callback=None):
         """
         Prüft die GitHub-Version und zeigt einen Hinweisdialog:
         - Update verfügbar → nach Bestätigung downloaden
@@ -1089,8 +1108,8 @@ class PatchManagerGUI(QWidget):
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
             latest_version = resp.text.strip()  # aktuelle Version auf GitHub
-
-            # Lokale Version aus APP_VERSION
+ 
+            # Prüfen, ob Update verfügbar
             if APP_VERSION != latest_version:
                 # Update verfügbar → Hinweisdialog
                 msg_box = QMessageBox(self)
@@ -1103,6 +1122,22 @@ class PatchManagerGUI(QWidget):
                 if msg_box.clickedButton() == yes_button:
                     # Update ausführen
                     self.plugin_update_action(latest_version=latest_version)
+
+                    # Nach erfolgreichem Update: Neustart abfragen
+                    reply = QMessageBox.question(
+                        self,
+                        TEXTS[LANG]["restart_required_title"],
+                        TEXTS[LANG]["restart_required_msg"],
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    )
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self.restart_application()
+                    else:
+                        GithubConfigDialog.append_info(
+                            self.info_text,
+                            "⚠️ Update installiert, Neustart erforderlich für Aktivierung.",
+                            "info"
+                        )
                 else:
                     GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
             else:
@@ -1119,8 +1154,6 @@ class PatchManagerGUI(QWidget):
         # Optional: Fortschritt auf 100%
         if progress_callback:
             progress_callback(100)
-
-
 
 
     # ---------------------
@@ -1336,19 +1369,30 @@ class PatchManagerGUI(QWidget):
         self.color_box.currentIndexChanged.connect(self.change_colors)
         controls_layout.addWidget(self.color_box)
 
+        # ---------------------
+        # 🔹 Commit-Anzeige & Plugin-Update
+        # ---------------------
+
+        # Commit-Layout (Label + SpinBox + Button in einer Zeile)
+        commit_layout = QHBoxLayout()
+
+        # 🔹 Commit-Anzahl Label
+        commit_label = QLabel(TEXTS[LANG]["commit_count_label"])
+        commit_label.setFixedHeight(self.BUTTON_HEIGHT)
+        commit_layout.addWidget(commit_label)
+
         # 🔹 Commit-Spinbox
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
         self.commit_spin.setValue(commit_count)  # aus load_config()
         self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT)
         self.commit_spin.setFixedWidth(50)
+        commit_layout.addWidget(self.commit_spin)
 
-        # 🔹 Commit-Anzahl sofort speichern
+        # 🔹 Commit-Anzahl sofort speichern beim Ändern
         self.commit_spin.valueChanged.connect(
-            lambda value: save_config(value)
+            lambda value: self.save_config_value("commit_count", value)
         )
-
-        controls_layout.addWidget(self.commit_spin)
 
         # 🔹 Commits ansehen Button
         self.commits_button = self.create_option_button(
@@ -1358,8 +1402,10 @@ class PatchManagerGUI(QWidget):
             callback=self.show_commits
         )
         self.commits_button.setFixedHeight(self.BUTTON_HEIGHT)
-        controls_layout.addWidget(self.commits_button)
+        commit_layout.addWidget(self.commits_button)
 
+        # Commit-Layout zum Haupt-Layout hinzufügen
+        controls_layout.addLayout(commit_layout)
 
         # 🔹 Plugin Update Button
         self.plugin_update_button = self.create_option_button(
@@ -1367,10 +1413,11 @@ class PatchManagerGUI(QWidget):
             text=TEXTS[LANG]["plugin_update"],
             color=current_diff_colors['bg'],
             fg=current_diff_colors['text'],
-            callback=self.plugin_update_button_clicked  # <- neue Methode für Hinweisdialog
+            callback=self.plugin_update_button_clicked  # prüft zuerst auf Update und zeigt Hinweis
         )
         self.plugin_update_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.plugin_update_button)
+
 
 
         # 🔹 Tool Neustarten Button
