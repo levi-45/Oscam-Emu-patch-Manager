@@ -32,7 +32,7 @@ from PyQt6.QtCore import QTimer, QDateTime, Qt
 
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.4.6"
+APP_VERSION = "1.4.7"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -386,22 +386,20 @@ def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-
-def save_config(value=None):
+def save_config(cfg=None):
     """
     Speichert die Config in CONFIG_FILE.
-    Wenn value gesetzt ist, wird commit_count aktualisiert.
+    Wenn cfg gesetzt ist, wird die gesamte Config gespeichert.
     """
-    cfg = {}
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-        except Exception as e:
-            append_info(None, f"⚠️ Config konnte nicht gelesen werden: {e}", "warning")
-
-    if value is not None:
-        cfg["commit_count"] = value
+    if cfg is None:
+        # Falls keine Config übergeben wird, einfach aus Datei laden
+        cfg = {}
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            except Exception as e:
+                append_info(None, f"⚠️ Config konnte nicht gelesen werden: {e}", "warning")
 
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -411,25 +409,22 @@ def save_config(value=None):
 
 
 
+
 # ===================== CONFIG =====================
 def load_config():
-    """
-    Lädt die Config aus CONFIG_FILE.
-    Gibt ein Dictionary zurück, mindestens mit 'commit_count'.
-    """
     cfg = {}
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
+            # Wenn die Datei mal nur eine Zahl enthält, korrigiere es
+            if not isinstance(cfg, dict):
+                cfg = {"commit_count": int(cfg), "color": "Classic", "language": "DE", "s3_patch_path": ""}
         except Exception as e:
             append_info(None, f"⚠️ Config konnte nicht gelesen werden: {e}", "warning")
-
-    # Standardwert, falls noch nicht vorhanden
-    if "commit_count" not in cfg:
-        cfg["commit_count"] = 5  # z.B. default 5
-
+            cfg = {"commit_count": 5, "color": "Classic", "language": "DE", "s3_patch_path": ""}
     return cfg
+
 
 
 # ===================== INFOSCREEN =====================
@@ -966,7 +961,8 @@ class GithubConfigDialog(QDialog):
 # =====================
 class PatchManagerGUI(QWidget):
     BUTTON_HEIGHT = 60
-    BUTTON_RADIUS = 10
+    BUTTON_WIDTH = 120   
+    BUTTON_RADIUS = 10   
 
     def __init__(self):
         super().__init__()
@@ -977,6 +973,15 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     # PATCH HEADER BEARBEITEN
     # ---------------------
+    
+    @staticmethod
+    def adjust_color(hex_color, factor):
+        hex_color = hex_color.lstrip("#")
+        r, g, b = [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
+        r = max(0, min(255, int(r * factor)))
+        g = max(0, min(255, int(g * factor)))
+        b = max(0, min(255, int(b * factor)))
+        return f"#{r:02X}{g:02X}{b:02X}"
     
     def restart_application(self, *args, **kwargs):
         """
@@ -1387,32 +1392,38 @@ class PatchManagerGUI(QWidget):
         self.edit_header_button.clicked.connect(self.edit_patch_header)
         controls_layout.addWidget(self.edit_header_button)
 
-        # 🔹 Sprache
+        # 🔹 Sprache Label + ComboBox
         self.lang_label = QLabel(TEXTS[LANG]["language_label"])
-        self.lang_label.setMinimumHeight(self.BUTTON_HEIGHT)
+        self.lang_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lang_label.setFixedHeight(self.BUTTON_HEIGHT)  # gleiche Höhe wie ComboBox
+        self.lang_label.setFixedWidth(self.BUTTON_WIDTH)    # gleiche Breite wie ComboBox
         controls_layout.addWidget(self.lang_label)
 
         self.language_box = QComboBox()
         self.language_box.addItems(["EN", "DE"])
         self.language_box.setCurrentText("DE" if LANG == "de" else "EN")
         self.language_box.setFixedHeight(self.BUTTON_HEIGHT)
-        self.language_box.setFixedWidth(60)
-        self.language_box.currentIndexChanged.connect(self.change_language)
+        self.language_box.setFixedWidth(self.BUTTON_WIDTH)
+        self.language_box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.language_box.currentIndexChanged.connect(self.change_language)
         controls_layout.addWidget(self.language_box)
 
-        # 🔹 Farbe
+        # 🔹 Farbe Label + ComboBox
         self.color_label = QLabel(TEXTS[LANG]["color_label"])
-        self.color_label.setMinimumHeight(self.BUTTON_HEIGHT)
+        self.color_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Text zentrieren
+        self.color_label.setFixedHeight(self.BUTTON_HEIGHT)           # gleiche Höhe wie ComboBox
+        self.color_label.setFixedWidth(self.BUTTON_WIDTH)             # gleiche Breite wie ComboBox
         controls_layout.addWidget(self.color_label)
 
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
         self.color_box.setCurrentText(current_color_name)
         self.color_box.setFixedHeight(self.BUTTON_HEIGHT)
-        self.color_box.setFixedWidth(120)
+        self.color_box.setFixedWidth(self.BUTTON_WIDTH)               # gleiche Breite wie Buttons
+        self.color_box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.color_box.currentIndexChanged.connect(self.change_colors)
         controls_layout.addWidget(self.color_box)
+
 
         # ---------------------
         # 🔹 Commit-Anzeige & Plugin-Update
@@ -1422,15 +1433,21 @@ class PatchManagerGUI(QWidget):
         commit_layout = QHBoxLayout()
 
         # 🔹 Commit-Anzahl Label
-        commit_label = QLabel(TEXTS[LANG]["commit_count_label"])
-        commit_label.setFixedHeight(self.BUTTON_HEIGHT)
-        commit_layout.addWidget(commit_label)
+        self.commit_label = QLabel(TEXTS[LANG]["commit_count_label"])
+        self.commit_label.setFixedHeight(self.BUTTON_HEIGHT)
+        commit_layout.addWidget(self.commit_label)
 
         # 🔹 Commit-Spinbox
         cfg = load_config()  # Config aus config.json laden
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
-        self.commit_spin.setValue(cfg.get("commit_count", 5))  # gespeicherter Wert oder default 5
+
+        # commit_count sauber aus cfg holen, default 5, sicherstellen, dass es int ist
+        commit_count = cfg.get("commit_count", 5)
+        if not isinstance(commit_count, int):
+            commit_count = 5
+
+        self.commit_spin.setValue(commit_count)  # gespeicherter Wert oder default 5
         self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT)
         self.commit_spin.setFixedWidth(50)
         commit_layout.addWidget(self.commit_spin)
@@ -1577,8 +1594,10 @@ class PatchManagerGUI(QWidget):
         btn.setMinimumHeight(self.BUTTON_HEIGHT)
         btn.setProperty("key", key)
         btn.setStyleSheet(
-            f"background-color:{color}; color:{fg}; border-radius:{self.BUTTON_RADIUS}px;"
-        )
+        f"background-color:{current_diff_colors['bg']}; "
+        f"color:{current_diff_colors['text']}; "
+        f"border-radius:10px;"
+    )
         btn.clicked.connect(lambda: self.on_button_clicked(key, callback))
         self.all_buttons.append(btn)
         return btn
@@ -1595,17 +1614,27 @@ class PatchManagerGUI(QWidget):
             else:
                 btn.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;")
 
+    
+    
+    # ---------- change_colors ----------
     def change_colors(self):
-        """
-        Update UI colors based on the selected theme (from color_box)
-        Applies to labels, buttons, info text, digital clock, grid buttons, and progress bar.
-        Saves the current commit count to config.
-        """
         global current_diff_colors, current_color_name
 
+        # Sicherstellen, dass self.cfg existiert
+        if not hasattr(self, "cfg"):
+            self.cfg = load_config()
+
         # Aktuelle Farbe aus ComboBox laden
-        current_color_name = self.color_box.currentText()
-        current_diff_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
+        current_color_name = self.color_box.currentText() if hasattr(self, "color_box") else self.cfg.get("color", "Classic")
+        base_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
+
+        # Hover / Active Farben ableiten
+        bg = base_colors["bg"]
+        current_diff_colors = {
+            **base_colors,
+            "hover": self.adjust_color(bg, 1.15),
+            "active": self.adjust_color(bg, 0.85),
+        }
 
         # ---------- Labels & ComboBoxes ----------
         for w in [
@@ -1616,20 +1645,13 @@ class PatchManagerGUI(QWidget):
         ]:
             if w:
                 w.setStyleSheet(
-                f"background-color:{current_diff_colors['bg']}; "
-                f"color:{current_diff_colors['text']};"
+                    f"background-color:{current_diff_colors['bg']}; "
+                    f"color:{current_diff_colors['text']};"
                 )
 
-        # ---------- Patch Header Button ----------
-        if hasattr(self, "edit_header_button"):
-            self.edit_header_button.setStyleSheet(
-                f"background-color:{current_diff_colors['bg']}; "
-                f"color:{current_diff_colors['text']}; "
-                f"border-radius:10px;"
-            )
-
-        # ---------- Option Buttons ----------
+        # ---------- Patch Header & Option Buttons ----------
         for btn in [
+            getattr(self, "edit_header_button", None),
             getattr(self, "commits_button", None),
             getattr(self, "clean_emu_button", None),
             getattr(self, "patch_emu_git_button", None),
@@ -1668,27 +1690,54 @@ class PatchManagerGUI(QWidget):
                 f"border-radius:10px;"
             )
 
-        # ---------- Active Button ----------
-        if hasattr(self, "set_active_button"):
-            self.set_active_button(getattr(self, "active_button_key", ""))
+        # ---------- Commit Label & SpinBox ----------
+        if hasattr(self, "commit_label"):
+            self.commit_label.setStyleSheet(
+                f"background-color:{current_diff_colors['bg']}; "
+                f"color:{current_diff_colors['text']}; "
+                f"padding:4px;"
+            )
+        if hasattr(self, "commit_spin"):
+            self.commit_spin.setStyleSheet(
+                f"""
+                QSpinBox {{
+                    background-color:{current_diff_colors['bg']};
+                    color:{current_diff_colors['text']};
+                    border:1px solid {current_diff_colors['text']};
+                    border-radius:6px;
+                }}
+                QSpinBox::up-button, QSpinBox::down-button {{
+                    background-color:{current_diff_colors['bg']};
+                }}
+                """
+            )
 
         # ---------- Progress Bar ----------
         if hasattr(self, "progress"):
             self.progress.setStyleSheet(
                 f"QProgressBar::chunk {{background-color:{current_diff_colors['bg']};}}"
-            ) 
+            )
 
         # ---------- Repaint UI ----------
         self.repaint()
         QApplication.processEvents()
 
-        # ---------- Commit Count speichern ----------
-        save_config(self.commit_spin.value())
+        # ---------- Config speichern ----------
+        self.cfg["commit_count"] = self.commit_spin.value() if hasattr(self, "commit_spin") else self.cfg.get("commit_count", 5)
+        self.cfg["color"] = current_color_name
+        self.cfg["language"] = self.language_box.currentText() if hasattr(self, "language_box") else self.cfg.get("language", "DE")
+        self.cfg["s3_patch_path"] = getattr(self, "s3_patch_path", self.cfg.get("s3_patch_path", ""))
+        save_config(self.cfg)
+
+
+
+
 
     def change_language(self):
         """
         Called when the language dropdown changes.
-        Updates the global LANG variable and refreshes all text labels.
+        Updates the global LANG variable, refreshes all text labels,
+        and saves the choice in config.json.
         """
         global LANG
         selected = self.language_box.currentText()
@@ -1709,6 +1758,13 @@ class PatchManagerGUI(QWidget):
 
         # Optional: update any other dynamic texts
         append_info(self.info_text, f"Language changed to {selected}", "info")
+
+        # ---------- Config speichern ----------
+        if not hasattr(self, "cfg"):
+            self.cfg = load_config()
+        self.cfg["language"] = selected
+        save_config(self.cfg)
+
 
     # =====================
     # GITHUB EMU CREDENTIALS
