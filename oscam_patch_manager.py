@@ -32,7 +32,7 @@ from PyQt6.QtCore import QTimer, QDateTime, Qt
 
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.4.7"
+APP_VERSION = "1.4.8"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -967,7 +967,10 @@ class PatchManagerGUI(QWidget):
     def __init__(self):
         super().__init__()
         self.active_button_key = ""
+        self.latest_version = None
         self.init_ui()
+        self.fetch_latest_version()  # GitHub-Version abrufen
+        self.update_plugin_button_state()  # Button prüfe
         # 🔹 automatische Update-Prüfung 1 Sekunde nach Start
         QTimer.singleShot(1000, self.check_for_updates_on_start)
     # ---------------------
@@ -1048,36 +1051,30 @@ class PatchManagerGUI(QWidget):
         # ---------------------
         # PLUGIN UPDATE
         # ---------------------
-    def plugin_update_action(self, latest_version=None, info_widget=None, progress_callback=None):
+    def plugin_update_action(self, info_widget=None, progress_callback=None):
         info = info_widget if info_widget else self.info_text
 
-        # 🔹 Version prüfen
-        if latest_version is not None and latest_version == APP_VERSION:
-            GithubConfigDialog.append_info(info, f"Plugin ist bereits auf der neuesten Version (v{APP_VERSION})", "info")
+        if self.latest_version == APP_VERSION:
+            append_info(info, f"Plugin ist bereits auf der neuesten Version (v{APP_VERSION})", "info")
+            self.update_plugin_button_state()  # sicherstellen, dass Button deaktiviert ist
             if progress_callback:
                 progress_callback(100)
             return
 
-        GithubConfigDialog.append_info(info, TEXTS[LANG]["update_started"], "info")
-    
-        # Ordner, von dem das Plugin gestartet wird
-        plugin_dir = os.path.dirname(os.path.abspath(__file__))
+        append_info(info, TEXTS[LANG]["update_started"], "info")
 
-        # Backup-Ordner erstellen
+        # Backup & Download wie gehabt ...
+        plugin_dir = os.path.dirname(os.path.abspath(__file__))
         backup_dir = os.path.join(plugin_dir, "backup_old")
         os.makedirs(backup_dir, exist_ok=True)
 
-        # Alte Dateien sichern
         for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
             src = os.path.join(plugin_dir, fname)
             if os.path.exists(src):
                 shutil.copy(src, os.path.join(backup_dir, fname))
-                GithubConfigDialog.append_info(info, f"Backup erstellt: {fname}", "success")
+                append_info(info, f"Backup erstellt: {fname}", "success")
 
-        # Neue Plugin-Datei herunterladen
         try:
-            import requests
-
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
@@ -1086,33 +1083,49 @@ class PatchManagerGUI(QWidget):
             with open(plugin_file, "w", encoding="utf-8") as f:
                 f.write(resp.text)
 
-            GithubConfigDialog.append_info(
-                info,
-                TEXTS[LANG]["update_success"] + (f" (v{latest_version})" if latest_version else ""),
-                "success"
-            )
+            append_info(info, TEXTS[LANG]["update_success"] + f" (v{self.latest_version})", "success")
 
-            # 🔹 NEU: Neustart-Abfrage
+            self.update_plugin_button_state()  # nach Update prüfen
+
             reply = QMessageBox.question(
                 self,
                 TEXTS[LANG]["restart_required_title"],
                 TEXTS[LANG]["restart_required_msg"],
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
-
             if reply == QMessageBox.StandardButton.Yes:
                 self.restart_application()
 
         except Exception as e:
-            GithubConfigDialog.append_info(
-                info,
-                TEXTS[LANG]["update_fail"].format(error=str(e)),
-                "error"
-            )
+            append_info(info, TEXTS[LANG]["update_fail"].format(error=str(e)), "error")
 
         if progress_callback:
             progress_callback(100)
 
+    def fetch_latest_version(self):
+        """Ruft die Version aus VERSION.txt auf GitHub ab und speichert sie in self.latest_version."""
+        import requests, time
+
+        try:
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+            resp = requests.get(url, params={"t": time.time()}, timeout=10)  # Cache vermeiden
+            resp.raise_for_status()
+            self.latest_version = resp.text.strip()
+            append_info(self.info_text, f"Verfügbare GitHub-Version: v{self.latest_version}", "info")
+        except Exception as e:
+            append_info(self.info_text, f"⚠️ Fehler beim Abrufen der GitHub-Version: {e}", "warning")
+            self.latest_version = APP_VERSION  # fallback
+    
+    def update_plugin_button_state(self):
+        """Deaktiviert den Update-Button, wenn die aktuelle Version aktuell ist."""
+        if hasattr(self, "plugin_update_button") and self.latest_version is not None:
+            if self.latest_version == APP_VERSION:
+                self.plugin_update_button.setEnabled(False)
+                self.plugin_update_button.setText(f"{TEXTS[LANG]['plugin_update']} ✅")
+            else:
+                self.plugin_update_button.setEnabled(True)
+                self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
+    
     def plugin_update_button_clicked(self, checked=False, progress_callback=None):
         """
         Prüft die GitHub-Version und zeigt einen Hinweisdialog.
