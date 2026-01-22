@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtCore import QDateTime
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.3.8"
+APP_VERSION = "1.4.0"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -365,23 +365,27 @@ def ensure_dir(path):
         os.makedirs(path)
 
 
-def save_config(self, commit_count_value=None):
+def save_config(commit_count=None):
     cfg = {}
+
     if os.path.exists(CONFIG_FILE):
         try:
-            cfg = json.load(open(CONFIG_FILE, "r"))
-        except:
+            with open(CONFIG_FILE, "r") as f:
+                cfg = json.load(f)
+        except Exception:
             cfg = {}
 
-    cfg["language"] = LANG
-    cfg["color"] = current_color_name
-    cfg["commit_count"] = commit_count_value if commit_count_value else commit_count
-    cfg["old_patch_dir"] = getattr(self, "old_patch_dir", "/opt/s3_neu/support/patches")  # Fallback
+    if commit_count is not None:
+        cfg["commit_count"] = commit_count
 
-    try:
-        json.dump(cfg, open(CONFIG_FILE, "w"), indent=2)
-    except:
-        pass
+    if "OLD_" in globals():
+        cfg["old_patch_dir"] = OLD_
+
+    cfg["color"] = current_color_name
+
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
+
 
 # ===================== CONFIG =====================
 def load_config():
@@ -999,19 +1003,21 @@ class PatchManagerGUI(QWidget):
         buttons.rejected.connect(editor.reject)
         editor.exec()
 
-    # ---------------------
-    # PLUGIN UPDATE
-    # ---------------------
-    def plugin_update_action(self, latest_version=None):
-        """
-        Führt das Plugin-Update durch:
-        - Backup der alten Dateien (.py, config, github config, patch)
-        - Download der neuen oscam_patch_manager.py
-        - Info- und Erfolgsmeldung
-        - Optional Neustart des Tools
-        """
-        GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_started"], "info")
+        # ---------------------
+        # PLUGIN UPDATE
+        # ---------------------
+    def plugin_update_action(self, latest_version=None, info_widget=None, progress_callback=None):
+        info = info_widget if info_widget else self.info_text
 
+        # 🔹 Version prüfen
+        if latest_version is not None and latest_version == APP_VERSION:
+            GithubConfigDialog.append_info(info, f"Plugin ist bereits auf der neuesten Version (v{APP_VERSION})", "info")
+            if progress_callback:
+                progress_callback(100)
+            return
+
+        GithubConfigDialog.append_info(info, TEXTS[LANG]["update_started"], "info")
+    
         # Ordner, von dem das Plugin gestartet wird
         plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -1024,9 +1030,7 @@ class PatchManagerGUI(QWidget):
             src = os.path.join(plugin_dir, fname)
             if os.path.exists(src):
                 shutil.copy(src, os.path.join(backup_dir, fname))
-                GithubConfigDialog.append_info(
-                    self.info_text, f"Backup erstellt: {fname}", "success"
-                )
+                GithubConfigDialog.append_info(info, f"Backup erstellt: {fname}", "success")
 
         # Neue Plugin-Datei herunterladen
         try:
@@ -1041,7 +1045,7 @@ class PatchManagerGUI(QWidget):
                 f.write(resp.text)
 
             GithubConfigDialog.append_info(
-                self.info_text,
+                info,
                 TEXTS[LANG]["update_success"] + (f" (v{latest_version})" if latest_version else ""),
                 "success"
             )
@@ -1059,10 +1063,63 @@ class PatchManagerGUI(QWidget):
 
         except Exception as e:
             GithubConfigDialog.append_info(
+                info,
+                TEXTS[LANG]["update_fail"].format(error=str(e)),
+                "error"
+            )
+
+        if progress_callback:
+            progress_callback(100)
+
+    def plugin_update_button_clicked(self, info_widget=None, progress_callback=None):
+        """
+        Prüft die GitHub-Version und zeigt einen Hinweisdialog:
+        - Update verfügbar → nach Bestätigung downloaden
+        - Bereits aktuell → Meldung
+        """
+        GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_check_start"], "info")
+
+        try:
+            import requests
+
+            # URL zur version.txt im GitHub
+            version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+            resp = requests.get(version_url, timeout=10)
+            resp.raise_for_status()
+            latest_version = resp.text.strip()  # aktuelle Version auf GitHub
+
+            # Lokale Version aus APP_VERSION
+            if APP_VERSION != latest_version:
+                # Update verfügbar → Hinweisdialog
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle(TEXTS[LANG]["update_available_title"])
+                msg_box.setText(TEXTS[LANG]["update_available_msg"])
+                yes_button = msg_box.addButton(TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
+                no_button = msg_box.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
+                msg_box.exec()
+
+                if msg_box.clickedButton() == yes_button:
+                    # Update ausführen
+                    self.plugin_update_action(latest_version=latest_version)
+                else:
+                    GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
+            else:
+                # Keine neue Version
+                GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
+
+        except Exception as e:
+            GithubConfigDialog.append_info(
                 self.info_text,
                 TEXTS[LANG]["update_fail"].format(error=str(e)),
                 "error"
             )
+
+        # Optional: Fortschritt auf 100%
+        if progress_callback:
+            progress_callback(100)
+
+
+
 
     # ---------------------
     # UPDATE CHECK
@@ -1283,6 +1340,12 @@ class PatchManagerGUI(QWidget):
         self.commit_spin.setValue(commit_count)  # aus load_config()
         self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT)
         self.commit_spin.setFixedWidth(50)
+
+        # 🔹 Commit-Anzahl sofort speichern
+        self.commit_spin.valueChanged.connect(
+            lambda value: save_config(value)
+        )
+
         controls_layout.addWidget(self.commit_spin)
 
         # 🔹 Commits ansehen Button
@@ -1295,16 +1358,18 @@ class PatchManagerGUI(QWidget):
         self.commits_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.commits_button)
 
+
         # 🔹 Plugin Update Button
         self.plugin_update_button = self.create_option_button(
             key="plugin_update",
             text=TEXTS[LANG]["plugin_update"],
             color=current_diff_colors['bg'],
             fg=current_diff_colors['text'],
-            callback=self.plugin_update_action
+            callback=self.plugin_update_button_clicked  # <- neue Methode für Hinweisdialog
         )
         self.plugin_update_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.plugin_update_button)
+
 
         # 🔹 Tool Neustarten Button
         self.restart_tool_button = self.create_option_button(
@@ -1661,17 +1726,35 @@ class PatchManagerGUI(QWidget):
 
     def change_old_(self, info_widget=None, progress_callback=None):
         global OLD_, OLD_PATCH_FILE, ALT_PATCH_FILE
-        new_dir = QFileDialog.getExistingDirectory(self, TEXTS[LANG]["change_old_dir"], OLD_)
+
+        new_dir = QFileDialog.getExistingDirectory(
+            self,
+            TEXTS[LANG]["change_old_dir"],
+            OLD_
+        )
+
         if new_dir:
             OLD_ = new_dir
-            self.old_patch_dir = OLD_  # 🔹 Wichtig: für save_config()
             OLD_PATCH_FILE = os.path.join(OLD_, "oscam-emu.patch")
             ALT_PATCH_FILE = os.path.join(OLD_, "oscam-emu.altpatch")
-            append_info(self.info_text, TEXTS[LANG]["old_patch_path_changed"].format(OLD_=OLD_), "success")
+
+            save_config(self.commit_spin.value())  # 🔹 GENAU WIE FARBE
+
+            append_info(
+                self.info_text,
+                TEXTS[LANG]["old_patch_path_changed"].format(OLD_=OLD_),
+                "success"
+            )
         else:
-            append_info(self.info_text, TEXTS[LANG]["old_patch_path_cancelled"], "info")
+            append_info(
+                self.info_text,
+                TEXTS[LANG]["old_patch_path_cancelled"],
+                "info"
+            )
+
         if progress_callback:
             progress_callback(100)
+
 
     def close_with_confirm(self):
         msg = QMessageBox(self)
