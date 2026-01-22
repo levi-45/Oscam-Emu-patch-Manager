@@ -1052,53 +1052,88 @@ class PatchManagerGUI(QWidget):
         # PLUGIN UPDATE
         # ---------------------
     def plugin_update_action(self, info_widget=None, progress_callback=None):
+        """
+        Prüft die GitHub-Version, erstellt ein Backup und aktualisiert das Plugin,
+        falls eine neue Version verfügbar ist.
+        """
         info = info_widget if info_widget else self.info_text
 
-        if self.latest_version == APP_VERSION:
-            append_info(info, f"Plugin ist bereits auf der neuesten Version (v{APP_VERSION})", "info")
-            self.update_plugin_button_state()  # sicherstellen, dass Button deaktiviert ist
+        # 🔹 Versions-Check von GitHub
+        try:
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            latest_version = resp.text.strip().lstrip("v")  # führendes 'v' entfernen
+        except Exception as e:
+            GithubConfigDialog.append_info(info, f"Fehler beim Prüfen der Version: {e}", "error")
             if progress_callback:
                 progress_callback(100)
             return
 
-        append_info(info, TEXTS[LANG]["update_started"], "info")
+        current_version = APP_VERSION.lstrip("v")
 
-        # Backup & Download wie gehabt ...
+        if latest_version == current_version:
+            GithubConfigDialog.append_info(
+                info,
+                f"Plugin ist bereits auf der neuesten Version (v{APP_VERSION})",
+                "info"
+            )
+            if progress_callback:
+                progress_callback(100)
+            return
+        else:
+            GithubConfigDialog.append_info(info, f"Neue Version verfügbar: v{latest_version}", "info")
+            GithubConfigDialog.append_info(info, TEXTS[LANG]["update_started"], "info")
+
+        # 🔹 Ordner, von dem das Plugin gestartet wird
         plugin_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Backup-Ordner erstellen
         backup_dir = os.path.join(plugin_dir, "backup_old")
         os.makedirs(backup_dir, exist_ok=True)
 
+        # Alte Dateien sichern
         for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
             src = os.path.join(plugin_dir, fname)
             if os.path.exists(src):
                 shutil.copy(src, os.path.join(backup_dir, fname))
-                append_info(info, f"Backup erstellt: {fname}", "success")
+                GithubConfigDialog.append_info(info, f"Backup erstellt: {fname}", "success")
 
+        # Neue Plugin-Datei herunterladen
         try:
-            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
+            url_plugin = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            resp_plugin = requests.get(url_plugin, timeout=10)
+            resp_plugin.raise_for_status()
 
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
             with open(plugin_file, "w", encoding="utf-8") as f:
-                f.write(resp.text)
+                f.write(resp_plugin.text)
 
-            append_info(info, TEXTS[LANG]["update_success"] + f" (v{self.latest_version})", "success")
+            GithubConfigDialog.append_info(
+                info,
+                TEXTS[LANG]["update_success"] + f" (v{latest_version})",
+                "success"
+            )
 
-            self.update_plugin_button_state()  # nach Update prüfen
-
+            # 🔹 Optional: Neustart-Abfrage
             reply = QMessageBox.question(
                 self,
                 TEXTS[LANG]["restart_required_title"],
                 TEXTS[LANG]["restart_required_msg"],
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
+
             if reply == QMessageBox.StandardButton.Yes:
                 self.restart_application()
 
         except Exception as e:
-            append_info(info, TEXTS[LANG]["update_fail"].format(error=str(e)), "error")
+            GithubConfigDialog.append_info(
+                info,
+                TEXTS[LANG]["update_fail"].format(error=str(e)),
+                "error"
+            )
 
+        # 🔹 Fortschritt auf 100% setzen
         if progress_callback:
             progress_callback(100)
 
