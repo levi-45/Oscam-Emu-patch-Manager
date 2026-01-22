@@ -1062,28 +1062,11 @@ class PatchManagerGUI(QWidget):
                 self.plugin_update_button.setEnabled(True)
                 self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
     
-    def plugin_update_action(self, info_widget=None, progress_callback=None):
-        """
-        Prüft die GitHub-Version, erstellt ein Backup und aktualisiert das Plugin,
-        falls eine neue Version verfügbar ist.
-        """
+    def plugin_update_action(self, latest_version=None, info_widget=None, progress_callback=None):
         info = info_widget if info_widget else self.info_text
 
-        # 🔹 Versions-Check von GitHub
-        try:
-            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            latest_version = resp.text.strip().lstrip("v")  # führendes 'v' entfernen
-        except Exception as e:
-            GithubConfigDialog.append_info(info, f"Fehler beim Prüfen der Version: {e}", "error")
-            if progress_callback:
-                progress_callback(100)
-            return
-
-        current_version = APP_VERSION.lstrip("v")
-
-        if latest_version == current_version:
+        # 🔹 Version prüfen
+        if latest_version is not None and latest_version == APP_VERSION:
             GithubConfigDialog.append_info(
                 info,
                 f"Plugin ist bereits auf der neuesten Version (v{APP_VERSION})",
@@ -1092,11 +1075,10 @@ class PatchManagerGUI(QWidget):
             if progress_callback:
                 progress_callback(100)
             return
-        else:
-            GithubConfigDialog.append_info(info, f"Neue Version verfügbar: v{latest_version}", "info")
-            GithubConfigDialog.append_info(info, TEXTS[LANG]["update_started"], "info")
 
-        # 🔹 Ordner, von dem das Plugin gestartet wird
+        GithubConfigDialog.append_info(info, TEXTS[LANG]["update_started"], "info")
+
+        # Ordner, von dem das Plugin gestartet wird
         plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
         # Backup-Ordner erstellen
@@ -1112,21 +1094,23 @@ class PatchManagerGUI(QWidget):
 
         # Neue Plugin-Datei herunterladen
         try:
-            url_plugin = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
-            resp_plugin = requests.get(url_plugin, timeout=10)
-            resp_plugin.raise_for_status()
+            import requests
+
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
 
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
             with open(plugin_file, "w", encoding="utf-8") as f:
-                f.write(resp_plugin.text)
+                f.write(resp.text)
 
             GithubConfigDialog.append_info(
                 info,
-                TEXTS[LANG]["update_success"] + f" (v{latest_version})",
+                TEXTS[LANG]["update_success"] + (f" (v{latest_version})" if latest_version else ""),
                 "success"
             )
 
-            # 🔹 Optional: Neustart-Abfrage
+            # 🔹 Neustart-Abfrage
             reply = QMessageBox.question(
                 self,
                 TEXTS[LANG]["restart_required_title"],
@@ -1144,9 +1128,9 @@ class PatchManagerGUI(QWidget):
                 "error"
             )
 
-        # 🔹 Fortschritt auf 100% setzen
         if progress_callback:
             progress_callback(100)
+
 
     def fetch_latest_version(self):
         """Ruft die Version aus VERSION.txt auf GitHub ab und speichert sie in self.latest_version."""
