@@ -1051,6 +1051,17 @@ class PatchManagerGUI(QWidget):
         # ---------------------
         # PLUGIN UPDATE
         # ---------------------
+    
+    def update_plugin_button_state(self):
+        """Deaktiviert den Update-Button, wenn die aktuelle Version aktuell ist."""
+        if hasattr(self, "plugin_update_button") and getattr(self, "latest_version", None) is not None:
+            if self.latest_version == APP_VERSION:
+                self.plugin_update_button.setEnabled(False)
+                self.plugin_update_button.setText(f"{TEXTS[LANG]['plugin_update']} ✅")
+            else:
+                self.plugin_update_button.setEnabled(True)
+                self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
+    
     def plugin_update_action(self, info_widget=None, progress_callback=None):
         """
         Prüft die GitHub-Version, erstellt ein Backup und aktualisiert das Plugin,
@@ -1151,15 +1162,29 @@ class PatchManagerGUI(QWidget):
             append_info(self.info_text, f"⚠️ Fehler beim Abrufen der GitHub-Version: {e}", "warning")
             self.latest_version = APP_VERSION  # fallback
     
-    def update_plugin_button_state(self):
-        """Deaktiviert den Update-Button, wenn die aktuelle Version aktuell ist."""
-        if hasattr(self, "plugin_update_button") and self.latest_version is not None:
-            if self.latest_version == APP_VERSION:
-                self.plugin_update_button.setEnabled(False)
-                self.plugin_update_button.setText(f"{TEXTS[LANG]['plugin_update']} ✅")
-            else:
-                self.plugin_update_button.setEnabled(True)
-                self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
+    def fetch_latest_github_version(self):
+        """
+        Holt die neueste Version von GitHub (version.txt) und aktualisiert self.latest_version.
+        """
+        try:
+            import requests
+
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            version = resp.text.strip().lstrip("v")  # "v1.4.7" → "1.4.7"
+            self.latest_version = version
+
+            # Button-Zustand aktualisieren
+            self.update_plugin_button_state()
+            return version
+
+        except Exception as e:
+            append_info(self.info_text, f"Fehler beim Abrufen der GitHub-Version: {e}", "error")
+            self.latest_version = None
+            self.update_plugin_button_state()
+            return None
+
     
     def plugin_update_button_clicked(self, checked=False, progress_callback=None):
         """
