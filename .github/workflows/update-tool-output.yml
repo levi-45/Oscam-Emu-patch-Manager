@@ -68,11 +68,9 @@ jobs:
           sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" oscam_patch_manager.py
           echo "🔢 Neue Version: $NEW_VERSION"
 
-      # 5️⃣ CHANGELOG erstellen
+      # 5️⃣ CHANGELOG erstellen (robust gegen Tool-Fehler)
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         run: |
-          set -e  # Schritt bricht nur bei echten Fehlern ab
-
           DATE=$(date +'%d.%m.%Y %H:%M')
           echo "# Änderungen für oscam_patch_manager.py" > CHANGELOG.md
           echo "" >> CHANGELOG.md
@@ -84,7 +82,7 @@ jobs:
           echo "## 🔧 Neue Verbesserungen am Script" >> CHANGELOG.md
           echo ""
 
-          # Nur echte Commits nach Typ filtern (Fix/Add/Improve/Refactor/Docs)
+          # Nur echte Commits nach Typ filtern
           COMMITS=$(git log \
             --pretty=format:"* %s (%h)" \
             --invert-grep --grep="Auto-Update" \
@@ -104,7 +102,7 @@ jobs:
           echo "## 📊 Aktueller Tool-Status" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo '```text' >> CHANGELOG.md
-          python3 oscam_patch_manager.py >> CHANGELOG.md || echo "⚠️ Tool-Ausführung fehlgeschlagen"
+          python3 oscam_patch_manager.py >> CHANGELOG.md 2>&1 || echo "⚠️ Tool-Ausführung fehlgeschlagen"
           echo '```' >> CHANGELOG.md
           echo "" >> CHANGELOG.md
 
