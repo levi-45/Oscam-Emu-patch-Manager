@@ -30,7 +30,9 @@ jobs:
       - name: Commit-Nachricht prüfen
         shell: bash
         run: |
-          set +e  # Step nicht abbrechen, falls kein Commit existiert
+          set +e
+          trap 'echo "⚠️ Fehler ignoriert, Step läuft weiter" ; true' ERR
+
           MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
           AUTHOR=$(git log -1 --pretty=%an 2>/dev/null || echo "")
           FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
@@ -51,11 +53,13 @@ jobs:
             echo "Keine Prüfung nötig (entweder keine Tool-Änderung oder Commit von GitHub Actions)"
           fi
 
-      # 4️⃣ Version automatisch erhöhen (robust für manuelle Runs)
+      # 4️⃣ Version automatisch erhöhen
       - name: Version automatisch erhöhen
         shell: bash
         run: |
-          set +e  # Fehler nicht abbrechen
+          set +e
+          trap 'echo "⚠️ Fehler ignoriert, Step läuft weiter" ; true' ERR
+
           git rev-parse HEAD >/dev/null 2>&1
           if [ $? -eq 0 ]; then
             MSG=$(git log -1 --pretty=%s)
@@ -76,48 +80,44 @@ jobs:
             echo "⚠️ Kein Commit gefunden – Version wird nicht automatisch erhöht"
           fi
 
-      # 5️⃣ CHANGELOG erstellen
+      # 5️⃣ CHANGELOG erstellen (immer, ohne Exit 1)
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         shell: bash
         run: |
-          DATE=$(date +'%d.%m.%Y %H:%M')
-          echo "# Änderungen für oscam_patch_manager.py" > CHANGELOG.md
-          echo "Letzte Aktualisierung: $DATE" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "---" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
+          set +e
+          trap 'echo "⚠️ Fehler ignoriert, Step läuft weiter" ; true' ERR
 
-          echo "## 🔧 Neue Verbesserungen am Script" >> CHANGELOG.md
-          echo ""
+          DATE=$(date +'%d.%m.%Y %H:%M') || DATE="Unbekannt"
 
-          # Nur echte Commits (Fix/Add/Improve/Refactor/Docs) aufnehmen
-          COMMITS=$(git log \
-            --pretty=format:"* %s (%h)" \
-            --invert-grep --grep="Auto-Update" \
-            -- oscam_patch_manager.py | grep -E "^(Fix|Add|Improve|Refactor|Docs):")
+          {
+            echo "# Änderungen für oscam_patch_manager.py"
+            echo "Letzte Aktualisierung: $DATE"
+            echo ""
+            echo "---"
+            echo ""
+            echo "## 🔧 Neue Verbesserungen am Script"
+            echo ""
 
-          if [ -z "$COMMITS" ]; then
-            echo "* Keine neuen Verbesserungen seit dem letzten Update" | tee -a CHANGELOG.md
-          else
-            echo "✅ Folgende Commits würden in CHANGELOG aufgenommen:"
-            echo "$COMMITS"
-            echo "$COMMITS" >> CHANGELOG.md
-          fi
+            COMMITS=$(git log --pretty=format:"* %s (%h)" --invert-grep --grep="Auto-Update" -- oscam_patch_manager.py | grep -E "^(Fix|Add|Improve|Refactor|Docs):")
+            if [ -z "$COMMITS" ]; then
+              echo "* Keine neuen Verbesserungen seit dem letzten Update"
+            else
+              echo "$COMMITS"
+            fi
 
-          echo "" >> CHANGELOG.md
-          echo "---" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-
-          echo "## 📊 Aktueller Tool-Status" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo '```text' >> CHANGELOG.md
-          python3 oscam_patch_manager.py >> CHANGELOG.md 2>&1 || echo "⚠️ Tool-Ausführung fehlgeschlagen"
-          echo '```' >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-
-          echo "---" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "ℹ️ Automatisch generiert durch GitHub Actions" >> CHANGELOG.md
+            echo ""
+            echo "---"
+            echo ""
+            echo "## 📊 Aktueller Tool-Status"
+            echo ""
+            echo '```text'
+            python3 oscam_patch_manager.py 2>&1 || echo "⚠️ Tool-Ausführung fehlgeschlagen"
+            echo '```'
+            echo ""
+            echo "---"
+            echo ""
+            echo "ℹ️ Automatisch generiert durch GitHub Actions"
+          } > CHANGELOG.md
 
       # 6️⃣ Änderungen committen
       - name: Änderungen committen
