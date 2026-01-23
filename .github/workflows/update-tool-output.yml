@@ -39,7 +39,31 @@ jobs:
             exit 1
           fi
 
-      # Schritt 2: CHANGELOG generieren
+      # 🔢 Schritt 2: Version automatisch erhöhen
+      - name: Version automatisch erhöhen
+        run: |
+          MSG=$(git log -1 --pretty=%s)
+
+          # aktuelle Version auslesen
+          VERSION=$(grep '__version__' oscam_patch_manager.py | cut -d'"' -f2)
+          IFS='.' read MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Version je nach Commit-Typ erhöhen
+          case "$MSG" in
+            Fix:*) PATCH=$((PATCH+1)) ;;
+            Improve:*|Add:*) MINOR=$((MINOR+1)); PATCH=0 ;;
+            Refactor:*) PATCH=$((PATCH+1)) ;;
+            Docs:*) exit 0 ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+
+          # Version in der Datei aktualisieren
+          sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" oscam_patch_manager.py
+
+          echo "🔢 Neue Version: $NEW_VERSION"
+
+      # Schritt 3: CHANGELOG generieren
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         run: |
           DATE=$(date +'%d.%m.%Y %H:%M')
@@ -82,9 +106,9 @@ jobs:
           echo "" >> CHANGELOG.md
           echo "ℹ️ Automatisch generiert durch GitHub Actions" >> CHANGELOG.md
 
-      # Schritt 3: Änderungen committen
+      # Schritt 4: Änderungen committen
       - name: Änderungen committen
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-Update: oscam_patch_manager Changelog"
-          file_pattern: CHANGELOG.md
+          file_pattern: CHANGELOG.md,oscam_patch_manager.py
