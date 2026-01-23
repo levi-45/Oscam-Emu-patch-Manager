@@ -26,17 +26,19 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 3️⃣ Commit-Nachricht prüfen nur für das Tool
+      # 3️⃣ Commit-Nachricht prüfen (nur echte Tool-Commits)
       - name: Commit-Nachricht prüfen
         run: |
           FILES=$(git diff --name-only HEAD~1 HEAD)
           MSG=$(git log -1 --pretty=%s)
+          AUTHOR=$(git log -1 --pretty=%an)
 
           echo "Geänderte Dateien im letzten Commit:"
           echo "$FILES"
           echo "Letzte Commit-Nachricht: $MSG"
+          echo "Autor: $AUTHOR"
 
-          if echo "$FILES" | grep -q "oscam_patch_manager.py"; then
+          if echo "$FILES" | grep -q "oscam_patch_manager.py" && [[ "$AUTHOR" != "github-actions[bot]" ]]; then
             if ! echo "$MSG" | grep -Eq "^(Fix|Add|Improve|Refactor|Docs): .+"; then
               echo "❌ Ungültige Commit-Nachricht für oscam_patch_manager.py!"
               echo "✔ Erlaubt: Fix:, Add:, Improve:, Refactor:, Docs:"
@@ -44,7 +46,7 @@ jobs:
               exit 1
             fi
           else
-            echo "Keine Änderungen an oscam_patch_manager.py – Commit-Check übersprungen"
+            echo "Keine Prüfung nötig (entweder keine Tool-Änderung oder Commit von GitHub Actions)"
           fi
 
       # 4️⃣ Version automatisch erhöhen
@@ -58,7 +60,7 @@ jobs:
             Fix:*) PATCH=$((PATCH+1)) ;;
             Improve:*|Add:*) MINOR=$((MINOR+1)); PATCH=0 ;;
             Refactor:*) PATCH=$((PATCH+1)) ;;
-            Docs:*) exit 0 ;;
+            Docs:*) echo "Docs-Commit – Version bleibt gleich" ;;
           esac
 
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
