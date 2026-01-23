@@ -1,34 +1,67 @@
 name: Update Tool Output
 
 on:
-  schedule:
-    - cron: '0 0 * * *' # Läuft täglich um 00:00 Uhr (UTC)
   push:
-    branches:
-      - main # Läuft auch, wenn du manuell änderst
-  workflow_dispatch: # Erlaubt das manuelle Starten über den Actions-Tab
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *' # täglich um 00:00 UTC
+  workflow_dispatch:
 
 jobs:
   update-file:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # WICHTIG: Erlaubt der Action, in das Repo zu schreiben
+      contents: write
+
     steps:
-      - name: Checkout Code
+      - name: Repository auschecken
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Tool/Environment
-        run: oscam_patch_manager.py
-          # Installiere hier Abhängigkeiten, falls nötig (z.B. Python, Node.js)
-          # sudo apt-get install ...
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Run Tool and Generate Output
+      - name: CHANGELOG für oscam_patch_manager.py erzeugen
         run: |
-          # Führe dein Tool aus und leite die Ausgabe in eine Datei um
-          python3 mein_tool.py > CHANGELOG.md
+          DATE=$(date +'%d.%m.%Y %H:%M')
 
-      - name: Commit and Push Changes
+          echo "# Änderungen für oscam_patch_manager.py" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "Letzte Aktualisierung: ${DATE}" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          echo "## 🔧 Letzte Code-Fixes & Verbesserungen" >> CHANGELOG.md
+
+          if git log -1 -- oscam_patch_manager.py >/dev/null 2>&1; then
+            git log -n 5 --pretty=format:"* %s (%h)" -- oscam_patch_manager.py >> CHANGELOG.md
+          else
+            echo "* Noch keine Änderungen an dieser Datei dokumentiert" >> CHANGELOG.md
+          fi
+
+          echo "" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          echo "## 📊 Aktueller Tool-Status" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo '```text' >> CHANGELOG.md
+          python3 oscam_patch_manager.py >> CHANGELOG.md || echo "Tool-Ausführung fehlgeschlagen"
+          echo '```' >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "ℹ️ Automatisch generiert durch GitHub Actions" >> CHANGELOG.md
+
+      - name: Änderungen committen
         uses: stefanzweifel/git-auto-commit-action@v5
-        with: 'changelog.txt'
-          commit_message: "Automatisches Update: Tool Output"
-          file_pattern: CHANGELOG.md # Datei, die aktualisiert werden soll
+        with:
+          commit_message: "Auto-Update: oscam_patch_manager Status & Changelog"
+          file_pattern: CHANGELOG.md
+
