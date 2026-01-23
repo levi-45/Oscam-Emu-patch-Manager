@@ -1364,13 +1364,20 @@ class PatchManagerGUI(QWidget):
 
         try:
             import requests
+
+            # Version von GitHub abrufen
             version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
-            latest_version = resp.text.strip()
+            latest_version = resp.text.strip()  # Zeilenumbruch entfernen
 
-            # 🔹 Vergleich ohne führendes 'v'
-            if APP_VERSION.lstrip("v") != latest_version:
+            # APP_VERSION bereinigen (v entfernen, Whitespaces trimmen)
+            current_version = APP_VERSION.lstrip("v").strip()
+            latest_version = latest_version.lstrip("v").strip()
+
+            # Versionsvergleich
+            if current_version != latest_version:
+                # Update verfügbar
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle(TEXTS[LANG]["update_available_title"])
                 msg_box.setText(TEXTS[LANG]["update_available_msg"])
@@ -1381,6 +1388,7 @@ class PatchManagerGUI(QWidget):
                 if msg_box.clickedButton() == yes_button:
                     self.plugin_update_action(latest_version=latest_version)
 
+                    # Neustart-Abfrage
                     reply = QMessageBox.question(
                         self,
                         TEXTS[LANG]["restart_required_title"],
@@ -1398,7 +1406,7 @@ class PatchManagerGUI(QWidget):
             else:
                 GithubConfigDialog.append_info(
                     self.info_text,
-                    f"🎉 Sie haben die aktuelle Version installiert (v{latest_version})",
+                    f"✅ 🎉 Sie haben die aktuelle Version installiert (v{current_version})",
                     "success"
                 )
 
@@ -1411,6 +1419,7 @@ class PatchManagerGUI(QWidget):
 
         if progress_callback:
             progress_callback(100)
+
  
 
 
@@ -1430,10 +1439,12 @@ class PatchManagerGUI(QWidget):
             version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
-            latest_version = resp.text.strip()  # aktuelle Version auf GitHub
+            latest_version = resp.text.strip().lstrip("v")  # führendes 'v' entfernen
 
-            # Lokale Version aus APP_VERSION
-            if APP_VERSION != latest_version:
+            # Lokale Version bereinigen
+            current_version = APP_VERSION.strip().lstrip("v")
+
+            if current_version != latest_version:
                 # Update verfügbar
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle(TEXTS[LANG]["update_available_title"])
@@ -1445,10 +1456,18 @@ class PatchManagerGUI(QWidget):
                 if msg_box.clickedButton() == yes_button:
                     self.plugin_update_action(latest_version=latest_version)
                 else:
-                    GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
+                    GithubConfigDialog.append_info(
+                        self.info_text,
+                        TEXTS[LANG]["update_not_available"],
+                        "info"
+                    )
             else:
                 # keine neue Version
-                GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
+                GithubConfigDialog.append_info(
+                    self.info_text,
+                    f"✅ 🎉 Sie haben die aktuelle Version installiert (v{current_version})",
+                    "success"
+                )
 
         except Exception as e:
             GithubConfigDialog.append_info(
@@ -1456,6 +1475,7 @@ class PatchManagerGUI(QWidget):
                 TEXTS[LANG]["update_fail"].format(error=str(e)),
                 "error"
             )
+
 
     # ---------------------
     # TOOLS CHECK
