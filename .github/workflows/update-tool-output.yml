@@ -2,7 +2,7 @@ name: Update Tool Output
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   schedule:
     - cron: '0 0 * * *' # täglich um 00:00 UTC
   workflow_dispatch:
