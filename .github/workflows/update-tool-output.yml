@@ -35,15 +35,22 @@ jobs:
           echo "---" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
 
-          echo "## 🔧 Letzte Code-Fixes & Verbesserungen" >> CHANGELOG.md
+          echo "## 🔧 Neue Verbesserungen am Script" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
 
-          if git log -1 -- oscam_patch_manager.py >/dev/null 2>&1; then
-            git log -n 5 --pretty=format:"* %s (%h)" -- oscam_patch_manager.py >> CHANGELOG.md
+          # Nur echte Commits anzeigen (keine Auto-Updates)
+          COMMITS=$(git log \
+            --pretty=format:"* %s (%h)" \
+            --invert-grep \
+            --grep="Auto-Update" \
+            -- oscam_patch_manager.py)
+
+          if [ -z "$COMMITS" ]; then
+            echo "* Keine neuen Verbesserungen seit dem letzten Update" >> CHANGELOG.md
           else
-            echo "* Noch keine Änderungen an dieser Datei dokumentiert" >> CHANGELOG.md
+            echo "$COMMITS" >> CHANGELOG.md
           fi
 
-          echo "" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "---" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
@@ -62,6 +69,5 @@ jobs:
       - name: Änderungen committen
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Auto-Update: oscam_patch_manager Status & Changelog"
+          commit_message: "Auto-Update: oscam_patch_manager Changelog"
           file_pattern: CHANGELOG.md
-
