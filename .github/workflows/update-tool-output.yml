@@ -24,6 +24,22 @@ jobs:
         with:
           python-version: '3.11'
 
+      # 🔒 Schritt 1: Commit-Regeln prüfen
+      - name: Commit-Nachricht prüfen
+        run: |
+          MSG=$(git log -1 --pretty=%s)
+
+          echo "Letzte Commit-Nachricht:"
+          echo "$MSG"
+
+          if ! echo "$MSG" | grep -Eq "^(Fix|Add|Improve|Refactor|Docs): .+"; then
+            echo "❌ Ungültige Commit-Nachricht!"
+            echo "✔ Erlaubt: Fix:, Add:, Improve:, Refactor:, Docs:"
+            echo "👉 Beispiel: Fix: falsche Patch-Erkennung bei OSCam r11734"
+            exit 1
+          fi
+
+      # Schritt 2: CHANGELOG generieren
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         run: |
           DATE=$(date +'%d.%m.%Y %H:%M')
@@ -66,6 +82,7 @@ jobs:
           echo "" >> CHANGELOG.md
           echo "ℹ️ Automatisch generiert durch GitHub Actions" >> CHANGELOG.md
 
+      # Schritt 3: Änderungen committen
       - name: Änderungen committen
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
