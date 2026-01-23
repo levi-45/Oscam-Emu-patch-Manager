@@ -38,6 +38,7 @@ jobs:
           echo "Letzte Commit-Nachricht: $MSG"
           echo "Autor: $AUTHOR"
 
+          # Nur menschliche Änderungen an oscam_patch_manager.py prüfen
           if echo "$FILES" | grep -q "oscam_patch_manager.py" && [[ "$AUTHOR" != "github-actions[bot]" ]]; then
             if ! echo "$MSG" | grep -Eq "^(Fix|Add|Improve|Refactor|Docs): .+"; then
               echo "❌ Ungültige Commit-Nachricht für oscam_patch_manager.py!"
@@ -54,7 +55,7 @@ jobs:
         run: |
           MSG=$(git log -1 --pretty=%s)
           VERSION=$(grep '__version__' oscam_patch_manager.py | cut -d'"' -f2)
-          IFS='.' read MAJOR MINOR PATCH <<< "$VERSION"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
 
           case "$MSG" in
             Fix:*) PATCH=$((PATCH+1)) ;;
@@ -67,14 +68,15 @@ jobs:
           sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" oscam_patch_manager.py
           echo "🔢 Neue Version: $NEW_VERSION"
 
-      # 5️⃣ CHANGELOG erstellen (nur typisierte Commits)
+      # 5️⃣ CHANGELOG erstellen
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         run: |
-          DATE=$(date +'%d.%m.%Y %H:%M')
+          set -e  # Schritt bricht nur bei echten Fehlern ab
 
+          DATE=$(date +'%d.%m.%Y %H:%M')
           echo "# Änderungen für oscam_patch_manager.py" > CHANGELOG.md
           echo "" >> CHANGELOG.md
-          echo "Letzte Aktualisierung: ${DATE}" >> CHANGELOG.md
+          echo "Letzte Aktualisierung: $DATE" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "---" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
@@ -82,7 +84,7 @@ jobs:
           echo "## 🔧 Neue Verbesserungen am Script" >> CHANGELOG.md
           echo ""
 
-          # Nur echte Commits nach Typ filtern
+          # Nur echte Commits nach Typ filtern (Fix/Add/Improve/Refactor/Docs)
           COMMITS=$(git log \
             --pretty=format:"* %s (%h)" \
             --invert-grep --grep="Auto-Update" \
@@ -98,10 +100,11 @@ jobs:
           echo "---" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
 
+          # Tool-Status anhängen, Fehler ignorieren
           echo "## 📊 Aktueller Tool-Status" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo '```text' >> CHANGELOG.md
-          python3 oscam_patch_manager.py >> CHANGELOG.md || echo "Tool-Ausführung fehlgeschlagen"
+          python3 oscam_patch_manager.py >> CHANGELOG.md || echo "⚠️ Tool-Ausführung fehlgeschlagen"
           echo '```' >> CHANGELOG.md
           echo "" >> CHANGELOG.md
 
