@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
   schedule:
-    - cron: '0 0 * * *' # täglich um 00:00 UTC
+    - cron: '0 0 * * *' # täglich 00:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -14,21 +14,22 @@ jobs:
       contents: write
 
     steps:
+      # 1️⃣ Repository auschecken
       - name: Repository auschecken
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # 2️⃣ Python einrichten
       - name: Python einrichten
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 🔒 Schritt 1: Commit-Regeln prüfen
+      # 3️⃣ Commit-Nachricht prüfen
       - name: Commit-Nachricht prüfen
         run: |
           MSG=$(git log -1 --pretty=%s)
-
           echo "Letzte Commit-Nachricht:"
           echo "$MSG"
 
@@ -39,16 +40,13 @@ jobs:
             exit 1
           fi
 
-      # 🔢 Schritt 2: Version automatisch erhöhen
+      # 4️⃣ Version automatisch erhöhen
       - name: Version automatisch erhöhen
         run: |
           MSG=$(git log -1 --pretty=%s)
-
-          # aktuelle Version auslesen
           VERSION=$(grep '__version__' oscam_patch_manager.py | cut -d'"' -f2)
           IFS='.' read MAJOR MINOR PATCH <<< "$VERSION"
 
-          # Version je nach Commit-Typ erhöhen
           case "$MSG" in
             Fix:*) PATCH=$((PATCH+1)) ;;
             Improve:*|Add:*) MINOR=$((MINOR+1)); PATCH=0 ;;
@@ -57,13 +55,10 @@ jobs:
           esac
 
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-
-          # Version in der Datei aktualisieren
           sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" oscam_patch_manager.py
-
           echo "🔢 Neue Version: $NEW_VERSION"
 
-      # Schritt 3: CHANGELOG generieren
+      # 5️⃣ CHANGELOG erstellen
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         run: |
           DATE=$(date +'%d.%m.%Y %H:%M')
@@ -76,9 +71,8 @@ jobs:
           echo "" >> CHANGELOG.md
 
           echo "## 🔧 Neue Verbesserungen am Script" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
+          echo ""
 
-          # Nur echte Commits anzeigen (keine Auto-Updates)
           COMMITS=$(git log \
             --pretty=format:"* %s (%h)" \
             --invert-grep \
@@ -106,9 +100,9 @@ jobs:
           echo "" >> CHANGELOG.md
           echo "ℹ️ Automatisch generiert durch GitHub Actions" >> CHANGELOG.md
 
-      # Schritt 4: Änderungen committen
+      # 6️⃣ Änderungen committen (Version + CHANGELOG)
       - name: Änderungen committen
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Auto-Update: oscam_patch_manager Changelog"
+          commit_message: "Auto-Update: oscam_patch_manager Version & Changelog"
           file_pattern: CHANGELOG.md,oscam_patch_manager.py
