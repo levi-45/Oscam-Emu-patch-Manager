@@ -1,0 +1,34 @@
+name: Update Tool Output
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Läuft täglich um 00:00 Uhr (UTC)
+  push:
+    branches:
+      - main # Läuft auch, wenn du manuell änderst
+  workflow_dispatch: # Erlaubt das manuelle Starten über den Actions-Tab
+
+jobs:
+  update-file:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # WICHTIG: Erlaubt der Action, in das Repo zu schreiben
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Tool/Environment
+        run: |
+          # Installiere hier Abhängigkeiten, falls nötig (z.B. Python, Node.js)
+          # sudo apt-get install ...
+
+      - name: Run Tool and Generate Output
+        run: |
+          # Führe dein Tool aus und leite die Ausgabe in eine Datei um
+          python3 mein_tool.py > CHANGELOG.md
+
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Automatisches Update: Tool Output"
+          file_pattern: CHANGELOG.md # Datei, die aktualisiert werden soll
