@@ -1,0 +1,16 @@
+# Commit-Typ wählen (Pflicht):
+# Fix:      Bugfix
+# Add:      Neues Feature
+# Improve:  Verbesserung
+# Refactor: Code-Aufräumen
+# Docs:     Dokumentation
+
+# Beispiel:
+# Fix: falsche Patch-Erkennung bei OSCam r11734
+
+<type>: <kurze Beschreibung>
+
+# Optional:
+# - Was wurde geändert?
+# - Warum?
+# - Auswirkungen?
