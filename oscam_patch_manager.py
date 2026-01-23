@@ -30,9 +30,12 @@ from PyQt6.QtCore import *
 from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtCore import QTimer, QDateTime, Qt
 
+now = QDateTime.currentDateTime()
+time_str = now.toString("HH:mm:ss")
+date_str = now.toString("dd.MM.yyyy")
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.5.1"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -413,7 +416,6 @@ TEXTS = {
     }
 }
 
-
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
     if not os.path.exists(path):
@@ -440,9 +442,6 @@ def save_config(cfg=None):
     except Exception as e:
         append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
 
-
-
-
 # ===================== CONFIG =====================
 def load_config():
     cfg = {}
@@ -457,8 +456,6 @@ def load_config():
             append_info(None, f"⚠️ Config konnte nicht gelesen werden: {e}", "warning")
             cfg = {"commit_count": 5, "color": "Classic", "language": "DE", "s3_patch_path": ""}
     return cfg
-
-
 
 # ===================== INFOSCREEN =====================
 def append_info(info_widget, text, status="info"):
@@ -636,7 +633,7 @@ def clean_patch_folder(info_widget=None, progress_callback=None):
     append_info(info_widget, TEXTS[LANG]["cleaning_patch_folder"], "warning")
 
     # Nur diese Ordner/Dateien im Plugin-Ordner löschen
-    targets = ["temp_repo", "oscam-emu-git", "oscam-emu.zip"]
+    targets = ["temp_repo", "oscam-emu-git", "oscam-emu.zip", "oscam-emu.patch"]
 
     for f in targets:
         path = os.path.join(PLUGIN_DIR, f)
@@ -899,9 +896,6 @@ def github_upload_oscam_emu_folder(info_widget=None, progress_callback=None):
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
-# =====================
-# GITHUB CONFIG DIALOG
-# =====================
 class GithubConfigDialog(QDialog):
     """Dialog for entering GitHub credentials"""
     def __init__(self):
@@ -1025,6 +1019,32 @@ class PatchManagerGUI(QWidget):
         b = max(0, min(255, int(b * factor)))
         return f"#{r:02X}{g:02X}{b:02X}"
     
+    def restart_application_with_info(self, checked=False, progress_callback=None):
+        """
+        Zeigt eine Bestätigung an, bevor das Tool neu gestartet wird.
+        checked/progress_callback werden automatisch vom Button/Lambda übergeben.
+        """
+        msg = QMessageBox(self)
+        msg.setWindowTitle(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
+        msg.setText(TEXTS[LANG].get("restart_tool_question", "Möchten Sie das Tool wirklich neu starten?"))
+    
+        yes_button = msg.addButton(TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
+        no_button = msg.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
+        msg.exec()
+
+        if msg.clickedButton() == yes_button:
+            append_info(self.info_text, "⚠️ Tool wird neu gestartet...", "info")
+            self.restart_application()
+        else:
+            append_info(self.info_text, "Neustart abgebrochen.", "info")
+
+        # Falls progress_callback übergeben wird
+        if progress_callback:
+            progress_callback(100)
+   
+
+
+
     def restart_application(self, *args, **kwargs):
         """
         Startet das Tool neu aus dem gleichen Ordner.
@@ -1107,9 +1127,6 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "info_text"):
             self.info_text.repaint()
 
-
-    
-    
     def repaint_ui_colors(self):
         # Labels, ComboBoxes, Buttons, ProgressBar etc.
         for w in [getattr(self, "lang_label", None),
@@ -1157,28 +1174,20 @@ class PatchManagerGUI(QWidget):
         QApplication.processEvents()
 
 
-    def restart_application_with_info(self, checked=False, progress_callback=None):
-        """
-        Zeigt eine Bestätigung an, bevor das Tool neu gestartet wird.
-        checked/progress_callback werden automatisch vom Button/Lambda übergeben.
-        """
-        msg = QMessageBox(self)
-        msg.setWindowTitle(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
-        msg.setText(TEXTS[LANG].get("restart_tool_question", "Möchten Sie das Tool wirklich neu starten?"))
-    
-        yes_button = msg.addButton(TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
-        no_button = msg.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
-        msg.exec()
-
+    def on_dialog_finished():
         if msg.clickedButton() == yes_button:
             append_info(self.info_text, "⚠️ Tool wird neu gestartet...", "info")
-            self.restart_application()
+            self.restart_application()  # Tool neu starten
         else:
             append_info(self.info_text, "Neustart abgebrochen.", "info")
+            # 🔹 Button wieder zurücksetzen
+            self.restart_tool_button.setStyleSheet("")
 
-        # Falls progress_callback übergeben wird
-        if progress_callback:
-            progress_callback(100)
+    
+    
+    # Callback nach Schließen
+    
+
 
 
     def edit_patch_header(self):
@@ -1390,8 +1399,6 @@ class PatchManagerGUI(QWidget):
         if progress_callback:
             progress_callback(100)
 
-
-
     # ---------------------
     # UPDATE CHECK
     # ---------------------
@@ -1497,7 +1504,7 @@ class PatchManagerGUI(QWidget):
         # INIT UI
         # =====================
     def init_ui(self):
-        TITLE_HEIGHT = 60
+        TITLE_HEIGHT = 105
 
         # -------------------
         # Haupt-Layout
@@ -1512,24 +1519,50 @@ class PatchManagerGUI(QWidget):
         # HEADER
         # -------------------
         header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-  
+        header_layout.setSpacing(10)
+        header_layout.setContentsMargins(20, 0, 20, 0)
+
         # 🔹 Linke Widgets: Info + digitale Uhr
-        self.info_button = QPushButton("ℹ️")
+        self.info_button = QPushButton()
         self.info_button.setFixedSize(60, TITLE_HEIGHT)
         self.info_button.setToolTip(TEXTS[LANG]["info_tooltip"])
         self.info_button.clicked.connect(self.show_info)
 
-        self.digital_clock = QLabel("00:00:00")
-        self.digital_clock.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # PNG laden
+        icon = get_icon_for("Info___Hilfe")  # lädt Info___Hilfe.png
+        if not icon.isNull():
+            self.info_button.setIcon(icon)
+            self.info_button.setIconSize(QSize(52, 52))
+        else:
+            self.info_button.setText("ℹ️")
+            self.info_button.setStyleSheet("color:white;")
 
+        # Hintergrund dunkelgrau, Schrift weiß
+        self.info_button.setStyleSheet("""
+            QPushButton {
+                background-color: #222222;
+                color: white;
+                border: none;
+            }
+        """)
+
+        # Digitale Uhr & Datum
+        self.digital_clock = QLabel()
+        self.digital_clock.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.digital_clock.setText(
+            f'<div style="color:red; font-size:24pt; padding-top:160px;">{time_str}</div>'
+            f'<div style="color:yellow; font-size:16pt;">{date_str}</div>'
+        )
+
+        # Linkes Layout
         left_layout = QHBoxLayout()
         left_layout.setSpacing(5)
         left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addStretch(1)
         left_layout.addWidget(self.info_button)
+        left_layout.addSpacing(15)  # 15 Pixel Abstand
         left_layout.addWidget(self.digital_clock, stretch=1)
-
         left_widget = QWidget()
         left_widget.setLayout(left_layout)
         header_layout.addWidget(left_widget, 1, Qt.AlignmentFlag.AlignLeft)
@@ -1537,7 +1570,7 @@ class PatchManagerGUI(QWidget):
         # 🔹 Mitte: Logo von GitHub laden
         self.logo_label = QLabel()
         logo_height = TITLE_HEIGHT
-        logo_width = TITLE_HEIGHT * 4
+        logo_width = TITLE_HEIGHT * 10
         self.logo_label.setFixedSize(logo_width, logo_height)
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -1548,7 +1581,11 @@ class PatchManagerGUI(QWidget):
             image_data = BytesIO(resp.content)
             pixmap = QPixmap()
             pixmap.loadFromData(image_data.read())
-            scaled_pixmap = pixmap.scaled(logo_width, logo_height, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            scaled_pixmap = pixmap.scaled(
+                logo_width, logo_height,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
             self.logo_label.setPixmap(scaled_pixmap)
         except Exception as e:
             print(f"Fehler beim Laden des Logos von GitHub: {e}")
@@ -1558,27 +1595,28 @@ class PatchManagerGUI(QWidget):
 
         # 🔹 Rechte Widgets: Version + by speedy005
         right_widget = QWidget()
-        right_layout = QHBoxLayout()
-        right_layout.setSpacing(5)
+        right_layout = QVBoxLayout()
+        right_layout.setSpacing(2)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
+        # "by speedy005" Label
         by_label = QLabel("by speedy005")
-        by_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        by_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         by_label.setStyleSheet("color:blue;")
-        by_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        by_label.setFixedHeight(TITLE_HEIGHT)
+        by_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         right_layout.addWidget(by_label)
 
+        # Versionsnummer
         version_label = QLabel(f"v{APP_VERSION}")
-        version_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        version_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         version_label.setStyleSheet("color:red;")
-        version_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        version_label.setFixedHeight(TITLE_HEIGHT)
+        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         right_layout.addWidget(version_label)
 
         right_widget.setLayout(right_layout)
         header_layout.addWidget(right_widget, 1, Qt.AlignmentFlag.AlignRight)
 
+        # Header zum Hauptlayout hinzufügen
         layout.addLayout(header_layout)
 
         # -------------------
@@ -1647,30 +1685,29 @@ class PatchManagerGUI(QWidget):
         self.commits_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.commits_button)
 
-        # 🔹 Plugin Update Button (Farbe wird später von change_colors gesetzt)
+        # 🔹 Plugin Update Button
         self.plugin_update_button = self.create_option_button(
             key="plugin_update",
             text=TEXTS[LANG]["plugin_update"],
-            color="#000000",  # temporär, wird später überschrieben
-            fg="#FFFFFF",     # temporär, wird später überschrieben
+            color="#000000",
+            fg="#FFFFFF",
             callback=self.plugin_update_button_clicked
         )
         self.plugin_update_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.plugin_update_button)
 
-
-        # 🔹 Neustart Button (Farbe wird später von change_colors gesetzt)
+        # 🔹 Neustart Button
         self.restart_tool_button = self.create_option_button(
             key="restart_tool",
             text=TEXTS[LANG].get("restart_tool", "Tool Neustarten"),
-            color="#000000",  # temporär, Farben kommen später via change_colors()
+            color="#000000",
             fg="#FFFFFF",
             callback=self.restart_application_with_info
         )
         self.restart_tool_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.restart_tool_button)
-
-        # Container für Controls
+  
+        # Controls anwenden
         controls_container = QWidget()
         controls_container.setLayout(controls_layout)
         layout.addWidget(controls_container)
@@ -1722,7 +1759,7 @@ class PatchManagerGUI(QWidget):
             grid_layout.addWidget(btn, row, col)
         layout.addLayout(grid_layout)
 
-         # Progress Bar
+        # Progress Bar
         self.progress = QProgressBar()
         self.progress.setMinimum(0)
         self.progress.setMaximum(100)
@@ -1737,7 +1774,7 @@ class PatchManagerGUI(QWidget):
         # -------------------
         self.setLayout(layout)
 
-        # 🔹 Farben anwenden, Config laden
+        # Farben anwenden, Config laden
         self.change_colors()
         self.check_emu_credentials()
         self.clock_timer = QTimer(self)
@@ -1751,9 +1788,15 @@ class PatchManagerGUI(QWidget):
     # =====================
     def update_digital_clock(self):
         now = QDateTime.currentDateTime()
-        current_time = now.toString("HH:mm:ss dd.MM.yyyy")  # 14:35:10 20.01.2026  # Datum + Uhrzeit
-        if hasattr(self, "digital_clock"):
-            self.digital_clock.setText(current_time)
+        time_str = now.toString("HH:mm:ss")       # Uhrzeit
+        date_str = now.toString("dd.MM.yyyy")     # Datum
+
+        # HTML mit Farben: Uhrzeit rot, Datum gelb
+        self.digital_clock.setText(
+            f'<span style="color:red;">{time_str}</span><br>'
+            f'<span style="color:yellow;">{date_str}</span>'
+        )
+
 
     def update_buttons_language(self):
         self.github_upload_patch_button.setText(TEXTS[LANG]["github_upload_patch"])
@@ -1787,8 +1830,6 @@ class PatchManagerGUI(QWidget):
             else:
                 btn.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;")
 
-    
-    
     # ---------- change_colors ----------
     def change_colors(self):
         global current_diff_colors, current_color_name
@@ -1810,8 +1851,6 @@ class PatchManagerGUI(QWidget):
 
         # Config aktualisieren (nur im Speicher, nicht neu laden)
         self.cfg["color"] = current_color_name
-
-
 
     def change_language(self):
         """
@@ -1867,8 +1906,6 @@ class PatchManagerGUI(QWidget):
             self.cfg = load_config()
         self.cfg["language"] = selected
         save_config(self.cfg)
-
-
 
     # =====================
     # GITHUB EMU CREDENTIALS
