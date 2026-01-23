@@ -26,18 +26,25 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 3️⃣ Commit-Nachricht prüfen
+      # 3️⃣ Commit-Nachricht prüfen nur für das Tool
       - name: Commit-Nachricht prüfen
         run: |
+          FILES=$(git diff --name-only HEAD~1 HEAD)
           MSG=$(git log -1 --pretty=%s)
-          echo "Letzte Commit-Nachricht:"
-          echo "$MSG"
 
-          if ! echo "$MSG" | grep -Eq "^(Fix|Add|Improve|Refactor|Docs): .+"; then
-            echo "❌ Ungültige Commit-Nachricht!"
-            echo "✔ Erlaubt: Fix:, Add:, Improve:, Refactor:, Docs:"
-            echo "👉 Beispiel: Fix: falsche Patch-Erkennung bei OSCam r11734"
-            exit 1
+          echo "Geänderte Dateien im letzten Commit:"
+          echo "$FILES"
+          echo "Letzte Commit-Nachricht: $MSG"
+
+          if echo "$FILES" | grep -q "oscam_patch_manager.py"; then
+            if ! echo "$MSG" | grep -Eq "^(Fix|Add|Improve|Refactor|Docs): .+"; then
+              echo "❌ Ungültige Commit-Nachricht für oscam_patch_manager.py!"
+              echo "✔ Erlaubt: Fix:, Add:, Improve:, Refactor:, Docs:"
+              echo "👉 Beispiel: Fix: falsche Patch-Erkennung bei OSCam r11734"
+              exit 1
+            fi
+          else
+            echo "Keine Änderungen an oscam_patch_manager.py – Commit-Check übersprungen"
           fi
 
       # 4️⃣ Version automatisch erhöhen
