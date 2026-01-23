@@ -1,4 +1,4 @@
-#!/usr/bin/env python3  
+#!/usr/bin/env python3
 # ============================================================================
 #  OSCam Emu Patch Generator
 #
@@ -32,7 +32,7 @@ from PyQt6.QtCore import QTimer, QDateTime, Qt
 
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.4.9"
+APP_VERSION = "1.5.0"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -282,7 +282,16 @@ TEXTS = {
         "plugin_update": "Plugin Update",
         "restart_required_title": "Restart required",
         "restart_required_msg": "The update was installed successfully.\n\nThe tool must be restarted.\n\nRestart now?",
-        "commit_count_label": "Number of commits to show",  # EN
+        "commit_count_label": "Number of commits to show", 
+        "edit_patch_header": "Edit Patch Header", 
+        "clean_emu_git": "Clean OSCam Emu Git",
+        "patch_emu_git": "Patch OSCam Emu Git",
+        "github_upload_patch_button": "Upload Patch File",
+        "github_upload_emu_button": "Upload OSCam-Emu Git",
+        "github_config_button": "GitHub Configuration", # EN
+        "restart_tool": "Restart Tool",
+        "restart_required_title": "Restart required",
+        "restart_required_msg": "The update was installed successfully.\n\nThe tool must be restarted.\n\nRestart now?",
         "restart_tool": "Restart Tool",
         "patch_file_missing": "Patch file does not exist!"
     },
@@ -388,7 +397,16 @@ TEXTS = {
         "update_not_available": "Keine neue Version verfügbar.",
         "plugin_update": "Plugin Update",
         "restart_required_title": "Neustart erforderlich",
-        "commit_count_label": "Anzahl der anzuzeigenden Commits",  # DE
+        "commit_count_label": "Anzahl der anzuzeigenden Commits",
+        "edit_patch_header": "Patch Header bearbeiten", 
+        "clean_emu_git": "OSCam Emu Git bereinigen",
+        "patch_emu_git": "OSCam Emu Git patchen",
+        "github_upload_patch_button": "Patch-Datei hochladen",
+        "github_upload_emu_button": "OSCam-Emu Git hochladen",
+        "github_config_button": "GitHub Konfiguration",  # DE
+        "restart_tool": "Tool Neustarten",
+        "restart_required_title": "Neustart erforderlich",
+        "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "restart_tool": "Tool Neustarten",
         "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "patch_file_missing": "Patch-Datei existiert nicht!"
@@ -981,6 +999,12 @@ class PatchManagerGUI(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.cfg = load_config()
+         # 🔹 Globale Patch-Variablen setzen
+        global OLD_PATCH_DIR, OLD_PATCH_FILE, ALT_PATCH_FILE
+        OLD_PATCH_DIR = self.cfg.get("s3_patch_path", OLD_PATCH_DIR_DEFAULT)
+        OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
+        ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
         self.active_button_key = ""
         self.latest_version = None
         self.init_ui()
@@ -1021,13 +1045,142 @@ class PatchManagerGUI(QWidget):
         QApplication.quit()
 
     def commit_value_changed(self, value):
-        try:
-            save_config({"commit_count": value})  # speichert den neuen Wert
-            GithubConfigDialog.append_info(self.info_text, f"Commit-Anzahl auf {value} gesetzt", "success")
-        except Exception as e:
-            GithubConfigDialog.append_info(self.info_text, f"Fehler beim Speichern: {e}", "error")
+        self.cfg["commit_count"] = value  # nur im Dict speichern
+        append_info(self.info_text, f"Commit-Anzahl auf {value} gesetzt", "success")
+
+    def change_old_patch_dir(self, info_widget=None, progress_callback=None):
+        global OLD_PATCH_DIR, OLD_PATCH_FILE, ALT_PATCH_FILE
+
+        # Ordner-Auswahl-Dialog starten
+        new_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Select folder for old patch",
+            OLD_PATCH_DIR if 'OLD_PATCH_DIR' in globals() else OLD_PATCH_DIR_DEFAULT
+        )
+        if new_dir:
+            OLD_PATCH_DIR = new_dir
+            OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
+            ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
+            append_info(self.info_text, f"✅ Pfad geändert: {OLD_PATCH_DIR}", "success")
+        
+            # Config aktualisieren, damit es nach Tool-Beenden erhalten bleibt
+            self.cfg["s3_patch_path"] = OLD_PATCH_DIR
+            save_config(self.cfg)
+        else:
+            append_info(self.info_text, "ℹ️ Auswahl abgebrochen", "info")
+
+        if progress_callback:
+            progress_callback(100)
+
+    def update_ui_texts(self):
+        """Alle Texte basierend auf aktueller Sprache aktualisieren."""
+        # Labels
+        if hasattr(self, "lang_label"):
+            self.lang_label.setText(TEXTS[LANG]["language_label"])
+        if hasattr(self, "color_label"):
+            self.color_label.setText(TEXTS[LANG]["color_label"])
+        if hasattr(self, "commit_label"):
+            self.commit_label.setText(TEXTS[LANG]["commit_count_label"])
+
+        # Option Buttons
+        for btn_name in [
+            "clean_emu_button",
+            "patch_emu_git_button",
+            "commits_button",
+            "github_upload_patch_button",
+            "github_upload_emu_button",
+            "github_emu_config_button",
+            "plugin_update_button",
+            "restart_tool_button",
+            "edit_header_button"
+        ]:
+            btn = getattr(self, btn_name, None)
+            if btn and btn_name in TEXTS[LANG]:
+                btn.setText(TEXTS[LANG][btn_name])
+
+        # Grid Buttons
+        for key, btn in getattr(self, "buttons", {}).items():
+            if key in TEXTS[LANG]:
+                btn.setText(TEXTS[LANG][key])
+
+        # Info Text kann optional auch angepasst werden
+        if hasattr(self, "info_text"):
+            self.info_text.repaint()
+
 
     
+    
+    def repaint_ui_colors(self):
+        # Labels, ComboBoxes, Buttons, ProgressBar etc.
+        for w in [getattr(self, "lang_label", None),
+                  getattr(self, "color_label", None),
+                  getattr(self, "language_box", None),
+                  getattr(self, "color_box", None)]:
+            if w:
+                w.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']};")
+
+        for btn in [getattr(self, "edit_header_button", None),
+                    getattr(self, "commits_button", None),
+                    getattr(self, "clean_emu_button", None),
+                    getattr(self, "patch_emu_git_button", None),
+                    getattr(self, "github_upload_patch_button", None),
+                    getattr(self, "github_upload_emu_button", None),
+                    getattr(self, "github_emu_config_button", None),
+                    getattr(self, "plugin_update_button", None),
+                    getattr(self, "restart_tool_button", None)]:
+            if btn:
+                btn.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:10px;")
+
+        for btn in getattr(self, "buttons", {}).values():
+            if btn:
+                btn.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:10px;")
+
+        if hasattr(self, "commit_label") and self.commit_label:
+            self.commit_label.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; padding:4px;")
+        if hasattr(self, "commit_spin") and self.commit_spin:
+            self.commit_spin.setStyleSheet(f"""
+                QSpinBox {{
+                    background-color:{current_diff_colors['bg']};
+                    color:{current_diff_colors['text']};
+                    border:1px solid {current_diff_colors['text']};
+                    border-radius:6px;
+                }}
+                QSpinBox::up-button, QSpinBox::down-button {{
+                    background-color:{current_diff_colors['bg']};
+                }}
+            """)
+        if hasattr(self, "progress") and self.progress:
+            self.progress.setStyleSheet(f"QProgressBar::chunk {{background-color:{current_diff_colors['bg']};}}")
+
+        # UI sofort updaten
+        self.repaint()
+        QApplication.processEvents()
+
+
+    def restart_application_with_info(self, checked=False, progress_callback=None):
+        """
+        Zeigt eine Bestätigung an, bevor das Tool neu gestartet wird.
+        checked/progress_callback werden automatisch vom Button/Lambda übergeben.
+        """
+        msg = QMessageBox(self)
+        msg.setWindowTitle(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
+        msg.setText(TEXTS[LANG].get("restart_tool_question", "Möchten Sie das Tool wirklich neu starten?"))
+    
+        yes_button = msg.addButton(TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
+        no_button = msg.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
+        msg.exec()
+
+        if msg.clickedButton() == yes_button:
+            append_info(self.info_text, "⚠️ Tool wird neu gestartet...", "info")
+            self.restart_application()
+        else:
+            append_info(self.info_text, "Neustart abgebrochen.", "info")
+
+        # Falls progress_callback übergeben wird
+        if progress_callback:
+            progress_callback(100)
+
+
     def edit_patch_header(self):
         try:
             with open(PATCH_FILE, "r", encoding="utf-8") as f:
@@ -1360,17 +1513,15 @@ class PatchManagerGUI(QWidget):
         # -------------------
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
-
+  
         # 🔹 Linke Widgets: Info + digitale Uhr
         self.info_button = QPushButton("ℹ️")
         self.info_button.setFixedSize(60, TITLE_HEIGHT)
         self.info_button.setToolTip(TEXTS[LANG]["info_tooltip"])
         self.info_button.clicked.connect(self.show_info)
 
-        self.digital_clock = QLabel()
-        self.digital_clock.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        self.digital_clock.setFixedHeight(TITLE_HEIGHT)
-        self.digital_clock.setMinimumWidth(120)
+        self.digital_clock = QLabel("00:00:00")
+        self.digital_clock.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         left_layout = QHBoxLayout()
@@ -1383,10 +1534,10 @@ class PatchManagerGUI(QWidget):
         left_widget.setLayout(left_layout)
         header_layout.addWidget(left_widget, 1, Qt.AlignmentFlag.AlignLeft)
 
-        # 🔹 Mitte: Logo direkt von GitHub laden
+        # 🔹 Mitte: Logo von GitHub laden
         self.logo_label = QLabel()
         logo_height = TITLE_HEIGHT
-        logo_width = TITLE_HEIGHT * 4  # 4× so breit wie hoch
+        logo_width = TITLE_HEIGHT * 4
         self.logo_label.setFixedSize(logo_width, logo_height)
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -1397,22 +1548,13 @@ class PatchManagerGUI(QWidget):
             image_data = BytesIO(resp.content)
             pixmap = QPixmap()
             pixmap.loadFromData(image_data.read())
-
-            # ⚡ Bild auf feste Breite + Höhe strecken
-            scaled_pixmap = pixmap.scaled(
-                logo_width,
-                logo_height,
-                Qt.AspectRatioMode.IgnoreAspectRatio,  # hier wird die Breite gestreckt
-                Qt.TransformationMode.SmoothTransformation
-            )
+            scaled_pixmap = pixmap.scaled(logo_width, logo_height, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
             self.logo_label.setPixmap(scaled_pixmap)
-
         except Exception as e:
             print(f"Fehler beim Laden des Logos von GitHub: {e}")
             self.logo_label.setText("Logo ❌")
 
         header_layout.addWidget(self.logo_label, 0, Qt.AlignmentFlag.AlignCenter)
-
 
         # 🔹 Rechte Widgets: Version + by speedy005
         right_widget = QWidget()
@@ -1439,7 +1581,6 @@ class PatchManagerGUI(QWidget):
 
         layout.addLayout(header_layout)
 
-
         # -------------------
         # INFO TEXT
         # -------------------
@@ -1451,81 +1592,50 @@ class PatchManagerGUI(QWidget):
         layout.addWidget(self.info_text)
 
         # -------------------
-        # OPTIONS LEISTE (Controls)
+        # OPTIONS LEISTE (Sprache, Farbe, Commit)
         # -------------------
         controls_layout = QHBoxLayout()
         controls_layout.setSpacing(10)
         controls_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        # 🔹 Patch Header bearbeiten
-        self.edit_header_button = QPushButton("Patch Header bearbeiten")
-        self.edit_header_button.setFixedHeight(self.BUTTON_HEIGHT)
-        self.edit_header_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self.edit_header_button.clicked.connect(self.edit_patch_header)
-        controls_layout.addWidget(self.edit_header_button)
-
-        # 🔹 Sprache Label + ComboBox
+        # 🔹 Sprache
         self.lang_label = QLabel(TEXTS[LANG]["language_label"])
-        self.lang_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lang_label.setFixedHeight(self.BUTTON_HEIGHT)  # gleiche Höhe wie ComboBox
-        self.lang_label.setFixedWidth(self.BUTTON_WIDTH)    # gleiche Breite wie ComboBox
+        self.lang_label.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.lang_label)
 
         self.language_box = QComboBox()
         self.language_box.addItems(["EN", "DE"])
-        self.language_box.setCurrentText("DE" if LANG == "de" else "EN")
         self.language_box.setFixedHeight(self.BUTTON_HEIGHT)
         self.language_box.setFixedWidth(self.BUTTON_WIDTH)
-        self.language_box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.language_box.setCurrentText(self.cfg.get("language", "DE"))
         self.language_box.currentIndexChanged.connect(self.change_language)
         controls_layout.addWidget(self.language_box)
 
-        # 🔹 Farbe Label + ComboBox
+        # 🔹 Farbe
         self.color_label = QLabel(TEXTS[LANG]["color_label"])
-        self.color_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Text zentrieren
-        self.color_label.setFixedHeight(self.BUTTON_HEIGHT)           # gleiche Höhe wie ComboBox
-        self.color_label.setFixedWidth(self.BUTTON_WIDTH)             # gleiche Breite wie ComboBox
+        self.color_label.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.color_label)
 
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
-        self.color_box.setCurrentText(current_color_name)
         self.color_box.setFixedHeight(self.BUTTON_HEIGHT)
-        self.color_box.setFixedWidth(self.BUTTON_WIDTH)               # gleiche Breite wie Buttons
-        self.color_box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.color_box.setFixedWidth(self.BUTTON_WIDTH)
+        self.color_box.setCurrentText(self.cfg.get("color", "Classic"))
         self.color_box.currentIndexChanged.connect(self.change_colors)
         controls_layout.addWidget(self.color_box)
 
-
-        # ---------------------
-        # 🔹 Commit-Anzeige & Plugin-Update
-        # ---------------------
-
-        # Commit-Layout (Label + SpinBox + Button in einer Zeile)
-        commit_layout = QHBoxLayout()
-
-        # 🔹 Commit-Anzahl Label
+        # 🔹 Commit-Label + Spinbox
         self.commit_label = QLabel(TEXTS[LANG]["commit_count_label"])
         self.commit_label.setFixedHeight(self.BUTTON_HEIGHT)
-        commit_layout.addWidget(self.commit_label)
+        controls_layout.addWidget(self.commit_label)
 
-        # 🔹 Commit-Spinbox
-        cfg = load_config()  # Config aus config.json laden
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
-
-        # commit_count sauber aus cfg holen, default 5, sicherstellen, dass es int ist
-        commit_count = cfg.get("commit_count", 5)
-        if not isinstance(commit_count, int):
-            commit_count = 5
-
-        self.commit_spin.setValue(commit_count)  # gespeicherter Wert oder default 5
+        self.commit_spin.setValue(self.cfg.get("commit_count", 5))
         self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT)
         self.commit_spin.setFixedWidth(50)
-        commit_layout.addWidget(self.commit_spin)
-
-        # Änderung sofort speichern
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
+        controls_layout.addWidget(self.commit_spin)
 
         # 🔹 Commits ansehen Button
         self.commits_button = self.create_option_button(
@@ -1535,36 +1645,32 @@ class PatchManagerGUI(QWidget):
             callback=self.show_commits
         )
         self.commits_button.setFixedHeight(self.BUTTON_HEIGHT)
-        commit_layout.addWidget(self.commits_button)
+        controls_layout.addWidget(self.commits_button)
 
-        # Commit-Layout zum Haupt-Layout hinzufügen
-        controls_layout.addLayout(commit_layout)
-
-        # 🔹 Plugin Update Button
+        # 🔹 Plugin Update Button (Farbe wird später von change_colors gesetzt)
         self.plugin_update_button = self.create_option_button(
             key="plugin_update",
             text=TEXTS[LANG]["plugin_update"],
-            color=current_diff_colors['bg'],
-            fg=current_diff_colors['text'],
-            callback=self.plugin_update_button_clicked  # prüft zuerst auf Update und zeigt Hinweis
+            color="#000000",  # temporär, wird später überschrieben
+            fg="#FFFFFF",     # temporär, wird später überschrieben
+            callback=self.plugin_update_button_clicked
         )
         self.plugin_update_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.plugin_update_button)
 
 
-
-        # 🔹 Tool Neustarten Button
+        # 🔹 Neustart Button (Farbe wird später von change_colors gesetzt)
         self.restart_tool_button = self.create_option_button(
             key="restart_tool",
             text=TEXTS[LANG].get("restart_tool", "Tool Neustarten"),
-            color=current_diff_colors['bg'],
-            fg=current_diff_colors['text'],
-            callback=self.restart_application
+            color="#000000",  # temporär, Farben kommen später via change_colors()
+            fg="#FFFFFF",
+            callback=self.restart_application_with_info
         )
         self.restart_tool_button.setFixedHeight(self.BUTTON_HEIGHT)
         controls_layout.addWidget(self.restart_tool_button)
-     
-        # Container-Widget für die Controls (vermeidet Doppel-Layouts)
+
+        # Container für Controls
         controls_container = QWidget()
         controls_container.setLayout(controls_layout)
         layout.addWidget(controls_container)
@@ -1579,11 +1685,7 @@ class PatchManagerGUI(QWidget):
             ("github_upload_emu", TEXTS[LANG]["github_upload_emu"], "#1E90FF", github_upload_oscam_emu_folder),
             ("github_config", TEXTS[LANG]["github_config_button"], "#FFA500", self.edit_emu_github_config, "black")
         ]
-
         buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(10)
-        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         for btn_data in buttons_list:
             key, text, color, callback = btn_data[:4]
             fg = btn_data[4] if len(btn_data) == 5 else current_diff_colors['text']
@@ -1591,11 +1693,10 @@ class PatchManagerGUI(QWidget):
             btn.setMinimumHeight(self.BUTTON_HEIGHT)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             buttons_layout.addWidget(btn)
-
         layout.addLayout(buttons_layout)
 
         # -------------------
-        # GRID BUTTONS
+        # GRID BUTTONS, PROGRESS, FINAL
         # -------------------
         grid_layout = QGridLayout()
         actions = [
@@ -1606,7 +1707,7 @@ class PatchManagerGUI(QWidget):
             ("patch_zip", lambda: self.run_action(zip_patch)),
             ("backup_old", lambda: self.run_action(backup_old_patch)),
             ("clean_folder", lambda: self.run_action(clean_patch_folder)),
-            ("change_old_dir", lambda: self.run_action(self.change_old_)),
+            ("change_old_dir", lambda: self.run_action(self.change_old_patch_dir)),
             ("exit", self.close_with_confirm)
         ]
         self.buttons = {}
@@ -1619,12 +1720,9 @@ class PatchManagerGUI(QWidget):
             self.buttons[key] = btn
             row, col = divmod(idx, 3)
             grid_layout.addWidget(btn, row, col)
-
         layout.addLayout(grid_layout)
 
-        # -------------------
-        # PROGRESS BAR
-        # -------------------
+         # Progress Bar
         self.progress = QProgressBar()
         self.progress.setMinimum(0)
         self.progress.setMaximum(100)
@@ -1638,12 +1736,15 @@ class PatchManagerGUI(QWidget):
         # FINAL
         # -------------------
         self.setLayout(layout)
+
+        # 🔹 Farben anwenden, Config laden
         self.change_colors()
         self.check_emu_credentials()
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self.update_digital_clock)
         self.clock_timer.start(1000)
         self.update_digital_clock()
+
 
     # =====================
     # update_buttons_
@@ -1692,11 +1793,7 @@ class PatchManagerGUI(QWidget):
     def change_colors(self):
         global current_diff_colors, current_color_name
 
-        # Sicherstellen, dass self.cfg existiert
-        if not hasattr(self, "cfg"):
-            self.cfg = load_config()
-
-        # Aktuelle Farbe aus ComboBox laden
+        # Aktuelle Farbe aus ComboBox laden oder aus Config
         current_color_name = self.color_box.currentText() if hasattr(self, "color_box") else self.cfg.get("color", "Classic")
         base_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
 
@@ -1705,103 +1802,14 @@ class PatchManagerGUI(QWidget):
         current_diff_colors = {
             **base_colors,
             "hover": self.adjust_color(bg, 1.15),
-            "active": self.adjust_color(bg, 0.85),
+        "active": self.adjust_color(bg, 0.85),
         }
 
-        # ---------- Labels & ComboBoxes ----------
-        for w in [
-            getattr(self, "lang_label", None),
-            getattr(self, "color_label", None),
-            getattr(self, "language_box", None),
-            getattr(self, "color_box", None),
-        ]:
-            if w:
-                w.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; "
-                    f"color:{current_diff_colors['text']};"
-                )
+        # UI-Farben anwenden
+        self.repaint_ui_colors()
 
-        # ---------- Patch Header & Option Buttons ----------
-        for btn in [
-            getattr(self, "edit_header_button", None),
-            getattr(self, "commits_button", None),
-            getattr(self, "clean_emu_button", None),
-            getattr(self, "patch_emu_git_button", None),
-            getattr(self, "github_upload_patch_button", None),
-            getattr(self, "github_upload_emu_button", None),
-            getattr(self, "github_emu_config_button", None),
-            getattr(self, "plugin_update_button", None),
-            getattr(self, "restart_tool_button", None),
-        ]:
-            if btn:
-                btn.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; "
-                    f"color:{current_diff_colors['text']}; "
-                    f"border-radius:10px;"
-                )
-
-        # ---------- Digitale Uhr ----------
-        if hasattr(self, "digital_clock"):
-            self.digital_clock.setStyleSheet(
-                f"color:{current_diff_colors['text']}; "
-                f"background-color:{current_diff_colors['bg']}; "
-                f"border-radius:10px;"
-            )
-
-        # ---------- Info-Textfeld ----------
-        if hasattr(self, "info_text"):
-            self.info_text.setStyleSheet(
-                f"background-color:black; color:{current_diff_colors['text']};"
-            )
-
-        # ---------- Grid Buttons ----------
-        for btn in getattr(self, "buttons", {}).values():
-            btn.setStyleSheet(
-                f"background-color:{current_diff_colors['bg']}; "
-                f"color:{current_diff_colors['text']}; "
-                f"border-radius:10px;"
-            )
-
-        # ---------- Commit Label & SpinBox ----------
-        if hasattr(self, "commit_label"):
-            self.commit_label.setStyleSheet(
-                f"background-color:{current_diff_colors['bg']}; "
-                f"color:{current_diff_colors['text']}; "
-                f"padding:4px;"
-            )
-        if hasattr(self, "commit_spin"):
-            self.commit_spin.setStyleSheet(
-                f"""
-                QSpinBox {{
-                    background-color:{current_diff_colors['bg']};
-                    color:{current_diff_colors['text']};
-                    border:1px solid {current_diff_colors['text']};
-                    border-radius:6px;
-                }}
-                QSpinBox::up-button, QSpinBox::down-button {{
-                    background-color:{current_diff_colors['bg']};
-                }}
-                """
-            )
-
-        # ---------- Progress Bar ----------
-        if hasattr(self, "progress"):
-            self.progress.setStyleSheet(
-                f"QProgressBar::chunk {{background-color:{current_diff_colors['bg']};}}"
-            )
-
-        # ---------- Repaint UI ----------
-        self.repaint()
-        QApplication.processEvents()
-
-        # ---------- Config speichern ----------
-        self.cfg["commit_count"] = self.commit_spin.value() if hasattr(self, "commit_spin") else self.cfg.get("commit_count", 5)
+        # Config aktualisieren (nur im Speicher, nicht neu laden)
         self.cfg["color"] = current_color_name
-        self.cfg["language"] = self.language_box.currentText() if hasattr(self, "language_box") else self.cfg.get("language", "DE")
-        self.cfg["s3_patch_path"] = getattr(self, "s3_patch_path", self.cfg.get("s3_patch_path", ""))
-        save_config(self.cfg)
-
-
 
 
 
@@ -1815,27 +1823,51 @@ class PatchManagerGUI(QWidget):
         selected = self.language_box.currentText()
         LANG = "de" if selected == "DE" else "en"
 
-        # Update all text labels that depend on LANG
-        self.lang_label.setText(TEXTS[LANG]["language_label"])
-        self.color_label.setText(TEXTS[LANG]["color_label"])
-        self.edit_header_button.setText(TEXTS[LANG].get("edit_patch_header", "Patch Header bearbeiten"))
-        self.plugin_update_button.setText(TEXTS[LANG]["plugin_update"])
-        self.restart_tool_button.setText(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
-        self.commits_button.setText(TEXTS[LANG]["git_status"])
+        # ---------- Labels ----------
+        if hasattr(self, "lang_label"):
+            self.lang_label.setText(TEXTS[LANG]["language_label"])
+        if hasattr(self, "color_label"):
+            self.color_label.setText(TEXTS[LANG]["color_label"])
+        if hasattr(self, "commit_label"):
+            self.commit_label.setText(TEXTS[LANG]["commit_count_label"])
 
-        # Update all grid buttons
-        for key, btn in self.buttons.items():
+        # ---------- Top Buttons ----------
+        if hasattr(self, "edit_header_button"):
+            self.edit_header_button.setText(TEXTS[LANG].get("edit_patch_header", "Patch Header bearbeiten"))
+        if hasattr(self, "plugin_update_button"):
+            self.plugin_update_button.setText(TEXTS[LANG]["plugin_update"])
+        if hasattr(self, "restart_tool_button"):
+            self.restart_tool_button.setText(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
+        if hasattr(self, "commits_button"):
+            self.commits_button.setText(TEXTS[LANG]["git_status"])
+
+        # ---------- Option Buttons unten ----------
+        for btn_name, key in [
+            ("clean_emu_button", "clean_emu_git"),
+            ("patch_emu_git_button", "patch_emu_git"),
+            ("github_upload_patch_button", "github_upload_patch_button"),
+            ("github_upload_emu_button", "github_upload_emu_button"),
+            ("github_emu_config_button", "github_config_button"),
+        ]:
+            btn = getattr(self, btn_name, None)
+            if btn and key in TEXTS[LANG]:
+                btn.setText(TEXTS[LANG][key])
+ 
+        # ---------- Grid Buttons ----------
+        for key, btn in getattr(self, "buttons", {}).items():
             if key in TEXTS[LANG]:
                 btn.setText(TEXTS[LANG][key])
 
-        # Optional: update any other dynamic texts
-        append_info(self.info_text, f"Language changed to {selected}", "info")
+        # ---------- Info Text ----------
+        if hasattr(self, "info_text"):
+            append_info(self.info_text, f"Language changed to {selected}", "info")
 
         # ---------- Config speichern ----------
         if not hasattr(self, "cfg"):
             self.cfg = load_config()
         self.cfg["language"] = selected
         save_config(self.cfg)
+
 
 
     # =====================
@@ -1985,8 +2017,9 @@ class PatchManagerGUI(QWidget):
         no_button = msg.addButton(TEXTS[LANG]["no"], QMessageBox.ButtonRole.NoRole)
         msg.exec()
         if msg.clickedButton() == yes_button:
-            save_config(self.commit_spin.value())
+            save_config(self.cfg)  # jetzt sauber, nur beim Beenden
             QApplication.quit()
+
 
 if __name__ == "__main__":
     os.environ["NO_AT_BRIDGE"] = "1"
