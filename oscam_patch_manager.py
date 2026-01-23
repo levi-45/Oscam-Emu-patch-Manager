@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3  
 # ============================================================================
 #  OSCam Emu Patch Generator
 #
