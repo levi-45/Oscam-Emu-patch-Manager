@@ -18,7 +18,7 @@ jobs:
       - name: Repository auschecken
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # volle Historie für git log
 
       # 2️⃣ Python einrichten
       - name: Python einrichten
@@ -30,9 +30,10 @@ jobs:
       - name: Commit-Nachricht prüfen
         shell: bash
         run: |
-          FILES=$(git diff --name-only HEAD~1 HEAD || echo "")
-          MSG=$(git log -1 --pretty=%s || echo "")
-          AUTHOR=$(git log -1 --pretty=%an || echo "")
+          set +e  # Step nicht abbrechen, falls kein Commit existiert
+          MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
+          AUTHOR=$(git log -1 --pretty=%an 2>/dev/null || echo "")
+          FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
 
           echo "Geänderte Dateien im letzten Commit:"
           echo "$FILES"
@@ -54,7 +55,9 @@ jobs:
       - name: Version automatisch erhöhen
         shell: bash
         run: |
-          if git rev-parse HEAD >/dev/null 2>&1; then
+          set +e  # Fehler nicht abbrechen
+          git rev-parse HEAD >/dev/null 2>&1
+          if [ $? -eq 0 ]; then
             MSG=$(git log -1 --pretty=%s)
             VERSION=$(grep '__version__' oscam_patch_manager.py | cut -d'"' -f2)
             IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
@@ -73,7 +76,7 @@ jobs:
             echo "⚠️ Kein Commit gefunden – Version wird nicht automatisch erhöht"
           fi
 
-      # 5️⃣ CHANGELOG erstellen (mit Commit-Vorschau)
+      # 5️⃣ CHANGELOG erstellen
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         shell: bash
         run: |
@@ -87,6 +90,7 @@ jobs:
           echo "## 🔧 Neue Verbesserungen am Script" >> CHANGELOG.md
           echo ""
 
+          # Nur echte Commits (Fix/Add/Improve/Refactor/Docs) aufnehmen
           COMMITS=$(git log \
             --pretty=format:"* %s (%h)" \
             --invert-grep --grep="Auto-Update" \
@@ -95,7 +99,7 @@ jobs:
           if [ -z "$COMMITS" ]; then
             echo "* Keine neuen Verbesserungen seit dem letzten Update" | tee -a CHANGELOG.md
           else
-            echo "✅ Folgende Commits würden in CHANGELOG aufgenommen:" 
+            echo "✅ Folgende Commits würden in CHANGELOG aufgenommen:"
             echo "$COMMITS"
             echo "$COMMITS" >> CHANGELOG.md
           fi
