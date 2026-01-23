@@ -31,38 +31,21 @@ jobs:
         shell: bash
         run: |
           set +e
-          trap 'echo "⚠️ Fehler ignoriert, Step läuft weiter"; true' ERR
+          VERSION=$(grep '__version__' oscam_patch_manager.py | cut -d'"' -f2)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          PATCH=$((PATCH+1))  # Patch immer erhöhen
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" oscam_patch_manager.py
+          echo "🔢 Neue Version: $NEW_VERSION"
 
-          # Nur, wenn es schon Commits gibt
-          if git rev-parse HEAD >/dev/null 2>&1; then
-            MSG=$(git log -1 --pretty=%s)
-            VERSION=$(grep '__version__' oscam_patch_manager.py | cut -d'"' -f2)
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-
-            case "$MSG" in
-              Fix:*) PATCH=$((PATCH+1)) ;;
-              Improve:*|Add:*) MINOR=$((MINOR+1)); PATCH=0 ;;
-              Refactor:*) PATCH=$((PATCH+1)) ;;
-              Docs:*) echo "Docs-Commit – Version bleibt gleich" ;;
-              *) PATCH=$((PATCH+1)) ;;  # alle anderen Commits erhöhen Patch
-            esac
-
-            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-            sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" oscam_patch_manager.py
-            echo "🔢 Neue Version: $NEW_VERSION"
-          else
-            echo "⚠️ Kein Commit gefunden – Version wird nicht erhöht"
-          fi
-
-      # 4️⃣ CHANGELOG erstellen (alle Commits anzeigen)
+      # 4️⃣ CHANGELOG erstellen
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         shell: bash
         run: |
-          set +e
-          trap 'echo "⚠️ Fehler ignoriert, Step läuft weiter"; true' ERR
+          set -e
+          DATE=$(date +'%d.%m.%Y %H:%M')
 
-          DATE=$(date +'%d.%m.%Y %H:%M') || DATE="Unbekannt"
-
+          # Datei immer neu schreiben, damit Git sie erkennt
           {
             echo "# Änderungen für oscam_patch_manager.py"
             echo "Letzte Aktualisierung: $DATE"
@@ -72,13 +55,15 @@ jobs:
             echo "## 🔧 Änderungen am Script"
             echo ""
 
-            # Alle Commits anzeigen, außer Auto-Updates
-            COMMITS=$(git log --pretty=format:"* %s (%h)" --invert-grep --grep="Auto-Update" -- oscam_patch_manager.py)
-            if [ -z "$COMMITS" ]; then
-              echo "* Keine Änderungen seit dem letzten Update"
+            # Alle Commits seit letztem Auto-Update
+            LAST_AUTO=$(git log --grep="Auto-Update" --pretty=format:"%H" -1)
+            if [ -z "$LAST_AUTO" ]; then
+              RANGE="HEAD"
             else
-              echo "$COMMITS"
+              RANGE="$LAST_AUTO..HEAD"
             fi
+
+            git log $RANGE --pretty=format:"* %s (%h)" -- oscam_patch_manager.py
 
             echo ""
             echo "---"
@@ -94,9 +79,14 @@ jobs:
             echo "ℹ️ Automatisch generiert durch GitHub Actions"
           } > CHANGELOG.md
 
-      # 5️⃣ Änderungen committen
+      # 5️⃣ Änderungen committen – immer committen, auch wenn nur Timestamp geändert
       - name: Änderungen committen
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-Update: oscam_patch_manager Version & Changelog"
-          file_pattern: CHANGELOG.md,oscam_patch_manager.py
+          file_pattern: |
+            CHANGELOG.md
+            oscam_patch_manager.py
+          commit_user_name: github-actions
+          commit_user_email: github-actions@github.com
+          allow_empty_commit: true   # <-- WICHTIG: commit auch bei minimaler Änderung
