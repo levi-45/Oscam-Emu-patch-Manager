@@ -65,7 +65,7 @@ jobs:
           sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" oscam_patch_manager.py
           echo "🔢 Neue Version: $NEW_VERSION"
 
-      # 5️⃣ CHANGELOG erstellen
+      # 5️⃣ CHANGELOG erstellen (nur typisierte Commits)
       - name: CHANGELOG für oscam_patch_manager.py erzeugen
         run: |
           DATE=$(date +'%d.%m.%Y %H:%M')
@@ -80,11 +80,11 @@ jobs:
           echo "## 🔧 Neue Verbesserungen am Script" >> CHANGELOG.md
           echo ""
 
+          # Nur echte Commits nach Typ filtern
           COMMITS=$(git log \
             --pretty=format:"* %s (%h)" \
-            --invert-grep \
-            --grep="Auto-Update" \
-            -- oscam_patch_manager.py)
+            --invert-grep --grep="Auto-Update" \
+            -- oscam_patch_manager.py | grep -E "^(Fix|Add|Improve|Refactor|Docs):")
 
           if [ -z "$COMMITS" ]; then
             echo "* Keine neuen Verbesserungen seit dem letzten Update" >> CHANGELOG.md
