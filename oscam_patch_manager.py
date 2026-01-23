@@ -35,7 +35,7 @@ time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.5.1"
+APP_VERSION = "1.5.2"
 # =====================
 # Pfade & Plugin-Konstanten
 # =====================
@@ -1317,11 +1317,19 @@ class PatchManagerGUI(QWidget):
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
             resp = requests.get(url, params={"t": time.time()}, timeout=10)  # Cache vermeiden
             resp.raise_for_status()
-            self.latest_version = resp.text.strip()
-            append_info(self.info_text, f"Verfügbare GitHub-Version: v{self.latest_version}", "info")
+            latest = resp.text.strip()
+            self.latest_version = latest
+
+            # Vergleich APP_VERSION vs GitHub-Version ohne führendes 'v'
+            if APP_VERSION.lstrip("v") != self.latest_version:
+                append_info(self.info_text, f"Verfügbare GitHub-Version: v{self.latest_version}", "info")
+            else:
+                append_info(self.info_text, f"🎉 Sie haben die aktuelle Version installiert (v{self.latest_version})", "success")
+
         except Exception as e:
             append_info(self.info_text, f"⚠️ Fehler beim Abrufen der GitHub-Version: {e}", "warning")
             self.latest_version = APP_VERSION  # fallback
+
     
     def fetch_latest_github_version(self):
         """
@@ -1361,7 +1369,8 @@ class PatchManagerGUI(QWidget):
             resp.raise_for_status()
             latest_version = resp.text.strip()
 
-            if APP_VERSION != latest_version:
+            # 🔹 Vergleich ohne führendes 'v'
+            if APP_VERSION.lstrip("v") != latest_version:
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle(TEXTS[LANG]["update_available_title"])
                 msg_box.setText(TEXTS[LANG]["update_available_msg"])
@@ -1387,7 +1396,11 @@ class PatchManagerGUI(QWidget):
                             "info"
                         )
             else:
-                GithubConfigDialog.append_info(self.info_text, TEXTS[LANG]["update_not_available"], "info")
+                GithubConfigDialog.append_info(
+                    self.info_text,
+                    f"🎉 Sie haben die aktuelle Version installiert (v{latest_version})",
+                    "success"
+                )
 
         except Exception as e:
             GithubConfigDialog.append_info(
@@ -1398,6 +1411,8 @@ class PatchManagerGUI(QWidget):
 
         if progress_callback:
             progress_callback(100)
+ 
+
 
     # ---------------------
     # UPDATE CHECK
