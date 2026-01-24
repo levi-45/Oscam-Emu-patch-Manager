@@ -366,6 +366,11 @@ TEXTS = {
         "restart_tool_info": "⚠️ Tool is restarting...",
         "restart_tool_cancelled": "ℹ️ Restart cancelled.",
         "patch_emu_git_applied": "✅ Patch successfully applied: {commit_msg}",
+        "update_current_version": "🎉 You have the latest version installed (v{version})",
+        "update_started": "Checking for plugin updates...",
+        "backup_created": "Backup created: {file}",
+        "update_success": "Update successful! Please restart the plugin. (v{version})",
+        "update_fail": "Update failed: {error}",
         "patch_file_missing": "Patch file does not exist!"
     },
     "de": {
@@ -517,6 +522,11 @@ TEXTS = {
         "restart_tool_question": "Möchten Sie das Tool wirklich neu starten?",
         "restart_tool_info": "⚠️ Tool wird neu gestartet...",
         "restart_tool_cancelled": "ℹ️ Neustart abgebrochen.",
+        "update_current_version": "🎉 Sie haben die aktuelle Version installiert (v{version})",
+        "update_started": "Prüfe auf Plugin Updates...",
+        "backup_created": "Backup erstellt: {file}",
+        "update_success": "Update erfolgreich! Bitte Plugin neu starten. (v{version})",
+        "update_fail": "Update fehlgeschlagen: {error}",
         "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "patch_file_missing": "Patch-Datei existiert nicht!"
     }
@@ -1075,7 +1085,6 @@ def clean_oscam_emu_git(info_widget=None, progress_callback=None):
     if progress_callback:
         progress_callback(100)
 
-
 # ===================== patch_oscam_emu_git=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
@@ -1565,25 +1574,29 @@ class PatchManagerGUI(QWidget):
         no_button = msg.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
         msg.exec()
 
-        def log(text, level="info"):
+        # Lokaler Logger
+        def log(text_key, level="info", **kwargs):
             colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
             color = colors.get(level, "gray")
+
+            text_template = TEXTS[LANG].get(text_key, text_key)
+            text = text_template.format(**kwargs)
+
             if isinstance(widget, QTextEdit):
                 widget.append(f'<span style="color:{color}">{text}</span>')
                 widget.moveCursor(QTextCursor.MoveOperation.End)
                 QApplication.processEvents()
             else:
                 print(f"[{level.upper()}] {text}")
-
+    
         if msg.clickedButton() == yes_button:
-            log("⚠️ Tool wird neu gestartet...", "info")
+            log("restart_tool_info", "info")  # ⚠️ Tool wird neu gestartet...
             self.restart_application()
         else:
-            log("ℹ️ Neustart abgebrochen.", "info")
-
+            log("restart_tool_cancelled", "info")  # ℹ️ Neustart abgebrochen
+    
         if progress_callback:
             progress_callback(100)
-
 
     # ===================== ZIP PATCH =====================
     def zip_patch(self, info_widget=None, progress_callback=None):
@@ -1878,74 +1891,80 @@ class PatchManagerGUI(QWidget):
                 self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
     
     def plugin_update_action(self, latest_version=None, info_widget=None, progress_callback=None):
-        info = info_widget if info_widget else self.info_text
+        """
+        Prüft die Version, sichert alte Dateien, lädt das neue Plugin herunter
+        und bietet einen Neustart an. Meldungen erscheinen im Infoscreen.
+        """
+        widget = info_widget or getattr(self, "info_text", None)
+
+        def log(text_key, level="info", **kwargs):
+            colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
+            color = colors.get(level, "gray")
+
+            text_template = TEXTS[LANG].get(text_key, text_key)
+            text = text_template.format(**kwargs)
+
+            if isinstance(widget, QTextEdit):
+                widget.append(f'<span style="color:{color}">{text}</span>')
+                widget.moveCursor(QTextCursor.MoveOperation.End)
+                QApplication.processEvents()
+            else:
+                print(f"[{level.upper()}] {text}")
 
         # 🔹 Version prüfen
         if latest_version is not None and latest_version == APP_VERSION:
-            self.append_info(
-                info,
-                f"🎉 Sie haben die aktuelle Version installiert (v{self.latest_version})",
-                "success"
-            )
+            log("update_current_version", "success", version=latest_version)
             if progress_callback:
                 progress_callback(100)
             return
 
-        self.append_info(info, TEXTS[LANG]["update_started"], "info")
+        log("update_started", "info")
 
-        # Ordner, von dem das Plugin gestartet wird
-        plugin_dir = os.path.dirname(os.path.abspath(__file__))
-
-        # Backup-Ordner erstellen
-        backup_dir = os.path.join(plugin_dir, "backup_old")
-        os.makedirs(backup_dir, exist_ok=True)
-
-        # Alte Dateien sichern
-        for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
-            src = os.path.join(plugin_dir, fname)
-            if os.path.exists(src):
-                shutil.copy(src, os.path.join(backup_dir, fname))
-                self.append_info(info, f"Backup erstellt: {fname}", "success")
-
-        # Neue Plugin-Datei herunterladen
         try:
+            plugin_dir = os.path.dirname(os.path.abspath(__file__))
+            backup_dir = os.path.join(plugin_dir, "backup_old")
+            os.makedirs(backup_dir, exist_ok=True)
+
+            # Alte Dateien sichern
+            for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
+                src = os.path.join(plugin_dir, fname)
+                if os.path.exists(src):
+                    shutil.copy(src, os.path.join(backup_dir, fname))
+                    log("backup_created", "success", file=fname)
+
+            # Neue Plugin-Datei herunterladen
             import requests
- 
+
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
-
+ 
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
             with open(plugin_file, "w", encoding="utf-8") as f:
                 f.write(resp.text)
 
-            self.append_info(
-                info,
-                TEXTS[LANG]["update_success"] + (f" (v{latest_version})" if latest_version else ""),
-                "success"
-            )
+            log("update_success", "success", version=latest_version or "")
 
             # 🔹 Neustart-Abfrage
             reply = QMessageBox.question(
                 self,
-                TEXTS[LANG]["restart_required_title"],
-                TEXTS[LANG]["restart_required_msg"],
+                TEXTS[LANG].get("restart_required_title", "Restart required"),
+                TEXTS[LANG].get("restart_required_msg", "The tool must be restarted. Restart now?"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
 
             if reply == QMessageBox.StandardButton.Yes:
+                log("restart_tool_info", "info")
                 self.restart_application()
-
+            else:
+                log("restart_tool_cancelled", "info")
+ 
         except Exception as e:
-            self.append_info(
-                info,
-                TEXTS[LANG]["update_fail"].format(error=str(e)),
-                "error"
-            )
+            log("update_fail", "error", error=str(e))
 
         if progress_callback:
             progress_callback(100)
-
+  
     def fetch_latest_version(self):
         """Ruft die Version aus VERSION.txt auf GitHub ab und speichert sie in self.latest_version."""
         import requests, time
