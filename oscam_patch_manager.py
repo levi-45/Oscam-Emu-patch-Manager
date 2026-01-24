@@ -44,7 +44,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.5.3"
+APP_VERSION = "1.5.5"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 # Konfigurationsdateien
@@ -1676,7 +1676,7 @@ class PatchManagerGUI(QWidget):
         if progress_callback:
             progress_callback(100)
 
-     def update_ui_texts(self):
+    def update_ui_texts(self):
         """Alle Texte basierend auf aktueller Sprache aktualisieren."""
         # Labels
         if hasattr(self, "lang_label"):
