@@ -1,20 +1,20 @@
 # Änderungen für oscam_patch_manager.py
-Letzte Aktualisierung: 24.01.2026 19:16
+Letzte Aktualisierung: 24.01.2026 19:18
 
 ---
 
 ## 🔧 Änderungen am Script
 
-
+* Update oscam_patch_manager.py (6348501)
 ---
 
 ## 📊 Aktueller Tool-Status
 
 ```text
-  File "/home/runner/work/Oscam-Emu-patch-Manager/Oscam-Emu-patch-Manager/oscam_patch_manager.py", line 1679
-    def update_ui_texts(self):
-                              ^
-IndentationError: unindent does not match any outer indentation level
+Traceback (most recent call last):
+  File "/home/runner/work/Oscam-Emu-patch-Manager/Oscam-Emu-patch-Manager/oscam_patch_manager.py", line 29, in <module>
+    import requests
+ModuleNotFoundError: No module named 'requests'
 ⚠️ Tool-Ausführung fehlgeschlagen
 ```
 
