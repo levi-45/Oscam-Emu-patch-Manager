@@ -44,7 +44,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.5.6"
+APP_VERSION = "1.5.7"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 # Konfigurationsdateien
@@ -369,8 +369,70 @@ TEXTS = {
         "update_current_version": "🎉 You have the latest version installed (v{version})",
         "update_started": "Checking for plugin updates...",
         "backup_created": "Backup created: {file}",
+        "update_started": "🔄 Update started…",
+        "update_current_version": "🎉 You have the latest version installed (v{version})",
+        "backup_created": "💾 Backup created: {file}",
+        "update_success": "✅ Update completed successfully{version}",
+        "update_fail": "❌ Update failed: {error}",
+        "restart_required_title": "Restart Tool",
+        "restart_required_msg": "The tool must be restarted. Restart now?",
+        "yes": "Yes",
+        "no": "No",
+        "restart_tool_info": "⚠️ Tool is restarting...",
+        "restart_tool_cancelled": "ℹ️ Restart cancelled",
         "update_success": "Update successful! Please restart the plugin. (v{version})",
         "update_fail": "Update failed: {error}",
+        "cleaning_oscam_emu_git": "🔄 Lösche PATCH_EMU_GIT Ordner: {path}",
+        "oscam_emu_git_deleted": "✅ PATCH_EMU_GIT Ordner gelöscht: {path}",
+        "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
+        "delete_failed": "❌ Fehler beim Löschen: {path}",
+        "patch_emu_git_start": "🔄 Preparing PATCH_EMU_GIT: {path}",
+        "patch_emu_git_deleted": "✅ Old PATCH_EMU_GIT folder deleted: {path}",
+        "patch_emu_git_clone_failed": "❌ Failed to clone the repo",
+        "patch_emu_git_apply_failed": "❌ Failed to apply the patch",
+        "patch_emu_git_applied": "✅ Patch applied successfully: {commit_msg}",
+        "delete_failed": "❌ Failed to delete: {path}",
+        "github_patch_credentials_missing": "❌ GitHub credentials are missing! Please configure them in settings.",
+        "patch_file_missing": "❌ Patch file not found!",
+        "temp_repo_deleted": "♻️ Temp repo deleted: {path}",
+        "delete_failed": "❌ Failed to delete {path}",
+        "github_clone_failed": "❌ GitHub repo clone failed",
+        "new_patch_copied": "✅ New patch file copied",
+        "default_commit_msg": "Update oscam-emu.patch",
+        "github_patch_uploaded": "✅ Patch successfully uploaded to GitHub",
+        "temp_repo_cleaned": "♻️ Temp repo cleaned: {path}",
+        "cleaning_oscam_emu_git": "🔄 Deleting folder {path} …",
+        "oscam_emu_git_deleted": "✅ Folder deleted: {path}",
+        "oscam_emu_git_missing": "⚠️ Folder does not exist: {path}",
+        "delete_failed": "❌ Failed to delete {path}",
+        "github_emu_git_missing": "❌ GitHub credentials for OSCam-EMU are missing or incomplete",
+        "patch_emu_git_missing": "❌ Folder does not exist: {path}",
+        "git_repo_init": "⚠️ Git repository does not exist yet, initializing: {path}",
+        "github_emu_git_uploaded": "✅ OSCam-EMU Git folder uploaded successfully",
+        "cleaning_oscam_emu_git": "🔄 Cleaning OSCam-EMU Git folder: {path}",
+        "oscam_emu_git_deleted": "✅ OSCam-EMU Git folder deleted: {path}",
+        "oscam_emu_git_missing": "⚠️ Folder does not exist: {path}",
+        "delete_failed": "❌ Failed to delete: {path}",
+        "clean_emu_button": "Clean OSCam-EMU Git",
+        "patch_emu_git_button": "Apply OSCam-EMU Git Patch",
+        "commits_button": "Show Commits",
+        "github_upload_patch_button": "Upload Patch",
+        "github_upload_emu_button": "Upload OSCam-EMU Git",
+        "github_emu_config_button": "GitHub Config",
+        "plugin_update_button": "Update Plugin",
+        "restart_tool_button": "Restart Tool",
+        "edit_header_button": "Edit Patch Header",
+        "clean_emu_button": "Oscam Emu Git bereinigen",
+        "clean_emu_button": "Clean OSCam Emu Git",
+        "patch_emu_git_button": "Apply OSCam Emu Patch",
+        "commits_button": "Show Commits",
+        "github_upload_patch_button": "Upload Patch to GitHub",
+        "github_upload_emu_button": "Upload OSCam-Emu Git",
+        "github_emu_config_button": "Edit GitHub Config",
+        "plugin_update_button": "Update Plugin",
+        "restart_tool_button": "Restart Tool",
+        "edit_header_button": "Edit Patch Header",
+        "temp_repo_cleanup_failed": "⚠️ Failed to delete temp repo: {path}",
         "patch_file_missing": "Patch file does not exist!"
     },
     "de": {
@@ -527,6 +589,73 @@ TEXTS = {
         "backup_created": "Backup erstellt: {file}",
         "update_success": "Update erfolgreich! Bitte Plugin neu starten. (v{version})",
         "update_fail": "Update fehlgeschlagen: {error}",
+        "restart_tool_info": "⚠️ Tool wird neu gestartet...",
+        "restart_tool_cancelled": "ℹ️ Neustart abgebrochen",
+        "update_started": "🔄 Update wird gestartet…",
+        "update_current_version": "🎉 Sie haben die aktuelle Version installiert (v{version})",
+        "backup_created": "💾 Backup erstellt: {file}",
+        "update_success": "✅ Update erfolgreich abgeschlossen{version}",
+        "update_fail": "❌ Update fehlgeschlagen: {error}",
+        "restart_required_title": "Tool Neustarten",
+        "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
+        "yes": "Ja",
+        "no": "Nein",
+        "cleaning_oscam_emu_git": "🔄 Lösche PATCH_EMU_GIT Ordner: {path}",
+        "oscam_emu_git_deleted": "✅ PATCH_EMU_GIT Ordner gelöscht: {path}",
+        "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
+        "delete_failed": "❌ Fehler beim Löschen: {path}",
+        "restart_tool_info": "⚠️ Tool wird neu gestartet...",
+        "restart_tool_cancelled": "ℹ️ Neustart abgebrochen",
+        "patch_emu_git_start": "🔄 PATCH_EMU_GIT wird vorbereitet: {path}",
+        "patch_emu_git_deleted": "✅ Alter PATCH_EMU_GIT Ordner gelöscht: {path}",
+        "patch_emu_git_clone_failed": "❌ Fehler beim Klonen des Repos",
+        "patch_emu_git_apply_failed": "❌ Fehler beim Anwenden des Patches",
+        "patch_emu_git_applied": "✅ Patch erfolgreich angewendet: {commit_msg}",
+        "delete_failed": "❌ Fehler beim Löschen: {path}" ,
+        "github_patch_credentials_missing": "❌ GitHub-Zugangsdaten fehlen! Bitte in den Einstellungen eintragen.",
+        "patch_file_missing": "❌ Patch-Datei nicht gefunden!",
+        "temp_repo_deleted": "♻️ Temp-Repo gelöscht: {path}",
+        "delete_failed": "❌ Fehler beim Löschen von {path}",
+        "github_clone_failed": "❌ Klonen des GitHub-Repos fehlgeschlagen",
+        "new_patch_copied": "✅ Neue Patch-Datei kopiert",
+        "default_commit_msg": "Update oscam-emu.patch",
+        "github_patch_uploaded": "✅ Patch erfolgreich auf GitHub hochgeladen",
+        "temp_repo_cleaned": "♻️ Temp-Repo bereinigt: {path}",
+        "temp_repo_cleanup_failed": "⚠️ Temp-Repo konnte nicht gelöscht werden: {path}",
+        "cleaning_oscam_emu_git": "🔄 Lösche Ordner {path} …",
+        "oscam_emu_git_deleted": "✅ Ordner gelöscht: {path}",
+        "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
+        "delete_failed": "❌ Fehler beim Löschen von {path}",
+        "github_emu_git_missing": "❌ GitHub-Zugangsdaten für OSCam-EMU fehlen oder unvollständig",
+        "patch_emu_git_missing": "❌ Ordner existiert nicht: {path}",
+        "git_repo_init": "⚠️ Git-Repository existiert noch nicht, initialisiere: {path}",
+         "clean_emu_button": "OSCam-EMU Git bereinigen",
+        "patch_emu_git_button": "Patch OSCam-EMU Git anwenden",
+        "commits_button": "Commits anzeigen",
+        "github_upload_patch_button": "Patch hochladen",
+        "github_upload_emu_button": "OSCam-EMU Git hochladen",
+        "github_emu_config_button": "GitHub Config",
+        "plugin_update_button": "Plugin aktualisieren",
+        "restart_tool_button": "Tool neu starten",
+        "edit_header_button": "Patch-Header bearbeiten",
+        "clean_emu_button": "Oscam Emu Git bereinigen",
+        "patch_emu_git_button": "Patch OSCam Emu Git anwenden",
+        "commits_button": "Commits anzeigen",
+        "github_upload_patch_button": "Patch auf GitHub hochladen",
+        "github_upload_emu_button": "OSCam-Emu Git hochladen",
+        "github_emu_config_button": "GitHub Config bearbeiten",
+        "plugin_update_button": "Plugin aktualisieren",
+        "restart_tool_button": "Tool neu starten",
+        "edit_header_button": "Patch-Header bearbeiten",
+        "patch_emu_git_button": "Patch OSCam Emu Git anwenden",
+        "commits_button": "Commits anzeigen",
+        "github_upload_patch_button": "Patch auf GitHub hochladen",
+        "github_upload_emu_button": "OSCam-Emu Git hochladen",
+        "github_emu_config_button": "GitHub Config bearbeiten",
+        "plugin_update_button": "Plugin aktualisieren",
+        "restart_tool_button": "Tool neu starten",
+        "edit_header_button": "Patch-Header bearbeiten",
+        "github_emu_git_uploaded": "✅ OSCam-EMU Git-Ordner erfolgreich hochgeladen",
         "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "patch_file_missing": "Patch-Datei existiert nicht!"
     }
@@ -1059,7 +1188,7 @@ def clean_oscam_emu_git(info_widget=None, progress_callback=None):
         colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
         color = colors.get(level, "gray")
 
-        # Text aus TEXTS holen, fallback auf Key
+        # Text aus TEXTS holen, fallback auf key selbst
         text_template = TEXTS[LANG].get(text_key, text_key)
         text = text_template.format(**kwargs)
 
@@ -1070,6 +1199,7 @@ def clean_oscam_emu_git(info_widget=None, progress_callback=None):
         else:
             print(f"[{level.upper()}] {text}")
 
+    # Meldung: Löschen wird gestartet
     log("cleaning_oscam_emu_git", "info", path=PATCH_EMU_GIT_DIR)
 
     if os.path.exists(PATCH_EMU_GIT_DIR):
@@ -1102,6 +1232,7 @@ def patch_oscam_emu_git(info_widget=None, progress_callback=None):
         colors = {"success":"green","warning":"orange","error":"red","info":"gray"}
         color = colors.get(level,"gray")
 
+        # Text aus TEXTS holen, fallback auf Key
         text_template = TEXTS[LANG].get(text_key, text_key)
         text = text_template.format(**kwargs)
 
@@ -1112,6 +1243,7 @@ def patch_oscam_emu_git(info_widget=None, progress_callback=None):
         else:
             print(f"[{level.upper()}] {text}")
 
+    # Startmeldung
     log("patch_emu_git_start", "info", path=PATCH_EMU_GIT_DIR)
 
     # Ordner löschen, falls vorhanden
@@ -1150,6 +1282,7 @@ def patch_oscam_emu_git(info_widget=None, progress_callback=None):
 
     if progress_callback:
         progress_callback(100)
+
 
 # ===================== GITHUB CONFIG =====================
 GITHUB_CONF_FILE = os.path.join(PLUGIN_DIR, "github_upload_config.json")
@@ -1223,18 +1356,29 @@ def _github_upload(dir_path, repo_url, info_widget=None, branch="master", commit
     )
 
 # ===================== GITHUB UPLOAD PATCH FILE =====================
+from PyQt6.QtWidgets import QTextEdit, QApplication
+from PyQt6.QtGui import QTextCursor
+import shutil, os
+
 def github_upload_patch_file(info_widget=None, progress_callback=None):
     """
     Lädt die Patch-Datei auf GitHub hoch.
     Die Patch-Datei wird immer überschrieben.
-    Meldungen werden ins Info-Widget geschrieben oder auf die Konsole.
+    Meldungen erscheinen im Infoscreen oder Terminal.
     """
-    def log(text, level="info"):
+    # Widget für Infos
+    widget = info_widget
+
+    # Logger mit Übersetzungen
+    def log(text_key, level="info", **kwargs):
         colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
         color = colors.get(level, "gray")
-        if info_widget and hasattr(info_widget, "append") and hasattr(info_widget, "moveCursor"):
-            info_widget.append(f'<span style="color:{color}">{text}</span>')
-            info_widget.moveCursor(QTextCursor.MoveOperation.End)
+        text_template = TEXTS[LANG].get(text_key, text_key)
+        text = text_template.format(**kwargs)
+        if isinstance(widget, QTextEdit):
+            widget.append(f'<span style="color:{color}">{text}</span>')
+            widget.moveCursor(QTextCursor.MoveOperation.End)
+            QApplication.processEvents()
         else:
             print(f"[{level.upper()}] {text}")
 
@@ -1243,37 +1387,38 @@ def github_upload_patch_file(info_widget=None, progress_callback=None):
     username, token = cfg.get("username"), cfg.get("token")
     user_name, user_email = cfg.get("user_name"), cfg.get("user_email")
 
+    # Prüfen ob Zugangsdaten vorhanden sind
     if not all([repo_url, username, token, user_name, user_email]):
-        log(TEXTS[LANG]["github_patch_credentials_missing"], "error")
+        log("github_patch_credentials_missing", "error")
         if progress_callback:
             progress_callback(0)
         return
 
+    # Prüfen ob Patch-Datei existiert
     if not os.path.exists(PATCH_FILE):
-        log(TEXTS[LANG]["patch_file_missing"], "error")
+        log("patch_file_missing", "error")
         if progress_callback:
             progress_callback(0)
         return
 
     temp_repo = os.path.join(PLUGIN_DIR, "temp_patch_git")
 
-    # Temp-Repo löschen, damit alles sauber ist
+    # Temp-Repo löschen, falls vorhanden
     if os.path.exists(temp_repo):
         try:
             shutil.rmtree(temp_repo)
-            log(f"♻️ Temp-Repo gelöscht: {temp_repo}", "info")
+            log("temp_repo_deleted", "info", path=temp_repo)
         except Exception as e:
-            log(f"❌ Fehler beim Löschen von Temp-Repo: {e}", "error")
+            log("delete_failed", "error", path=f"{temp_repo} ({e})")
             return
 
     os.makedirs(temp_repo, exist_ok=True)
 
+    # Repo klonen mit Token
     token_url = repo_url.replace("https://", f"https://{username}:{token}@")
-
-    # Repo klonen
     code = run_bash(f"git clone --branch {branch} {token_url} {temp_repo}", logger=log)
     if code != 0:
-        log("❌ Klonen fehlgeschlagen", "error")
+        log("github_clone_failed", "error")
         if progress_callback:
             progress_callback(0)
         return
@@ -1281,7 +1426,7 @@ def github_upload_patch_file(info_widget=None, progress_callback=None):
     # Alte Patch-Datei überschreiben
     patch_path = os.path.join(temp_repo, "oscam-emu.patch")
     shutil.copy2(PATCH_FILE, patch_path)
-    log(TEXTS[LANG]["new_patch_copied"], "info")
+    log("new_patch_copied", "info")
 
     # Git Username & Email setzen
     run_bash(f'git config user.name "{user_name}"', cwd=temp_repo, logger=log)
@@ -1290,22 +1435,23 @@ def github_upload_patch_file(info_widget=None, progress_callback=None):
     # Git add & commit
     run_bash("git add oscam-emu.patch", cwd=temp_repo, logger=log)
     with open(PATCH_FILE, "r", encoding="utf-8") as f:
-        commit_msg = f.readline().strip() or "Update oscam-emu.patch"
+        commit_msg = f.readline().strip() or TEXTS[LANG].get("default_commit_msg", "Update oscam-emu.patch")
     run_bash(f'git commit -m "{commit_msg}" --allow-empty', cwd=temp_repo, logger=log)
 
     # Push erzwingen
     run_bash(f"git push --force origin {branch}", cwd=temp_repo, logger=log)
-    log(TEXTS[LANG]["github_patch_uploaded"], "success")
+    log("github_patch_uploaded", "success")
 
-    # Optional: Temp-Repo wieder löschen
+    # Temp-Repo bereinigen
     try:
         shutil.rmtree(temp_repo)
-        log(f"♻️ Temp-Repo bereinigt: {temp_repo}", "info")
+        log("temp_repo_cleaned", "info", path=temp_repo)
     except Exception as e:
-        log(f"⚠️ Temp-Repo konnte nicht gelöscht werden: {e}", "warning")
+        log("temp_repo_cleanup_failed", "warning", path=f"{temp_repo} ({e})")
 
     if progress_callback:
         progress_callback(100)
+
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(info_widget=None, progress_callback=None):
@@ -1314,65 +1460,64 @@ def github_upload_oscam_emu_folder(info_widget=None, progress_callback=None):
     Alte Dateien werden überschrieben.
     Meldungen werden ins Info-Widget geschrieben oder auf die Konsole.
     """
-    # Logger-Funktion
-    def log(text, level="info"):
+    widget = info_widget
+
+    # Logger mit Übersetzungen
+    def log(text_key, level="info", **kwargs):
         colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
         color = colors.get(level, "gray")
-        if info_widget and hasattr(info_widget, "append") and hasattr(info_widget, "moveCursor"):
-            info_widget.append(f'<span style="color:{color}">{text}</span>')
-            info_widget.moveCursor(QTextCursor.MoveOperation.End)
+
+        text_template = TEXTS[LANG].get(text_key, text_key)
+        text = text_template.format(**kwargs)
+
+        if isinstance(widget, QTextEdit):
+            widget.append(f'<span style="color:{color}">{text}</span>')
+            widget.moveCursor(QTextCursor.MoveOperation.End)
+            QApplication.processEvents()
         else:
             print(f"[{level.upper()}] {text}")
 
-    # GitHub Config laden
-    cfg = load_github_config()  # aus github_upload_config.json
-    repo_url = cfg.get("emu_repo_url")
-    branch = cfg.get("emu_branch", "master")
-    username = cfg.get("username")
-    token = cfg.get("token")
-    user_name = cfg.get("user_name")
-    user_email = cfg.get("user_email")
+    cfg = load_github_config()
+    repo_url, branch = cfg.get("emu_repo_url"), cfg.get("emu_branch", "master")
+    username, token = cfg.get("username"), cfg.get("token")
+    user_name, user_email = cfg.get("user_name"), cfg.get("user_email")
 
     if not all([repo_url, branch, username, token, user_name, user_email]):
-        log(TEXTS[LANG]["github_emu_git_missing"], "error")
+        log("github_emu_git_missing", "error")
         if progress_callback: progress_callback(0)
         return
 
     if not os.path.exists(PATCH_EMU_GIT_DIR):
-        log(f"❌ Ordner {PATCH_EMU_GIT_DIR} existiert nicht", "error")
+        log("patch_emu_git_missing", "error", path=PATCH_EMU_GIT_DIR)
         if progress_callback: progress_callback(0)
         return
 
-    # URL mit Token
     token_url = repo_url.replace("https://", f"https://{username}:{token}@")
-
-    # Git initialisieren, falls noch kein Repository
     git_dir = os.path.join(PATCH_EMU_GIT_DIR, ".git")
+
     if not os.path.exists(git_dir):
-        log("⚠️ Git-Repository existiert noch nicht, initialisiere...", "warning")
+        log("git_repo_init", "warning", path=PATCH_EMU_GIT_DIR)
         run_bash("git init", cwd=PATCH_EMU_GIT_DIR, logger=log)
         run_bash(f"git remote add origin {token_url}", cwd=PATCH_EMU_GIT_DIR, logger=log)
         run_bash(f"git checkout -b {branch}", cwd=PATCH_EMU_GIT_DIR, logger=log)
     else:
-        # Remote URL sicherstellen
         run_bash(f"git remote remove origin || true", cwd=PATCH_EMU_GIT_DIR, logger=log)
         run_bash(f"git remote add origin {token_url}", cwd=PATCH_EMU_GIT_DIR, logger=log)
         run_bash(f"git fetch origin {branch}", cwd=PATCH_EMU_GIT_DIR, logger=log)
         run_bash(f"git checkout {branch}", cwd=PATCH_EMU_GIT_DIR, logger=log)
 
-    # Git-Konfiguration setzen
     run_bash(f'git config user.name "{user_name}"', cwd=PATCH_EMU_GIT_DIR, logger=log)
     run_bash(f'git config user.email "{user_email}"', cwd=PATCH_EMU_GIT_DIR, logger=log)
 
-    # Alle Dateien hinzufügen, Commit und Push erzwingen
     run_bash("git add .", cwd=PATCH_EMU_GIT_DIR, logger=log)
-    commit_msg = "Sync OSCam-Emu folder " + get_patch_header().splitlines()[0]
-    run_bash(f'git commit -m "{commit_msg}" --allow-empty', cwd=PATCH_EMU_GIT_DIR, logger=log)
+    commit_msg = get_patch_header().splitlines()[0]
+    run_bash(f'git commit -m "Sync OSCam-Emu folder {commit_msg}" --allow-empty', cwd=PATCH_EMU_GIT_DIR, logger=log)
     run_bash(f"git push --force origin {branch}", cwd=PATCH_EMU_GIT_DIR, logger=log)
 
-    log(TEXTS[LANG]["github_emu_git_uploaded"], "success")
+    log("github_emu_git_uploaded", "success")
     if progress_callback:
         progress_callback(100)
+
 
 # =====================
 # GITHUB CONFIG DIALOG
@@ -1723,7 +1868,7 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "commit_label"):
             self.commit_label.setText(TEXTS[LANG]["commit_count_label"])
 
-        # Option Buttons
+        # Option Buttons aktualisieren
         for btn_name in [
             "clean_emu_button",
             "patch_emu_git_button",
@@ -1735,7 +1880,10 @@ class PatchManagerGUI(QWidget):
             "restart_tool_button",
             "edit_header_button"
         ]:
+            # Button-Widget holen
             btn = getattr(self, btn_name, None)
+    
+            # Wenn Button existiert und ein Text in TEXTS für die aktuelle Sprache vorhanden ist
             if btn and btn_name in TEXTS[LANG]:
                 btn.setText(TEXTS[LANG][btn_name])
 
@@ -1897,6 +2045,7 @@ class PatchManagerGUI(QWidget):
         """
         widget = info_widget or getattr(self, "info_text", None)
 
+        # Lokaler Logger mit Übersetzungen
         def log(text_key, level="info", **kwargs):
             colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
             color = colors.get(level, "gray")
@@ -1932,39 +2081,39 @@ class PatchManagerGUI(QWidget):
                     shutil.copy(src, os.path.join(backup_dir, fname))
                     log("backup_created", "success", file=fname)
 
-            # Neue Plugin-Datei herunterladen
+             # Neue Plugin-Datei herunterladen
             import requests
-
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
- 
+
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
             with open(plugin_file, "w", encoding="utf-8") as f:
                 f.write(resp.text)
 
             log("update_success", "success", version=latest_version or "")
 
-            # 🔹 Neustart-Abfrage
-            reply = QMessageBox.question(
-                self,
-                TEXTS[LANG].get("restart_required_title", "Restart required"),
-                TEXTS[LANG].get("restart_required_msg", "The tool must be restarted. Restart now?"),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
+            # 🔹 Neustart-Abfrage mit übersetzten Buttons
+            msg = QMessageBox(self)
+            msg.setWindowTitle(TEXTS[LANG].get("restart_required_title", "Restart required"))
+            msg.setText(TEXTS[LANG].get("restart_required_msg", "The tool must be restarted. Restart now?"))
 
-            if reply == QMessageBox.StandardButton.Yes:
-                log("restart_tool_info", "info")
+            yes_button = msg.addButton(TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
+            no_button = msg.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
+            msg.exec()
+
+            if msg.clickedButton() == yes_button:
+                log("restart_tool_info", "info")  # ⚠️ Tool wird neu gestartet...
                 self.restart_application()
             else:
-                log("restart_tool_cancelled", "info")
- 
+                log("restart_tool_cancelled", "info")  # ℹ️ Neustart abgebrochen
+
         except Exception as e:
             log("update_fail", "error", error=str(e))
 
         if progress_callback:
             progress_callback(100)
-  
+
     def fetch_latest_version(self):
         """Ruft die Version aus VERSION.txt auf GitHub ab und speichert sie in self.latest_version."""
         import requests, time
