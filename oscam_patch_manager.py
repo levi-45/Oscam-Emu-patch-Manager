@@ -44,7 +44,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.5..7"
+APP_VERSION = "1.5..8"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 # Konfigurationsdateien
@@ -2173,27 +2173,40 @@ class PatchManagerGUI(QWidget):
             self.update_plugin_button_state()
             return None
 
-    def plugin_update_button_clicked(self, checked=False, progress_callback=None):
+    def plugin_update_button_clicked(self, checked=False, progress_callback=None, **kwargs):
         """
         Prüft die GitHub-Version und zeigt einen Hinweisdialog.
-        checked wird automatisch vom QPushButton.clicked Signal übergeben.
+        Alle zusätzlichen Keyword-Argumente (z.B. info_widget) werden ignoriert.
         """
-        self.append_info(self.info_text, TEXTS[LANG]["update_check_start"], "info")
+        info_widget = kwargs.get("info_widget", getattr(self, "info_text", None))
+
+        # Lokale Log-Funktion
+        def log(text_key, level="info", **fmt_kwargs):
+            colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
+            color = colors.get(level, "gray")
+            text_template = TEXTS[LANG].get(text_key, text_key)
+            text = text_template.format(**fmt_kwargs)
+            if isinstance(info_widget, QTextEdit):
+                info_widget.append(f'<span style="color:{color}">{text}</span>')
+                info_widget.moveCursor(QTextCursor.MoveOperation.End)
+                QApplication.processEvents()
+            else:
+                print(f"[{level.upper()}] {text}")
+
+        log("update_check_start", "info")
 
         try:
             import requests
- 
+
             # Version von GitHub abrufen
             version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
-            latest_version = resp.text.strip()  # Zeilenumbruch entfernen
+            latest_version = resp.text.strip()
 
-            # APP_VERSION bereinigen (v entfernen, Whitespaces trimmen)
             current_version = APP_VERSION.lstrip("v").strip()
             latest_version = latest_version.lstrip("v").strip()
 
-            # Versionsvergleich
             if current_version != latest_version:
                 # Update verfügbar
                 msg_box = QMessageBox(self)
@@ -2204,40 +2217,34 @@ class PatchManagerGUI(QWidget):
                 msg_box.exec()
 
                 if msg_box.clickedButton() == yes_button:
-                    self.plugin_update_action(latest_version=latest_version)
+                    # Update ausführen
+                    self.plugin_update_action(latest_version=latest_version, info_widget=info_widget, progress_callback=progress_callback)
 
                     # Neustart-Abfrage
                     reply = QMessageBox.question(
-                    self,
-                    TEXTS[LANG]["restart_required_title"],
-                    TEXTS[LANG]["restart_required_msg"],
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                        self,
+                        TEXTS[LANG]["restart_required_title"],
+                        TEXTS[LANG]["restart_required_msg"],
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                     )
-                if reply == QMessageBox.StandardButton.Yes:
-                    self.restart_application()
-                else:
-                    self.append_info(
-                        self.info_text,
-                        "⚠️ Update installiert, Neustart erforderlich für Aktivierung.",
-                        "info"
-                    )
+
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self.restart_application_with_info(info_widget=info_widget, progress_callback=progress_callback)
+                    else:
+                        log("restart_tool_cancelled", "info")
+ 
             else:
                 # Keine neue Version
-                self.append_info(
-                self.info_text,
-                f"✅ 🎉 Sie haben die aktuelle Version installiert (v{current_version})",
-                "success"
-            )
+                log("update_current_version", "success", version=current_version)
 
         except Exception as e:
-            self.append_info(
-                self.info_text,
-                TEXTS[LANG]["update_fail"].format(error=str(e)),
-                "error"
-            )
+            log("update_fail", "error", error=str(e))
 
         if progress_callback:
             progress_callback(100)
+
+
+
 
     # ---------------------
     # UPDATE CHECK
