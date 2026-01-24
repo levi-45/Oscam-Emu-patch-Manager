@@ -44,7 +44,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.5.5"
+APP_VERSION = "1.5.6"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 # Konfigurationsdateien
@@ -359,8 +359,12 @@ TEXTS = {
         "patch_create_no_changes": "# No changes found",
         "patch_create_success": "✅ Patch successfully created: {patch_file}",
         "patch_create_failed": "❌ Patch creation failed: {error}",
-         "select_s3_patch_folder": "Select S3 Patch Folder",
+        "select_s3_patch_folder": "Select S3 Patch Folder",
         "old_patch_path_changed": "✅ Path changed: {OLD_}",
+        "restart_tool": "Restart Tool",
+        "restart_tool_question": "Do you really want to restart the tool?",
+        "restart_tool_info": "⚠️ Tool is restarting...",
+        "restart_tool_cancelled": "ℹ️ Restart cancelled.",
         "patch_emu_git_applied": "✅ Patch successfully applied: {commit_msg}",
         "patch_file_missing": "Patch file does not exist!"
     },
@@ -509,6 +513,10 @@ TEXTS = {
         "patch_emu_git_applied": "✅ Patch erfolgreich angewendet: {commit_msg}",
         "select_s3_patch_folder": "S3 Patch-Ordner auswählen",
         "old_patch_path_changed": "✅ Alter Patch-Ordner geändert: {OLD_}",
+        "restart_tool": "Tool Neustarten",
+        "restart_tool_question": "Möchten Sie das Tool wirklich neu starten?",
+        "restart_tool_info": "⚠️ Tool wird neu gestartet...",
+        "restart_tool_cancelled": "ℹ️ Neustart abgebrochen.",
         "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
         "patch_file_missing": "Patch-Datei existiert nicht!"
     }
@@ -1543,7 +1551,12 @@ class PatchManagerGUI(QWidget):
         )
         return header
     
-    def restart_application_with_info(self, checked=False, progress_callback=None):
+    def restart_application_with_info(self, checked=False, progress_callback=None, info_widget=None):
+        """
+        Startet das Tool neu mit optionaler Info-Ausgabe im Widget.
+        """
+        widget = info_widget or getattr(self, "info_text", None)
+
         msg = QMessageBox(self)
         msg.setWindowTitle(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
         msg.setText(TEXTS[LANG].get("restart_tool_question", "Möchten Sie das Tool wirklich neu starten?"))
@@ -1552,14 +1565,25 @@ class PatchManagerGUI(QWidget):
         no_button = msg.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
         msg.exec()
 
+        def log(text, level="info"):
+            colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
+            color = colors.get(level, "gray")
+            if isinstance(widget, QTextEdit):
+                widget.append(f'<span style="color:{color}">{text}</span>')
+                widget.moveCursor(QTextCursor.MoveOperation.End)
+                QApplication.processEvents()
+            else:
+                print(f"[{level.upper()}] {text}")
+
         if msg.clickedButton() == yes_button:
-            self.append_info(self.info_text, "⚠️ Tool wird neu gestartet...", "info")
+            log("⚠️ Tool wird neu gestartet...", "info")
             self.restart_application()
         else:
-            self.append_info(self.info_text, "Neustart abgebrochen.", "info")
+            log("ℹ️ Neustart abgebrochen.", "info")
 
         if progress_callback:
             progress_callback(100)
+
 
     # ===================== ZIP PATCH =====================
     def zip_patch(self, info_widget=None, progress_callback=None):
