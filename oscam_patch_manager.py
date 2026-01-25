@@ -1845,7 +1845,7 @@ class PatchManagerGUI(QWidget):
         und bietet einen Neustart an. Meldungen erscheinen im Info-Widget.
         """
         from packaging.version import Version, InvalidVersion
-        import os, shutil, requests
+        import os, shutil, requests, re
 
         widget = getattr(self, "info_text", None)
 
@@ -1861,7 +1861,7 @@ class PatchManagerGUI(QWidget):
             else:
                 print(f"[{level.upper()}] {text}")
 
-        # 🔹 ⚡ Cache-Cleanup am Start (alte .pyc / __pycache__)
+        # 🔹 Cache-Cleanup am Start
         try:
             plugin_dir = os.path.dirname(os.path.abspath(__file__))
             pyc_file = os.path.join(plugin_dir, "oscam_patch_manager.pyc")
@@ -1874,29 +1874,49 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             log("update_fail", "warning", error=f"Cache cleanup failed: {e}")
 
-        # 🔹 Version prüfen
-        if latest_version:
+        # 🔹 GitHub-Version holen, falls keine übergeben
+        if latest_version is None:
             try:
-                lv = Version(latest_version.strip().lstrip("v"))
-                cv = Version(APP_VERSION.strip().lstrip("v"))
-                if lv <= cv:
-                    log("update_current_version", "success", version=latest_version)
+                url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+                resp = requests.get(url, timeout=10)
+                resp.raise_for_status()
+
+                match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', resp.text)
+                if match:
+                    latest_version = match.group(1)
+                    log("github_version_available", "info", version=latest_version)
+                else:
+                    log("update_fail", "error", error="APP_VERSION not found on GitHub")
                     if progress_callback:
                         progress_callback(100)
                     return
-            except InvalidVersion:
-                log("update_fail", "error", error=f"Invalid version detected: '{latest_version}'")
+            except Exception as e:
+                log("update_fail", "error", error=f"Could not fetch GitHub version: {e}")
                 if progress_callback:
                     progress_callback(100)
                 return
 
+        # 🔹 Version prüfen
+        try:
+            lv = Version(latest_version.strip().lstrip("v"))
+            cv = Version(APP_VERSION.strip().lstrip("v"))
+            if lv <= cv:
+                log("update_current_version", "success", version=latest_version)
+                if progress_callback:
+                    progress_callback(100)
+                return
+        except InvalidVersion:
+            log("update_fail", "error", error=f"Invalid version detected: '{latest_version}'")
+            if progress_callback:
+                progress_callback(100)
+            return
+
         log("update_started", "info")
 
         try:
+            # 🔹 Backup alter Dateien
             backup_dir = os.path.join(plugin_dir, "backup_old")
             os.makedirs(backup_dir, exist_ok=True)
-
-            # 🔹 Alte Dateien sichern
             for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
                 src = os.path.join(plugin_dir, fname)
                 if os.path.exists(src):
@@ -1904,16 +1924,11 @@ class PatchManagerGUI(QWidget):
                     log("backup_created", "success", file=fname)
 
             # 🔹 Neue Plugin-Datei herunterladen
-            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
             tmp_file = plugin_file + ".tmp"
 
             with open(tmp_file, "w", encoding="utf-8") as f:
                 f.write(resp.text)
-
             os.replace(tmp_file, plugin_file)  # Atomic Write
 
             log("update_success", "success", version=latest_version or "")
@@ -1940,6 +1955,7 @@ class PatchManagerGUI(QWidget):
 
         if progress_callback:
             progress_callback(100)
+
 
 
 
