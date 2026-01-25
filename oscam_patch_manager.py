@@ -45,9 +45,13 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.7.5"
+APP_VERSION = "1.7.6"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
+plugin_dir = os.path.dirname(os.path.abspath(__file__))
+pyc_file = os.path.join(plugin_dir, "oscam_patch_manager.pyc")
+cache_dir = os.path.join(plugin_dir, "__pycache__")
+
 # Konfigurationsdateien
 # -----------------------------
 CONFIG_FILE = os.path.join(PLUGIN_DIR, "config.json")
@@ -1844,7 +1848,7 @@ class PatchManagerGUI(QWidget):
         import os, shutil, requests
 
         widget = getattr(self, "info_text", None)
- 
+
         def log(text_key, level="info", **kwargs):
             colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
             color = colors.get(level, "gray")
@@ -1856,6 +1860,19 @@ class PatchManagerGUI(QWidget):
                 QApplication.processEvents()
             else:
                 print(f"[{level.upper()}] {text}")
+
+        # 🔹 ⚡ Cache-Cleanup am Start (alte .pyc / __pycache__)
+        try:
+            plugin_dir = os.path.dirname(os.path.abspath(__file__))
+            pyc_file = os.path.join(plugin_dir, "oscam_patch_manager.pyc")
+            cache_dir = os.path.join(plugin_dir, "__pycache__")
+
+            if os.path.exists(pyc_file):
+                os.remove(pyc_file)
+            if os.path.exists(cache_dir):
+                shutil.rmtree(cache_dir)
+        except Exception as e:
+            log("update_fail", "warning", error=f"Cache cleanup failed: {e}")
 
         # 🔹 Version prüfen
         if latest_version:
@@ -1876,7 +1893,6 @@ class PatchManagerGUI(QWidget):
         log("update_started", "info")
 
         try:
-            plugin_dir = os.path.dirname(os.path.abspath(__file__))
             backup_dir = os.path.join(plugin_dir, "backup_old")
             os.makedirs(backup_dir, exist_ok=True)
 
@@ -1884,8 +1900,8 @@ class PatchManagerGUI(QWidget):
             for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
                 src = os.path.join(plugin_dir, fname)
                 if os.path.exists(src):
-                 shutil.copy(src, os.path.join(backup_dir, fname))
-                log("backup_created", "success", file=fname)
+                    shutil.copy(src, os.path.join(backup_dir, fname))
+                    log("backup_created", "success", file=fname)
 
             # 🔹 Neue Plugin-Datei herunterladen
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
@@ -1902,10 +1918,10 @@ class PatchManagerGUI(QWidget):
 
             log("update_success", "success", version=latest_version or "")
 
-            # interner Status → verhindert Endlosschleife
+            # 🔹 interner Status → verhindert Endlosschleife
             self.latest_version = APP_VERSION
 
-            # Neustart-Abfrage
+            # 🔹 Neustart-Abfrage
             msg = QMessageBox(self)
             msg.setWindowTitle(TEXTS[LANG].get("restart_required_title", "Restart required"))
             msg.setText(TEXTS[LANG].get("restart_required_msg", "The tool must be restarted. Restart now?"))
@@ -1924,6 +1940,7 @@ class PatchManagerGUI(QWidget):
 
         if progress_callback:
             progress_callback(100)
+
 
 
 
