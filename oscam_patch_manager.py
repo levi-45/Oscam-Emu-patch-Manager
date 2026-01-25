@@ -39,12 +39,13 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont, QColor, QTextCursor, QIcon
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize
+from packaging.version import Version
 
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.7..0"
+APP_VERSION = "1.7..1"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 # Konfigurationsdateien
@@ -1785,14 +1786,14 @@ class PatchManagerGUI(QWidget):
 
         editor.exec()
     
-    def save_patch():
-        try:
-            with open(PATCH_FILE, "w", encoding="utf-8") as f:
-             f.write(text_edit.toPlainText())
-             self.append_info(info_widget, "✅ Patch-Datei gespeichert", "success")
-            editor.accept()
-        except Exception as e:
-            self.append_info(info_widget, f"❌ Fehler beim Speichern: {e}", "error")
+        def save_patch():
+            try:
+               with open(PATCH_FILE, "w", encoding="utf-8") as f:
+                f.write(text_edit.toPlainText())
+                self.append_info(info_widget, "✅ Patch-Datei gespeichert", "success")
+                editor.accept()
+            except Exception as e:
+             self.append_info(info_widget, f"❌ Fehler beim Speichern: {e}", "error")
 
         # Buttons verbinden
         buttons.accepted.connect(save_patch)
@@ -1810,20 +1811,27 @@ class PatchManagerGUI(QWidget):
         # ---------------------
     
     def update_plugin_button_state(self):
-        """Deaktiviert den Update-Button, wenn die aktuelle Version aktuell ist."""
-        if hasattr(self, "plugin_update_button") and getattr(self, "latest_version", None) is not None:
-            if self.latest_version == APP_VERSION:
-                self.plugin_update_button.setEnabled(False)
-                self.plugin_update_button.setText(f"{TEXTS[LANG]['plugin_update']} ✅")
-            else:
-                self.plugin_update_button.setEnabled(True)
-                self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
+        if not hasattr(self, "plugin_update_button"):
+            return
+
+        if not getattr(self, "latest_version", None):
+            return
+
+        if Version(self.latest_version) <= Version(APP_VERSION):
+            self.plugin_update_button.setEnabled(False)
+            self.plugin_update_button.setText(f"{TEXTS[LANG]['plugin_update']} ✅")
+        else:
+            self.plugin_update_button.setEnabled(True)
+            self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
+
     
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """
         Prüft die Version, sichert alte Dateien, lädt das neue Plugin herunter
         und bietet einen Neustart an. Meldungen erscheinen im Info-Widget.
         """
+        from packaging.version import Version
+
         widget = getattr(self, "info_text", None)
 
         def log(text_key, level="info", **kwargs):
@@ -1838,8 +1846,8 @@ class PatchManagerGUI(QWidget):
             else:
                 print(f"[{level.upper()}] {text}")
 
-        # 🔹 Version prüfen
-        if latest_version is not None and latest_version == APP_VERSION:
+        # 🔹 Version prüfen (R I C H T I G)
+        if latest_version is not None and Version(latest_version) <= Version(APP_VERSION):
             log("update_current_version", "success", version=latest_version)
             if progress_callback:
                 progress_callback(100)
@@ -1853,7 +1861,12 @@ class PatchManagerGUI(QWidget):
             os.makedirs(backup_dir, exist_ok=True)
 
             # Alte Dateien sichern
-            for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
+            for fname in (
+                "oscam_patch_manager.py",
+                "config.json",
+                "github_upload_config.json",
+                "oscam-emu.patch",
+            ):
                 src = os.path.join(plugin_dir, fname)
                 if os.path.exists(src):
                     shutil.copy(src, os.path.join(backup_dir, fname))
@@ -1865,18 +1878,26 @@ class PatchManagerGUI(QWidget):
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
 
+            # 🔥 ATOMIC WRITE (sehr wichtig!)
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
-            with open(plugin_file, "w", encoding="utf-8") as f:
+            tmp_file = plugin_file + ".tmp"
+
+            with open(tmp_file, "w", encoding="utf-8") as f:
                 f.write(resp.text)
 
+            os.replace(tmp_file, plugin_file)
+
             log("update_success", "success", version=latest_version or "")
+
+            # internen Status korrigieren (verhindert Endlosschleife)
+            self.latest_version = APP_VERSION
 
             # Neustart-Abfrage
             msg = QMessageBox(self)
             msg.setWindowTitle(TEXTS[LANG].get("restart_required_title", "Restart required"))
             msg.setText(TEXTS[LANG].get("restart_required_msg", "The tool must be restarted. Restart now?"))
-            yes_button = msg.addButton(TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
-            no_button = msg.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
+            yes_button = msg.addButton(TEXTS[LANG].get("yes", "Yes"), QMessageBox.ButtonRole.YesRole)
+            no_button = msg.addButton(TEXTS[LANG].get("no", "No"), QMessageBox.ButtonRole.NoRole)
             msg.exec()
 
             if msg.clickedButton() == yes_button:
@@ -1890,6 +1911,7 @@ class PatchManagerGUI(QWidget):
 
         if progress_callback:
             progress_callback(100)
+
 
     def fetch_latest_version(self):
         """Ruft die Version aus VERSION.txt auf GitHub ab und speichert sie in self.latest_version."""
@@ -1951,6 +1973,8 @@ class PatchManagerGUI(QWidget):
 
     def plugin_update_button_clicked(self, checked=False):
         """Button-Callback: Prüft GitHub-Version und bietet Update an."""
+        from packaging.version import Version
+
         widget = getattr(self, "info_text", None)
 
         def log(text_key, level="info", **kwargs):
@@ -1964,48 +1988,50 @@ class PatchManagerGUI(QWidget):
                 QApplication.processEvents()
             else:
                 print(f"[{level.upper()}] {text}")
- 
+
         log("update_check_start", "info")
 
         try:
-            import requests
-            version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
-            resp = requests.get(version_url, timeout=10)
-            resp.raise_for_status()
-            latest_version = resp.text.strip()
-            current_version = APP_VERSION.strip()
+            import requests, re
 
-            if latest_version == current_version:
+            # 🔥 GLEICHE QUELLE WIE BEIM UPDATE
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+
+            match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', resp.text)
+            if not match:
+                raise RuntimeError("APP_VERSION not found on GitHub")
+
+            latest_version = match.group(1)
+            current_version = APP_VERSION
+
+            # 🔹 RICHTIGER Versionsvergleich
+            if Version(latest_version) <= Version(current_version):
                 log("update_current_version", "success", version=current_version)
                 return
 
             # Update verfügbar
             msg_box = QMessageBox(self)
-            msg_box.setWindowTitle(TEXTS[LANG]["update_available_title"])
-            msg_box.setText(TEXTS[LANG]["update_available_msg"].format(version=latest_version))
-            yes_button = msg_box.addButton(TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
-            no_button = msg_box.addButton(TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
+            msg_box.setWindowTitle(TEXTS[LANG].get("update_available_title", "Update available"))
+            msg_box.setText(
+                TEXTS[LANG]
+                .get("update_available_msg", "Version {version} is available.")
+                .format(version=latest_version)
+            )
+            yes_button = msg_box.addButton(TEXTS[LANG].get("yes", "Yes"), QMessageBox.ButtonRole.YesRole)
+            no_button = msg_box.addButton(TEXTS[LANG].get("no", "No"), QMessageBox.ButtonRole.NoRole)
             msg_box.exec()
 
             if msg_box.clickedButton() == yes_button:
+                # 🔥 KEIN zweiter Neustart hier – das macht plugin_update_action()
                 self.plugin_update_action(latest_version=latest_version)
-            
-                # Neustart-Abfrage
-                reply = QMessageBox.question(
-                    self,
-                    TEXTS[LANG]["restart_required_title"],
-                    TEXTS[LANG]["restart_required_msg"],
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                )
-                if reply == QMessageBox.StandardButton.Yes:
-                    self.restart_application()
-                else:
-                    log("restart_tool_cancelled", "info")
             else:
                 log("update_declined", "info")
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
+
 
     # ---------------------
     # UPDATE CHECK
