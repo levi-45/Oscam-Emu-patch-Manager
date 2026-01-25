@@ -44,7 +44,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.6..0"
+APP_VERSION = "1.7..0"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 # Konfigurationsdateien
@@ -212,11 +212,26 @@ DIFF_COLORS = {
 current_diff_colors = DIFF_COLORS["Classic"]
 current_color_name = "Classic"
 
+def fill_missing_keys(texts):
+    """
+    Prüft, ob alle Keys aus 'en' auch in 'de' existieren.
+    Fehlt ein Key, wird er automatisch aus 'en' übernommen.
+    """
+    en_keys = texts.get("en", {})
+    de_keys = texts.get("de", {})
+
+    for key, value in en_keys.items():
+        if key not in de_keys:
+            de_keys[key] = value  # Englische Version als Platzhalter
+
+    texts["de"] = de_keys
+
+
 # ===================== LANGUAGE =====================
 LANG = "de"
-
 TEXTS = {
     "en": {
+        # Grid Buttons / Patch Aktionen
         "patch_create": "Create Patch",
         "patch_renew": "Renew Patch",
         "patch_check": "Check Patch",
@@ -225,220 +240,80 @@ TEXTS = {
         "backup_old": "Backup/Renew Patch",
         "clean_folder": "Clean Patch Folder",
         "change_old_dir": "Select S3 Patch Folder",
+        "patch_emu_git": "OSCam Emu Git patchen",
         "exit": "Exit",
-        "exit_question": "Do you really want to close the tool?",
-        "yes": "Yes",
         "no": "No",
-        "info_tooltip": "Info / Help",
-        "info_title": "Information",
-        "info_text": "This tool is a complete OSCam Emu Patch Manager.\n\nFeatures: ...",
+        "yes": "Yes",
+        
+        # Option Buttons
         "git_status": "View Commits",
+        "plugin_update": "Plugin Update",
+        "restart_tool": "Restart Tool",
+        "edit_patch_header": "Edit Patch Header",
+        "github_emu_config_button": "Edit GitHub Config",
+        "github_upload_patch": "Upload Patch File",
+        "github_upload_emu": "Upload OSCam-Emu Git",
+        "github_version_fetch_failed": "⚠️ Failed to fetch GitHub version: {error}",
+
+        # Labels
+        "language_label": "Language:",
+        "color_label": "Color",
+        "commit_count_label": "Number of commits to show",
+        "info_tooltip": "Info / Help",
         "clean_emu_git": "Clean OSCam Emu Git",
-        "patch_emu_git": "Patch OSCam Emu Git",
-        "patch_applied_success": "✅ OSCam Emu Git patched successfully ({commit_msg})",
+        # Info Text
+        "info_text": (
+            "This tool is a complete OSCam Emu Patch Manager.\n\n"
+            "Features:\n"
+            "- Create Patch: Generates a patch from the OSCam source code.\n"
+            "- Renew Patch: Updates the existing patch.\n"
+            "- Check Patch: Verifies if the patch can be applied correctly.\n"
+            "- Apply Patch: Applies the patch to the local OSCam-Emu Git repository.\n"
+            "- Zip Patch: Packs the patch into a ZIP file.\n"
+            "- Backup Patch: Backs up the old patch and overwrites it with the new version.\n"
+            "- Clean Patch Folder: Deletes temporary files in the patch folder (important files remain).\n"
+            "- Patch OSCam-Emu Git: Applies the patch directly to the OSCam-Emu Git repository.\n"
+            "- Clean OSCam-Emu Git: Deletes the local OSCam-Emu Git folder.\n"
+            "- GitHub Upload: Uploads the patch or the OSCam-Emu Git folder to GitHub.\n"
+            "- Manage GitHub Credentials: Configure username, token, repository URL, and branch.\n"
+            "- Change Language and Color: Switch GUI language between English/German, change button/progressbar colors.\n"
+            "- Progress Display: Shows action progress in the progress bar.\n"
+            "- Show Commits: Displays the latest commits from the local repository.\n\n"
+            "⚠️ Note: Only `oscam-emu.patch` is overwritten during patch upload; all other files remain untouched."
+        ),
+
+        # Messages
+        "patch_applied_success": "✅ Patch successfully applied",
         "patch_created_success": "✅ Patch created: {patch_file}",
         "patch_zipped_success": "📦 Patch zipped: {zip_file}",
         "backup_done": "💾 Patch backed up: {old_}",
         "patch_failed": "❌ Patch failed – base mismatch",
         "not_installed": "is not installed",
         "all_tools_installed": "✅ All required tools installed",
-        "cleaning_patch_folder": "🧹 Cleaning folder …",
         "patch_folder_cleaned": "✅ Patch folder cleaned",
-        "oscam_emu_git_cleaning": "🧹 Cleaning OSCam Emu Git …",
         "oscam_emu_git_cleaned": "✅ OSCam Emu Git folder cleaned",
         "showing_commits": "🔄 Showing last commits …",
         "commits_done": "✅ Done",
-        "github_config_button": "GitHub Configuration",
-        "language_label": "Language:",
-        "color_label": "Color",
-        "patch_check_ok": "Patch fits – everything ok",
-        "patch_check_fail": "Patch does not fit – check failed",
-        "info_text": "This tool is a complete OSCam Emu Patch Manager.\n\n"
-                     "Features:\n"
-                     "- Create Patch: Generates a patch from the OSCam source code.\n"
-                     "- Renew Patch: Updates the existing patch.\n"
-                     "- Check Patch: Verifies if the patch can be applied correctly.\n"
-                     "- Apply Patch: Applies the patch to the local OSCam-Emu Git repository.\n"
-                     "- Zip Patch: Packs the patch into a ZIP file.\n"
-                     "- Backup Patch: Backs up the old patch and overwrites it with the new version.\n"
-                     "- Clean Patch Folder: Deletes temporary files in the patch folder (important files remain).\n"
-                     "- Patch OSCam-Emu Git: Applies the patch directly to the OSCam-Emu Git repository.\n"
-                     "- Clean OSCam-Emu Git: Deletes the local OSCam-Emu Git folder.\n"
-                     "- GitHub Upload: Uploads the patch or the OSCam-Emu Git folder to GitHub.\n"
-                     "- Manage GitHub Credentials: Configure username, token, repository URL, and branch.\n"
-                     "- Change Language and Color: Switch GUI language between English/German, change button/progressbar colors.\n"
-                     "- Progress Display: Shows action progress in the progress bar.\n"
-                     "- Show Commits: Displays the latest commits from the local repository.\n\n"
-                     "⚠️ Note: Only `oscam-emu.patch` is overwritten during patch upload; all other files remain untouched. "
-                     "All functions are fully compatible with the GUI progress bar.",
-        "patch_apply_success_msg": "Patch successfully applied",
-        "patch_apply_fail_msg": "Error applying the patch",
-        "github_emu_credentials_missing": "GitHub Emu credentials missing!",
-        "old_patch_path_changed": "Path changed: {OLD_}",
-        "old_patch_path_cancelled": "Path change cancelled",
-        "github_config_saved": "✔ GitHub configuration saved.",
-        "patch_repo_label": "Patch Repo URL:",
-        "patch_branch_label": "Patch Branch:",
-        "emu_repo_label": "Emu Repo URL:",
-        "emu_branch_label": "Emu Branch:",
-        "github_username_label": "GitHub Username:",
-        "github_token_label": "GitHub Token:",
-        "github_user_name_label": "Git Username:",
-        "github_user_email_label": "Git User Email:",
-        "tool_check_title": "Tool Check",
-        "tool_ok": "✅ {name}: {version}",
-        "tool_missing": "⚠️ {name}: {error}",
-        "tool_all_ok": "✅ All required tools installed",
-        "tool_debug": "ℹ️ DEBUG: tools_ok loaded (Tool check skipped)",
-        "tool_saved": "ℹ️ DEBUG: tools_ok saved",
-        "save": "Save",
-        "cancel": "Cancel",
-        "github_dialog_title": "GitHub Credentials / Repos",
-        "old_patch_removed": "Old oscam-emu.patch removed",
-        "new_patch_copied": "New oscam-emu.patch copied",
-        "patch_uploaded_success": "✅ oscam-emu.patch successfully updated and pushed",
-        "patch_emu_git_missing": "Git folder missing!",
-        "github_emu_git_uploaded": "✅ OSCam-Emu Git successfully uploaded",
-        "github_patch_credentials_missing": "GitHub patch credentials missing!",
-        "github_upload_success": "✅ Upload successful",
-        "github_upload_patch_button": "Upload Patch File",
-        "github_upload_emu_button": "Upload OSCam-Emu Git",
-        "github_upload_failed": "❌ Upload failed",
-        "github_upload_patch": "Upload Patch File",
-        "github_upload_emu": "Upload OSCam-Emu-Git",
-        "old_patch_deleted": "Alte Patch-Datei gelöscht",
-        "new_patch_copied": "Neue Patch-Datei kopiert",
-        "github_patch_uploaded": "Patch erfolgreich hochgeladen",
-        "update_check_start": "Checking for plugin updates...",
-        "update_available_title": "Update available",
-        "update_available_msg": "A new plugin update is available. Do you want to install it now?",
-        "update_started": "Update started...",
-        "update_success": "Update successful! Please restart the plugin.",
-        "update_fail": "Update failed: {error}",
-        "update_not_available": "No new version available.",
-        "plugin_update": "Plugin Update",
-        "restart_required_title": "Restart required",
-        "restart_required_msg": "The update was installed successfully.\n\nThe tool must be restarted.\n\nRestart now?",
-        "commit_count_label": "Number of commits to show", 
-        "edit_patch_header": "Edit Patch Header", 
-        "clean_emu_git": "Clean OSCam Emu Git",
-        "patch_emu_git": "Patch OSCam Emu Git",
-        "github_upload_patch_button": "Upload Patch File",
-        "github_upload_emu_button": "Upload OSCam-Emu Git",
-        "github_config_button": "GitHub Configuration", 
-        "restart_tool": "Restart Tool",
-        "restart_required_title": "Restart required",
-        "restart_required_msg": "The update was installed successfully.\n\nThe tool must be restarted.\n\nRestart now?",
-        "restart_tool": "Restart Tool",
-        "backup_old_start": "🔄 Backing up old patch…",
-        "backup_done": "💾 Backup created: {path}",
-        "new_patch_installed": "✅ New patch installed: {path}",
-        "no_old_patch": "ℹ️ No old patch found",
-        "patch_failed": "❌ Patch failed – {path}",
-        "temp_repo_deleted": "✅ TEMP_REPO deleted: {path}",
-        "temp_repo_missing": "⚠️ TEMP_REPO does not exist: {path}",
-        "temp_patch_git_deleted": "✅ TEMP_PATCH_GIT deleted: {path}",
-        "temp_patch_git_missing": "⚠️ TEMP_PATCH_GIT does not exist: {path}",
-        "patch_file_deleted": "✅ Patch file deleted: {path}",
-        "patch_file_missing": "⚠️ Patch file does not exist: {path}",
-        "zip_file_deleted": "✅ ZIP file deleted: {path}",
-        "zip_file_missing": "⚠️ ZIP file does not exist: {path}",
-        "delete_failed": "❌ Failed to delete: {path}",
-        "clean_done": "✅ Clean operation completed",
-        "cleaning_oscam_emu_git": "🧹 Cleaning OSCam Emu Git: {path} …",
-        "oscam_emu_git_deleted": "✅ OSCam Emu Git folder deleted: {path}",
-        "oscam_emu_git_missing": "⚠️ OSCam Emu Git folder does not exist: {path}",
-        "patch_emu_git_start": "🔄 Preparing Streamboard Git: {path} …",
-        "patch_emu_git_deleted": "✅ Old Git folder deleted: {path}",
-        "delete_failed": "❌ Failed to delete: {path}",
-        "patch_emu_git_clone_failed": "❌ Cloning Streamboard repo failed",
-        "patch_emu_git_apply_failed": "❌ Patch could not be applied",
-        "patch_create_start": "🔄 Creating patch…",
-        "patch_create_clone_start": "⚠️ TEMP_REPO does not exist. Cloning repository…",
-        "patch_create_clone_failed": "❌ Clone failed",
-        "patch_create_no_changes": "# No changes found",
-        "patch_create_success": "✅ Patch successfully created: {patch_file}",
-        "patch_create_failed": "❌ Patch creation failed: {error}",
-        "select_s3_patch_folder": "Select S3 Patch Folder",
-        "old_patch_path_changed": "✅ Path changed: {OLD_}",
-        "restart_tool": "Restart Tool",
-        "restart_tool_question": "Do you really want to restart the tool?",
-        "restart_tool_info": "⚠️ Tool is restarting...",
-        "restart_tool_cancelled": "ℹ️ Restart cancelled.",
-        "patch_emu_git_applied": "✅ Patch successfully applied: {commit_msg}",
-        "update_current_version": "🎉 You have the latest version installed (v{version})",
-        "update_started": "Checking for plugin updates...",
-        "backup_created": "Backup created: {file}",
-        "update_started": "🔄 Update started…",
-        "update_current_version": "🎉 You have the latest version installed (v{version})",
-        "backup_created": "💾 Backup created: {file}",
-        "update_success": "✅ Update completed successfully{version}",
-        "update_fail": "❌ Update failed: {error}",
-        "restart_required_title": "Restart Tool",
-        "restart_required_msg": "The tool must be restarted. Restart now?",
-        "yes": "Yes",
-        "no": "No",
-        "restart_tool_info": "⚠️ Tool is restarting...",
-        "restart_tool_cancelled": "ℹ️ Restart cancelled",
-        "update_success": "Update successful! Please restart the plugin. (v{version})",
-        "update_fail": "Update failed: {error}",
-        "cleaning_oscam_emu_git": "🔄 Lösche PATCH_EMU_GIT Ordner: {path}",
-        "oscam_emu_git_deleted": "✅ PATCH_EMU_GIT Ordner gelöscht: {path}",
-        "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
-        "delete_failed": "❌ Fehler beim Löschen: {path}",
-        "patch_emu_git_start": "🔄 Preparing PATCH_EMU_GIT: {path}",
-        "patch_emu_git_deleted": "✅ Old PATCH_EMU_GIT folder deleted: {path}",
-        "patch_emu_git_clone_failed": "❌ Failed to clone the repo",
-        "patch_emu_git_apply_failed": "❌ Failed to apply the patch",
-        "patch_emu_git_applied": "✅ Patch applied successfully: {commit_msg}",
-        "delete_failed": "❌ Failed to delete: {path}",
-        "github_patch_credentials_missing": "❌ GitHub credentials are missing! Please configure them in settings.",
-        "patch_file_missing": "❌ Patch file not found!",
+        "github_emu_credentials_missing": "❌ GitHub Emu credentials missing!",
+        "patch_file_missing": "❌ Patch file does not exist!",
         "temp_repo_deleted": "♻️ Temp repo deleted: {path}",
-        "delete_failed": "❌ Failed to delete {path}",
-        "github_clone_failed": "❌ GitHub repo clone failed",
-        "new_patch_copied": "✅ New patch file copied",
-        "default_commit_msg": "Update oscam-emu.patch",
-        "github_patch_uploaded": "✅ Patch successfully uploaded to GitHub",
-        "temp_repo_cleaned": "♻️ Temp repo cleaned: {path}",
-        "cleaning_oscam_emu_git": "🔄 Deleting folder {path} …",
-        "oscam_emu_git_deleted": "✅ Folder deleted: {path}",
-        "oscam_emu_git_missing": "⚠️ Folder does not exist: {path}",
-        "delete_failed": "❌ Failed to delete {path}",
-        "github_emu_git_missing": "❌ GitHub credentials for OSCam-EMU are missing or incomplete",
-        "patch_emu_git_missing": "❌ Folder does not exist: {path}",
-        "git_repo_init": "⚠️ Git repository does not exist yet, initializing: {path}",
-        "github_emu_git_uploaded": "✅ OSCam-EMU Git folder uploaded successfully",
-        "cleaning_oscam_emu_git": "🔄 Cleaning OSCam-EMU Git folder: {path}",
-        "oscam_emu_git_deleted": "✅ OSCam-EMU Git folder deleted: {path}",
-        "oscam_emu_git_missing": "⚠️ Folder does not exist: {path}",
-        "delete_failed": "❌ Failed to delete: {path}",
-        "clean_emu_button": "Clean OSCam-EMU Git",
-        "patch_emu_git_button": "Apply OSCam-EMU Git Patch",
-        "commits_button": "Show Commits",
-        "github_upload_patch_button": "Upload Patch",
-        "github_upload_emu_button": "Upload OSCam-EMU Git",
-        "github_emu_config_button": "GitHub Config",
-        "plugin_update_button": "Update Plugin",
-        "restart_tool_button": "Restart Tool",
-        "edit_header_button": "Edit Patch Header",
-        "clean_emu_button": "Oscam Emu Git bereinigen",
-        "clean_emu_button": "Clean OSCam Emu Git",
-        "patch_emu_git_button": "Apply OSCam Emu Patch",
-        "commits_button": "Show Commits",
-        "github_upload_patch_button": "Upload Patch to GitHub",
-        "github_upload_emu_button": "Upload OSCam-Emu Git",
-        "github_emu_config_button": "Edit GitHub Config",
-        "plugin_update_button": "Update Plugin",
-        "restart_tool_button": "Restart Tool",
-        "edit_header_button": "Edit Patch Header",
-        "github_version_available": "Available GitHub version: v{version}",
-        "update_current_version": "🎉 You have the latest version installed (v{version})",
-        "github_version_fetch_failed": "⚠️ Failed to fetch GitHub version: {error}",
-        "temp_repo_cleanup_failed": "⚠️ Failed to delete temp repo: {path}",
-        "patch_file_missing": "Patch file does not exist!"
+        "clean_done": "✅ Clean operation completed",
+        "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
+        "restart_required_title": "Restart required",
+        "update_success": "✅ Update successful! Please restart the plugin.",
+        "update_fail": "❌ Update failed: {error}",
+        "update_not_available": "No new version available.",
+        'exit_question': 'Do you really want to close the tool?',
+        "github_version_available": "New version {version} is available on GitHub",
+        "update_check_start": "Checking for updates…",
+        "github_version_available": "A new version {version} is available on GitHub",
+        "github_version_available": "New version {version} available on GitHub",
+        "update_check_start": "Checking for updates…",
+        "plugin_update": "Plugin Update"
     },
+
     "de": {
+        # Grid Buttons / Patch Aktionen
         "patch_create": "Patch erstellen",
         "patch_renew": "Patch erneuern",
         "patch_check": "Patch prüfen",
@@ -447,225 +322,82 @@ TEXTS = {
         "backup_old": "Patch sichern/erneuern",
         "clean_folder": "Patch-Ordner leeren",
         "change_old_dir": "S3 Patch-Ordner auswählen",
-        "exit": "Beenden",
-        "exit_question": "Möchten Sie das Tool wirklich schließen?",
-        "yes": "Ja",
-        "no": "Nein",
-        "info_tooltip": "Info / Hilfe",
-        "info_title": "Information",
-        "info_text": "Dieses Tool ist ein umfassender OSCam Emu Patch Manager.\n\nFunktionen: ...",
-        "git_status": "Commits anzeigen",
         "clean_emu_git": "OSCam Emu Git bereinigen",
+        "yes": "Ja:",
+        "no": "Nein",
+        "exit": "Beenden",
+
+        # Option Buttons
+        "git_status": "Commits anzeigen",
+        "plugin_update": "Plugin Update",
+        "restart_tool": "Tool Neustarten",
+        "edit_patch_header": "Patch Header bearbeiten",
+        "github_emu_config_button": "GitHub-Konfiguration bearbeiten",
+        "github_upload_patch": "Patch hochladen",
+        "github_upload_emu": "OSCam-Emu Git hochladen",
         "patch_emu_git": "OSCam Emu Git patchen",
-        "patch_applied_success": "✅ OSCam Emu Git erfolgreich gepatcht ({commit_msg})",
+        'yes': 'Ja', 
+        
+        "github_version_fetch_failed": "⚠️ Fehler beim Abrufen der GitHub-Version: {error}",
+
+        # Labels
+        "language_label": "Sprache:",
+        "color_label": "Farbe",
+        "commit_count_label": "Anzahl der anzuzeigenden Commits",
+        "info_tooltip": "Info / Hilfe",
+
+        # Info Text
+        "info_text": (
+            "Dieses Tool ist ein umfassender OSCam Emu Patch Manager.\n\n"
+            "Funktionen:\n"
+            "- Patch erstellen: Erstellt den Patch aus OSCam-Quellcode.\n"
+            "- Patch erneuern: Aktualisiert den bestehenden Patch.\n"
+            "- Patch prüfen: Überprüft, ob der Patch korrekt angewendet werden kann.\n"
+            "- Patch anwenden: Wendet den Patch auf das lokale OSCam-Emu Git-Repository an.\n"
+            "- Patch zippen: Packt den Patch in eine ZIP-Datei.\n"
+            "- Patch sichern: Sichert die alte Patch-Datei und überschreibt sie mit der neuen Version.\n"
+            "- Patch-Ordner leeren: Löscht temporäre Dateien im Patch-Ordner (wichtige Dateien bleiben erhalten).\n"
+            "- OSCam-Emu Git patchen: Wendet den Patch direkt auf das OSCam-Emu Git-Repository an.\n"
+            "- OSCam-Emu Git bereinigen: Löscht das lokale OSCam-Emu Git-Verzeichnis.\n"
+            "- GitHub Upload: Upload des Patches oder des OSCam-Emu Git-Ordners auf GitHub.\n"
+            "- GitHub Konfiguration verwalten: Benutzername, Token, Repository-URL und Branch anpassen.\n"
+            "- Sprache und Farbe anpassen: GUI-Sprache zwischen Deutsch/Englisch wechseln, Farben für Buttons/Progressbar ändern.\n"
+            "- Fortschrittsanzeige: Fortschritt von Aktionen in der Progressbar sichtbar.\n"
+            "- Commit-Anzeige: Zeigt die letzten Commits aus dem lokalen Repository an.\n\n"
+            "⚠️ Hinweis: Beim Patch-Upload wird nur `oscam-emu.patch` überschrieben; andere Dateien bleiben unverändert."
+        ),
+
+        # Messages
+        "patch_applied_success": "✅ Patch erfolgreich angewendet",
         "patch_created_success": "✅ Patch erstellt: {patch_file}",
         "patch_zipped_success": "📦 Patch gezippt: {zip_file}",
         "backup_done": "💾 Patch gesichert: {old_}",
         "patch_failed": "❌ Patch fehlgeschlagen – Basis stimmt nicht",
         "not_installed": "nicht installiert",
         "all_tools_installed": "✅ Alle benötigten Tools installiert",
-        "cleaning_patch_folder": "🧹 Patch-Ordner wird geleert …",
         "patch_folder_cleaned": "✅ Patch-Ordner geleert",
-        "oscam_emu_git_cleaning": "🧹 OSCam Emu Git wird bereinigt …",
         "oscam_emu_git_cleaned": "✅ OSCam Emu Git Ordner bereinigt",
         "showing_commits": "🔄 Letzte Commits werden angezeigt …",
         "commits_done": "✅ Fertig",
-        "github_config_button": "GitHub Konfiguration",
-        "language_label": "Sprache:",
-        "color_label": "Farbe",
-        "patch_check_ok": "Patch passt – alles ok",
-        "patch_check_fail": "Patch passt nicht – Fehler beim Prüfen",
-        "patch_apply_success_msg": "Patch erfolgreich angewendet",
-        "patch_apply_fail_msg": "Fehler beim Anwenden des Patches",
-        "github_emu_credentials_missing": "GitHub-Emu-Zugangsdaten fehlen!",
-        "old_patch_path_changed": "Pfad geändert: {OLD_}",
-        "old_patch_path_cancelled": "Pfadänderung abgebrochen",
-        "github_config_saved": "✔ GitHub-Konfiguration gespeichert.",
-        "info_text": "Dieses Tool ist ein umfassender OSCam Emu Patch Manager.\n\n"
-                     "Funktionen:\n"
-                     "- Patch erstellen: Erstellt den Patch aus OSCam-Quellcode.\n"
-                     "- Patch erneuern: Aktualisiert den bestehenden Patch.\n"
-                     "- Patch prüfen: Überprüft, ob der Patch korrekt angewendet werden kann.\n"
-                     "- Patch anwenden: Wendet den Patch auf das lokale OSCam-Emu Git-Repository an.\n"
-                     "- Patch zippen: Packt den Patch in eine ZIP-Datei.\n"
-                     "- Patch sichern: Sichert die alte Patch-Datei und überschreibt sie mit der neuen Version.\n"
-                     "- Patch-Ordner leeren: Löscht temporäre Dateien im Patch-Ordner (wichtige Dateien bleiben erhalten).\n"
-                     "- OSCam-Emu Git patchen: Wendet den Patch direkt auf das OSCam-Emu Git-Repository an.\n"
-                     "- OSCam-Emu Git bereinigen: Löscht das lokale OSCam-Emu Git-Verzeichnis.\n"
-                     "- GitHub Upload: Upload des Patches oder des OSCam-Emu Git-Ordners auf GitHub.\n"
-                     "- GitHub Konfiguration verwalten: Benutzername, Token, Repository-URL und Branch anpassen.\n"
-                     "- Sprache und Farbe anpassen: GUI-Sprache zwischen Deutsch/Englisch wechseln, Farben für Buttons/Progressbar ändern.\n"
-                     "- Fortschrittsanzeige: Fortschritt von Aktionen in der Progressbar sichtbar.\n"
-                     "- Commit-Anzeige: Zeigt die letzten Commits aus dem lokalen Repository an.\n\n"
-                     "⚠️ Hinweis: Beim Patch-Upload wird nur `oscam-emu.patch` überschrieben; andere Dateien bleiben unverändert. "
-                     "Alle Funktionen sind kompatibel mit der GUI-Progressbar.",
-        "patch_repo_label": "Patch Repo URL:",
-        "patch_branch_label": "Patch Branch:",
-        "emu_repo_label": "Emu Repo URL:",
-        "emu_branch_label": "Emu Branch:",
-        "github_username_label": "GitHub Benutzername:",
-        "github_token_label": "GitHub Token:",
-        "github_user_name_label": "Git Benutzername:",
-        "github_user_email_label": "Git Benutzer Email:",
-        "tool_check_title": "Tool-Check",
-        "tool_ok": "✅ {name}: {version}",
-        "tool_missing": "⚠️ {name}: {error}",
-        "tool_all_ok": "✅ Alle benötigten Tools installiert",
-        "tool_debug": "ℹ️ DEBUG: tools_ok geladen (Toolsprüfung übersprungen)",
-        "tool_saved": "ℹ️ DEBUG: tools_ok wurde gespeichert",
-        "save": "Speichern",
-        "cancel": "Abbrechen",
-        "github_dialog_title": "GitHub Zugangsdaten / Repos",
-        "old_patch_removed": "Alte oscam-emu.patch gelöscht",
-        "new_patch_copied": "Neue oscam-emu.patch kopiert",
-        "patch_uploaded_success": "✅ oscam-emu.patch erfolgreich erneuert und gepusht",
-        "patch_emu_git_missing": "Git-Ordner fehlt!",
-        "github_emu_git_uploaded": "✅ OSCam-Emu Git erfolgreich hochgeladen",
-        "github_patch_credentials_missing": "GitHub Patch-Zugangsdaten fehlen!",
-        "github_upload_success": "✅ Upload erfolgreich",
-        "github_upload_failed": "❌ Upload fehlgeschlagen",
-        "github_upload_patch_button": "Patch-Datei hochladen",
-        "github_upload_emu_button": "OSCam-Emu Git hochladen",
-        "old_patch_deleted": "Old patch file deleted",
-        "new_patch_copied": "New patch file copied",
-        "github_patch_uploaded": "Patch uploaded successfully",
-        "github_upload_patch": "Patch hochladen",
-        "github_upload_emu": "OSCam-Emu-Git hochladen",
-        "update_check_start": "Prüfe auf Plugin Updates...",
-        "update_available_title": "Update verfügbar",
-        "update_available_msg": "Ein neues Plugin-Update ist verfügbar. Möchten Sie es jetzt installieren?",
-        "update_started": "Update wird gestartet...",
-        "update_success": "Update erfolgreich! Bitte Plugin neu starten.",
-        "update_fail": "Update fehlgeschlagen: {error}",
-        "update_not_available": "Keine neue Version verfügbar.",
-        "plugin_update": "Plugin Update",
-        "restart_required_title": "Neustart erforderlich",
-        "commit_count_label": "Anzahl der anzuzeigenden Commits",
-        "edit_patch_header": "Patch Header bearbeiten", 
-        "clean_emu_git": "OSCam Emu Git bereinigen",
-        "patch_emu_git": "OSCam Emu Git patchen",
-        "github_upload_patch_button": "Patch-Datei hochladen",
-        "github_upload_emu_button": "OSCam-Emu Git hochladen",
-        "github_config_button": "GitHub Konfiguration",  # DE
-        "restart_tool": "Tool Neustarten",
-        "restart_required_title": "Neustart erforderlich",
-        "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
-        "restart_tool": "Tool Neustarten",
-        "backup_old_start": "🔄 Alter Patch wird gesichert…",
-        "backup_done": "💾 Backup erstellt: {path}",
-        "new_patch_installed": "✅ Neuer Patch installiert: {path}",
-        "no_old_patch": "ℹ️ Kein alter Patch vorhanden",
-        "patch_failed": "❌ Patch fehlgeschlagen – {path}",
-        "temp_repo_deleted": "✅ TEMP_REPO gelöscht: {path}",
-        "temp_repo_missing": "⚠️ TEMP_REPO existiert nicht: {path}",
-        "temp_patch_git_deleted": "✅ TEMP_PATCH_GIT gelöscht: {path}",
-        "temp_patch_git_missing": "⚠️ TEMP_PATCH_GIT existiert nicht: {path}",
-        "patch_file_deleted": "✅ Patch-Datei gelöscht: {path}",
-        "patch_file_missing": "⚠️ Patch-Datei existiert nicht: {path}",
-        "zip_file_deleted": "✅ ZIP-Datei gelöscht: {path}",
-        "zip_file_missing": "⚠️ ZIP-Datei existiert nicht: {path}",
-        "delete_failed": "❌ Löschen fehlgeschlagen: {path}",
+        "github_emu_credentials_missing": "❌ GitHub-Emu-Zugangsdaten fehlen!",
+        "patch_file_missing": "❌ Patch-Datei existiert nicht!",
+        "temp_repo_deleted": "♻️ TEMP_REPO gelöscht: {path}",
         "clean_done": "✅ Clean-Vorgang abgeschlossen",
-        "cleaning_oscam_emu_git": "🧹 OSCam Emu Git wird bereinigt: {path} …",
-        "oscam_emu_git_deleted": "✅ OSCam Emu Git Ordner gelöscht: {path}",
-        "oscam_emu_git_missing": "⚠️ OSCam Emu Git Ordner existiert nicht: {path}",
-        "patch_emu_git_start": "🔄 Streamboard Git wird vorbereitet: {path} …",
-        "patch_emu_git_deleted": "✅ Alter Git-Ordner gelöscht: {path}",
-        "delete_failed": "❌ Löschen fehlgeschlagen: {path}",
-        "patch_emu_git_clone_failed": "❌ Klonen des Streamboard Repos fehlgeschlagen",
-        "patch_emu_git_apply_failed": "❌ Patch konnte nicht angewendet werden",
-        "patch_create_start": "🔄 Patch wird erstellt…",
-        "patch_create_clone_start": "⚠️ TEMP_REPO existiert noch nicht. Clone wird gestartet…",
-        "patch_create_clone_failed": "❌ Clone fehlgeschlagen",
-        "patch_create_no_changes": "# Keine Änderungen gefunden",
-        "patch_create_success": "✅ Patch erfolgreich erstellt: {patch_file}",
-        "patch_create_failed": "❌ Patch-Erstellung fehlgeschlagen: {error}",
-        "patch_emu_git_applied": "✅ Patch erfolgreich angewendet: {commit_msg}",
-        "select_s3_patch_folder": "S3 Patch-Ordner auswählen",
-        "old_patch_path_changed": "✅ Alter Patch-Ordner geändert: {OLD_}",
-        "restart_tool": "Tool Neustarten",
-        "restart_tool_question": "Möchten Sie das Tool wirklich neu starten?",
-        "restart_tool_info": "⚠️ Tool wird neu gestartet...",
-        "restart_tool_cancelled": "ℹ️ Neustart abgebrochen.",
-        "update_current_version": "🎉 Sie haben die aktuelle Version installiert (v{version})",
-        "update_started": "Prüfe auf Plugin Updates...",
-        "backup_created": "Backup erstellt: {file}",
-        "update_success": "Update erfolgreich! Bitte Plugin neu starten. (v{version})",
-        "update_fail": "Update fehlgeschlagen: {error}",
-        "restart_tool_info": "⚠️ Tool wird neu gestartet...",
-        "restart_tool_cancelled": "ℹ️ Neustart abgebrochen",
-        "update_started": "🔄 Update wird gestartet…",
-        "update_current_version": "🎉 Sie haben die aktuelle Version installiert (v{version})",
-        "backup_created": "💾 Backup erstellt: {file}",
-        "update_success": "✅ Update erfolgreich abgeschlossen{version}",
+        "restart_required_msg": "Das Update wurde erfolgreich installiert. Das Tool muss neu gestartet werden.\nJetzt neu starten?",
+        "restart_required_title": "Neustart erforderlich",
+        "update_success": "✅ Update erfolgreich! Bitte Plugin neu starten.",
         "update_fail": "❌ Update fehlgeschlagen: {error}",
-        "restart_required_title": "Tool Neustarten",
-        "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
-        "yes": "Ja",
-        "no": "Nein",
-        "cleaning_oscam_emu_git": "🔄 Lösche PATCH_EMU_GIT Ordner: {path}",
-        "oscam_emu_git_deleted": "✅ PATCH_EMU_GIT Ordner gelöscht: {path}",
-        "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
-        "delete_failed": "❌ Fehler beim Löschen: {path}",
-        "restart_tool_info": "⚠️ Tool wird neu gestartet...",
-        "restart_tool_cancelled": "ℹ️ Neustart abgebrochen",
-        "patch_emu_git_start": "🔄 PATCH_EMU_GIT wird vorbereitet: {path}",
-        "patch_emu_git_deleted": "✅ Alter PATCH_EMU_GIT Ordner gelöscht: {path}",
-        "patch_emu_git_clone_failed": "❌ Fehler beim Klonen des Repos",
-        "patch_emu_git_apply_failed": "❌ Fehler beim Anwenden des Patches",
-        "patch_emu_git_applied": "✅ Patch erfolgreich angewendet: {commit_msg}",
-        "delete_failed": "❌ Fehler beim Löschen: {path}" ,
-        "github_patch_credentials_missing": "❌ GitHub-Zugangsdaten fehlen! Bitte in den Einstellungen eintragen.",
-        "patch_file_missing": "❌ Patch-Datei nicht gefunden!",
-        "temp_repo_deleted": "♻️ Temp-Repo gelöscht: {path}",
-        "delete_failed": "❌ Fehler beim Löschen von {path}",
-        "github_clone_failed": "❌ Klonen des GitHub-Repos fehlgeschlagen",
-        "new_patch_copied": "✅ Neue Patch-Datei kopiert",
-        "default_commit_msg": "Update oscam-emu.patch",
-        "github_patch_uploaded": "✅ Patch erfolgreich auf GitHub hochgeladen",
-        "temp_repo_cleaned": "♻️ Temp-Repo bereinigt: {path}",
-        "temp_repo_cleanup_failed": "⚠️ Temp-Repo konnte nicht gelöscht werden: {path}",
-        "cleaning_oscam_emu_git": "🔄 Lösche Ordner {path} …",
-        "oscam_emu_git_deleted": "✅ Ordner gelöscht: {path}",
-        "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
-        "delete_failed": "❌ Fehler beim Löschen von {path}",
-        "github_emu_git_missing": "❌ GitHub-Zugangsdaten für OSCam-EMU fehlen oder unvollständig",
-        "patch_emu_git_missing": "❌ Ordner existiert nicht: {path}",
-        "git_repo_init": "⚠️ Git-Repository existiert noch nicht, initialisiere: {path}",
-         "clean_emu_button": "OSCam-EMU Git bereinigen",
-        "patch_emu_git_button": "Patch OSCam-EMU Git anwenden",
-        "commits_button": "Commits anzeigen",
-        "github_upload_patch_button": "Patch hochladen",
-        "github_upload_emu_button": "OSCam-EMU Git hochladen",
-        "github_emu_config_button": "GitHub Config",
-        "plugin_update_button": "Plugin aktualisieren",
-        "restart_tool_button": "Tool neu starten",
-        "edit_header_button": "Patch-Header bearbeiten",
-        "clean_emu_button": "Oscam Emu Git bereinigen",
-        "patch_emu_git_button": "Patch OSCam Emu Git anwenden",
-        "commits_button": "Commits anzeigen",
-        "github_upload_patch_button": "Patch auf GitHub hochladen",
-        "github_upload_emu_button": "OSCam-Emu Git hochladen",
-        "github_emu_config_button": "GitHub Config bearbeiten",
-        "plugin_update_button": "Plugin aktualisieren",
-        "restart_tool_button": "Tool neu starten",
-        "edit_header_button": "Patch-Header bearbeiten",
-        "patch_emu_git_button": "Patch OSCam Emu Git anwenden",
-        "commits_button": "Commits anzeigen",
-        "github_upload_patch_button": "Patch auf GitHub hochladen",
-        "github_upload_emu_button": "OSCam-Emu Git hochladen",
-        "github_emu_config_button": "GitHub Config bearbeiten",
-        "plugin_update_button": "Plugin aktualisieren",
-        "restart_tool_button": "Tool neu starten",
-        "edit_header_button": "Patch-Header bearbeiten",
-        "github_version_available": "Verfügbare GitHub-Version: v{version}",
-        "update_current_version": "🎉 Sie haben die aktuelle Version installiert (v{version})",
-        "github_version_fetch_failed": "⚠️ Fehler beim Abrufen der GitHub-Version: {error}",
-        "github_emu_git_uploaded": "✅ OSCam-EMU Git-Ordner erfolgreich hochgeladen",
-        "restart_required_msg": "Das Update wurde erfolgreich installiert.\n\nDas Tool muss neu gestartet werden.\n\nJetzt neu starten?",
-        "patch_file_missing": "Patch-Datei existiert nicht!"
+        "update_not_available": "Keine neue Version verfügbar.",
+        'exit_question': 'Möchten Sie das Tool wirklich schließen?',
+        "github_version_available": "Neue Version {version} auf GitHub verfügbar",
+        "update_check_start": "Prüfe auf Updates …",
+        "plugin_update": "Plugin Update"
     }
 }
+
+
+# 4️⃣ **Unbedingt einmalig vor GUI-Start aufrufen**
+fill_missing_keys(TEXTS)
 
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
@@ -1223,8 +955,6 @@ def clean_oscam_emu_git(info_widget=None, progress_callback=None):
     if progress_callback:
         progress_callback(100)
 
-
-
 # ===================== patch_oscam_emu_git=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
@@ -1290,7 +1020,6 @@ def patch_oscam_emu_git(info_widget=None, progress_callback=None):
 
     if progress_callback:
         progress_callback(100)
-
 
 # ===================== GITHUB CONFIG =====================
 GITHUB_CONF_FILE = os.path.join(PLUGIN_DIR, "github_upload_config.json")
@@ -1460,7 +1189,6 @@ def github_upload_patch_file(info_widget=None, progress_callback=None):
     if progress_callback:
         progress_callback(100)
 
-
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(info_widget=None, progress_callback=None):
     """
@@ -1525,7 +1253,6 @@ def github_upload_oscam_emu_folder(info_widget=None, progress_callback=None):
     log("github_emu_git_uploaded", "success")
     if progress_callback:
         progress_callback(100)
-
 
 # =====================
 # GITHUB CONFIG DIALOG
@@ -1606,7 +1333,7 @@ class GithubConfigDialog(QDialog):
         save_github_config(cfg)
         self.accept()
 
-# =====================
+ # =====================
 # PATCH MANAGER GUI
 # =====================
 class PatchManagerGUI(QWidget):
@@ -1614,24 +1341,52 @@ class PatchManagerGUI(QWidget):
     BUTTON_WIDTH = 120   
     BUTTON_RADIUS = 10   
 
+    def update_all_texts(self):
+        # Labels
+        self.lang_label.setText(TEXTS[self.LANG]["language_label"])
+        self.color_label.setText(TEXTS[self.LANG]["color_label"])
+        self.commit_label.setText(TEXTS[self.LANG]["commit_count_label"])
+        self.info_button.setToolTip(TEXTS[self.LANG]["info_tooltip"])
+
+        # Option Buttons
+        for btn, text_key in self.option_buttons.values():
+            if text_key in TEXTS[self.LANG]:
+                btn.setText(TEXTS[self.LANG][text_key])
+
+        # Grid Buttons (Patch Aktionen)
+        for key, btn in getattr(self, "buttons", {}).items():
+            if key in TEXTS[self.LANG]:
+                btn.setText(TEXTS[self.LANG][key])
+
+        # Info Text
+        if hasattr(self, "info_text") and "info_text" in TEXTS[self.LANG]:
+            self.info_text.setPlainText(TEXTS[self.LANG]["info_text"])
+
+
     def __init__(self):
         super().__init__()
         self.cfg = load_config()
-         # 🔹 Globale Patch-Variablen setzen
-        # global OLD_PATCH_DIR, OLD_PATCH_FILE, ALT_PATCH_FILE
-        # Nicht neu setzen! Sondern nur fallback, wenn noch nicht gesetzt
-        if not hasattr(self, "OLD_PATCH_DIR"):
-            self.OLD_PATCH_DIR = self.cfg.get("s3_patch_path", OLD_PATCH_DIR_DEFAULT)
-
+        self.LANG = self.cfg.get("language", "DE").lower()  # "de" oder "en"
+        if self.LANG not in ["en", "de"]:
+            self.LANG = "en"
+        # Patch-Pfade
+        self.OLD_PATCH_DIR = self.cfg.get("s3_patch_path", OLD_PATCH_DIR_DEFAULT)
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
+        # Buttons & Status
+        self.all_buttons = []
+        self.option_buttons = {}
+        self.buttons = {}
         self.active_button_key = ""
         self.latest_version = None
+
+        # UI einmal aufbauen
         self.init_ui()
-        self.fetch_latest_version()  # GitHub-Version abrufen
-        self.update_plugin_button_state()  # Button prüfe
-        # 🔹 automatische Update-Prüfung 1 Sekunde nach Start
+
+        # GitHub / Update
+        self.fetch_latest_version()
+        self.update_plugin_button_state()
         QTimer.singleShot(1000, self.check_for_updates_on_start)
     # ---------------------
     @staticmethod
@@ -1876,33 +1631,51 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "commit_label"):
             self.commit_label.setText(TEXTS[LANG]["commit_count_label"])
 
+        # ---------- Option Buttons aktualisieren & Callback anpassen ----------
+        option_buttons_map = {
+        # Patch Buttons
+        "patch_create_button": "patch_create",
+        "patch_renew_button": "patch_renew",
+        "patch_check_button": "patch_check",
+        "patch_apply_button": "patch_apply",
+        "patch_zip_button": "patch_zip",
+        "backup_old_button": "backup_old",
+        "clean_folder_button": "clean_folder",
+        "change_old_dir_button": "change_old_dir",
+
+        # OSCam Emu Git
+        "clean_emu_button": "clean_emu_git",
+        "patch_emu_git_button": "patch_emu_git",
+
+        # GitHub
+        "github_upload_patch_button": "github_upload_patch",
+        "github_upload_emu_button": "github_upload_emu",
+        "github_emu_config_button": "github_emu_config_button",
+
+        # Tool / Sonstiges
+        "plugin_update_button": "plugin_update",
+        "restart_tool_button": "restart_tool",
+        "edit_header_button": "edit_patch_header",
+        "commits_button": "commits_button"
+        }
+
+
+
+
         # Option Buttons aktualisieren
-        for btn_name in [
-            "clean_emu_button",
-            "patch_emu_git_button",
-            "commits_button",
-            "github_upload_patch_button",
-            "github_upload_emu_button",
-            "github_emu_config_button",
-            "plugin_update_button",
-            "restart_tool_button",
-            "edit_header_button"
-        ]:
-            # Button-Widget holen
-            btn = getattr(self, btn_name, None)
-    
-            # Wenn Button existiert und ein Text in TEXTS für die aktuelle Sprache vorhanden ist
-            if btn and btn_name in TEXTS[LANG]:
-                btn.setText(TEXTS[LANG][btn_name])
+        for btn, text_key in self.option_buttons.values():
+            if text_key in TEXTS[self.LANG]:
+                btn.setText(TEXTS[self.LANG][text_key])
 
-        # Grid Buttons
+        # Grid Buttons aktualisieren
         for key, btn in getattr(self, "buttons", {}).items():
-            if key in TEXTS[LANG]:
-                btn.setText(TEXTS[LANG][key])
+            if key in TEXTS[self.LANG]:
+                btn.setText(TEXTS[self.LANG][key])
 
-        # Info Text kann optional auch angepasst werden
-        if hasattr(self, "info_text"):
-            self.info_text.repaint()
+        # Info Text optional aktualisieren
+        if hasattr(self, "info_text") and "info_text" in TEXTS[self.LANG]:
+            self.info_text.setPlainText(TEXTS[self.LANG]["info_text"])
+
 
     def repaint_ui_colors(self):
         # Labels, ComboBoxes, Buttons, ProgressBar etc.
@@ -2118,8 +1891,6 @@ class PatchManagerGUI(QWidget):
         if progress_callback:
             progress_callback(100)
 
-
-
     def fetch_latest_version(self):
         """Ruft die Version aus VERSION.txt auf GitHub ab und speichert sie in self.latest_version."""
         import requests, time
@@ -2236,8 +2007,6 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             log("update_fail", "error", error=str(e))
 
-
-
     # ---------------------
     # UPDATE CHECK
     # ---------------------
@@ -2307,7 +2076,6 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             log("update_fail", "error", error=str(e))
 
-
     # ---------------------
     # TOOLS CHECK
     # ---------------------
@@ -2370,15 +2138,21 @@ class PatchManagerGUI(QWidget):
         # INIT UI
         # =====================
     def init_ui(self):
+        self.all_buttons = []  # <- HIER hinzufügen!
         TITLE_HEIGHT = 105
-        self.BUTTON_HEIGHT = 40  # optional, falls nicht definiert
+        self.BUTTON_HEIGHT = 40
         self.BUTTON_WIDTH = 120
         self.BUTTON_RADIUS = 10
 
         layout = QVBoxLayout()
+        self.lang_label = QLabel()
+        self.color_label = QLabel()
+        self.commit_label = QLabel()
+        layout.addWidget(self.lang_label)
+        layout.addWidget(self.color_label)
+        layout.addWidget(self.commit_label)
         layout.setSpacing(10)
         layout.setContentsMargins(20, 20, 20, 20)
-        self.all_buttons = []
         self.active_button_key = None
 
         # -------------------
@@ -2387,8 +2161,8 @@ class PatchManagerGUI(QWidget):
         header_layout = QHBoxLayout()
         header_layout.setSpacing(10)
         header_layout.setContentsMargins(20, 0, 20, 0)
-  
-        # Linkes Layout: Info Button + Digitale Uhr
+
+        # Info Button + Uhr links
         self.info_button = QPushButton()
         self.info_button.setFixedSize(60, TITLE_HEIGHT)
         self.info_button.setToolTip(TEXTS[LANG]["info_tooltip"])
@@ -2416,7 +2190,7 @@ class PatchManagerGUI(QWidget):
         left_widget.setLayout(left_layout)
         header_layout.addWidget(left_widget, 1, Qt.AlignmentFlag.AlignLeft)
 
-        # Mitte: Logo
+        # Logo Mitte
         self.logo_label = QLabel()
         logo_height = TITLE_HEIGHT
         logo_width = TITLE_HEIGHT * 10
@@ -2438,10 +2212,9 @@ class PatchManagerGUI(QWidget):
         except Exception:
             self.logo_label.setText("Logo ❌")
 
-        # Widget immer zum Layout hinzufügen
         header_layout.addWidget(self.logo_label, 0, Qt.AlignmentFlag.AlignCenter)
 
-        # Rechts: Version + by speedy005
+        # Version + Autor rechts
         right_widget = QWidget()
         right_layout = QVBoxLayout()
         right_layout.setSpacing(2)
@@ -2474,7 +2247,7 @@ class PatchManagerGUI(QWidget):
         layout.addWidget(self.info_text)
 
         # -------------------
-        # OPTIONS LEISTE (Sprache, Farbe, Commit)
+        # OPTION CONTROLS (Sprache, Farbe, Commits)
         # -------------------
         controls_layout = QHBoxLayout()
         controls_layout.setSpacing(10)
@@ -2519,104 +2292,73 @@ class PatchManagerGUI(QWidget):
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
         controls_layout.addWidget(self.commit_spin)
 
-        # -------------------
-        # TOP OPTION BUTTONS
-        # -------------------
-        self.commits_button = self.create_option_button(
-            key="git_status",
-            text=TEXTS[LANG]["git_status"],
-            color="#1E90FF",
-            callback=self.show_commits
-        )
-        self.plugin_update_button = self.create_option_button(
-            key="plugin_update",
-            text=TEXTS[LANG]["plugin_update"],
-            color="#000000",
-            fg="#FFFFFF",
-            callback=self.plugin_update_button_clicked
-        )
-        self.restart_tool_button = self.create_option_button(
-            key="restart_tool",
-            text=TEXTS[LANG].get("restart_tool", "Tool Neustarten"),
-            color="#000000",
-            fg="#FFFFFF",
-            callback=self.restart_application_with_info
-        )
-        self.edit_header_button = self.create_option_button(
-            key="edit_patch_header",
-            text=TEXTS[LANG].get("edit_patch_header", "Patch Header bearbeiten"),
-            color="#000000",
-            fg="#FFFFFF",
-            callback=self.edit_patch_header
-        )
-
-        for btn in [self.commits_button, self.plugin_update_button, self.restart_tool_button, self.edit_header_button]:
-            btn.setFixedHeight(self.BUTTON_HEIGHT)
-            controls_layout.addWidget(btn)
-
         controls_container = QWidget()
         controls_container.setLayout(controls_layout)
         layout.addWidget(controls_container)
 
         # -------------------
-        # OPTION BUTTONS (Patch & Git)
+        # OPTION BUTTONS
         # -------------------
-        buttons_list = [
-            ("clean_emu_git", TEXTS[LANG]["clean_emu_git"], "#8B4513", clean_oscam_emu_git),
-            ("patch_emu_git", TEXTS[LANG]["patch_emu_git"], "#006400", patch_oscam_emu_git),
-            ("github_upload_patch", TEXTS[LANG]["github_upload_patch"], "#1E90FF", github_upload_patch_file),
-            ("github_upload_emu", TEXTS[LANG]["github_upload_emu"], "#1E90FF", github_upload_oscam_emu_folder),
-            ("github_config", TEXTS[LANG]["github_config_button"], "#FFA500", self.edit_emu_github_config, "black")
+        option_buttons_list = [
+            # key, text_key in TEXTS, button color, callback, optional fg
+            ("git_status", "git_status", "#1E90FF", self.show_commits),
+            ("plugin_update", "plugin_update", "#000000", self.plugin_update_button_clicked, "#FFFFFF"),
+            ("restart_tool", "restart_tool", "#000000", self.restart_application_with_info, "#FFFFFF"),
+            ("edit_patch_header", "edit_patch_header", "#000000", self.edit_patch_header, "#FFFFFF"),
+            ("github_emu_config_button", "github_emu_config_button", "#FFA500", self.edit_emu_github_config, "#000000"),
+            ("github_upload_patch", "github_upload_patch", "#1E90FF", github_upload_patch_file),
+            ("github_upload_emu", "github_upload_emu", "#1E90FF", github_upload_oscam_emu_folder)
         ]
 
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
+        self.option_buttons = {}
 
-        for btn_data in buttons_list:
-            key, text, color, callback = btn_data[:4]
-            fg = btn_data[4] if len(btn_data) == 5 else current_diff_colors['text']
-
-            # Button erstellen und Callback anpassen, damit info_widget und progress_callback übergeben werden
+        for key, text_key, color, callback, *rest in option_buttons_list:
+            fg = rest[0] if rest else "black"
             btn = self.create_option_button(
                 key=key,
-                text=text,
+                text=TEXTS[self.LANG][text_key],
                 color=color,
                 fg=fg,
                 callback=lambda checked=False, f=callback: f(info_widget=self.info_text, progress_callback=None)
             )
-
             btn.setMinimumHeight(self.BUTTON_HEIGHT)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             buttons_layout.addWidget(btn)
+            self.option_buttons[key] = (btn, text_key)
 
-        layout.addLayout(buttons_layout)
+        controls_container = QWidget()
+        controls_container.setLayout(buttons_layout)
+        layout.addWidget(controls_container)
 
-    
+        # -------------------
         # -------------------
         # GRID BUTTONS (Patch Aktionen)
         # -------------------
         grid_layout = QGridLayout()
         actions = [
-            ("patch_create", lambda: self.run_action(lambda info_widget=None, progress_callback=None: create_patch(self, info_widget, progress_callback))),
-            ("patch_renew", lambda: self.run_action(lambda info_widget=None, progress_callback=None: create_patch(self, info_widget, progress_callback))),
-            ("patch_check", lambda: self.run_action(lambda info_widget=None, progress_callback=None: self.check_patch(info_widget, progress_callback))),
-            ("patch_apply", lambda: self.run_action(lambda info_widget=None, progress_callback=None: self.apply_patch(info_widget, progress_callback))),
-            ("patch_zip", lambda: self.run_action(lambda info_widget=None, progress_callback=None: self.zip_patch(info_widget, progress_callback))),
-            ("backup_old", lambda: self.run_action(lambda info_widget=None, progress_callback=None: backup_old_patch(self, info_widget, progress_callback))),
-            ("clean_folder", lambda: self.run_action(lambda info_widget=None, progress_callback=None: clean_patch_folder(self, info_widget, progress_callback))),
-            ("change_old_dir", lambda: self.run_action(lambda info_widget=None, progress_callback=None: self.change_old_patch_dir(info_widget, progress_callback))),
+            ("patch_create", lambda: create_patch(self, self.info_text, None)),
+            ("patch_renew", lambda: create_patch(self, self.info_text, None)),
+            ("patch_check", lambda: self.check_patch(self.info_text, None)),
+            ("patch_apply", lambda: self.apply_patch(self.info_text, None)),
+            ("patch_zip", lambda: self.zip_patch(self.info_text, None)),
+            ("backup_old", lambda: backup_old_patch(self, self.info_text, None)),
+            ("clean_folder", lambda: clean_patch_folder(self, self.info_text, None)),
+            ("change_old_dir", lambda: self.change_old_patch_dir(self.info_text, None)),
             ("exit", self.close_with_confirm)
         ]
-
+ 
         self.buttons = {}
         for idx, (key, func) in enumerate(actions):
-            btn = QPushButton(TEXTS[LANG][key])
+            btn = QPushButton(TEXTS[self.LANG][key])  # self.LANG statt global LANG
             btn.setFont(QFont("Arial", 16))
             btn.setMinimumHeight(self.BUTTON_HEIGHT)
             btn.clicked.connect(lambda checked=False, k=key, f=func: (self.set_active_button(k), f()))
             self.buttons[key] = btn
             row, col = divmod(idx, 3)
             grid_layout.addWidget(btn, row, col)
+
         layout.addLayout(grid_layout)
 
         # -------------------
@@ -2679,8 +2421,6 @@ class PatchManagerGUI(QWidget):
         self.all_buttons.append(btn)
         return btn
 
-
-
     def on_button_clicked(self, key, func):
         self.set_active_button(key)
         self.run_action(func)
@@ -2718,71 +2458,45 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Called when the language dropdown changes.
-        Updates the global LANG variable, refreshes all text labels,
+        Updates self.LANG, refreshes all text labels,
         and saves the choice in config.json.
         """
-        global LANG
         selected = self.language_box.currentText()
-        LANG = "de" if selected == "DE" else "en"
+        self.LANG = "de" if selected == "DE" else "en"  # <-- wichtig: self.LANG
 
         # ---------- Labels ----------
-        if hasattr(self, "lang_label"):
-            self.lang_label.setText(TEXTS[LANG]["language_label"])
-        if hasattr(self, "color_label"):
-            self.color_label.setText(TEXTS[LANG]["color_label"])
-        if hasattr(self, "commit_label"):
-            self.commit_label.setText(TEXTS[LANG]["commit_count_label"])
+        label_map = {
+            "lang_label": "language_label",
+            "color_label": "color_label",
+            "commit_label": "commit_count_label"
+        }
+        for attr, key in label_map.items():
+            if hasattr(self, attr) and key in TEXTS[self.LANG]:
+                getattr(self, attr).setText(TEXTS[self.LANG][key])
 
-        # ---------- Top Buttons ----------
-        if hasattr(self, "edit_header_button"):
-            self.edit_header_button.setText(TEXTS[LANG].get("edit_patch_header", "Patch Header bearbeiten"))
-        if hasattr(self, "plugin_update_button"):
-            self.plugin_update_button.setText(TEXTS[LANG]["plugin_update"])
-        if hasattr(self, "restart_tool_button"):
-            self.restart_tool_button.setText(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
-        if hasattr(self, "commits_button"):
-            self.commits_button.setText(TEXTS[LANG]["git_status"])
+        # ---------- Option Buttons ----------
+        for btn, text_key in self.option_buttons.values():
+            if text_key in TEXTS[self.LANG]:
+                btn.setText(TEXTS[self.LANG][text_key])
 
-        # ---------- Option Buttons unten ----------
-        for btn_name, key in [
-            ("clean_emu_button", "clean_emu_git"),
-            ("patch_emu_git_button", "patch_emu_git"),
-            ("github_upload_patch_button", "github_upload_patch_button"),
-            ("github_upload_emu_button", "github_upload_emu_button"),
-            ("github_emu_config_button", "github_config_button"),
-        ]:
-            btn = getattr(self, btn_name, None)
-            if btn and key in TEXTS[LANG]:
-                # Text setzen basierend auf aktueller Sprache
-                btn.setText(TEXTS[LANG][key])
-
-                # Callback sicherstellen, dass info_widget übergeben wird
-                func = btn.property("callback") or getattr(self, key, None)
-                if func:
-                    try:
-                        btn.clicked.disconnect()  # alte Verbindung trennen
-                    except Exception:
-                        pass
-                    btn.clicked.connect(
-                        lambda checked=False, f=func: f(info_widget=self.info_text, progress_callback=None)
-                    )
-
-
- 
         # ---------- Grid Buttons ----------
         for key, btn in getattr(self, "buttons", {}).items():
-            if key in TEXTS[LANG]:
-                btn.setText(TEXTS[LANG][key])
+            if key in TEXTS[self.LANG]:
+                btn.setText(TEXTS[self.LANG][key])
 
         # ---------- Info Text ----------
-        if hasattr(self, "info_text"):
-            self.append_info(self.info_text, f"Language changed to {selected}", "info")
+        if hasattr(self, "info_text") and "info_text" in TEXTS[self.LANG]:
+            self.info_text.setPlainText(TEXTS[self.LANG]["info_text"])
 
         # ---------- Config speichern ----------
         if not hasattr(self, "cfg"):
             self.cfg = load_config()
         self.cfg["language"] = selected
         save_config(self.cfg)
+
+        # Optional: Info-Log
+        if hasattr(self, "append_info"):
+            self.append_info(self.info_text, f"Language changed to {selected}", "info")
 
     # =====================
     # GITHUB EMU CREDENTIALS
@@ -2986,15 +2700,33 @@ class PatchManagerGUI(QWidget):
 
 
 if __name__ == "__main__":
+    import os
+    import sys
+    from PyQt6.QtWidgets import QApplication
+    from oscam_patch_manager import PatchManagerGUI, TEXTS, fill_missing_keys, ensure_dir, PLUGIN_DIR, ICON_DIR, TEMP_REPO, load_config
+
+    # ⚠️ Verhindert Accessibility-Warnungen unter Linux
     os.environ["NO_AT_BRIDGE"] = "1"
 
+    # 1️⃣ Verzeichnisse sicherstellen
     ensure_dir(PLUGIN_DIR)
     ensure_dir(ICON_DIR)
     ensure_dir(TEMP_REPO)
 
+    # 2️⃣ Konfiguration laden
     load_config()
 
+    # 3️⃣ Fehlende TEXTS automatisch ausfüllen
+    fill_missing_keys(TEXTS)  # einmalig vor GUI-Start
+
+    # 4️⃣ QApplication erstellen
     app = QApplication(sys.argv)
+
+    # 5️⃣ GUI starten — jetzt wird alles nur einmal initialisiert
     window = PatchManagerGUI()
     window.showMaximized()
+
+    # 6️⃣ Event Loop starten
     sys.exit(app.exec())
+
+    
