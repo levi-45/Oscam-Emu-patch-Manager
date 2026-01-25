@@ -45,7 +45,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.7.6"
+APP_VERSION = "1.7.7"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1860,8 +1860,8 @@ class PatchManagerGUI(QWidget):
                 QApplication.processEvents()
             else:
                 print(f"[{level.upper()}] {text}")
-
-        # 🔹 Cache-Cleanup am Start
+ 
+        # ---------------- Cache Cleanup ----------------
         try:
             plugin_dir = os.path.dirname(os.path.abspath(__file__))
             pyc_file = os.path.join(plugin_dir, "oscam_patch_manager.pyc")
@@ -1874,14 +1874,15 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             log("update_fail", "warning", error=f"Cache cleanup failed: {e}")
 
-        # 🔹 GitHub-Version holen, falls keine übergeben
+        # ---------------- GitHub-Version holen ----------------
+        plugin_resp = None  # immer definieren, damit später genutzt werden kann
         if latest_version is None:
             try:
                 url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
-                resp = requests.get(url, timeout=10)
-                resp.raise_for_status()
+                plugin_resp = requests.get(url, timeout=10)
+                plugin_resp.raise_for_status()
 
-                match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', resp.text)
+                match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', plugin_resp.text)
                 if match:
                     latest_version = match.group(1)
                     log("github_version_available", "info", version=latest_version)
@@ -1896,7 +1897,7 @@ class PatchManagerGUI(QWidget):
                     progress_callback(100)
                 return
 
-        # 🔹 Version prüfen
+        # ---------------- Version prüfen ----------------
         try:
             lv = Version(latest_version.strip().lstrip("v"))
             cv = Version(APP_VERSION.strip().lstrip("v"))
@@ -1914,7 +1915,7 @@ class PatchManagerGUI(QWidget):
         log("update_started", "info")
 
         try:
-            # 🔹 Backup alter Dateien
+            # ---------------- Backup alter Dateien ----------------
             backup_dir = os.path.join(plugin_dir, "backup_old")
             os.makedirs(backup_dir, exist_ok=True)
             for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
@@ -1923,20 +1924,25 @@ class PatchManagerGUI(QWidget):
                     shutil.copy(src, os.path.join(backup_dir, fname))
                     log("backup_created", "success", file=fname)
 
-            # 🔹 Neue Plugin-Datei herunterladen
+            # ---------------- Neue Plugin-Datei herunterladen / speichern ----------------
+            if plugin_resp is None:
+                url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+                plugin_resp = requests.get(url, timeout=10)
+                plugin_resp.raise_for_status()
+
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
             tmp_file = plugin_file + ".tmp"
 
             with open(tmp_file, "w", encoding="utf-8") as f:
-                f.write(resp.text)
+                f.write(plugin_resp.text)
             os.replace(tmp_file, plugin_file)  # Atomic Write
 
             log("update_success", "success", version=latest_version or "")
 
-            # 🔹 interner Status → verhindert Endlosschleife
-            self.latest_version = APP_VERSION
+            # ---------------- interner Status ----------------
+            self.latest_version = APP_VERSION  # verhindert Endlosschleifen
 
-            # 🔹 Neustart-Abfrage
+            # ---------------- Neustart-Abfrage ----------------
             msg = QMessageBox(self)
             msg.setWindowTitle(TEXTS[LANG].get("restart_required_title", "Restart required"))
             msg.setText(TEXTS[LANG].get("restart_required_msg", "The tool must be restarted. Restart now?"))
@@ -1955,6 +1961,7 @@ class PatchManagerGUI(QWidget):
 
         if progress_callback:
             progress_callback(100)
+
 
 
 
