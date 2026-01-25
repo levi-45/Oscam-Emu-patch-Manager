@@ -45,7 +45,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.7..1"
+APP_VERSION = "1.7.1"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 # Konfigurationsdateien
@@ -1914,36 +1914,45 @@ class PatchManagerGUI(QWidget):
 
 
     def fetch_latest_version(self):
-        """Ruft die Version aus VERSION.txt auf GitHub ab und speichert sie in self.latest_version."""
-        import requests, time
+        """Ruft die Version aus oscams_patch_manager.py auf GitHub ab und speichert sie in self.latest_version."""
+        import requests, re
+
+        widget = getattr(self, "info_text", None)
+
+        def log(text_key, level="info", **kwargs):
+            colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
+            color = colors.get(level, "gray")
+            text_template = TEXTS[LANG].get(text_key, text_key)
+            text = text_template.format(**kwargs)
+            if isinstance(widget, QTextEdit):
+                widget.append(f'<span style="color:{color}">{text}</span>')
+                widget.moveCursor(QTextCursor.MoveOperation.End)
+                QApplication.processEvents()
+            else:
+                print(f"[{level.upper()}] {text}")
 
         try:
-            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
-            resp = requests.get(url, params={"t": time.time()}, timeout=10)
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            resp = requests.get(url, timeout=10)
             resp.raise_for_status()
-            latest = resp.text.strip()
+
+            match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', resp.text)
+            if not match:
+                raise RuntimeError("APP_VERSION not found on GitHub")
+
+            latest = match.group(1)
             self.latest_version = latest
 
             # Versionsvergleich
-            if APP_VERSION.lstrip("v") != self.latest_version:
-                self.append_info(
-                    self.info_text,
-                    TEXTS[LANG]["github_version_available"].format(version=self.latest_version),
-                    "info"
-                )
+            from packaging.version import Version
+            if Version(latest) > Version(APP_VERSION):
+             log("github_version_available", "info", version=latest)
             else:
-                self.append_info(
-                    self.info_text,
-                    TEXTS[LANG]["update_current_version"].format(version=self.latest_version),
-                    "success"
-                )
+                log("update_current_version", "success", version=APP_VERSION)
 
         except Exception as e:
-            self.append_info(
-                self.info_text,
-                TEXTS[LANG]["github_version_fetch_failed"].format(error=str(e)),
-                "warning"
-            )
+            log("github_version_fetch_failed", "warning", error=str(e))
+
 
 
     def fetch_latest_github_version(self):
