@@ -45,7 +45,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "1.7..3"
+APP_VERSION = "1.7.5"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 # Konfigurationsdateien
@@ -1811,21 +1811,27 @@ class PatchManagerGUI(QWidget):
         # ---------------------
     
     def update_plugin_button_state(self):
-        from packaging.version import Version
+        from packaging.version import Version, InvalidVersion
         if not hasattr(self, "plugin_update_button"):
             return
         if not getattr(self, "latest_version", None):
             return
+
         try:
-            if Version(self.latest_version.strip().lstrip("v")) <= Version(APP_VERSION.strip().lstrip("v")):
+            lv = Version(self.latest_version.strip().lstrip("v"))
+            cv = Version(APP_VERSION.strip().lstrip("v"))
+
+            if lv <= cv:
                 self.plugin_update_button.setEnabled(False)
                 self.plugin_update_button.setText(f"{TEXTS[LANG]['plugin_update']} ✅")
             else:
                 self.plugin_update_button.setEnabled(True)
                 self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
-        except Exception:
+
+        except InvalidVersion:
             self.plugin_update_button.setEnabled(True)
             self.plugin_update_button.setText(TEXTS[LANG]['plugin_update'])
+
 
 
     
@@ -1835,9 +1841,10 @@ class PatchManagerGUI(QWidget):
         und bietet einen Neustart an. Meldungen erscheinen im Info-Widget.
         """
         from packaging.version import Version, InvalidVersion
+        import os, shutil, requests
 
         widget = getattr(self, "info_text", None)
-
+ 
         def log(text_key, level="info", **kwargs):
             colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
             color = colors.get(level, "gray")
@@ -1873,28 +1880,31 @@ class PatchManagerGUI(QWidget):
             backup_dir = os.path.join(plugin_dir, "backup_old")
             os.makedirs(backup_dir, exist_ok=True)
 
-            # Alte Dateien sichern
+            # 🔹 Alte Dateien sichern
             for fname in ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]:
                 src = os.path.join(plugin_dir, fname)
                 if os.path.exists(src):
-                    shutil.copy(src, os.path.join(backup_dir, fname))
-                    log("backup_created", "success", file=fname)
+                 shutil.copy(src, os.path.join(backup_dir, fname))
+                log("backup_created", "success", file=fname)
 
-            # Neue Plugin-Datei herunterladen
-            import requests
+            # 🔹 Neue Plugin-Datei herunterladen
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
 
             plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
             tmp_file = plugin_file + ".tmp"
+
             with open(tmp_file, "w", encoding="utf-8") as f:
                 f.write(resp.text)
-            os.replace(tmp_file, plugin_file)  # atomic
+
+            os.replace(tmp_file, plugin_file)  # Atomic Write
 
             log("update_success", "success", version=latest_version or "")
-            self.latest_version = APP_VERSION  # interner Status korrigiert
- 
+
+            # interner Status → verhindert Endlosschleife
+            self.latest_version = APP_VERSION
+
             # Neustart-Abfrage
             msg = QMessageBox(self)
             msg.setWindowTitle(TEXTS[LANG].get("restart_required_title", "Restart required"))
@@ -1908,12 +1918,13 @@ class PatchManagerGUI(QWidget):
                 self.restart_application()
             else:
                 log("restart_tool_cancelled", "info")
- 
+
         except Exception as e:
             log("update_fail", "error", error=str(e))
 
         if progress_callback:
             progress_callback(100)
+
 
 
 
@@ -2017,13 +2028,16 @@ class PatchManagerGUI(QWidget):
 
             latest_version = match.group(1)
 
+            # 🔹 Safe-Check + Versionsvergleich
             try:
-                if Version(latest_version.strip().lstrip("v")) <= Version(APP_VERSION.strip().lstrip("v")):
+                lv = Version(latest_version.strip().lstrip("v"))
+                cv = Version(APP_VERSION.strip().lstrip("v"))
+                if lv <= cv:
                     log("update_current_version", "success", version=APP_VERSION)
                     return
             except InvalidVersion:
-                log("update_fail", "error", error=f"Invalid version from GitHub: '{latest_version}'")
-                return
+                log("update_fail", "error", error=f"Invalid version detected: '{latest_version}'")
+            return
 
             # Update verfügbar
             msg_box = QMessageBox(self)
@@ -2040,6 +2054,7 @@ class PatchManagerGUI(QWidget):
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
+
 
 
 
