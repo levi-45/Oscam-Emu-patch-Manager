@@ -434,6 +434,11 @@ TEXTS = {
         "patch_create_success": "✅ Patch successfully created: {patch_file}",
         "patch_version_from_header": "✅ Patch version from header: {patch_version}",
         "patch_create_failed": "❌ Patch creation failed: {error}",
+        "update_current_version": "Installed version is up to date: {version}",
+        "update_available_title": "Update available",
+        "update_available_msg": "New version available: {version}\nDo you want to update?",
+        "update_declined": "Update declined",
+        "update_fail": "Update check failed: {error}",
         # Backup
         "backup_old_start": "ℹ️ Creating backup of old patch…",
         "backup_done": "✅ Backup successfully created: {path}",
@@ -547,6 +552,11 @@ TEXTS = {
         "backup_created": "✅ Backup erstellt: {file}",
         # Backup
         "backup_old_start": "ℹ️ Erstelle Backup des alten Patches…",
+        "update_current_version": "Installierte Version ist aktuell: {version}",
+        "update_available_title": "Update verfügbar",
+        "update_available_msg": "Neue Version verfügbar: {version}\nMöchten Sie aktualisieren?",
+        "update_declined": "Update abgelehnt",
+        "update_fail": "Update-Check fehlgeschlagen: {error}",
         "backup_done": "✅ Backup erfolgreich erstellt: {path}",
         "no_old_patch": "ℹ️ Keine alte Patch-Datei gefunden.",
         "new_patch_installed": "✅ Neuer Patch erfolgreich installiert: {path}",
