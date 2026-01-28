@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.0.2"
+APP_VERSION = "2.0.5"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -363,6 +363,18 @@ TEXTS = {
         "yes": "Yes",
         "no": "No",
         "cancel": "Cancel",
+        "plugin_update": "Plugin Update",
+        "update_current_version": "✅ Plugin is up to date (v{version})",
+        "update_fail": "❌ Update failed: {error}",
+        "update_success": "✅ Update installed successfully! Please restart the tool.",
+        "restart_required_title": "Restart required",
+        "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
+        "yes": "Yes",
+        "no": "No",
+        "restart_tool_info": "ℹ️ Restarting application...",
+        "restart_tool_cancelled": "ℹ️ Restart cancelled by user.",
+        "update_started": "ℹ️ Update started…",
+        "backup_created": "✅ Backup created: {file}",
         "exit_question": "Do you really want to close the tool?",
         # Updates
         "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
@@ -521,6 +533,18 @@ TEXTS = {
         "patch_create_success": "✅ Patch erfolgreich erstellt: {patch_file}",
         "patch_version_from_header": "✅ Patch-Version aus Header: {patch_version}",
         "patch_create_failed": "❌ Patch-Erstellung fehlgeschlagen: {error}",
+        "plugin_update": "Plugin Update",
+        "update_current_version": "✅ Plugin ist aktuell (v{version})",
+        "update_fail": "❌ Update fehlgeschlagen: {error}",
+        "update_success": "✅ Update erfolgreich installiert! Bitte das Tool neu starten.",
+        "restart_required_title": "Neustart erforderlich",
+        "restart_required_msg": "Das Update wurde erfolgreich installiert. Das Tool muss neu gestartet werden.\nJetzt neu starten?",
+        "yes": "Ja",
+        "no": "Nein",
+        "restart_tool_info": "ℹ️ Anwendung wird neu gestartet…",
+        "restart_tool_cancelled": "ℹ️ Neustart vom Benutzer abgebrochen.",
+        "update_started": "ℹ️ Update gestartet…",
+        "backup_created": "✅ Backup erstellt: {file}",
         # Backup
         "backup_old_start": "ℹ️ Erstelle Backup des alten Patches…",
         "backup_done": "✅ Backup erfolgreich erstellt: {path}",
@@ -555,6 +579,7 @@ def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+
 def save_config(cfg=None):
     """
     Speichert die Config in CONFIG_FILE.
@@ -577,6 +602,7 @@ def save_config(cfg=None):
             json.dump(cfg, f, indent=2)
     except Exception as e:
         self.append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
+
 
 # ===================== CONFIG =====================
 def load_config():
@@ -604,6 +630,7 @@ def load_config():
                 "s3_patch_path": "",
             }
     return cfg
+
 
 # ===================== INFOSCREEN =====================
 def github_upload_patch_file(
@@ -731,10 +758,12 @@ def github_upload_patch_file(
     if progress_callback:
         progress_callback(100)
 
+
 # ===================== PATCH HEADER =====================
 from datetime import datetime
 import subprocess
 import os
+
 
 def get_patch_header(repo_dir=None, lang=LANG):
     """
@@ -792,6 +821,7 @@ def get_patch_header(repo_dir=None, lang=LANG):
 
     return header
 
+
 # ===================== TOOL CHECK & AUTOMATISCHE INSTALLATION =====================
 def check_tools(info_widget=None):
     """
@@ -840,9 +870,11 @@ def check_tools(info_widget=None):
     else:
         self.append_info(info_widget, TEXTS[LANG]["all_tools_installed"], "success")
 
+
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 import os, subprocess, shutil
+
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -942,10 +974,12 @@ def log(text, level="info"):
     else:
         print(f"[{level.upper()}] {text}")
 
+
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os, re
+
 
 def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback=None):
     """
@@ -1063,6 +1097,7 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     if progress_callback:
         progress_callback(100)
 
+
 # ===================== CLEAN PATCH FOLDER =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
@@ -1126,8 +1161,10 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     if progress_callback:
         progress_callback(100)
 
+
 # ===================== ICONS =====================
 ICON_SIZE = 64
+
 
 def create_icons():
     """
@@ -1170,10 +1207,12 @@ def get_icon_for(name):
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
 
+
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
+
 
 def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1224,6 +1263,7 @@ from PyQt6.QtGui import QTextCursor
 import shutil, os
 from datetime import datetime
 import subprocess
+
 
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1347,6 +1387,7 @@ def save_github_config(cfg):
     except:
         pass
 
+
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
     dir_path,
@@ -1418,6 +1459,7 @@ def _github_upload(
         ),
         "success" if code == 0 else "error",
     )
+
 
 # ===================== GITHUB UPLOAD PATCH FILE =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1491,6 +1533,7 @@ def run_bash(cmd, cwd=None, info_widget=None, lang=LANG):
     except Exception as e:
         log(f"run_bash_failed: {e}", "error")
         return -1
+
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -1622,6 +1665,7 @@ def github_upload_oscam_emu_folder(
     if progress_callback:
         progress_callback(100)
 
+
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -1708,6 +1752,7 @@ class GithubConfigDialog(QDialog):
         save_github_config(cfg)
         self.accept()
 
+
 # =====================
 # PATCH MANAGER GUI
 # =====================
@@ -1735,7 +1780,7 @@ class PatchManagerGUI(QWidget):
 
         # UI einmal aufbauen
         self.init_ui()
-
+        self.check_for_plugin_update()
         # GitHub / Update
         self.fetch_latest_version()
         self.update_plugin_button_state()
@@ -2471,9 +2516,9 @@ class PatchManagerGUI(QWidget):
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """
-        Prüft die Version, sichert alte Dateien, lädt das neue Plugin herunter
-        und bietet einen Neustart an. Meldungen erscheinen im Info-Widget.
-        Übersetzt nach der aktuellen GUI-Sprache (self.LANG).
+        Prüft die Version, zeigt sofort an, ob ein Update verfügbar ist,
+        sichert alte Dateien, lädt das neue Plugin herunter und bietet einen Neustart an.
+        Meldungen erscheinen im Info-Widget.
         """
         from packaging.version import Version, InvalidVersion
         import os, shutil, requests, re
@@ -2481,7 +2526,7 @@ class PatchManagerGUI(QWidget):
         widget = getattr(self, "info_text", None)
         lang = getattr(self, "LANG", "de")  # GUI-Sprache
 
-        # ----------------- Logger mit Übersetzung -----------------
+        # ----------------- Logger -----------------
         def log(text_key, level="info", **kwargs):
             colors = {
                 "success": "green",
@@ -2504,7 +2549,6 @@ class PatchManagerGUI(QWidget):
             plugin_dir = os.path.dirname(os.path.abspath(__file__))
             pyc_file = os.path.join(plugin_dir, "oscam_patch_manager.pyc")
             cache_dir = os.path.join(plugin_dir, "__pycache__")
-
             if os.path.exists(pyc_file):
                 os.remove(pyc_file)
             if os.path.exists(cache_dir):
@@ -2523,7 +2567,6 @@ class PatchManagerGUI(QWidget):
                 match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', plugin_resp.text)
                 if match:
                     latest_version = match.group(1)
-                    log("github_version_available", "info", version=latest_version)
                 else:
                     log("update_fail", "error", error="APP_VERSION not found on GitHub")
                     if progress_callback:
@@ -2541,11 +2584,15 @@ class PatchManagerGUI(QWidget):
         try:
             lv = Version(latest_version.strip().lstrip("v"))
             cv = Version(APP_VERSION.strip().lstrip("v"))
+
             if lv <= cv:
                 log("update_current_version", "success", version=latest_version)
                 if progress_callback:
                     progress_callback(100)
                 return
+            else:
+                # Neues Update verfügbar: sofort anzeigen
+                log("github_version_available", "info", version=latest_version)
         except InvalidVersion:
             log(
                 "update_fail",
@@ -2557,9 +2604,11 @@ class PatchManagerGUI(QWidget):
             return
 
         log("update_started", "info")
+        if progress_callback:
+            progress_callback(10)  # kleine Fortschrittsanzeige
 
+        # ----------------- Backup alter Dateien -----------------
         try:
-            # ----------------- Backup alter Dateien -----------------
             backup_dir = os.path.join(plugin_dir, "backup_old")
             os.makedirs(backup_dir, exist_ok=True)
             for fname in [
@@ -2572,8 +2621,16 @@ class PatchManagerGUI(QWidget):
                 if os.path.exists(src):
                     shutil.copy(src, os.path.join(backup_dir, fname))
                     log("backup_created", "success", file=fname)
+            if progress_callback:
+                progress_callback(30)
+        except Exception as e:
+            log("update_fail", "error", error=f"Backup failed: {e}")
+            if progress_callback:
+                progress_callback(100)
+            return
 
-            # ----------------- Neue Plugin-Datei herunterladen -----------------
+        # ----------------- Neue Plugin-Datei herunterladen -----------------
+        try:
             if plugin_resp is None:
                 url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
                 plugin_resp = requests.get(url, timeout=10)
@@ -2584,9 +2641,11 @@ class PatchManagerGUI(QWidget):
             with open(tmp_file, "w", encoding="utf-8") as f:
                 f.write(plugin_resp.text)
             os.replace(tmp_file, plugin_file)  # Atomic Write
+            if progress_callback:
+                progress_callback(80)
 
-            log("update_success", "success", version=latest_version or "")
-            self.latest_version = APP_VERSION  # interner Status
+            log("update_success", "success", version=latest_version)
+            self.latest_version = latest_version
 
             # ----------------- Neustart-Abfrage -----------------
             msg = QMessageBox(self)
@@ -2614,9 +2673,9 @@ class PatchManagerGUI(QWidget):
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
-
-        if progress_callback:
-            progress_callback(100)
+        finally:
+            if progress_callback:
+                progress_callback(100)
 
     def fetch_latest_version(self):
         """Ruft die Version aus oscams_patch_manager.py auf GitHub ab und speichert sie in self.latest_version."""
@@ -2879,6 +2938,25 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     # TOOLS CHECK
     # ---------------------
+
+    def check_for_plugin_update(self):
+        """Prüft sofort, ob ein Plugin-Update verfügbar ist und aktualisiert den Button."""
+        import requests, re
+        from packaging.version import Version, InvalidVersion
+
+        try:
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+
+            match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', resp.text)
+            if match:
+                latest_version = match.group(1)
+                self.latest_version = latest_version
+                self.update_plugin_button_state()  # Button sofort aktualisieren
+        except Exception:
+            pass  # Fehler ignorieren, Button bleibt deaktiviert
+
     def check_tool(self, name, cmd):
         try:
             result = subprocess.getoutput(cmd).splitlines()[0]
@@ -3654,6 +3732,7 @@ class PatchManagerGUI(QWidget):
         if msg.clickedButton() == yes_button:
             save_config(self.cfg)  # jetzt sauber, nur beim Beenden
             QApplication.quit()
+
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
