@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.0.5"
+APP_VERSION = "2.0.6"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -579,7 +579,6 @@ def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-
 def save_config(cfg=None):
     """
     Speichert die Config in CONFIG_FILE.
@@ -602,7 +601,6 @@ def save_config(cfg=None):
             json.dump(cfg, f, indent=2)
     except Exception as e:
         self.append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
-
 
 # ===================== CONFIG =====================
 def load_config():
@@ -630,7 +628,6 @@ def load_config():
                 "s3_patch_path": "",
             }
     return cfg
-
 
 # ===================== INFOSCREEN =====================
 def github_upload_patch_file(
@@ -758,12 +755,10 @@ def github_upload_patch_file(
     if progress_callback:
         progress_callback(100)
 
-
 # ===================== PATCH HEADER =====================
 from datetime import datetime
 import subprocess
 import os
-
 
 def get_patch_header(repo_dir=None, lang=LANG):
     """
@@ -821,7 +816,6 @@ def get_patch_header(repo_dir=None, lang=LANG):
 
     return header
 
-
 # ===================== TOOL CHECK & AUTOMATISCHE INSTALLATION =====================
 def check_tools(info_widget=None):
     """
@@ -869,7 +863,6 @@ def check_tools(info_widget=None):
         )
     else:
         self.append_info(info_widget, TEXTS[LANG]["all_tools_installed"], "success")
-
 
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -973,7 +966,6 @@ def log(text, level="info"):
         QApplication.processEvents()
     else:
         print(f"[{level.upper()}] {text}")
-
 
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1103,7 +1095,6 @@ from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
 
-
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Löscht TEMP_REPO, PATCH_FILE, ZIP_FILE und TEMP_PATCH_GIT komplett.
@@ -1161,10 +1152,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     if progress_callback:
         progress_callback(100)
 
-
 # ===================== ICONS =====================
 ICON_SIZE = 64
-
 
 def create_icons():
     """
@@ -1201,18 +1190,15 @@ def create_icons():
         file_name = os.path.join(ICON_DIR, f"{key}.png")
         img.save(file_name)
 
-
 def get_icon_for(name):
     safe_name = name.replace(" ", "_").replace("/", "_").replace("\\", "_")
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
 
-
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1256,14 +1242,12 @@ def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     if progress_callback:
         progress_callback(100)
 
-
 # ===================== patch_oscam_emu_git=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
 from datetime import datetime
 import subprocess
-
 
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1362,7 +1346,6 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     if progress_callback:
         progress_callback(100)
 
-
 def load_github_config():
     if os.path.exists(GITHUB_CONF_FILE):
         try:
@@ -1386,7 +1369,6 @@ def save_github_config(cfg):
         json.dump(cfg, open(GITHUB_CONF_FILE, "w"))
     except:
         pass
-
 
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
@@ -1460,23 +1442,22 @@ def _github_upload(
         "success" if code == 0 else "error",
     )
 
-
 # ===================== GITHUB UPLOAD PATCH FILE =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
 
 
-def run_bash(cmd, cwd=None, info_widget=None, lang=LANG):
+def run_bash(cmd, cwd=None, info_widget=None, lang=LANG, logger=None):
     """
     Führt einen Bash-Befehl aus und schreibt jede Zeile live ins Info-Widget (GUI) oder Terminal.
-    info_widget: QTextEdit für GUI-Ausgabe
-    lang: Sprachcode ("de" oder "en") für TEXTS
+    Optional kann ein logger (Funktion) übergeben werden.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
+    import os, subprocess
 
-    # Lokaler Logger, unterstützt Farben und Scrollen
+    # Lokaler Logger
     def log(text, level="info"):
         colors = {
             "success": "green",
@@ -1486,21 +1467,15 @@ def run_bash(cmd, cwd=None, info_widget=None, lang=LANG):
         }
         color = colors.get(level, "gray")
 
-        # Übersetzung, falls text ein Key in TEXTS ist
+        text_to_show = text
         if isinstance(text, str) and text in TEXTS.get(lang, {}):
-            try:
-                text_to_show = TEXTS[lang][text]
-            except KeyError:
-                text_to_show = text
-        else:
-            text_to_show = text
+            text_to_show = TEXTS[lang].get(text, text)
 
-        if isinstance(info_widget, QTextEdit):
+        if logger:  # externe Logger-Funktion benutzen
+            logger(text_to_show, level)
+        elif isinstance(info_widget, QTextEdit):
             info_widget.append(f'<span style="color:{color}">{text_to_show}</span>')
-            try:
-                info_widget.moveCursor(QTextCursor.MoveOperation.End)
-            except AttributeError:
-                info_widget.moveCursor(QTextCursor.End)
+            info_widget.moveCursor(QTextCursor.MoveOperation.End)
             QApplication.processEvents()
         else:
             print(f"[{level.upper()}] {text_to_show}")
@@ -1533,7 +1508,6 @@ def run_bash(cmd, cwd=None, info_widget=None, lang=LANG):
     except Exception as e:
         log(f"run_bash_failed: {e}", "error")
         return -1
-
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -1665,7 +1639,6 @@ def github_upload_oscam_emu_folder(
     if progress_callback:
         progress_callback(100)
 
-
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -1751,7 +1724,6 @@ class GithubConfigDialog(QDialog):
         }
         save_github_config(cfg)
         self.accept()
-
 
 # =====================
 # PATCH MANAGER GUI
@@ -2865,7 +2837,7 @@ class PatchManagerGUI(QWidget):
                 "info": "gray",
             }
             color = colors.get(level, "gray")
-            text_template = TEXTS[self.LANG].get(text_key, text_key)
+            text_template = TEXTS[LANG].get(text_key, text_key)
             text = text_template.format(**kwargs)
             if isinstance(widget, QTextEdit):
                 widget.append(f'<span style="color:{color}">{text}</span>')
@@ -2894,19 +2866,19 @@ class PatchManagerGUI(QWidget):
             # Update verfügbar
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(
-                TEXTS[self.LANG].get("update_available_title", "Update verfügbar")
+                TEXTS[LANG].get("update_available_title", "Update verfügbar")
             )
             msg_box.setText(
-                TEXTS[self.LANG].get(
+                TEXTS[LANG].get(
                     "update_available_msg",
                     f"Neue Version verfügbar: v{latest_version}\nMöchten Sie aktualisieren?",
                 )
             )
             yes_button = msg_box.addButton(
-                TEXTS[self.LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
-            )   
+                TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+            )
             no_button = msg_box.addButton(
-                TEXTS[self.LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+                TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole
             )
             msg_box.exec()
 
@@ -2916,8 +2888,8 @@ class PatchManagerGUI(QWidget):
                 # Optional: Neustart direkt abfragen
                 reply = QMessageBox.question(
                     self,
-                    TEXTS[self.LANG].get("restart_required_title", "Tool Neustarten"),
-                    TEXTS[self.LANG].get(
+                    TEXTS[LANG].get("restart_required_title", "Tool Neustarten"),
+                    TEXTS[LANG].get(
                         "restart_required_msg",
                         "Das Tool muss neu gestartet werden. Jetzt neu starten?",
                     ),
@@ -2927,14 +2899,13 @@ class PatchManagerGUI(QWidget):
                 if reply == QMessageBox.StandardButton.Yes:
                     self.restart_application()
                 else:
-                    log("update_declined", "info")
+                    log("restart_tool_cancelled", "info")
 
             else:
                 log("update_declined", "info")
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
-
 
     # ---------------------
     # TOOLS CHECK
@@ -3733,7 +3704,6 @@ class PatchManagerGUI(QWidget):
         if msg.clickedButton() == yes_button:
             save_config(self.cfg)  # jetzt sauber, nur beim Beenden
             QApplication.quit()
-
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
