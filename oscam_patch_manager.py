@@ -2865,7 +2865,7 @@ class PatchManagerGUI(QWidget):
                 "info": "gray",
             }
             color = colors.get(level, "gray")
-            text_template = TEXTS[LANG].get(text_key, text_key)
+            text_template = TEXTS[self.LANG].get(text_key, text_key)
             text = text_template.format(**kwargs)
             if isinstance(widget, QTextEdit):
                 widget.append(f'<span style="color:{color}">{text}</span>')
@@ -2894,19 +2894,19 @@ class PatchManagerGUI(QWidget):
             # Update verfügbar
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(
-                TEXTS[LANG].get("update_available_title", "Update verfügbar")
+                TEXTS[self.LANG].get("update_available_title", "Update verfügbar")
             )
             msg_box.setText(
-                TEXTS[LANG].get(
+                TEXTS[self.LANG].get(
                     "update_available_msg",
                     f"Neue Version verfügbar: v{latest_version}\nMöchten Sie aktualisieren?",
                 )
             )
             yes_button = msg_box.addButton(
-                TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
-            )
+                TEXTS[self.LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+            )   
             no_button = msg_box.addButton(
-                TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+                TEXTS[self.LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole
             )
             msg_box.exec()
 
@@ -2916,8 +2916,8 @@ class PatchManagerGUI(QWidget):
                 # Optional: Neustart direkt abfragen
                 reply = QMessageBox.question(
                     self,
-                    TEXTS[LANG].get("restart_required_title", "Tool Neustarten"),
-                    TEXTS[LANG].get(
+                    TEXTS[self.LANG].get("restart_required_title", "Tool Neustarten"),
+                    TEXTS[self.LANG].get(
                         "restart_required_msg",
                         "Das Tool muss neu gestartet werden. Jetzt neu starten?",
                     ),
@@ -2927,13 +2927,14 @@ class PatchManagerGUI(QWidget):
                 if reply == QMessageBox.StandardButton.Yes:
                     self.restart_application()
                 else:
-                    log("restart_tool_cancelled", "info")
+                    log("update_declined", "info")
 
             else:
                 log("update_declined", "info")
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
+
 
     # ---------------------
     # TOOLS CHECK
