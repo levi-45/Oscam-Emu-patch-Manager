@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.0.1"
+APP_VERSION = "2.0.2"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -555,7 +555,6 @@ def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-
 def save_config(cfg=None):
     """
     Speichert die Config in CONFIG_FILE.
@@ -578,7 +577,6 @@ def save_config(cfg=None):
             json.dump(cfg, f, indent=2)
     except Exception as e:
         self.append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
-
 
 # ===================== CONFIG =====================
 def load_config():
@@ -607,10 +605,7 @@ def load_config():
             }
     return cfg
 
-
 # ===================== INFOSCREEN =====================
-
-
 def github_upload_patch_file(
     gui_instance=None, info_widget=None, progress_callback=None
 ):
@@ -736,12 +731,10 @@ def github_upload_patch_file(
     if progress_callback:
         progress_callback(100)
 
-
 # ===================== PATCH HEADER =====================
 from datetime import datetime
 import subprocess
 import os
-
 
 def get_patch_header(repo_dir=None, lang=LANG):
     """
@@ -799,7 +792,6 @@ def get_patch_header(repo_dir=None, lang=LANG):
 
     return header
 
-
 # ===================== TOOL CHECK & AUTOMATISCHE INSTALLATION =====================
 def check_tools(info_widget=None):
     """
@@ -848,11 +840,9 @@ def check_tools(info_widget=None):
     else:
         self.append_info(info_widget, TEXTS[LANG]["all_tools_installed"], "success")
 
-
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 import os, subprocess, shutil
-
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -952,12 +942,10 @@ def log(text, level="info"):
     else:
         print(f"[{level.upper()}] {text}")
 
-
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
-import shutil, os
-
+import shutil, os, re
 
 def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback=None):
     """
@@ -967,6 +955,11 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     Meldungen erscheinen im Infoscreen (QTextEdit) oder im Terminal.
     Kompatibel mit PyQt6.
     """
+    import os
+    import shutil
+    import re
+    from PyQt6.QtWidgets import QTextEdit
+    from PyQt6.QtGui import QTextCursor
 
     # Infoscreen Widget
     widget = (
@@ -974,7 +967,7 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
         if isinstance(info_widget, QTextEdit)
         else getattr(self, "info_text", None)
     )
-    lang = getattr(self, "LANG", LANG)  # aktuelle GUI-Sprache
+    lang = getattr(self, "LANG", "de")  # aktuelle GUI-Sprache
 
     # PyQt6-kompatibler End-Cursor
     CURSOR_END = QTextCursor.MoveOperation.End
@@ -1045,13 +1038,14 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     try:
         shutil.copy2(new_patch, old_patch)
 
-        # Patch-Version aus den ersten 5 Zeilen auslesen
+        # Patch-Version aus den ersten 5 Zeilen auslesen, flexibel mit Regex
         patch_version = "unbekannt"
         with open(old_patch, "r", encoding="utf-8") as f:
             for _ in range(5):
                 line = f.readline()
-                if "Patch-Version:" in line:
-                    patch_version = line.split("Patch-Version:")[1].strip()
+                match = re.search(r"(?i)patch[- ]version:\s*(.+)", line)
+                if match:
+                    patch_version = match.group(1).strip()
                     break
 
         # Erfolgs-Log mit Version direkt in der Zeile
@@ -1068,7 +1062,6 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     # Fortschritt melden
     if progress_callback:
         progress_callback(100)
-
 
 # ===================== CLEAN PATCH FOLDER =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1133,10 +1126,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     if progress_callback:
         progress_callback(100)
 
-
 # ===================== ICONS =====================
 ICON_SIZE = 64
-
 
 def create_icons():
     """
@@ -1179,12 +1170,10 @@ def get_icon_for(name):
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
 
-
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1235,7 +1224,6 @@ from PyQt6.QtGui import QTextCursor
 import shutil, os
 from datetime import datetime
 import subprocess
-
 
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1359,7 +1347,6 @@ def save_github_config(cfg):
     except:
         pass
 
-
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
     dir_path,
@@ -1431,7 +1418,6 @@ def _github_upload(
         ),
         "success" if code == 0 else "error",
     )
-
 
 # ===================== GITHUB UPLOAD PATCH FILE =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1505,7 +1491,6 @@ def run_bash(cmd, cwd=None, info_widget=None, lang=LANG):
     except Exception as e:
         log(f"run_bash_failed: {e}", "error")
         return -1
-
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -1637,7 +1622,6 @@ def github_upload_oscam_emu_folder(
     if progress_callback:
         progress_callback(100)
 
-
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -1723,7 +1707,6 @@ class GithubConfigDialog(QDialog):
         }
         save_github_config(cfg)
         self.accept()
-
 
 # =====================
 # PATCH MANAGER GUI
@@ -3671,7 +3654,6 @@ class PatchManagerGUI(QWidget):
         if msg.clickedButton() == yes_button:
             save_config(self.cfg)  # jetzt sauber, nur beim Beenden
             QApplication.quit()
-
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
