@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.0.6"
+APP_VERSION = "2.0.7"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -438,6 +438,18 @@ TEXTS = {
         "update_available_title": "Update available",
         "update_available_msg": "New version available: {version}\nDo you want to update?",
         "update_declined": "Update declined",
+        "github_dialog_title": "GitHub Configuration",
+        "patch_repo_label": "Patch Repository URL:",
+        "patch_branch_label": "Patch Branch:",
+        "emu_repo_label": "OSCam-Emu Repository URL:",
+        "emu_branch_label": "OSCam-Emu Branch:",
+        "github_username_label": "GitHub Username:",
+        "github_token_label": "GitHub Token:",
+        "github_user_name_label": "Your Name:",
+        "github_user_email_label": "Your Email:",
+        "save": "Save",
+        "cancel": "Cancel",
+        "github_config_saved": "GitHub configuration saved successfully",
         "update_fail": "Update check failed: {error}",
         # Backup
         "backup_old_start": "ℹ️ Creating backup of old patch…",
@@ -548,6 +560,18 @@ TEXTS = {
         "no": "Nein",
         "restart_tool_info": "ℹ️ Anwendung wird neu gestartet…",
         "restart_tool_cancelled": "ℹ️ Neustart vom Benutzer abgebrochen.",
+        "github_dialog_title": "GitHub-Konfiguration",
+        "patch_repo_label": "Patch Repository URL:",
+        "patch_branch_label": "Patch Branch:",
+        "emu_repo_label": "OSCam-Emu Repository URL:",
+        "emu_branch_label": "OSCam-Emu Branch:",
+        "github_username_label": "GitHub Benutzername:",
+        "github_token_label": "GitHub Token:",
+        "github_user_name_label": "Ihr Name:",
+        "github_user_email_label": "Ihre E-Mail:",
+        "save": "Speichern",
+        "cancel": "Abbrechen",
+        "github_config_saved": "GitHub-Konfiguration erfolgreich gespeichert",
         "update_started": "ℹ️ Update gestartet…",
         "backup_created": "✅ Backup erstellt: {file}",
         # Backup
