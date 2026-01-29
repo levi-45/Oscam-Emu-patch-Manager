@@ -365,33 +365,20 @@ TEXTS = {
         "no": "No",
         "cancel": "Cancel",
         "plugin_update": "Plugin Update",
-        "update_current_version": "✅ Plugin is up to date (v{version})",
+        "update_current_version": "You are running the latest version ({version})",
         "update_fail": "❌ Update failed: {error}",
         "update_success": "✅ Update installed successfully! Please restart the tool.",
         "restart_required_title": "Restart required",
         "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
-        "yes": "Yes",
-        "no": "No",
         "restart_tool_info": "ℹ️ Restarting application...",
         "restart_tool_cancelled": "ℹ️ Restart cancelled by user.",
         "update_started": "ℹ️ Update started…",
         "backup_created": "✅ Backup created: {file}",
         "exit_question": "Do you really want to close the tool?",
-        # Updates
-        "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
-        "restart_required_title": "Restart required",
-        "update_success": "✅ Update successful! Please restart the plugin.",
-        "update_fail": "❌ Update failed: {error}",
         "update_not_available": "No new version available.",
         "update_check_start": "Checking for updates…",
         "github_version_available": "New version available: {version}",
-        "update_current_version": "You are running the latest version ({version})",
         "github_version_fetch_failed": "Version check failed: {error}",
-        "update_started": "ℹ️ Update started…",
-        "backup_created": "✅ Backup successfully created: {file}",
-        "restart_tool_info": "ℹ️ Restarting tool…",
-        "restart_tool_cancelled": "ℹ️ Restart cancelled by user",
-        "plugin_update": "Plugin Update",
         # Option Buttons
         "git_status": "View Commits",
         "restart_tool": "Restart Tool",
@@ -402,20 +389,15 @@ TEXTS = {
         "oscam_emu_git_patch": "OSCam EMU Git Patch",
         "oscam_emu_git_clear": "Clear OSCam EMU Git",
         "oscam_emu_patch_upload": "Upload OSCam EMU Patch",
-        "update_available_title": "Update available",
-        "update_available_msg": "A new version is available.\n\nCurrent: {current}\nNew: {latest}\n\nDo you want to update now?",
-        "update_current_version": "Version {version} is current.",
-        "update_fail": "Update check failed: {error}",
-        "restart_required_title": "Restart required",
-        "restart_required_msg": "The tool needs to restart. Restart now?",
+        "update_available_title": "Update Available",
+        "update_available_msg": "A new version ({latest}) is available.\nYour current version is {current}.\n\nDo you want to install the update now?",
+        "version_current": "Version {version} is up to date.",
+        "update_error": "Error checking for updates: {error}",
+        "update_declined": "Update declined.",
+        "restart_required_title": "Restart Required",
+        "restart_required_msg": "The tool needs to be restarted. Restart now?",
         "yes": "Yes",
         "no": "No",
-        "update_started": "Update started...",
-        "backup_success": "Backup created: {filename}",
-        "backup_fail": "Backup failed: {error}",
-        "update_success": "Update successful to version {version}",
-        "update_declined": "Update declined",
-    }
         # Labels
         "language_label": "Language:",
         "color_label": "Color",
@@ -449,23 +431,6 @@ TEXTS = {
         "patch_create_success": "✅ Patch successfully created: {patch_file}",
         "patch_version_from_header": "✅ Patch version from header: {patch_version}",
         "patch_create_failed": "❌ Patch creation failed: {error}",
-        "update_current_version": "Installed version is up to date: {version}",
-        "update_available_title": "Update available",
-        "update_available_msg": "New version available: {version}\nDo you want to update?",
-        "update_declined": "Update declined",
-        "github_dialog_title": "GitHub Configuration",
-        "patch_repo_label": "Patch Repository URL:",
-        "patch_branch_label": "Patch Branch:",
-        "emu_repo_label": "OSCam-Emu Repository URL:",
-        "emu_branch_label": "OSCam-Emu Branch:",
-        "github_username_label": "GitHub Username:",
-        "github_token_label": "GitHub Token:",
-        "github_user_name_label": "Your Name:",
-        "github_user_email_label": "Your Email:",
-        "save": "Save",
-        "cancel": "Cancel",
-        "github_config_saved": "GitHub configuration saved successfully",
-        "update_fail": "Update check failed: {error}",
         # Backup
         "backup_old_start": "ℹ️ Creating backup of old patch…",
         "backup_done": "✅ Backup successfully created: {path}",
@@ -477,7 +442,6 @@ TEXTS = {
         "patch_failed": "❌ Patch failed: {path}",
         # Clean Patch Folder
         "cleaning_oscam_emu_git": "ℹ️ Deleting folder: {path} …",
-        "oscam_emu_git_deleted": "✅ Folder deleted successfully: {path}",
         "oscam_emu_git_missing": "⚠️ Folder does not exist: {path}",
         "delete_failed": "❌ Deletion failed: {path} (Error: {error})",
         "clean_done": "✅ All temporary files cleaned",
@@ -531,6 +495,15 @@ TEXTS = {
         "github_upload_emu": "OSCam-Emu Git hochladen",
         "oscam_emu_git_patch": "OSCam EMU Git Patch",
         "oscam_emu_git_clear": "OSCam EMU Git leeren",
+        "update_available_title": "Update verfügbar",
+        "update_available_msg": "Eine neue Version ({latest}) ist verfügbar.\nDeine aktuelle Version ist {current}.\n\nMöchtest du das Update jetzt installieren?",
+        "version_current": "Version {version} ist aktuell.",
+        "update_error": "Fehler bei Updateprüfung: {error}",
+        "update_declined": "Update abgebrochen.",
+        "restart_required_title": "Neustart erforderlich",
+        "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
+        "yes": "Ja",
+        "no": "Nein",
         "oscam_emu_patch_upload": "OSCam EMU Patch hochladen",
         # Labels
         "language_label": "Sprache:",
@@ -565,52 +538,8 @@ TEXTS = {
         "patch_create_success": "✅ Patch erfolgreich erstellt: {patch_file}",
         "patch_version_from_header": "✅ Patch-Version aus Header: {patch_version}",
         "patch_create_failed": "❌ Patch-Erstellung fehlgeschlagen: {error}",
-        "plugin_update": "Plugin Update",
-        "update_current_version": "✅ Plugin ist aktuell (v{version})",
-        "update_fail": "❌ Update fehlgeschlagen: {error}",
-        "update_success": "✅ Update erfolgreich installiert! Bitte das Tool neu starten.",
-        "restart_required_title": "Neustart erforderlich",
-        "restart_required_msg": "Das Update wurde erfolgreich installiert. Das Tool muss neu gestartet werden.\nJetzt neu starten?",
-        "yes": "Ja",
-        "no": "Nein",
-        "restart_tool_info": "ℹ️ Anwendung wird neu gestartet…",
-        "restart_tool_cancelled": "ℹ️ Neustart vom Benutzer abgebrochen.",
-        "github_dialog_title": "GitHub-Konfiguration",
-        "patch_repo_label": "Patch Repository URL:",
-        "patch_branch_label": "Patch Branch:",
-        "emu_repo_label": "OSCam-Emu Repository URL:",
-        "emu_branch_label": "OSCam-Emu Branch:",
-        "github_username_label": "GitHub Benutzername:",
-        "github_token_label": "GitHub Token:",
-        "github_user_name_label": "Ihr Name:",
-        "github_user_email_label": "Ihre E-Mail:",
-        "save": "Speichern",
-        "cancel": "Abbrechen",
-        "github_config_saved": "GitHub-Konfiguration erfolgreich gespeichert",
-        "update_started": "ℹ️ Update gestartet…",
-        "backup_created": "✅ Backup erstellt: {file}",
-        "github_version_available": "Neue Version verfügbar: {version}",
-        "update_current_version": "Aktuelle Version ist auf dem neuesten Stand ({version})",
-        "update_current_version": "Version {version} ist aktuell.",
-         "update_fail": "Fehler bei der Updateprüfung: {error}",
-         "restart_required_title": "Neustart erforderlich",
-        "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
-        "yes": "Ja",
-        "no": "Nein",
-        "update_started": "Update wird gestartet...",
-        "backup_success": "Backup erstellt: {filename}",
-        "backup_fail": "Backup fehlgeschlagen: {error}",
-        "update_success": "Update erfolgreich auf Version {version}",
-        "update_declined": "Update abgelehnt",
-        "github_version_fetch_failed": "Versionsprüfung fehlgeschlagen: {error}",
         # Backup
         "backup_old_start": "ℹ️ Erstelle Backup des alten Patches…",
-        "update_current_version": "Installierte Version ist aktuell: {version}",
-        "update_available_title": "Update verfügbar",
-        "update_available_msg": "Eine neue Version ist verfügbar.\n\nAktuell: {current}\nNeu: {latest}\n\nMöchtest du jetzt updaten?",
-        "update_available_msg": "Neue Version verfügbar: {version}\nMöchten Sie aktualisieren?",
-        "update_declined": "Update abgelehnt",
-        "update_fail": "Update-Check fehlgeschlagen: {error}",
         "backup_done": "✅ Backup erfolgreich erstellt: {path}",
         "no_old_patch": "ℹ️ Keine alte Patch-Datei gefunden.",
         "new_patch_installed": "✅ Neuer Patch erfolgreich installiert: {path}",
@@ -620,13 +549,13 @@ TEXTS = {
         "patch_failed": "❌ Patch fehlgeschlagen: {path}",
         # Clean Patch Folder
         "cleaning_oscam_emu_git": "ℹ️ Lösche Ordner: {path} …",
-        "oscam_emu_git_deleted": "✅ Ordner erfolgreich gelöscht: {path}",
         "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
         "delete_failed": "❌ Löschen fehlgeschlagen: {path} (Fehler: {error})",
         "clean_done": "✅ Alle temporären Dateien bereinigt",
         "showing_commits": "ℹ️ Zeige die letzten {count} Commits",
-    },
+    }
 }
+
 
 
 # Ergänze fehlende Keys aus EN nach DE
@@ -1816,9 +1745,9 @@ class PatchManagerGUI(QWidget):
 
         # UI einmal aufbauen
         self.init_ui()
-        self.check_for_plugin_update()
+        #self.check_for_plugin_update()
         # GitHub / Update
-        self.fetch_latest_version()
+        #self.fetch_latest_version()
         self.update_plugin_button_state()
         QTimer.singleShot(1000, self.check_for_updates_on_start)
 
@@ -1941,42 +1870,50 @@ class PatchManagerGUI(QWidget):
         finally:
             if progress_callback: progress_callback(100)
     
-    def check_for_update_at_start(self):
-        """
-        Prüft beim Start auf Updates und ruft den Ask-Dialog auf.
-        """
+    def check_for_update_on_start(self):
+        """ Prüft beim Start auf Updates und zeigt Dialog an, falls nötig """
         try:
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
             latest_version = resp.text.strip().lstrip("v")
 
-            # Versionsvergleich
-            if Version(latest_version) > Version(APP_VERSION):
-                self.ask_for_update(latest_version)  # Popup anzeigen
+            cv = Version(APP_VERSION)
+            lv = Version(latest_version)
+
+            widget = getattr(self, "info_text", None)
+
+            if lv > cv:
+                # Nur Dialog anzeigen, keine andere Info-Meldung
+                self.ask_for_update(latest_version)
             else:
-                if hasattr(self, "info_text") and self.info_text:
-                    self.info_text.append(f"<span style='color:green'>Version {APP_VERSION} ist aktuell.</span>")
+                # Version aktuell -> nur dann Meldung zeigen
+                if widget:
+                    widget.append(f"<span style='color:green'>Version {APP_VERSION} ist aktuell.</span>")
 
         except Exception as e:
-            if hasattr(self, "info_text") and self.info_text:
-                self.info_text.append(f"<span style='color:red'>Fehler bei Updateprüfung: {e}</span>")
+            widget = getattr(self, "info_text", None)
+            msg = f"<span style='color:red'>Fehler bei Updateprüfung: {e}</span>"
+            if widget:
+                widget.append(msg)
             else:
-                print(f"Fehler bei Updateprüfung: {e}")
-    
-    def ask_for_update(self, latest_version):
-      reply = QMessageBox.question(
-      self,
-      "Update verfügbar",
-      f"Eine neue Version ist verfügbar.\n\n"
-      f"Aktuell: {APP_VERSION}\n"
-      f"Neu: {latest_version}\n\n"
-      "Möchtest du jetzt updaten?",
-      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-      )
+                print(msg)
 
-      if reply == QMessageBox.StandardButton.Yes:
-          self.start_update()
+    def ask_for_update(self, latest_version):
+        lang_texts = TEXTS.get(self.LANG, TEXTS["en"])
+        reply = QMessageBox.question(
+            self,
+            lang_texts.get("update_available_title", "Update verfügbar"),
+            lang_texts.get(
+                "update_available_msg",
+            ).format(current=APP_VERSION, latest=latest_version),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.plugin_update_action(latest_version)
+    
+
 
     
     # ======= HIER EINSETZEN =======
