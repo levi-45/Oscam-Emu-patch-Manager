@@ -402,6 +402,20 @@ TEXTS = {
         "oscam_emu_git_patch": "OSCam EMU Git Patch",
         "oscam_emu_git_clear": "Clear OSCam EMU Git",
         "oscam_emu_patch_upload": "Upload OSCam EMU Patch",
+        "update_available_title": "Update available",
+        "update_available_msg": "A new version is available.\n\nCurrent: {current}\nNew: {latest}\n\nDo you want to update now?",
+        "update_current_version": "Version {version} is current.",
+        "update_fail": "Update check failed: {error}",
+        "restart_required_title": "Restart required",
+        "restart_required_msg": "The tool needs to restart. Restart now?",
+        "yes": "Yes",
+        "no": "No",
+        "update_started": "Update started...",
+        "backup_success": "Backup created: {filename}",
+        "backup_fail": "Backup failed: {error}",
+        "update_success": "Update successful to version {version}",
+        "update_declined": "Update declined",
+    }
         # Labels
         "language_label": "Language:",
         "color_label": "Color",
@@ -577,11 +591,23 @@ TEXTS = {
         "backup_created": "✅ Backup erstellt: {file}",
         "github_version_available": "Neue Version verfügbar: {version}",
         "update_current_version": "Aktuelle Version ist auf dem neuesten Stand ({version})",
+        "update_current_version": "Version {version} ist aktuell.",
+         "update_fail": "Fehler bei der Updateprüfung: {error}",
+         "restart_required_title": "Neustart erforderlich",
+        "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
+        "yes": "Ja",
+        "no": "Nein",
+        "update_started": "Update wird gestartet...",
+        "backup_success": "Backup erstellt: {filename}",
+        "backup_fail": "Backup fehlgeschlagen: {error}",
+        "update_success": "Update erfolgreich auf Version {version}",
+        "update_declined": "Update abgelehnt",
         "github_version_fetch_failed": "Versionsprüfung fehlgeschlagen: {error}",
         # Backup
         "backup_old_start": "ℹ️ Erstelle Backup des alten Patches…",
         "update_current_version": "Installierte Version ist aktuell: {version}",
         "update_available_title": "Update verfügbar",
+        "update_available_msg": "Eine neue Version ist verfügbar.\n\nAktuell: {current}\nNeu: {latest}\n\nMöchtest du jetzt updaten?",
         "update_available_msg": "Neue Version verfügbar: {version}\nMöchten Sie aktualisieren?",
         "update_declined": "Update abgelehnt",
         "update_fail": "Update-Check fehlgeschlagen: {error}",
@@ -1796,6 +1822,147 @@ class PatchManagerGUI(QWidget):
         self.update_plugin_button_state()
         QTimer.singleShot(1000, self.check_for_updates_on_start)
 
+    def plugin_update_action(self, latest_version=None, progress_callback=None):
+        """
+        Prüft die Version anhand von version.txt, sichert alte Dateien,
+        lädt das neue Plugin herunter und bietet Neustart an.
+        Meldungen erscheinen im Info-Widget.
+        """
+        import os
+        import shutil
+        import requests
+        from packaging.version import Version, InvalidVersion
+        from PyQt6.QtWidgets import QMessageBox, QTextEdit, QApplication
+
+        widget = getattr(self, "info_text", None)
+        lang = getattr(self, "LANG", "de")
+
+        # -------- Start Update --------
+        append_info(widget, "Updateprüfung gestartet...", level="info")
+        if progress_callback:
+            progress_callback(5)
+
+        # -------- GitHub-Version holen --------
+        if latest_version is None:
+            try:
+                version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+                resp = requests.get(version_url, timeout=10)
+                resp.raise_for_status()
+                latest_version = resp.text.strip().lstrip("v")
+            except Exception as e:
+                append_info(widget, f"Update fehlgeschlagen: {e}", level="error")
+                if progress_callback: progress_callback(100)
+                return
+
+        # -------- Version prüfen --------
+        try:
+            lv = Version(latest_version)
+            cv = Version(APP_VERSION)
+            if lv <= cv:
+                append_info(widget, f"Version {APP_VERSION} ist aktuell.", level="success")
+                if progress_callback: progress_callback(100)
+                return
+            else:
+                append_info(widget, f"Neue Version {latest_version} verfügbar.", level="info")
+        except InvalidVersion:
+            append_info(widget, f"Ungültige Version: '{latest_version}'", level="error")
+            if progress_callback: progress_callback(100)
+            return
+
+        append_info(widget, "Update wird gestartet...", level="info")
+        if progress_callback: progress_callback(10)
+
+        # -------- Backup alter Dateien --------
+        try:
+            plugin_dir = os.path.dirname(os.path.abspath(__file__))
+            backup_dir = os.path.join(plugin_dir, "backup_old")
+            os.makedirs(backup_dir, exist_ok=True)
+            files_to_backup = ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]
+
+            for i, fname in enumerate(files_to_backup, start=1):
+                src = os.path.join(plugin_dir, fname)
+                if os.path.exists(src):
+                    shutil.copy(src, os.path.join(backup_dir, fname))
+                    append_info(widget, f"Backup erstellt: {fname}", level="success")
+                if progress_callback:
+                    progress_callback(10 + int(i * 15 / len(files_to_backup)))
+
+        except Exception as e:
+            append_info(widget, f"Backup fehlgeschlagen: {e}", level="error")
+            if progress_callback: progress_callback(100)
+            return
+
+        # -------- Neue Plugin-Datei herunterladen --------
+        try:
+            plugin_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            resp = requests.get(plugin_url, timeout=10)
+            resp.raise_for_status()
+
+            plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
+            tmp_file = plugin_file + ".tmp"
+
+            with open(tmp_file, "w", encoding="utf-8") as f:
+                f.write(resp.text)
+
+            os.replace(tmp_file, plugin_file)
+
+            if progress_callback: progress_callback(80)
+            append_info(widget, f"Update erfolgreich auf Version {latest_version}", level="success")
+            self.latest_version = latest_version
+
+            # -------- Neustart-Abfrage --------
+            msg = QMessageBox(self)
+            msg.setWindowTitle(TEXTS[lang].get("restart_required_title", "Neustart erforderlich"))
+            msg.setText(TEXTS[lang].get(
+                "restart_required_msg",
+                "Das Tool muss neu gestartet werden. Jetzt neu starten?"
+            ))
+
+            yes_button = msg.addButton(
+                TEXTS[lang].get("yes", "Ja"),
+                QMessageBox.ButtonRole.YesRole
+            )
+            msg.addButton(
+                TEXTS[lang].get("no", "Nein"),
+                QMessageBox.ButtonRole.NoRole
+            )
+
+            msg.exec()
+
+            if msg.clickedButton() == yes_button:
+                append_info(widget, "Tool wird neu gestartet...", level="info")
+                self.restart_application()
+            else:
+                append_info(widget, "Neustart abgebrochen.", level="info")
+
+        except Exception as e:
+            append_info(widget, f"Update fehlgeschlagen: {e}", level="error")
+
+        finally:
+            if progress_callback: progress_callback(100)
+    
+    def check_for_update_at_start(self):
+        """
+        Prüft beim Start auf Updates und ruft den Ask-Dialog auf.
+        """
+        try:
+            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            latest_version = resp.text.strip().lstrip("v")
+
+            # Versionsvergleich
+            if Version(latest_version) > Version(APP_VERSION):
+                self.ask_for_update(latest_version)  # Popup anzeigen
+            else:
+                if hasattr(self, "info_text") and self.info_text:
+                    self.info_text.append(f"<span style='color:green'>Version {APP_VERSION} ist aktuell.</span>")
+
+        except Exception as e:
+            if hasattr(self, "info_text") and self.info_text:
+                self.info_text.append(f"<span style='color:red'>Fehler bei Updateprüfung: {e}</span>")
+            else:
+                print(f"Fehler bei Updateprüfung: {e}")
     
     def ask_for_update(self, latest_version):
       reply = QMessageBox.question(
@@ -2537,133 +2704,6 @@ class PatchManagerGUI(QWidget):
         except InvalidVersion:
             self.plugin_update_button.setEnabled(True)
             self.plugin_update_button.setText(TEXTS[self.LANG]["plugin_update"])
-
-    def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """
-        Prüft die Version anhand von version.txt, sichert alte Dateien,
-        lädt das neue Plugin herunter und bietet Neustart an.
-        Meldungen erscheinen im Info-Widget.
-        """
-        import os
-        import shutil
-        import requests
-        from packaging.version import Version, InvalidVersion
-        from PyQt6.QtWidgets import QMessageBox, QTextEdit, QApplication
-
-        widget = getattr(self, "info_text", None)
-        lang = getattr(self, "LANG", "de")
-
-        # -------- Start Update --------
-        append_info(widget, "Updateprüfung gestartet...", level="info")
-        if progress_callback:
-            progress_callback(5)
-
-        # -------- GitHub-Version holen --------
-        if latest_version is None:
-            try:
-                version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
-                resp = requests.get(version_url, timeout=10)
-                resp.raise_for_status()
-                latest_version = resp.text.strip().lstrip("v")
-            except Exception as e:
-                append_info(widget, f"Update fehlgeschlagen: {e}", level="error")
-                if progress_callback: progress_callback(100)
-                return
-
-        # -------- Version prüfen --------
-        try:
-            lv = Version(latest_version)
-            cv = Version(APP_VERSION)
-            if lv <= cv:
-                append_info(widget, f"Version {APP_VERSION} ist aktuell.", level="success")
-                if progress_callback: progress_callback(100)
-                return
-            else:
-                append_info(widget, f"Neue Version {latest_version} verfügbar.", level="info")
-        except InvalidVersion:
-            append_info(widget, f"Ungültige Version: '{latest_version}'", level="error")
-            if progress_callback: progress_callback(100)
-            return
-
-        append_info(widget, "Update wird gestartet...", level="info")
-        if progress_callback: progress_callback(10)
-
-        # -------- Backup alter Dateien --------
-        try:
-            plugin_dir = os.path.dirname(os.path.abspath(__file__))
-            backup_dir = os.path.join(plugin_dir, "backup_old")
-            os.makedirs(backup_dir, exist_ok=True)
-            files_to_backup = ["oscam_patch_manager.py", "config.json", "github_upload_config.json", "oscam-emu.patch"]
-
-            for i, fname in enumerate(files_to_backup, start=1):
-                src = os.path.join(plugin_dir, fname)
-                if os.path.exists(src):
-                    shutil.copy(src, os.path.join(backup_dir, fname))
-                    append_info(widget, f"Backup erstellt: {fname}", level="success")
-                if progress_callback:
-                    progress_callback(10 + int(i * 15 / len(files_to_backup)))
-
-        except Exception as e:
-            append_info(widget, f"Backup fehlgeschlagen: {e}", level="error")
-            if progress_callback: progress_callback(100)
-            return
-
-        # -------- Neue Plugin-Datei herunterladen --------
-        try:
-            plugin_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
-            resp = requests.get(plugin_url, timeout=10)
-            resp.raise_for_status()
-
-            plugin_file = os.path.join(plugin_dir, "oscam_patch_manager.py")
-            tmp_file = plugin_file + ".tmp"
-
-            with open(tmp_file, "w", encoding="utf-8") as f:
-                f.write(resp.text)
-
-            os.replace(tmp_file, plugin_file)
-
-            if progress_callback: progress_callback(80)
-            append_info(widget, f"Update erfolgreich auf Version {latest_version}", level="success")
-            self.latest_version = latest_version
-
-            # -------- Neustart-Abfrage --------
-            msg = QMessageBox(self)
-            msg.setWindowTitle(TEXTS[lang].get("restart_required_title", "Neustart erforderlich"))
-            msg.setText(TEXTS[lang].get(
-                "restart_required_msg",
-                "Das Tool muss neu gestartet werden. Jetzt neu starten?"
-            ))
-
-            yes_button = msg.addButton(
-                TEXTS[lang].get("yes", "Ja"),
-                QMessageBox.ButtonRole.YesRole
-            )
-            msg.addButton(
-                TEXTS[lang].get("no", "Nein"),
-                QMessageBox.ButtonRole.NoRole
-            )
-
-            msg.exec()
-
-            if msg.clickedButton() == yes_button:
-                append_info(widget, "Tool wird neu gestartet...", level="info")
-                self.restart_application()
-            else:
-                append_info(widget, "Neustart abgebrochen.", level="info")
-
-        except Exception as e:
-            append_info(widget, f"Update fehlgeschlagen: {e}", level="error")
-
-        finally:
-            if progress_callback: progress_callback(100)
-
-
-
-
-
-
-
-
 
     def fetch_latest_version(self):
         """Vergleicht lokale APP_VERSION mit version.txt auf GitHub"""
