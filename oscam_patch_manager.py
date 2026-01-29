@@ -75,7 +75,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.0.8"
+APP_VERSION = "2.1.0"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
