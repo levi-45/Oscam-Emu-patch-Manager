@@ -1755,19 +1755,19 @@ class PatchManagerGUI(QWidget):
         """
         Prüft die Version anhand von version.txt, sichert alte Dateien,
         lädt das neue Plugin herunter und bietet Neustart an.
-        Meldungen erscheinen im Info-Widget.
         """
         import os
         import shutil
         import requests
         from packaging.version import Version, InvalidVersion
-        from PyQt6.QtWidgets import QMessageBox, QTextEdit, QApplication
+        from PyQt6.QtWidgets import QMessageBox
 
         widget = getattr(self, "info_text", None)
         lang = getattr(self, "LANG", "de")
+        lang_texts = TEXTS.get(lang, TEXTS["en"])
 
         # -------- Start Update --------
-        append_info(widget, "Updateprüfung gestartet...", level="info")
+        self.append_info(widget, lang_texts.get("update_started", "Updateprüfung gestartet..."), level="info")
         if progress_callback:
             progress_callback(5)
 
@@ -1779,7 +1779,7 @@ class PatchManagerGUI(QWidget):
                 resp.raise_for_status()
                 latest_version = resp.text.strip().lstrip("v")
             except Exception as e:
-                append_info(widget, f"Update fehlgeschlagen: {e}", level="error")
+                self.append_info(widget, f"{lang_texts.get('update_error_prefix', 'Update fehlgeschlagen')}: {e}", level="error")
                 if progress_callback: progress_callback(100)
                 return
 
@@ -1788,17 +1788,17 @@ class PatchManagerGUI(QWidget):
             lv = Version(latest_version)
             cv = Version(APP_VERSION)
             if lv <= cv:
-                append_info(widget, f"Version {APP_VERSION} ist aktuell.", level="success")
+                self.append_info(widget, lang_texts.get("version_current", "Version {version} ist aktuell.").format(version=APP_VERSION), level="success")
                 if progress_callback: progress_callback(100)
                 return
             else:
-                append_info(widget, f"Neue Version {latest_version} verfügbar.", level="info")
+                self.append_info(widget, f"Neue Version {latest_version} verfügbar.", level="info")
         except InvalidVersion:
-            append_info(widget, f"Ungültige Version: '{latest_version}'", level="error")
+            self.append_info(widget, f"Ungültige Version: '{latest_version}'", level="error")
             if progress_callback: progress_callback(100)
             return
 
-        append_info(widget, "Update wird gestartet...", level="info")
+        self.append_info(widget, "Update wird durchgeführt...", level="info")
         if progress_callback: progress_callback(10)
 
         # -------- Backup alter Dateien --------
@@ -1812,12 +1812,12 @@ class PatchManagerGUI(QWidget):
                 src = os.path.join(plugin_dir, fname)
                 if os.path.exists(src):
                     shutil.copy(src, os.path.join(backup_dir, fname))
-                    append_info(widget, f"Backup erstellt: {fname}", level="success")
+                    self.append_info(widget, f"Backup erstellt: {fname}", level="success")
                 if progress_callback:
                     progress_callback(10 + int(i * 15 / len(files_to_backup)))
 
         except Exception as e:
-            append_info(widget, f"Backup fehlgeschlagen: {e}", level="error")
+            self.append_info(widget, f"Backup fehlgeschlagen: {e}", level="error")
             if progress_callback: progress_callback(100)
             return
 
@@ -1836,36 +1836,27 @@ class PatchManagerGUI(QWidget):
             os.replace(tmp_file, plugin_file)
 
             if progress_callback: progress_callback(80)
-            append_info(widget, f"Update erfolgreich auf Version {latest_version}", level="success")
+            self.append_info(widget, f"Update erfolgreich auf Version {latest_version}", level="success")
             self.latest_version = latest_version
 
             # -------- Neustart-Abfrage --------
             msg = QMessageBox(self)
-            msg.setWindowTitle(TEXTS[lang].get("restart_required_title", "Neustart erforderlich"))
-            msg.setText(TEXTS[lang].get(
-                "restart_required_msg",
-                "Das Tool muss neu gestartet werden. Jetzt neu starten?"
-            ))
+            msg.setWindowTitle(lang_texts.get("restart_required_title", "Neustart erforderlich"))
+            msg.setText(lang_texts.get("restart_required_msg", "Das Tool muss neu gestartet werden. Jetzt neu starten?"))
 
-            yes_button = msg.addButton(
-                TEXTS[lang].get("yes", "Ja"),
-                QMessageBox.ButtonRole.YesRole
-            )
-            msg.addButton(
-                TEXTS[lang].get("no", "Nein"),
-                QMessageBox.ButtonRole.NoRole
-            )
+            yes_button = msg.addButton(lang_texts.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
+            msg.addButton(lang_texts.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
 
             msg.exec()
 
             if msg.clickedButton() == yes_button:
-                append_info(widget, "Tool wird neu gestartet...", level="info")
+                self.append_info(widget, "Tool wird neu gestartet...", level="info")
                 self.restart_application()
             else:
-                append_info(widget, "Neustart abgebrochen.", level="info")
+                self.append_info(widget, lang_texts.get("update_declined", "Update abgebrochen."), level="info")
 
         except Exception as e:
-            append_info(widget, f"Update fehlgeschlagen: {e}", level="error")
+            self.append_info(widget, f"Update fehlgeschlagen: {e}", level="error")
 
         finally:
             if progress_callback: progress_callback(100)
