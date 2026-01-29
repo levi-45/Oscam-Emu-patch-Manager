@@ -75,7 +75,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.0.8"
+APP_VERSION = "2.1.0"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 # -----------------------------
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -490,9 +490,9 @@ TEXTS = {
         "git_status": "Commits anzeigen",
         "restart_tool": "Tool Neustarten",
         "edit_patch_header": "Patch Header bearbeiten",
-        "github_emu_config_button": "GitHub-Konfiguration bearbeiten",
+        "github_emu_config_button": "GitHub-Konfiguration",
         "github_upload_patch": "Patch hochladen",
-        "github_upload_emu": "OSCam-Emu Git hochladen",
+        "github_upload_emu": "EMU Git hochladen",
         "oscam_emu_git_patch": "OSCam EMU Git Patch",
         "oscam_emu_git_clear": "OSCam EMU Git leeren",
         "update_available_title": "Update verfügbar",
@@ -2070,16 +2070,19 @@ class PatchManagerGUI(QWidget):
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        buttons_layout.addStretch(1) # Fügt flexiblen Platz am Ende hinzu
 
         self.option_buttons = getattr(self, "option_buttons", {})
 
         for key, text_key, color, callback, *rest in button_defs:
             # fg optional, default "white"
             fg = rest[0] if rest else "white"
+            
+            button_text = TEXTS[self.LANG].get(text_key, text_key)
 
             btn = self.create_action_button(
                 parent=self,
-                text=TEXTS[self.LANG].get(text_key, text_key),
+                text=button_text,
                 color=color,
                 fg=fg,
                 callback=lambda checked=False, f=callback: f(
@@ -2090,13 +2093,19 @@ class PatchManagerGUI(QWidget):
                 radius=self.BUTTON_RADIUS,
             )
             btn.setFont(QFont("Arial", 14))
-            btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            
+            # FIX 1: Policy auf MinimumExpanding ändern
+            btn.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+            # FIX 2: Größe sofort an den langen Text anpassen
+            btn.adjustSize() 
+            
             buttons_layout.addWidget(btn)
-        self.option_buttons[key] = (btn, text_key)
+            self.option_buttons[key] = (btn, text_key) # Diese Zeile war vorher falsch eingerückt
 
         container = QWidget()
         container.setLayout(buttons_layout)
-        container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        # Setze die Policy des Containers, damit er den Platz nutzen kann
+        container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed) 
         parent_layout.addWidget(container)
 
     def update_all_texts(self):
@@ -2990,7 +2999,7 @@ class PatchManagerGUI(QWidget):
         # -------------------
         self.TITLE_HEIGHT = 55  # Header/Logo Höhe
         self.BUTTON_HEIGHT = 40
-        self.BUTTON_WIDTH = 120
+        self.BUTTON_WIDTH = 200
         self.BUTTON_RADIUS = 10
         self.all_buttons = []
 
@@ -3106,51 +3115,61 @@ class PatchManagerGUI(QWidget):
         # OPTION CONTROLS (Sprache, Farbe, Commit)
         # -------------------
         controls_layout = QHBoxLayout()
-        controls_layout.setSpacing(10)
+        controls_layout.setSpacing(5)  # Minimaler Abstand
+        controls_layout.setContentsMargins(0, 5, 0, 5)
         controls_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
+        # Gemeinsame Schriftart für die Beschriftungen (etwas kleiner)
+        label_font = QFont("Arial", 10) 
+
+        # Gruppe 1: Sprache
         self.lang_label = QLabel(TEXTS[self.LANG]["language_label"])
-        self.lang_label.setFixedHeight(self.BUTTON_HEIGHT)
+        self.lang_label.setFont(label_font)
+        self.lang_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         controls_layout.addWidget(self.lang_label)
 
         self.language_box = QComboBox()
         self.language_box.addItems(["EN", "DE"])
-        self.language_box.setFixedHeight(self.BUTTON_HEIGHT)
-        self.language_box.setFixedWidth(self.BUTTON_WIDTH)
+        self.language_box.setFixedHeight(30) # Höhe leicht reduziert
+        self.language_box.setFixedWidth(65)  # Sehr schmal
         self.language_box.setCurrentText(self.cfg.get("language", "DE"))
         self.language_box.currentIndexChanged.connect(self.change_language)
         controls_layout.addWidget(self.language_box)
 
+        controls_layout.addSpacing(15) # Definierter Abstandshalter
+
+        # Gruppe 2: Design
         self.color_label = QLabel(TEXTS[self.LANG]["color_label"])
-        self.color_label.setFixedHeight(self.BUTTON_HEIGHT)
+        self.color_label.setFont(label_font)
+        self.color_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         controls_layout.addWidget(self.color_label)
 
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
-        self.color_box.setFixedHeight(self.BUTTON_HEIGHT)
-        self.color_box.setFixedWidth(self.BUTTON_WIDTH)
+        self.color_box.setFixedHeight(30)
+        self.color_box.setMinimumWidth(90) # Schmaler
         self.color_box.setCurrentText(self.cfg.get("color", "Classic"))
         self.color_box.currentIndexChanged.connect(self.change_colors)
         controls_layout.addWidget(self.color_box)
 
+        controls_layout.addSpacing(15)
+
+        # Gruppe 3: Commits
         self.commit_label = QLabel(TEXTS[self.LANG]["commit_count_label"])
-        self.commit_label.setFixedHeight(self.BUTTON_HEIGHT)
+        self.commit_label.setFont(label_font)
+        self.commit_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         controls_layout.addWidget(self.commit_label)
 
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
         self.commit_spin.setValue(self.cfg.get("commit_count", 5))
-        self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT)
-        self.commit_spin.setFixedWidth(50)
+        self.commit_spin.setFixedHeight(30)
+        self.commit_spin.setFixedWidth(45)
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
         controls_layout.addWidget(self.commit_spin)
 
-        controls_container = QWidget()
-        controls_container.setLayout(controls_layout)
-        controls_container.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
-        main_layout.addWidget(controls_container, stretch=0)
+        # Der Stretch schiebt alles kompakt nach links
+        controls_layout.addStretch(1)
 
         # -------------------
         # OPTION BUTTONS
