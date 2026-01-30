@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.1.1"
+APP_VERSION = "2.1.2"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2263,88 +2263,52 @@ class PatchManagerGUI(QWidget):
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """
-        Führt ein Plugin-Update durch:
-        1. Alte Plugin-Dateien sichern
-        2. Neue Version herunterladen
-        3. Alte Dateien ersetzen
-        4. Fortschritt und Logs im Info-Widget
-        5. Optional Neustart-Hinweis nach erfolgreichem Update
+        Lädt die aktuelle oscam_patch_manager.py direkt aus GitHub,
+        sichert die alte Version, ersetzt sie und bietet optional Neustart an.
         """
-        import os
-        import shutil
         import requests
-        import zipfile
-        import io
-        from PyQt6.QtCore import QTimer
+        import shutil
+        import os
 
         widget = getattr(self, "info_text", None)
         lang = getattr(self, "LANG", "de").lower()
         lang_texts = TEXTS.get(lang, TEXTS.get("en", {}))
 
-        def log(text_key, level="info", **kwargs):
-            text_template = lang_texts.get(text_key, text_key)
-            try:
-                text = text_template.format(**kwargs)
-            except Exception:
-                text = text_template
-            if widget:
-                self.append_info(widget, text, level)
-
-        log("update_started", "info")
+        # --- Startmeldung ---
+        self.append_info(widget, lang_texts.get("update_started", "Updateprüfung gestartet..."), "info")
         if progress_callback:
             progress_callback(5)
 
-        # --- Alte Plugin-Dateien sichern ---
-        plugin_dir = os.path.abspath(os.path.dirname(__file__))
-        backup_dir = plugin_dir + "_backup"
-        if os.path.exists(backup_dir):
-            shutil.rmtree(backup_dir, ignore_errors=True)
-        shutil.copytree(plugin_dir, backup_dir)
-        log("update_backup_done", "success")
-        if progress_callback:
-            progress_callback(20)
+        url = f"https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+        target_file = "/opt/patch/oscam-patching/oscam_patch_manager.py"
+        backup_file = target_file + ".bak"
 
-        # --- Neue Version herunterladen ---
-        download_url = f"https://github.com/speedy005/Oscam-Emu-patch-Manager/releases/download/v{latest_version}/plugin.zip"
         try:
-            resp = requests.get(download_url, timeout=30)
+            # --- Backup erstellen ---
+            if os.path.exists(target_file):
+                shutil.copy2(target_file, backup_file)
+                self.append_info(widget, f"⚠️ Backup erstellt: {backup_file}", "warning")
+            if progress_callback:
+                progress_callback(20)
+
+            # --- Datei herunterladen ---
+            resp = requests.get(url, timeout=10)
             resp.raise_for_status()
+            with open(target_file, "wb") as f:
+                f.write(resp.content)
+            self.append_info(widget, "✅ oscam_patch_manager.py erfolgreich aktualisiert!", "success")
+            if progress_callback:
+                progress_callback(80)
+
+            # --- Optional Neustart anzeigen ---
+            self.restart_application_with_info(info_widget=widget)
+            if progress_callback:
+                progress_callback(100)
+
         except Exception as e:
-            log("update_download_failed", "error", error=str(e))
+            self.append_info(widget, f"❌ Update fehlgeschlagen: {e}", "error")
             if progress_callback:
                 progress_callback(0)
-            return
-
-        if progress_callback:
-            progress_callback(50)
-
-        # --- ZIP extrahieren und ersetzen ---
-        try:
-            with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-                zf.extractall(plugin_dir)
-        except Exception as e:
-            log("update_extract_failed", "error", error=str(e))
-            if progress_callback:
-                progress_callback(0)
-            return
-
-        if progress_callback:
-            progress_callback(90)
-
-        # --- Update abgeschlossen ---
-        log("update_done", "success", version=latest_version)
-        if progress_callback:
-            progress_callback(100)
-
-        # --- Neustart-Hinweis mit Option ---
-        def prompt_restart():
-            self.restart_application_with_info(
-                info_widget=widget,
-                progress_callback=progress_callback,
-            )
-
-        # kleine Verzögerung, damit GUI noch das letzte Log zeigt
-        QTimer.singleShot(200, prompt_restart)
 
     def update_clock(self):
         """Aktualisiert die digitale Uhr im Header"""
