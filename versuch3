@@ -1946,13 +1946,14 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "digital_clock"):
             self.digital_clock.setText(now.toString("HH:mm:ss  dd.MM.yyyy"))    
     
-    def check_for_updates_on_start(self):
+    def check_for_update_on_start(self):
         """
         Prüft beim Start die GitHub-Version und bietet Update an, wenn nötig.
         Meldungen erscheinen im Info-Widget.
         """
         widget = getattr(self, "info_text", None)
         progress = getattr(self, "progress_bar", None)
+        lang = getattr(self, "LANG", "de").lower()
 
         # ProgressBar Reset
         if progress:
@@ -1968,7 +1969,6 @@ class PatchManagerGUI(QWidget):
             }
             color = colors.get(level, "gray")
 
-            lang = getattr(self, "LANG", "de").lower()
             text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
 
             try:
@@ -1980,7 +1980,7 @@ class PatchManagerGUI(QWidget):
                 widget.append(f'<span style="color:{color}">{text}</span>')
                 widget.moveCursor(QTextCursor.MoveOperation.End)
                 QApplication.processEvents()
-           else:
+            else:
                 print(f"[{level.upper()}] {text}")
 
         # Startmeldung
@@ -2015,7 +2015,7 @@ class PatchManagerGUI(QWidget):
             # Update gefunden
             if progress:
                 progress.setValue(80)
- 
+
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(
                 TEXTS.get(lang, {}).get("update_available_title", "Update verfügbar")
@@ -2039,15 +2039,15 @@ class PatchManagerGUI(QWidget):
             msg_box.exec()
 
             if msg_box.clickedButton() == yes_btn:
-                # ProgressBar wird im Update-Prozess weitergeführt
                 self.plugin_update_action(
                     latest_version=latest_version,
                     progress_callback=progress.setValue if progress else None,
                 )
             else:
                 log("update_declined", "info")
+                log("update_current_version", "info", version=current_version)
                 if progress:
-                    progress.setValue(0)
+                    progress.setValue(100)
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
