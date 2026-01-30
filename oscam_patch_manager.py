@@ -57,7 +57,6 @@ from PyQt6.QtGui import QFont, QColor, QTextCursor, QIcon
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize
 from packaging.version import Version, InvalidVersion
 
-
 def ensure_executable_self():
     try:
         script_path = os.path.abspath(__file__)
@@ -69,16 +68,13 @@ def ensure_executable_self():
     except Exception as e:
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
-
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
-
 # ===================== APP CONFIG =====================
 APP_VERSION = "2.1.1"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
-
 
 def get_best_patch_dir():
     # 1. Priorität: Existierender S3-Pfad (nur wenn beschreibbar)
@@ -96,24 +92,19 @@ def get_best_patch_dir():
     os.makedirs(local_path, exist_ok=True)
     return local_path
 
-
 # Python Cache & Systemdateien
 PYC_FILE = os.path.join(PLUGIN_DIR, "oscam_patch_manager.pyc")
 CACHE_DIR = os.path.join(PLUGIN_DIR, "__pycache__")
-
 # Konfigurationsdateien
 CONFIG_FILE = os.path.join(PLUGIN_DIR, "config.json")
 GITHUB_CONF_FILE = os.path.join(PLUGIN_DIR, "github_upload_config.json")
-
 # Patch-Dateien im Hauptordner
 PATCH_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.patch")
 ZIP_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.zip")
-
 # Arbeits-Ordner
 ICON_DIR = os.path.join(PLUGIN_DIR, "icons")
 TEMP_REPO = os.path.join(PLUGIN_DIR, "temp_repo")
 PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
-
 # -----------------------------
 # Alte Patch-Ordner / Dateien (Archiv)
 # -----------------------------
@@ -122,7 +113,6 @@ import platform
 
 # Basis-Verzeichnis
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
-
 
 def get_initial_patch_dir():
     """Wählt den sichersten Standardpfad je nach Betriebssystem."""
@@ -140,29 +130,24 @@ def get_initial_patch_dir():
     os.makedirs(path, exist_ok=True)
     return path
 
-
 # Standard-Fallback setzen
 OLD_PATCH_DIR_PLUGIN_DEFAULT = get_initial_patch_dir()
 # Lokaler Archiv-Ordner im Plugin-Verzeichnis
 OLD_PATCH_DIR_PLUGIN_DEFAULT = os.path.join(PLUGIN_DIR, "old_patches")
-
 # Aktueller Arbeitsordner für Archivierung (Standard: lokal)
 OLD_PATCH_DIR = OLD_PATCH_DIR_PLUGIN_DEFAULT
 OLD_ = OLD_PATCH_DIR  # Legacy-Support
-
 # Archivierte Dateien im gewählten Ordner
 OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
 ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
 PATCH_MANAGER_OLD = os.path.join(OLD_PATCH_DIR, "oscam_patch_manager_old.py")
 CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "config_old.json")
 GITHUB_CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "github_upload_config_old.json")
-
 # -----------------------------
 # Tools & Repos
 # -----------------------------
 CHECK_TOOLS_SCRIPT = os.path.join(PLUGIN_DIR, "check_tools.sh")
 PATCH_MODIFIER = "speedy005"
-
 # Repository URLs
 EMUREPO = "https://github.com/oscam-mirror/oscam-emu.git"
 STREAMREPO = "https://git.streamboard.tv/common/oscam.git"
@@ -369,7 +354,6 @@ DIFF_COLORS = {
 current_diff_colors = DIFF_COLORS["Classic"]
 current_color_name = "Classic"
 
-
 def fill_missing_keys(texts):
     """
     Prüft, ob alle Keys aus 'en' auch in 'de' existieren.
@@ -383,7 +367,6 @@ def fill_missing_keys(texts):
             de_keys[key] = value  # Englische Version als Platzhalter
 
     texts["de"] = de_keys
-
 
 # ===================== LANGUAGE =====================
 
@@ -401,21 +384,27 @@ TEXTS = {
         "backup_old": "Backup/Renew Patch",
         "clean_folder": "Clean Patch Folder",
         "change_old_dir": "Select S3 Patch Folder",
+        # Commits
+        "loading_commits": "Loading commits...",
+        "commits_loaded": "Commits successfully loaded",
         # ... zip_patch ...
         "patch_file_missing": "Patch file does not exist: {path}",
         "zip_success": "✅ Patch successfully zipped: {zip_file}",
         "zip_failed": "❌ Error while zipping: {error}",
         # OSCam-Emu Git Patch
-        "patch_emu_git_start": "ℹ️ Cloning and patching Git repo: {path}",
-        "patch_emu_git_deleted": "✅ Folder deleted: {path}",
+        "patch_emu_git_start": "🔹 Creating OSCam-Emu Git Patch... (Path: {path})",
+        "patch_emu_git_deleted": "✅ Old OSCam-Emu Git folder deleted: {path}",
+        "delete_failed": "❌ Failed to delete folder: {path}",
         "patch_emu_git_clone_failed": "❌ Git clone failed",
-        "patch_emu_git_apply_failed": "❌ Patch apply failed",
-        "patch_emu_git_applied": "✅ Patch applied and committed: {commit_msg}",
-        "patch_emu_git_revision": "ℹ️ Current Git revision after commit: {sha}",
-        "patch_emu_git_revision_failed": "⚠️ Could not retrieve Git revision: {error}",
+        "patch_emu_git_apply_failed": "❌ Failed to apply patch",
+        "patch_emu_git_applied": "✅ Patch successfully committed: {commit_msg}",
+        "patch_emu_git_revision_failed": "⚠️ Failed to get Git revision: {error}",
+        "patch_emu_git_done": "✅ Oscam Emu Git successfully patched",
+        "patch_emu_git_revision": "🧾 Git revision: {sha}",
         "github_patch_uploaded": "✅ Patch successfully uploaded: {patch_version}",
         "github_upload_failed": "❌ GitHub upload failed.",
         "github_emu_git_uploaded": "✅ OSCam-Emu Git successfully uploaded!",
+        "git_revision_failed": "⚠️ Git revision could not be determined: {error}",
         "github_emu_git_revision": "📊 Current Status: Revision {sha} ({commit_msg})",
         "github_emu_git_revision_failed": "⚠️ Could not retrieve revision: {error}",
         # Exit / Confirmation
@@ -424,9 +413,9 @@ TEXTS = {
         "no": "No",
         "cancel": "Cancel",
         "plugin_update": "Plugin Update",
-        "update_current_version": "You are running the latest version ({version})",
-        "update_fail": "❌ Update failed: {error}",
+        "update_fail": "Update failed: {error}",
         "update_success": "✅ Update installed successfully! Please restart the tool.",
+        "update_available_msg": "Current version: {current}\nNew version: {latest}",
         "restart_required_title": "Restart required",
         "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
         "restart_tool_info": "ℹ️ Restarting application...",
@@ -434,15 +423,13 @@ TEXTS = {
         "update_started": "ℹ️ Update started…",
         "backup_created": "✅ Backup created: {file}",
         "exit_question": "Do you really want to close the tool?",
-        "update_not_available": "No new version available.",
-        "update_check_start": "Checking for updates…",
+        "update_check_start": "Checking for updates ...",
         "github_version_available": "New version available: {version}",
         "github_version_fetch_failed": "Version check failed: {error}",
         # update on start
         "version_current": "Version {version} is up to date.",
         "update_check_failed": "Update check failed: {error}",
         "update_available_title": "Update Available",
-        "update_available_msg": "A new version ({version}) is available. Update now?",
         # Option Buttons
         "git_status": "View Commits",
         "restart_tool": "Restart Tool",
@@ -453,11 +440,10 @@ TEXTS = {
         "oscam_emu_git_patch": "OSCam EMU Git Patch",
         "oscam_emu_git_clear": "Clear OSCam EMU Git",
         "oscam_emu_patch_upload": "Upload OSCam EMU Patch",
-        "update_available_title": "Update Available",
-        "update_available_msg": "A new version ({latest}) is available.\nYour current version is {current}.\n\nDo you want to install the update now?",
         "version_current": "Version {version} is up to date.",
         "update_error": "Error checking for updates: {error}",
         "update_declined": "Update declined.",
+        "update_current_version": "✅ Installed version: {version}",
         "restart_required_title": "Restart Required",
         "restart_required_msg": "The tool needs to be restarted. Restart now?",
         "yes": "Yes",
@@ -500,6 +486,9 @@ TEXTS = {
         "patch_create_success": "✅ Patch successfully created: {patch_file}",
         "patch_version_from_header": "✅ Patch version from header: {patch_version}",
         "patch_create_failed": "❌ Patch creation failed: {error}",
+        # Commits
+        "loading_commits": "Lade Commits...",
+        "commits_loaded": "Commits erfolgreich geladen",
         # Backup
         "backup_old_start": "ℹ️ Creating backup of old patch…",
         "backup_done": "✅ Backup successfully created: {path}",
@@ -514,10 +503,11 @@ TEXTS = {
         "cleaning_oscam_emu_git": "ℹ️ Deleting OSCam-Emu Git folder: {path}",
         "oscam_emu_git_deleted": "✅ OSCam-Emu Git folder successfully deleted.",
         "oscam_emu_git_missing": "⚠️ Folder not found: {path}",
-        "delete_failed": "❌ Error: Could not delete {path}. Error: {error}",
         "clean_done": "✅ Cleanup completed successfully!",
         "oscam_emu_git_missing": "⚠️ Folder does not exist: {path}",
-        "delete_failed": "❌ Deletion failed: {path} (Error: {error})",
+        "oscam_emu_git_patch_start": "🔹 Creating OSCam-Emu Git Patch...",
+        "git_patch_success": "✅ Git Patch created successfully! Revision: {rev}",
+        "git_patch_success": "✅ Patch created successfully! Git Revision: {rev}",
         "clean_done": "✅ All temporary files cleaned",
         "patch_version_from_header": "Patch version from header: {patch_version}",
         "patch_create_success": "Patch successfully created: {patch_file}",
@@ -535,13 +525,15 @@ TEXTS = {
         "patch_path_label": "Patch speichern",
         "change_old_dir": "S3 Patch-Ordner auswählen",
         # OSCam-Emu Git Patch
-        "patch_emu_git_start": "ℹ️ Klone und patch Git Repo: {path}",
-        "patch_emu_git_deleted": "✅ Ordner erfolgreich gelöscht: {path}",
-        "patch_emu_git_clone_failed": "❌ Git Clone fehlgeschlagen",
-        "patch_emu_git_apply_failed": "❌ Patch-Anwendung fehlgeschlagen",
-        "patch_emu_git_applied": "✅ OSCam Emu Git Patch angewendet",
-        "patch_emu_git_revision": "ℹ️ Aktuelle Git-Revision nach Commit: {sha}",
+        "patch_emu_git_start": "🔹 OSCam-Emu Git Patch wird erstellt... (Pfad: {path})",
+        "patch_emu_git_deleted": "✅ Alter OSCam-Emu Git Ordner gelöscht: {path}",
+        "delete_failed": "❌ Löschen des Ordners fehlgeschlagen: {path}",
+        "patch_emu_git_clone_failed": "❌ Git-Klon fehlgeschlagen",
+        "patch_emu_git_apply_failed": "❌ Patch konnte nicht angewendet werden",
+        "patch_emu_git_applied": "✅ Patch erfolgreich committet: {commit_msg}",
         "patch_emu_git_revision_failed": "⚠️ Git-Revision konnte nicht ermittelt werden: {error}",
+        "patch_emu_git_done": "✅ Oscam Emu Git erfolgreich gepatcht",
+        "patch_emu_git_revision": "🧾 Git-Revision: {sha}",
         # Exit / Confirmation
         "exit": "Beenden",
         "yes": "Ja",
@@ -566,9 +558,9 @@ TEXTS = {
         "restart_required_msg": "Das Update wurde erfolgreich installiert. Das Tool muss neu gestartet werden.\nJetzt neu starten?",
         "restart_required_title": "Neustart erforderlich",
         "update_success": "✅ Update erfolgreich! Bitte Plugin neu starten.",
-        "update_fail": "❌ Update fehlgeschlagen: {error}",
+        "update_fail": "Update fehlgeschlagen: {error}",
         "update_not_available": "Keine neue Version verfügbar.",
-        "update_check_start": "Prüfe auf Updates …",
+        "update_check_start": "Prüfe auf Updates ...",
         "github_version_available": "Neue Version {version} auf GitHub verfügbar",
         "github_version_fetch_failed": "⚠️ Fehler beim Abrufen der GitHub-Version: {error}",
         "plugin_update": "Plugin Update",
@@ -582,13 +574,15 @@ TEXTS = {
         "oscam_emu_git_patch": "OSCam EMU Git Patch",
         "oscam_emu_git_clear": "OSCam EMU Git leeren",
         "update_available_title": "Update verfügbar",
+        "update_current_version": "✅ Installierte Version: {version}",
         "update_check_failed": "Fehler bei Updateprüfung: {error}",
-        "update_available_msg": "Eine neue Version ({version}) ist verfügbar. Jetzt aktualisieren?",
-        "update_available_msg": "Eine neue Version ({latest}) ist verfügbar.\nDeine aktuelle Version ist {current}.\n\nMöchtest du das Update jetzt installieren?",
+        "update_available_msg": "Aktuelle Version: {current}\nNeue Version: {latest}",
+        "update_success": "✅ Update erfolgreich installiert! Bitte Tool neu starten.",
         "version_current": "Version {version} ist aktuell.",
         "update_error": "Fehler bei Updateprüfung: {error}",
         "update_declined": "Update abgebrochen.",
         "restart_required_title": "Neustart erforderlich",
+        "patch_emu_git_success": "✅ OSCam Emu Git successfully patched",
         "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
         "yes": "Ja",
         "no": "Nein",
@@ -626,6 +620,7 @@ TEXTS = {
         "patch_create_success": "✅ Patch erfolgreich erstellt: {patch_file}",
         "patch_version_from_header": "✅ Patch-Version aus Header: {patch_version}",
         "patch_create_failed": "❌ Patch-Erstellung fehlgeschlagen: {error}",
+        "git_patch_success": "✅ Git Patch erfolgreich erstellt! Revision: {rev}",
         # Patch ordner leeren
         "temp_patch_git_already_deleted": "Patch-Git-Ordner war bereits gelöscht oder nicht vorhanden.",
         "patch_file_deleted": "Patch-Datei wurde erfolgreich entfernt: {path}",
@@ -633,7 +628,9 @@ TEXTS = {
         "clean_done": "Bereinigung des Arbeitsverzeichnisses erfolgreich abgeschlossen! ✨",
         "oscam_emu_git_missing": "⚠️ Ordner nicht gefunden: {path}",
         "temp_repo_deleted": "Temporäres Repository erfolgreich gelöscht: {path}",
+        "oscam_emu_git_patch_start": "🔹 OSCam-Emu Git Patch wird erstellt...",
         "patch_file_deleted": "Patch-Datei gelöscht: {path}",
+        "patch_emu_git_success": "✅ OSCam Emu Git erfolgreich gepatcht",
         "oscam_emu_git_deleted": "✅ OSCam-Emu Git Ordner erfolgreich gelöscht.",
         # "zip_file_deleted": "ZIP-Archiv entfernt: {path}",
         # Backup
@@ -652,6 +649,7 @@ TEXTS = {
         "oscam_emu_git_missing": "⚠️ Ordner nicht gefunden: {path}",
         "delete_failed": "❌ Fehler: Konnte {path} nicht löschen. Fehler: {error}",
         "clean_done": "✅ Bereinigung erfolgreich abgeschlossen!",
+        "git_patch_success": "✅ Patch erfolgreich erstellt! Git Revision: {rev}",
         "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
         "delete_failed": "❌ Löschen fehlgeschlagen: {path} (Fehler: {error})",
         "github_patch_uploaded": "✅ Patch erfolgreich hochgeladen: {patch_version}",
@@ -670,12 +668,10 @@ for key, value in TEXTS["en"].items():
 # 4️⃣ **Unbedingt einmalig vor GUI-Start aufrufen**
 fill_missing_keys(TEXTS)
 
-
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
     if not os.path.exists(path):
         os.makedirs(path)
-
 
 def save_config(cfg=None):
     """
@@ -699,7 +695,6 @@ def save_config(cfg=None):
             json.dump(cfg, f, indent=2)
     except Exception as e:
         self.append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
-
 
 # ===================== CONFIG =====================
 def load_config():
@@ -726,7 +721,6 @@ def load_config():
         except:
             return default_cfg
     return default_cfg
-
 
 # ===================== INFOSCREEN =====================
 def github_upload_patch_file(
@@ -885,12 +879,10 @@ def github_upload_patch_file(
     # 7. Cleanup
     shutil.rmtree(temp_repo, ignore_errors=True)
 
-
 # ===================== PATCH HEADER =====================
 from datetime import datetime
 import subprocess
 import os
-
 
 def get_patch_header(repo_dir=None, lang=LANG):
     """
@@ -948,7 +940,6 @@ def get_patch_header(repo_dir=None, lang=LANG):
 
     return header
 
-
 # ===================== TOOL CHECK & AUTOMATISCHE INSTALLATION =====================
 def check_tools(info_widget=None):
     """
@@ -997,11 +988,9 @@ def check_tools(info_widget=None):
     else:
         self.append_info(info_widget, TEXTS[LANG]["all_tools_installed"], "success")
 
-
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 import os, subprocess, shutil
-
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1142,7 +1131,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
     set_progress(100)
 
-
 def log(text, level="info"):
     colors = {"success": "green", "warning": "orange", "error": "red", "info": "gray"}
     color = colors.get(level, "gray")
@@ -1154,12 +1142,10 @@ def log(text, level="info"):
     else:
         print(f"[{level.upper()}] {text}")
 
-
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os, re
-
 
 def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback=None):
     """
@@ -1266,12 +1252,10 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     # Fertig
     set_progress(100)
 
-
 # ===================== CLEAN PATCH FOLDER =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1354,10 +1338,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     log("clean_done", "success")
     set_progress(100)
 
-
 # ===================== ICONS =====================
 ICON_SIZE = 64
-
 
 def create_icons():
     """
@@ -1400,12 +1382,10 @@ def get_icon_for(name):
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
 
-
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1475,41 +1455,40 @@ def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     set_progress(100)  # Balken voll auf 100%
     log("clean_done", "success")
 
-
 # ===================== patch_oscam_emu_git=====================
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Klont das Streamboard Git, wendet oscam-emu.patch an und commitet.
-    Inklusive flüssiger Fortschrittsanzeige (Progress-Schritte).
+    Zeigt Fortschritt und finale Erfolgsmeldungen im Info-Widget an.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
+    from PyQt6.QtCore import QTimer
     import os, shutil, subprocess
 
-    # 1. Widget & Sprache sicherstellen
+    # --- 1. Widget & Sprache ---
     widget = (
         info_widget
         if isinstance(info_widget, QTextEdit)
         else getattr(gui_instance, "info_text", None)
     )
-    lang = getattr(gui_instance, "LANG", "DE")
+    lang = getattr(gui_instance, "LANG", "DE").lower()  # immer klein für TEXTS
 
-    # Hilfsfunktion für Fortschritt
+    # --- 2. Fortschritts-Helper ---
     def set_progress(val):
         if progress_callback:
             try:
                 progress_callback(val)
-                QApplication.processEvents()  # UI-Update erzwingen
+                QApplication.processEvents()
             except:
                 pass
 
-    # Interne Log-Funktion ohne Terminal-Print
+    # --- 3. Log-Funktion ---
     def log(text_key, level="info", **kwargs):
         text_template = TEXTS.get(lang, {}).get(text_key, text_key)
         try:
             text = text_template.format(**kwargs)
-        except:
+        except Exception:
             text = text_key
-
         if isinstance(widget, QTextEdit):
             PatchManagerGUI.append_info(widget, text, level)
 
@@ -1517,7 +1496,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     set_progress(5)
     log("patch_emu_git_start", "info", path=PATCH_EMU_GIT_DIR)
 
-    # Alten Ordner säubern
+    # --- Alten Ordner löschen ---
     if os.path.exists(PATCH_EMU_GIT_DIR):
         try:
             shutil.rmtree(PATCH_EMU_GIT_DIR, ignore_errors=True)
@@ -1528,10 +1507,9 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
             return
 
     set_progress(15)
-    if not os.path.exists(PATCH_EMU_GIT_DIR):
-        os.makedirs(PATCH_EMU_GIT_DIR, exist_ok=True)
+    os.makedirs(PATCH_EMU_GIT_DIR, exist_ok=True)
 
-    # Git Clone (Zeitintensiv)
+    # --- Git Clone ---
     set_progress(20)
     code = run_bash(
         f"git clone {STREAMREPO} .",
@@ -1544,8 +1522,8 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
         set_progress(0)
         return
 
+    # --- Patch anwenden ---
     set_progress(50)
-    # Patch anwenden
     code = run_bash(
         f"git apply --whitespace=fix {PATCH_FILE}",
         cwd=PATCH_EMU_GIT_DIR,
@@ -1557,8 +1535,8 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
         set_progress(0)
         return
 
+    # --- Git Config ---
     set_progress(70)
-    # Git Identität & Config
     cfg = load_github_config()
     user = cfg.get("user_name", "speedy005")
     mail = cfg.get("user_email", "patch@oscam.local")
@@ -1576,8 +1554,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
         lang=lang,
     )
 
-    set_progress(85)
-    # Commit erstellen
+    # --- Commit ---
     try:
         header_raw = get_patch_header()
         header = header_raw.splitlines()[0] if header_raw else "Update"
@@ -1593,16 +1570,38 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     )
     log("patch_emu_git_applied", "success", commit_msg=commit_msg)
 
-    # Git Revision auslesen
+    # --- Git Revision auslesen ---
+    rev = None
     try:
         rev = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=PATCH_EMU_GIT_DIR, text=True
         ).strip()
-        log("patch_emu_git_revision", "info", sha=rev)
-    except:
-        pass
+    except Exception as e:
+        log("patch_emu_git_revision_failed", "warning", error=str(e))
 
-    # Fertig
+    # --- Finale Meldungen (grün) ---
+    def final_logs():
+        if gui_instance:
+            gui_instance.append_info(
+                widget,
+                TEXTS[lang].get(
+                    "patch_emu_git_done",
+                    "✅ Oscam Emu Git successfully patched",
+                ),
+                "success",
+            )
+            if rev:
+                gui_instance.append_info(
+                    widget,
+                    TEXTS[lang]
+                    .get("patch_emu_git_revision", "🧾 Git revision: {sha}")
+                    .format(sha=rev),
+                    "success",
+                )
+
+    QTimer.singleShot(100, final_logs)
+
+    # --- Fortschritt abschließen ---
     set_progress(100)
 
 
@@ -1629,7 +1628,6 @@ def save_github_config(cfg):
         json.dump(cfg, open(GITHUB_CONF_FILE, "w"))
     except:
         pass
-
 
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
@@ -1708,7 +1706,6 @@ def _github_upload(
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     """
@@ -1797,7 +1794,6 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     except Exception as e:
         log(f"run_bash execution error: {e}", "error")
         return -1
-
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -1976,7 +1972,6 @@ def github_upload_oscam_emu_folder(
         log("github_upload_failed", "error")
         set_progress(0)
 
-
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -2051,53 +2046,6 @@ class GithubConfigDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-    def change_language(self):
-        """
-        Called when the language dropdown changes.
-        Updates self.LANG, refreshes all text labels,
-        tooltips, and info logs.
-        """
-        selected = self.language_box.currentText()
-        self.LANG = "de" if selected == "DE" else "en"  # Wichtig: GUI-Sprache
-
-        # ---------------------
-        # Alle Labels & Tooltips
-        self.lang_label.setText(TEXTS[self.LANG]["language_label"])
-        self.color_label.setText(TEXTS[self.LANG]["color_label"])
-        self.commit_label.setText(TEXTS[self.LANG]["commit_count_label"])
-        self.info_button.setToolTip(TEXTS[self.LANG]["info_tooltip"])
-
-        # ---------------------
-        # Option Buttons
-        for btn, text_key in self.option_buttons.values():
-            if text_key in TEXTS[self.LANG]:
-                btn.setText(TEXTS[self.LANG][text_key])
-
-        # ---------------------
-        # Grid Buttons (Patch Aktionen)
-        for key, btn in getattr(self, "buttons", {}).items():
-            if key in TEXTS[self.LANG]:
-                btn.setText(TEXTS[self.LANG][key])
-
-        # ---------------------
-        # Info Text
-        if hasattr(self, "info_text") and "info_text" in TEXTS[self.LANG]:
-            self.info_text.setPlainText(TEXTS[self.LANG]["info_text"])
-
-        # ---------------------
-        # Config speichern
-        if not hasattr(self, "cfg"):
-            self.cfg = load_config()
-        self.cfg["language"] = selected
-        save_config(self.cfg)
-
-        # ---------------------
-        # Info Log übersetzen
-        log_text = TEXTS[self.LANG].get(
-            "language_changed", f"Language changed to {selected}"
-        )
-        self.append_info(self.info_text, log_text, "info")
-
     def save(self):
         """Speichert die eingegebenen Daten"""
         cfg = {
@@ -2120,7 +2068,6 @@ class GithubConfigDialog(QDialog):
 
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QThread, pyqtSignal
 
-
 class TaskWorker(QThread):
     progress = pyqtSignal(int)
     info = pyqtSignal(str, str)
@@ -2142,7 +2089,6 @@ class TaskWorker(QThread):
         except Exception as e:
             self.info.emit(f"Fehler: {str(e)}", "error")
             self.progress.emit(100)
-
 
 # =====================
 # PATCH MANAGER GUI
@@ -2185,7 +2131,7 @@ class PatchManagerGUI(QWidget):
 
         # 6. Haupt-UI aufbauen
         self.init_ui()
-
+        QTimer.singleShot(500, self.check_for_update_on_start)
         # 7. Pfad-Layout in das bestehende UI integrieren
         # Wir erstellen ein kleines Layout für die Pfad-Zeile
         # Layout für Patch-Pfad
@@ -2301,116 +2247,6 @@ class PatchManagerGUI(QWidget):
         # Das Format muss zu deinem Label in init_ui passen
         if hasattr(self, "digital_clock"):
             self.digital_clock.setText(now.toString("HH:mm:ss  dd.MM.yyyy"))
-
-    def check_for_update_on_start(self):
-        """
-        Prüft beim Start die GitHub-Version und bietet Update an, wenn nötig.
-        Meldungen erscheinen im Info-Widget.
-        """
-        widget = getattr(self, "info_text", None)
-        progress = getattr(self, "progress_bar", None)
-        lang = getattr(self, "LANG", "de").lower()
-
-        # ProgressBar Reset
-        if progress:
-            progress.setValue(0)
-            progress.show()
-
-        def log(text_key, level="info", **kwargs):
-            colors = {
-                "success": "green",
-                "warning": "orange",
-                "error": "red",
-                "info": "gray",
-            }
-            color = colors.get(level, "gray")
-
-            text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
-
-            try:
-                text = text_template.format(**kwargs)
-            except Exception:
-                text = text_template
-
-            if isinstance(widget, QTextEdit):
-                widget.append(f'<span style="color:{color}">{text}</span>')
-                widget.moveCursor(QTextCursor.MoveOperation.End)
-                QApplication.processEvents()
-            else:
-                print(f"[{level.upper()}] {text}")
-
-        # Startmeldung
-        log("update_check_start", "info")
-        if progress:
-            progress.setValue(10)
-
-        try:
-            import requests
-
-            version_url = (
-                "https://raw.githubusercontent.com/"
-                "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
-            )
-
-            resp = requests.get(version_url, timeout=10)
-            resp.raise_for_status()
-
-            if progress:
-                progress.setValue(50)
-
-            latest_version = resp.text.strip().lstrip("v")
-            current_version = APP_VERSION.strip().lstrip("v")
-
-            # Version aktuell
-            if latest_version == current_version:
-                log("update_current_version", "success", version=current_version)
-                if progress:
-                    progress.setValue(100)
-                return
-
-            # Update gefunden
-            if progress:
-                progress.setValue(80)
-
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle(
-                TEXTS.get(lang, {}).get("update_available_title", "Update verfügbar")
-            )
-            msg_box.setText(
-                TEXTS.get(lang, {})
-                .get(
-                    "update_available_msg",
-                    "Aktuelle Version: {current}\nNeue Version: {latest}",
-                )
-                .format(current=current_version, latest=latest_version)
-            )
-
-            yes_btn = msg_box.addButton(
-                TEXTS.get(lang, {}).get("yes", "Ja"),
-                QMessageBox.ButtonRole.YesRole,
-            )
-            msg_box.addButton(
-                TEXTS.get(lang, {}).get("no", "Nein"),
-                QMessageBox.ButtonRole.NoRole,
-            )
-
-            msg_box.exec()
-
-            if msg_box.clickedButton() == yes_btn:
-                self.plugin_update_action(
-                    latest_version=latest_version,
-                    progress_callback=progress.setValue if progress else None,
-                )
-            else:
-                log("update_declined", "info")
-                log("update_current_version", "info", version=current_version)
-                if progress:
-                    progress.setValue(100)
-
-        except Exception as e:
-            log("update_fail", "error", error=str(e))
-            if progress:
-                progress.setValue(0)
 
     def ask_for_update(self, latest_version):
         lang = getattr(self, "LANG", "DE")
@@ -3424,16 +3260,19 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     # UPDATE CHECK
     # ---------------------
-    def check_for_updates_on_start(self):
+    def check_for_update_on_start(self):
         """
         Prüft beim Start die GitHub-Version und bietet Update an, wenn nötig.
         Meldungen erscheinen im Info-Widget.
         """
         widget = getattr(self, "info_text", None)
-        # ProgressBar Reset am Start
-        if hasattr(self, "progress_bar"):
-            self.progress_bar.setValue(0)
-            self.progress_bar.show()
+        progress = getattr(self, "progress_bar", None)
+        lang = getattr(self, "LANG", "de").lower()
+
+        # ProgressBar Reset
+        if progress:
+            progress.setValue(0)
+            progress.show()
 
         def log(text_key, level="info", **kwargs):
             colors = {
@@ -3443,14 +3282,19 @@ class PatchManagerGUI(QWidget):
                 "info": "gray",
             }
             color = colors.get(level, "gray")
-            # Zugriff auf self.LANG und TEXTS sicherstellen
-            lang = getattr(self, "LANG", "de").upper()
-            text_template = TEXTS.get(lang.lower(), TEXTS["en"]).get(text_key, text_key)
+
+            # Sprache sicher abrufen
+            lang_data = TEXTS.get(lang, TEXTS.get("en", {}))
+            text_template = lang_data.get(text_key, text_key)
 
             try:
+                # Versuche Platzhalter wie {version} zu füllen
                 text = text_template.format(**kwargs)
-            except:
-                text = text_template
+            except Exception:
+                # Falls der Platzhalter im Dictionary fehlt oder falsch ist:
+                # Zeige den Rohtext und hänge die Werte einfach hinten an
+                val_str = ", ".join([str(v) for v in kwargs.values()])
+                text = f"{text_template} {val_str}".strip()
 
             if isinstance(widget, QTextEdit):
                 widget.append(f'<span style="color:{color}">{text}</span>')
@@ -3459,68 +3303,80 @@ class PatchManagerGUI(QWidget):
             else:
                 print(f"[{level.upper()}] {text}")
 
+        # Startmeldung
         log("update_check_start", "info")
-        if hasattr(self, "progress_bar"):
-            self.progress_bar.setValue(10)
+        if progress:
+            progress.setValue(10)
 
         try:
+            import time
             import requests
 
-            # GitHub version.txt abrufen
-            version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+            # FIX: Die URL in einer Zeile zusammengefasst, um Fehler in der Auflösung zu vermeiden
+            version_url = f"https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt?t={int(time.time())}"
+
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
 
-            if hasattr(self, "progress_bar"):
-                self.progress_bar.setValue(50)
+            if progress:
+                progress.setValue(50)
 
             latest_version = resp.text.strip().lstrip("v")
             current_version = APP_VERSION.strip().lstrip("v")
 
-            if current_version == latest_version:
+            # FIX: Nutze Version-Objekte für den Vergleich (latest > current)
+            from packaging.version import Version
+
+            if not (Version(latest_version) > Version(current_version)):
                 log("update_current_version", "success", version=current_version)
-                if hasattr(self, "progress_bar"):
-                    self.progress_bar.setValue(100)
+                if progress:
+                    progress.setValue(100)
                 return
 
-            # Update verfügbar (80% erreicht beim Finden eines Updates)
-            if hasattr(self, "progress_bar"):
-                self.progress_bar.setValue(80)
+            # Update gefunden (wird nur erreicht, wenn latest > current)
+            if progress:
+                progress.setValue(80)
 
-            lang_key = getattr(self, "LANG", "de").lower()
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(
-                TEXTS[lang_key].get("update_available_title", "Update verfügbar")
+                TEXTS.get(lang, {}).get("update_available_title", "Update verfügbar")
             )
             msg_box.setText(
-                TEXTS[lang_key]
-                .get("update_available_msg", "")
+                TEXTS.get(lang, {})
+                .get(
+                    "update_available_msg",
+                    "Aktuelle Version: {current}\nNeue Version: {latest}",
+                )
                 .format(current=current_version, latest=latest_version)
             )
 
-            yes_button = msg_box.addButton(
-                TEXTS[lang_key].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+            yes_btn = msg_box.addButton(
+                TEXTS.get(lang, {}).get("yes", "Ja"),
+                QMessageBox.ButtonRole.YesRole,
             )
-            no_button = msg_box.addButton(
-                TEXTS[lang_key].get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+            msg_box.addButton(
+                TEXTS.get(lang, {}).get("no", "Nein"),
+                QMessageBox.ButtonRole.NoRole,
             )
+
             msg_box.exec()
 
-            if msg_box.clickedButton() == yes_button:
-                # Hier wird die ProgressBar in der plugin_update_action weitergeführt
+            if msg_box.clickedButton() == yes_btn:
                 self.plugin_update_action(
                     latest_version=latest_version,
-                    progress_callback=self.progress_bar.setValue,
+                    progress_callback=progress.setValue if progress else None,
                 )
             else:
                 log("update_declined", "info")
-                if hasattr(self, "progress_bar"):
-                    self.progress_bar.setValue(0)
+                # FIX: Hier "success" statt "info" nutzen, damit die Version GRÜN angezeigt wird
+                log("update_current_version", "success", version=current_version)
+                if progress:
+                    progress.setValue(100)
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
-            if hasattr(self, "progress_bar"):
-                self.progress_bar.setValue(0)
+            if progress:
+                progress.setValue(0)
 
     # ---------------------
     # TOOLS CHECK
@@ -4203,34 +4059,34 @@ class PatchManagerGUI(QWidget):
         """
         Zeigt die letzten Commits an.
         Sicherer Zugriff auf das Info-Widget, um AttributeError zu vermeiden.
+        Startmeldung in Orange, Endmeldung in Grün.
         """
-        # FIX: Sicherstellen, dass info_widget ein Widget-Objekt ist und kein String
         from PyQt6.QtWidgets import QTextEdit
 
+        # Widget absichern
         if not isinstance(info_widget, QTextEdit):
-            info_widget = self.info_text
+            info_widget = getattr(self, "info_text", None)
+            if info_widget is None:
+                return  # kein Widget vorhanden, abbrechen
 
-        lang = getattr(
-            self, "LANG", "en"
-        )  # Fallback auf "en" falls LANG nicht definiert
+        lang = getattr(self, "LANG", "en").lower()  # Sprache klein, für TEXTS-Dict
 
-        # Info-Meldung ausgeben
-        msg = TEXTS.get(lang, {}).get("showing_commits", "Zeige letzte Commits...")
-        self.append_info(info_widget, msg, "info")
+        # --- Startmeldung ---
+        self.append_info(
+            info_widget,
+            TEXTS.get(lang, {}).get("loading_commits", "Lade Commits..."),
+            "warning",  # Orange
+        )
 
         # Git log ausführen
         try:
-            # Sicherstellen, dass TEMP_REPO existiert
             if not os.path.exists(TEMP_REPO):
                 self.append_info(info_widget, "❌ Repo-Ordner nicht gefunden.", "error")
                 return
 
-            num_commits = (
-                self.commit_spin.value() if hasattr(self, "commit_spin") else 10
-            )
+            num_commits = self.commit_spin.value() if hasattr(self, "commit_spin") else 10
             cmd = f"git -C {TEMP_REPO} log -n {num_commits} --oneline"
 
-            # run_command muss einen String zurückgeben
             output = self.run_command(cmd, cwd=TEMP_REPO)
 
             if output:
@@ -4239,9 +4095,18 @@ class PatchManagerGUI(QWidget):
             else:
                 self.append_info(info_widget, "Keine Commits gefunden.", "warning")
 
+            # --- Endmeldung ---
+            self.append_info(
+                info_widget,
+                TEXTS.get(lang, {}).get("commits_loaded", "Commits erfolgreich geladen"),
+                "success",  # Grün
+            )
+
         except Exception as e:
             self.append_info(
-                info_widget, f"❌ Fehler beim Abrufen der Commits: {e}", "error"
+                info_widget,
+                f"❌ Fehler beim Abrufen der Commits: {e}",
+                "error",
             )
 
         # Fortschrittscallback am Ende
@@ -4385,7 +4250,6 @@ class PatchManagerGUI(QWidget):
         if msg.clickedButton() == yes_button:
             save_config(self.cfg)  # jetzt sauber, nur beim Beenden
             QApplication.quit()
-
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
