@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.1.2"
+APP_VERSION = "2.1.3"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -244,19 +244,18 @@ class FlowLayout(QLayout):
         return y + line_height - rect.y()
 
 
+# ===================== NEVER_DELETE =====================
 NEVER_DELETE = [
     "oscam_patch_manager.py",
-    "oscam-patch-manager.sh",
-    "oscam-patch-manager-gui.sh",
+    "clean_texts.py",
+    "def.py",
+    "extract_text_keys.py",
+    "texts_cleaned.py",
     "oscam-emu-patch.sh",
-    "oscam-patch-manager-gui-eng.sh",
     "github_upload_config.json",
     "oscam-patch.sh",
     "config.json",
-    "oscam_patch_manager_test.py",
-    "oscam_patch_manager_neu.py",
     "check_tools.sh",
-    "versuche.py",
     "icons",
 ]
 
@@ -377,7 +376,6 @@ def fill_missing_keys(texts):
 
 
 # ===================== LANGUAGE =====================
-
 LANG = "de"
 TEXTS = {
     "en": {
@@ -420,7 +418,16 @@ TEXTS = {
         "yes": "Yes",
         "no": "No",
         "cancel": "Cancel",
-        "plugin_update": "Plugin Update",
+        # "plugin_update": "Plugin Update",
+        "btn_plugin_update": "Plugin Update",
+        "state_plugin_uptodate": "Up to date",
+        "state_plugin_update_available": "Update available: {current} → {latest}",
+        "log_update_check_start": "Checking for updates …",
+        "log_update_uptodate": "✅ Installed version: {version}",
+        "log_update_declined": "Update skipped",
+        "log_update_failed": "❌ Update check failed: {error}",
+        "msg_update_available_title": "Update available",
+        "msg_update_available_text": "A new version ({latest}) is available.\nCurrently installed: {current}.\nUpdate now?",
         "update_fail": "Update failed: {error}",
         "update_success": "✅ Update installed successfully! Please restart the tool.",
         "update_available_msg": "Current version: {current}\nNew version: {latest}",
@@ -434,6 +441,7 @@ TEXTS = {
         "update_extract_failed": "❌ Failed to extract new version: {error}",
         "update_done": "✅ Update to version {version} completed successfully.",
         "restart_tool": "Restart Tool",
+        "update_check_done": "Done",
         "restart_tool_question": "Do you want to restart the tool now?",
         "backup_created": "✅ Backup created: {file}",
         "exit_question": "Do you really want to close the tool?",
@@ -444,6 +452,7 @@ TEXTS = {
         "version_current": "Version {version} is up to date.",
         "update_check_failed": "Update check failed: {error}",
         "update_available_title": "Update Available",
+        "update_no_update": "ℹ️ No update available",
         # Option Buttons
         "git_status": "View Commits",
         "restart_tool": "Restart Tool",
@@ -586,6 +595,16 @@ TEXTS = {
         "github_version_available": "Neue Version {version} auf GitHub verfügbar",
         "github_version_fetch_failed": "⚠️ Fehler beim Abrufen der GitHub-Version: {error}",
         "plugin_update": "Update verfügbar: {current} → {latest}",
+        "btn_plugin_update": "Plugin Update",
+        "update_check_done": "Fertig",
+        "state_plugin_uptodate": "Bereits aktuell",
+        "state_plugin_update_available": "Update verfügbar: {current} → {latest}",
+        "log_update_check_start": "Prüfe auf Updates …",
+        "log_update_uptodate": "✅ Installierte Version: {version}",
+        "log_update_declined": "Update übersprungen",
+        "log_update_failed": "❌ Update-Prüfung fehlgeschlagen: {error}",
+        "msg_update_available_title": "Update verfügbar",
+        "msg_update_available_text": "Eine neue Version ({latest}) ist verfügbar.\nAktuell installiert: {current}.\nJetzt updaten?",
         # Option Buttons
         "git_status": "Commits anzeigen",
         "restart_tool": "Tool Neustarten",
@@ -603,6 +622,7 @@ TEXTS = {
         "version_current": "Version {version} ist aktuell.",
         "update_error": "Fehler bei Updateprüfung: {error}",
         "update_declined": "Update abgebrochen.",
+        "update_no_update": "ℹ️ Kein Update vorhanden",
         "restart_required_title": "Neustart erforderlich",
         "patch_emu_git_success": "✅ OSCam Emu Git successfully patched",
         "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
@@ -2164,10 +2184,10 @@ class PatchManagerGUI(QWidget):
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
         # 4. GUI-Elemente für Pfadauswahl VORAB erstellen
-        self.path_input = QLineEdit(self.OLD_PATCH_DIR)
-        self.path_input.setReadOnly(True)
-        self.btn_choose_path = QPushButton("Ordner wählen")
-        self.btn_choose_path.clicked.connect(self.select_patch_path)
+        #self.path_input = QLineEdit(self.OLD_PATCH_DIR)
+        #self.path_input.setReadOnly(True)
+        #self.btn_choose_path = QPushButton("Ordner wählen")
+        #self.btn_choose_path.clicked.connect(self.select_patch_path)
 
         # 5. Listen & Status-Variablen
         self.all_buttons = []
@@ -2190,8 +2210,8 @@ class PatchManagerGUI(QWidget):
         p_layout.addWidget(self.label_patch_path)
 
         # Pfad-Input und "Choose" Button
-        p_layout.addWidget(self.path_input)
-        p_layout.addWidget(self.btn_choose_path)
+        #p_layout.addWidget(self.path_input)
+        #p_layout.addWidget(self.btn_choose_path)
 
         # Layout einfügen
         if self.layout():
@@ -2258,8 +2278,8 @@ class PatchManagerGUI(QWidget):
             self.cancel_button.setText(get_t("cancel", "Abbrechen"))
 
         # Patch-Pfad Label
-        if hasattr(self, "label_patch_path") and self.label_patch_path:
-            self.label_patch_path.setText(get_t("patch_path_label", "Patch speichern"))
+       # if hasattr(self, "label_patch_path") and self.label_patch_path:
+           # self.label_patch_path.setText(get_t("patch_path_label", "Patch speichern"))
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """
@@ -2275,7 +2295,11 @@ class PatchManagerGUI(QWidget):
         lang_texts = TEXTS.get(lang, TEXTS.get("en", {}))
 
         # --- Startmeldung ---
-        self.append_info(widget, lang_texts.get("update_started", "Updateprüfung gestartet..."), "info")
+        self.append_info(
+            widget,
+            lang_texts.get("update_started", "Updateprüfung gestartet..."),
+            "info",
+        )
         if progress_callback:
             progress_callback(5)
 
@@ -2296,7 +2320,9 @@ class PatchManagerGUI(QWidget):
             resp.raise_for_status()
             with open(target_file, "wb") as f:
                 f.write(resp.content)
-            self.append_info(widget, "✅ oscam_patch_manager.py erfolgreich aktualisiert!", "success")
+            self.append_info(
+                widget, "✅ oscam_patch_manager.py erfolgreich aktualisiert!", "success"
+            )
             if progress_callback:
                 progress_callback(80)
 
@@ -3115,26 +3141,27 @@ class PatchManagerGUI(QWidget):
             lv = Version(self.latest_version.strip().lstrip("v"))
             cv = Version(APP_VERSION.strip().lstrip("v"))
 
-            text_template = TEXTS.get(self.LANG, {}).get(
-                "plugin_update", "Update verfügbar"
-            )
-
-            try:
-                text_filled = text_template.format(current=cv, latest=lv)
-            except KeyError:
-                text_filled = text_template  # falls keine Platzhalter enthalten
-
             if lv <= cv:
                 self.plugin_update_button.setEnabled(False)
-                self.plugin_update_button.setText(text_filled + " ✅")
+                self.plugin_update_button.setText(
+                    TEXTS[self.LANG].get("state_plugin_uptodate", "Bereits aktuell")
+                    + " ✅"
+                )
             else:
                 self.plugin_update_button.setEnabled(True)
-                self.plugin_update_button.setText(text_filled)
+                self.plugin_update_button.setText(
+                    TEXTS[self.LANG]
+                    .get(
+                        "state_plugin_update_available",
+                        "Update verfügbar: {current} → {latest}",
+                    )
+                    .format(current=cv, latest=lv)
+                )
 
         except InvalidVersion:
             self.plugin_update_button.setEnabled(True)
             self.plugin_update_button.setText(
-                TEXTS.get(self.LANG, {}).get("plugin_update", "Update verfügbar")
+                TEXTS[self.LANG].get("btn_plugin_update", "Plugin Update")
             )
 
     def fetch_latest_version(self):
@@ -3347,6 +3374,7 @@ class PatchManagerGUI(QWidget):
         Meldungen erscheinen im Info-Widget.
         """
         from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
+        from PyQt6.QtGui import QTextCursor
         import time, requests
         from packaging.version import Version
 
@@ -3354,18 +3382,18 @@ class PatchManagerGUI(QWidget):
         progress = getattr(self, "progress_bar", None)
         lang = getattr(self, "LANG", "de").lower()
 
-        # Reset Progress
+        # Progress reset
         if progress:
             progress.setValue(0)
             progress.show()
 
-        # Hilfsfunktion für Logs
+        # Log-Hilfsfunktion
         def log(text_key, level="info", **kwargs):
             colors = {
                 "success": "green",
                 "warning": "orange",
                 "error": "red",
-                "info": "gray",
+                "info": "yellow",
             }
             color = colors.get(level, "gray")
             text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
@@ -3373,6 +3401,7 @@ class PatchManagerGUI(QWidget):
                 text = text_template.format(**kwargs)
             except Exception:
                 text = text_template
+
             if isinstance(widget, QTextEdit):
                 widget.append(f'<span style="color:{color}">{text}</span>')
                 widget.moveCursor(QTextCursor.MoveOperation.End)
@@ -3380,17 +3409,23 @@ class PatchManagerGUI(QWidget):
             else:
                 print(f"[{level.upper()}] {text}")
 
+        # Start
         log("update_check_start", "info")
         if progress:
             progress.setValue(10)
 
         try:
-            # GitHub version.txt abrufen (Cache umgehen)
-            version_url = f"https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt?t={int(time.time())}"
+            # Version von GitHub laden (Cache umgehen)
+            version_url = (
+                "https://raw.githubusercontent.com/"
+                "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+                f"?t={int(time.time())}"
+            )
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
+
             latest_version = resp.text.strip().lstrip("v")
-            self.latest_version = latest_version  # ✅ Wichtig für Button
+            self.latest_version = latest_version
             self.update_plugin_button_state()
 
             if progress:
@@ -3398,18 +3433,18 @@ class PatchManagerGUI(QWidget):
 
             current_version = APP_VERSION.strip().lstrip("v")
 
-            # Version aktuell?
+            # 🔹 Kein Update vorhanden
             if not Version(latest_version) > Version(current_version):
                 log("update_current_version", "success", version=current_version)
+                log("update_no_update", "info")
                 if progress:
                     progress.setValue(100)
                 return
 
-            # Update verfügbar
+            # 🔹 Update verfügbar
             if progress:
                 progress.setValue(80)
 
-            # Dialog anzeigen
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(
                 TEXTS.get(lang, {}).get("update_available_title", "Update verfügbar")
@@ -3418,21 +3453,24 @@ class PatchManagerGUI(QWidget):
                 TEXTS.get(lang, {})
                 .get(
                     "update_available_msg",
-                    "Eine neue Version ({latest}) ist verfügbar. Aktuell: {current}.\nJetzt updaten?",
+                    "Eine neue Version ({latest}) ist verfügbar.\n"
+                    "Aktuell installiert: {current}.\nJetzt updaten?",
                 )
                 .format(current=current_version, latest=latest_version)
             )
+
             yes_btn = msg_box.addButton(
-                TEXTS.get(lang, {}).get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+                TEXTS.get(lang, {}).get("yes", "Ja"),
+                QMessageBox.ButtonRole.YesRole,
             )
             no_btn = msg_box.addButton(
-                TEXTS.get(lang, {}).get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+                TEXTS.get(lang, {}).get("no", "Nein"),
+                QMessageBox.ButtonRole.NoRole,
             )
             msg_box.setDefaultButton(yes_btn)
             msg_box.exec()
 
             if msg_box.clickedButton() == yes_btn:
-                # Update ausführen (Download & Ersetzen)
                 if hasattr(self, "plugin_update_action"):
                     self.plugin_update_action(
                         latest_version=latest_version,
@@ -3441,6 +3479,7 @@ class PatchManagerGUI(QWidget):
             else:
                 log("update_declined", "info")
                 log("update_current_version", "success", version=current_version)
+                log("update_no_update", "info")
                 if progress:
                     progress.setValue(100)
 
@@ -3699,7 +3738,13 @@ class PatchManagerGUI(QWidget):
         self.info_text = QTextEdit()
         self.info_text.setFont(QFont("Courier", 14))
         self.info_text.setReadOnly(True)
-        self.info_text.setText("Fertig")  # KEINE doppelte Klammer hier
+
+        # ✅ Internationalisiert + Farbe
+        done_text = TEXTS.get(self.LANG, TEXTS.get("en", {})).get(
+            "update_check_done", "Done"
+        )
+        self.info_text.setHtml(f'<span style="color:blue">{done_text}</span>')
+
         self.info_text.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
