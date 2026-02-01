@@ -2363,9 +2363,15 @@ class PatchManagerGUI(QWidget):
         """Lädt die neue Version herunter und ersetzt das Skript."""
         import requests, os, shutil, sys
 
-        # Debug: Zeigt im Terminal, was in self.LANG steht
+        # Sprache der Instanz sicherstellen
         current_lang = str(getattr(self, "LANG", "de")).lower()
-        print(f"[DEBUG] plugin_update_action nutzt Sprache: {current_lang}")
+
+        # --- DEBUG-AUSGABE IM INFOSCREEN ---
+        if hasattr(self, "info_text") and self.info_text:
+            self.info_text.append(
+                f'<span style="color:gray">[DEBUG] Sprache erkannt: {current_lang}</span>'
+            )
+            QApplication.processEvents()
 
         lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
 
@@ -2399,6 +2405,8 @@ class PatchManagerGUI(QWidget):
 
             if progress_callback:
                 progress_callback(50)
+
+            # Pfad-Fix für sys.argv
             current_file = os.path.abspath(sys.argv[0])
             backup_file = current_file + ".bak"
             shutil.copy2(current_file, backup_file)
@@ -2431,6 +2439,7 @@ class PatchManagerGUI(QWidget):
             if progress_callback:
                 progress_callback(100)
             if msg_box.clickedButton() == yes_btn:
+                # Korrekter Neustart
                 os.execl(sys.executable, sys.executable, sys.argv[0], *sys.argv[1:])
         except Exception as e:
             action_log("update_download_failed", "error", error=str(e))
@@ -2795,6 +2804,7 @@ class PatchManagerGUI(QWidget):
         Terminal-Ausgabe ist komplett deaktiviert.
         """
         from PyQt6.QtWidgets import QTextEdit
+        from PyQt6.QtGui import QTextCursor  # Wichtig für Punkt 4
 
         # 1. Widget-Validierung
         if not isinstance(info_widget, QTextEdit):
@@ -4172,46 +4182,42 @@ class PatchManagerGUI(QWidget):
 
     def change_language(self):
         """
-        Called when the language dropdown changes.
-        Updates self.LANG, refreshes all text labels,
-        tooltips, and info logs.
+        Wird aufgerufen, wenn die Sprach-Dropdown-Box geändert wird.
+        Aktualisiert self.LANG und alle GUI-Elemente.
         """
         selected = self.language_box.currentText()
-        self.LANG = "de" if selected == "DE" else "en"  # Wichtig: GUI-Sprache
+        # 1. Variable aktualisieren (Wichtig für alle Dialoge!)
+        self.LANG = "de" if selected == "DE" else "en"
 
-        # ---------------------
-        # Alle Labels & Tooltips
-        self.lang_label.setText(TEXTS[self.LANG]["language_label"])
-        self.color_label.setText(TEXTS[self.LANG]["color_label"])
-        self.commit_label.setText(TEXTS[self.LANG]["commit_count_label"])
-        self.info_button.setToolTip(TEXTS[self.LANG]["info_tooltip"])
+        # 2. Basis-Labels übersetzen
+        if hasattr(self, "lang_label"):
+            self.lang_label.setText(TEXTS[self.LANG].get("language_label", "Language:"))
+        if hasattr(self, "color_label"):
+            self.color_label.setText(TEXTS[self.LANG].get("color_label", "Color:"))
+        if hasattr(self, "commit_label"):
+            self.commit_label.setText(
+                TEXTS[self.LANG].get("commit_count_label", "Commits:")
+            )
+        if hasattr(self, "info_button"):
+            self.info_button.setToolTip(TEXTS[self.LANG].get("info_tooltip", "Info"))
 
-        # ---------------------
-        # Option Buttons
-        for btn, text_key in self.option_buttons.values():
-            if text_key in TEXTS[self.LANG]:
-                btn.setText(TEXTS[self.LANG][text_key])
+        # 3. ZENTRALER FIX: Nutze unsere optimierte update_language Methode
+        # Diese Funktion haben wir zuvor erstellt, um Breiten, Platzhalter
+        # und den Terminal-Button korrekt zu handhaben.
+        self.update_language()
 
-        # ---------------------
-        # Grid Buttons (Patch Aktionen)
-        for key, btn in getattr(self, "buttons", {}).items():
-            if key in TEXTS[self.LANG]:
-                btn.setText(TEXTS[self.LANG][key])
-
-        # ---------------------
-        # Info Text
+        # 4. Info Text (Hilfe-Screen)
         if hasattr(self, "info_text") and "info_text" in TEXTS[self.LANG]:
+            # Wir nutzen hier oft setHtml oder append, falls HTML genutzt wird
             self.info_text.setPlainText(TEXTS[self.LANG]["info_text"])
 
-        # ---------------------
-        # Config speichern
+        # 5. Config dauerhaft speichern
         if not hasattr(self, "cfg"):
             self.cfg = load_config()
-        self.cfg["language"] = selected
+        self.cfg["language"] = selected.upper()
         save_config(self.cfg)
 
-        # ---------------------
-        # Info Log übersetzen
+        # 6. Log-Eintrag über den Wechsel
         log_text = TEXTS[self.LANG].get(
             "language_changed", f"Language changed to {selected}"
         )
