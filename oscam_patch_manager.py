@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.2.7"
+APP_VERSION = "2.2.8"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2375,20 +2375,74 @@ class PatchManagerGUI(QWidget):
         self.updateGeometry()
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """Lädt die neue Version herunter und ersetzt das Skript."""
+        """Lädt die neue Version vom Master-Branch herunter, sichert die alte und ersetzt das Skript."""
         import requests, os, shutil, sys
+        from PyQt6.QtWidgets import QMessageBox
+        from PyQt6.QtCore import QCoreApplication
 
-        # Sprache der Instanz sicherstellen
+        # 1. Sprache & Texte laden
         current_lang = str(getattr(self, "LANG", "de")).lower()
-
-        # --- DEBUG-AUSGABE IM INFOSCREEN ---
-        if hasattr(self, "info_text") and self.info_text:
-            self.info_text.append(
-                f'<span style="color:gray">[DEBUG] Sprache erkannt: {current_lang}</span>'
-            )
-            QApplication.processEvents()
-
         lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
+
+        # --- AUTOMATISCHES BACKUP IN OLD_PATCHES ---
+        try:
+            os.makedirs(self.OLD_PATCH_DIR, exist_ok=True)
+            current_script = os.path.abspath(__file__)
+
+            # Sichert das Skript in den Ordner old_patches
+            shutil.copy2(current_script, self.PATCH_MANAGER_OLD)
+
+            if os.path.exists(CONFIG_FILE):
+                shutil.copy2(CONFIG_FILE, self.CONFIG_OLD)
+
+            self.info_text.append(
+                f'<span style="color:green">✅ Backup erstellt in: {self.OLD_PATCH_DIR}</span>'
+            )
+        except Exception as e:
+            self.info_text.append(
+                f'<span style="color:orange">⚠️ Backup übersprungen: {e}</span>'
+            )
+
+        # --- DEINE KORREKTE RAW-URL ---
+        url = (
+            "https://raw.githubusercontent.com/"
+            "speedy005/Oscam-Emu-patch-Manager/"
+            "master/oscam_patch_manager.py"
+        )
+
+        try:
+            self.info_text.append(
+                f"<b>{lang_pack.get('update_downloading', 'Lade Update herunter...')}</b>"
+            )
+            QCoreApplication.processEvents()
+
+            # Download der neuen Version
+            response = requests.get(url, timeout=15)
+            response.raise_for_status()
+
+            # Aktuelles Skript mit neuem Inhalt von GitHub überschreiben
+            with open(current_script, "wb") as f:
+                f.write(response.content)
+
+            self.info_text.append(
+                '<span style="color:cyan">🚀 Update erfolgreich!</span>'
+            )
+
+            # Erfolgsmeldung & Neustart-Dialog
+            msg_text = lang_pack.get(
+                "update_success_msg",
+                "Update erfolgreich! Das Tool wird neu gestartet.",
+            )
+
+            QMessageBox.information(self, "Update", msg_text)
+
+            # --- NEUSTART ---
+            os.execl(sys.executable, sys.executable, *sys.argv)
+
+        except Exception as e:
+            error_msg = f"Fehler beim Download: {str(e)}"
+            self.info_text.append(f'<span style="color:red">❌ {error_msg}</span>')
+            QMessageBox.critical(self, "Update Error", error_msg)
 
         def action_log(text_key, level="info", **kwargs):
             if hasattr(self, "info_text"):
