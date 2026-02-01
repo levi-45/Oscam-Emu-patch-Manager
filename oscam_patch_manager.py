@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.2.9"
+APP_VERSION = "2.3.0"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2315,75 +2315,110 @@ class PatchManagerGUI(QWidget):
                     )
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """Lädt die neue Version vom Master-Branch herunter, sichert die alte und ersetzt das Skript."""
+        """Sichert alle wichtigen Dateien und installiert das Update."""
         import requests, os, shutil, sys
-        from PyQt6.QtWidgets import QMessageBox
+        from PyQt6.QtWidgets import QMessageBox, QApplication
         from PyQt6.QtCore import QCoreApplication
 
-        # 1. Sprache & Texte laden
         current_lang = str(getattr(self, "LANG", "de")).lower()
         lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
 
-        # --- AUTOMATISCHES BACKUP IN OLD_PATCHES ---
-        try:
-            os.makedirs(self.OLD_PATCH_DIR, exist_ok=True)
-            current_script = os.path.abspath(__file__)
-
-            # Kopiert das laufende Skript in den Backup-Ordner
-            shutil.copy2(current_script, self.PATCH_MANAGER_OLD)
-
-            # Falls vorhanden, auch die Config sichern
-            if os.path.exists(CONFIG_FILE):
-                shutil.copy2(CONFIG_FILE, self.CONFIG_OLD)
-
-            self.info_text.append(
-                f'<span style="color:green">✅ Backup erstellt: '
-                f"{os.path.basename(self.PATCH_MANAGER_OLD)}</span>"
-            )
-        except Exception as e:
-            self.info_text.append(
-                f'<span style="color:orange">⚠️ Backup-Hinweis: {e}</span>'
-            )
-
-        # --- KORREKTE RAW-URL ZU DEINER DATEI ---
-        url = (
-            "https://raw.githubusercontent.com/"
-            "speedy005/Oscam-Emu-patch-Manager/"
-            "master/oscam_patch_manager.py"
-        )
+        def action_log(text_key, level="info", **kwargs):
+            if hasattr(self, "info_text"):
+                safe_vars = {"version": latest_version or "???", "current": APP_VERSION}
+                safe_vars.update(kwargs)
+                text_template = lang_pack.get(text_key, text_key)
+                try:
+                    text = text_template.format(**safe_vars)
+                except:
+                    text = text_template
+                color = (
+                    "green"
+                    if level == "success"
+                    else "red" if level == "error" else "yellow"
+                )
+                self.info_text.append(f'<span style="color:{color}">{text}</span>')
+                QApplication.processEvents()
 
         try:
-            self.info_text.append(
-                f"<b>{lang_pack.get('update_downloading', 'Lade Update herunter...')}</b>"
+            if progress_callback:
+                progress_callback(10)
+
+            # --- 1. VOLLSTÄNDIGES BACKUP IN OLD_PATCH_DIR ---
+            os.makedirs(OLD_PATCH_DIR, exist_ok=True)
+            files_to_backup = {
+                os.path.abspath(__file__): PATCH_MANAGER_OLD,
+                CONFIG_FILE: CONFIG_OLD,
+                GITHUB_CONF_FILE: GITHUB_CONFIG_OLD,
+                PATCH_FILE: OLD_PATCH_FILE,
+            }
+
+            backup_success = True
+            for src, dst in files_to_backup.items():
+                if os.path.exists(src):
+                    try:
+                        shutil.copy2(src, dst)
+                    except Exception as e:
+                        print(f"Fehler beim Sichern von {src}: {e}")
+                        backup_success = False
+
+            if backup_success:
+                action_log("update_backup_done", "success")
+            else:
+                self.info_text.append(
+                    '<span style="color:orange">⚠️ Teilweises Backup fehlgeschlagen</span>'
+                )
+
+            # --- 2. DOWNLOAD DER NEUEN VERSION ---
+            download_url = (
+                "https://raw.githubusercontent.com"
+                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             )
-            QCoreApplication.processEvents()
 
-            # Download der neuen Version
-            response = requests.get(url, timeout=15)
-            response.raise_for_status()
+            resp = requests.get(download_url, timeout=20)
+            resp.raise_for_status()
+            new_content = resp.content  # Binär lesen für Sicherheit
 
-            # Neue Version auf die Platte schreiben (überschreibt das aktuelle Skript)
-            with open(current_script, "wb") as f:
-                f.write(response.content)
+            if progress_callback:
+                progress_callback(60)
 
-            self.info_text.append(
-                '<span style="color:cyan">🚀 Update erfolgreich durchgeführt!</span>'
+            # --- 3. DATEI ERSETZEN ---
+            current_file = os.path.abspath(__file__)
+            with open(current_file, "wb") as f:
+                f.write(new_content)
+
+            if progress_callback:
+                progress_callback(90)
+
+            action_log("update_done", "success", version=latest_version)
+
+            # --- 4. NEUSTART DIALOG ---
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle(lang_pack.get("restart_required_title", "Restart"))
+            success_msg = lang_pack.get("update_success", "Update erfolgreich!")
+            question_msg = lang_pack.get(
+                "restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"
             )
+            msg_box.setText(f"{success_msg}\n\n{question_msg}")
 
-            # Erfolgsmeldung & Neustart-Dialog
-            msg_text = lang_pack.get(
-                "update_success_msg",
-                "Update erfolgreich! Das Tool wird nun neu gestartet.",
+            yes_btn = msg_box.addButton(
+                lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
             )
-            QMessageBox.information(self, "Update", msg_text)
+            msg_box.addButton(
+                lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+            )
+            msg_box.exec()
 
-            # --- NEUSTART ---
-            os.execl(sys.executable, sys.executable, *sys.argv)
+            if progress_callback:
+                progress_callback(100)
+
+            if msg_box.clickedButton() == yes_btn:
+                # Korrekter Neustart des Python-Interpreters mit dem aktuellen Skript
+                os.execl(sys.executable, sys.executable, *sys.argv)
 
         except Exception as e:
-            error_msg = f"Fehler beim Download: {str(e)}"
-            self.info_text.append(f'<span style="color:red">❌ {error_msg}</span>')
-            QMessageBox.critical(self, "Update Error", error_msg)
+            action_log("update_download_failed", "error", error=str(e))
+            QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
 
         def action_log(text_key, level="info", **kwargs):
             if hasattr(self, "info_text"):
