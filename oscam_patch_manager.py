@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.2.3"
+APP_VERSION = "2.2.4"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -432,7 +432,7 @@ TEXTS = {
         "update_success": "✅ Update installed successfully! Please restart the tool.",
         "update_available_msg": "Current version: {current}\nNew version: {latest}",
         "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
-        "restart_tool_info": "ℹ️ Restarting application...",
+        # "restart_tool_info": "ℹ️ Restarting application...",
         "restart_tool_cancelled": "ℹ️ Restart cancelled by user.",
         "update_started": "ℹ️ Update check started...",
         "update_backup_done": "✅ Old plugin files backed up.",
@@ -478,6 +478,7 @@ TEXTS = {
         "color_label": "Color",
         "commit_count_label": "Number of commits to show",
         "info_tooltip": "Info / Help",
+        "restart_tool_question": "Do you want to restart the tool now?",
         # Info Text
         "info_text": (
             "This tool is a complete OSCam Emu Patch Manager.\n\n"
@@ -506,13 +507,7 @@ TEXTS = {
         "patch_create_success": "✅ Patch successfully created: {patch_file}",
         "patch_version_from_header": "✅ Patch version from header: {patch_version}",
         "patch_create_failed": "❌ Patch creation failed: {error}",
-        "update_started": "ℹ️ Updateprüfung gestartet...",
-        "update_backup_done": "✅ Alte Plugin-Dateien gesichert.",
-        "update_download_failed": "❌ Download fehlgeschlagen: {error}",
-        "update_extract_failed": "❌ Entpacken der neuen Version fehlgeschlagen: {error}",
         "plugin_update": "Update available: {current} → {latest}",
-        "update_done": "✅ Update auf Version {version} erfolgreich abgeschlossen.",
-        "restart_tool_question": "Möchten Sie das Tool jetzt neu starten?",
         # Commits
         "loading_commits": "Lade Commits...",
         "commits_loaded": "Commits erfolgreich geladen",
@@ -570,7 +565,7 @@ TEXTS = {
         "update_current_version": "✅ Sie nutzen bereits die aktuelle Version: {version}",
         "update_started": "ℹ️ Update gestartet…",
         "backup_created": "✅ Backup erfolgreich erstellt: {file}",
-        "restart_tool_info": "ℹ️ Tool wird neu gestartet…",
+        # "restart_tool_info": "ℹ️ Tool wird neu gestartet…",
         "restart_tool_cancelled": "ℹ️ Neustart vom Benutzer abgebrochen",
         "github_emu_git_uploaded": "✅ OSCam-Emu Git erfolgreich hochgeladen!",
         "github_emu_git_revision": "📊 Aktueller Stand: Revision {sha} ({commit_msg})",
@@ -620,6 +615,7 @@ TEXTS = {
         "update_declined": "Update abgebrochen.",
         "update_no_update": "ℹ️ Kein Update vorhanden",
         "restart_required_title": "Neustart erforderlich",
+        "restart_tool_question": "Möchten Sie das Tool jetzt neu starten?",
         "patch_emu_git_success": "✅ OSCam Emu Git successfully patched",
         "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
         "yes": "Ja",
@@ -2364,19 +2360,20 @@ class PatchManagerGUI(QWidget):
             self.layout().activate()
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """
-        Lädt die neue Version herunter und ersetzt das Skript.
-        Nutzt die Original-URL-Struktur.
-        """
+        """Lädt die neue Version herunter und ersetzt das Skript."""
         import requests, os, shutil, sys
 
-        lang_key = getattr(self, "LANG", "de").lower()
+        # Debug: Zeigt im Terminal, was in self.LANG steht
+        current_lang = str(getattr(self, "LANG", "de")).lower()
+        print(f"[DEBUG] plugin_update_action nutzt Sprache: {current_lang}")
+
+        lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
 
         def action_log(text_key, level="info", **kwargs):
             if hasattr(self, "info_text"):
                 safe_vars = {"version": latest_version or "???", "current": APP_VERSION}
                 safe_vars.update(kwargs)
-                text_template = TEXTS.get(lang_key, {}).get(text_key, text_key)
+                text_template = lang_pack.get(text_key, text_key)
                 try:
                     text = text_template.format(**safe_vars)
                 except:
@@ -2392,29 +2389,21 @@ class PatchManagerGUI(QWidget):
         try:
             if progress_callback:
                 progress_callback(10)
-
-            # === ORIGINAL URL STRUKTUR ===
             download_url = (
                 "https://raw.githubusercontent.com/"
                 "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             )
-
             resp = requests.get(download_url, timeout=20)
             resp.raise_for_status()
             new_content = resp.text
 
             if progress_callback:
                 progress_callback(50)
-
-            # Pfad der aktuellen Datei ermitteln
             current_file = os.path.abspath(sys.argv[0])
             backup_file = current_file + ".bak"
-
-            # Backup erstellen
             shutil.copy2(current_file, backup_file)
             action_log("update_backup_done", "success")
 
-            # Datei überschreiben
             with open(current_file, "w", encoding="utf-8") as f:
                 f.write(new_content)
 
@@ -2422,35 +2411,29 @@ class PatchManagerGUI(QWidget):
                 progress_callback(90)
             action_log("update_done", "success", version=latest_version)
 
-            # Neustart-Dialog
+            # --- DIALOG ---
             msg_box = QMessageBox(self)
-            msg_box.setWindowTitle(
-                TEXTS.get(lang_key, {}).get("restart_required_title", "Restart")
+            msg_box.setWindowTitle(lang_pack.get("restart_required_title", "Restart"))
+            success_msg = lang_pack.get("update_success", "Update successful!")
+            question_msg = lang_pack.get(
+                "restart_tool_question", "Do you want to restart now?"
             )
-            msg_box.setText(
-                TEXTS.get(lang_key, {}).get("update_success", "Update successful!")
-                + "\n\n"
-                + TEXTS.get(lang_key, {}).get("restart_tool_question", "Restart now?")
-            )
+            msg_box.setText(f"{success_msg}\n\n{question_msg}")
 
             yes_btn = msg_box.addButton(
-                TEXTS.get(lang_key, {}).get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+                lang_pack.get("yes", "Yes"), QMessageBox.ButtonRole.YesRole
             )
             no_btn = msg_box.addButton(
-                TEXTS.get(lang_key, {}).get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+                lang_pack.get("no", "No"), QMessageBox.ButtonRole.NoRole
             )
             msg_box.exec()
 
             if progress_callback:
                 progress_callback(100)
-
             if msg_box.clickedButton() == yes_btn:
-                os.execl(sys.executable, sys.executable, *sys.argv)
-
+                os.execl(sys.executable, sys.executable, sys.argv[0], *sys.argv[1:])
         except Exception as e:
             action_log("update_download_failed", "error", error=str(e))
-            if progress_callback:
-                progress_callback(0)
 
     def update_clock(self):
         """Aktualisiert die digitale Uhr im Header"""
@@ -2855,55 +2838,35 @@ class PatchManagerGUI(QWidget):
     def restart_application_with_info(
         self, checked=False, progress_callback=None, info_widget=None
     ):
-        """
-        Startet das Tool neu mit optionaler Info-Ausgabe im Widget.
-        """
+        """Startet das Tool neu via Button-Klick."""
         widget = info_widget or getattr(self, "info_text", None)
+        current_lang = str(getattr(self, "LANG", "de")).lower()
+        print(f"[DEBUG] restart_application nutzt Sprache: {current_lang}")
+
+        lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
 
         msg = QMessageBox(self)
-        msg.setWindowTitle(TEXTS[LANG].get("restart_tool", "Restart tool"))
+        msg.setWindowTitle(lang_pack.get("restart_tool", "Restart tool"))
         msg.setText(
-            TEXTS[LANG].get(
-                "restart_tool_question", "Do you really want to restart the tool?"
-            )
+            lang_pack.get("restart_tool_question", "Do you want to restart now?")
         )
 
         yes_button = msg.addButton(
-            TEXTS[LANG].get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+            lang_pack.get("yes", "Yes"), QMessageBox.ButtonRole.YesRole
         )
         no_button = msg.addButton(
-            TEXTS[LANG].get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+            lang_pack.get("no", "No"), QMessageBox.ButtonRole.NoRole
         )
-        msg.exec()
-
-        # Lokaler Logger
-        def log(text_key, level="info", **kwargs):
-            colors = {
-                "success": "green",
-                "warning": "orange",
-                "error": "red",
-                "info": "gray",
-            }
-            color = colors.get(level, "gray")
-
-            text_template = TEXTS[LANG].get(text_key, text_key)
-            text = text_template.format(**kwargs)
-
-            if isinstance(widget, QTextEdit):
-                widget.append(f'<span style="color:{color}">{text}</span>')
-                widget.moveCursor(QTextCursor.MoveOperation.End)
-                QApplication.processEvents()
-            else:
-                print(f"[{level.upper()}] {text}")
+        msg_box_res = msg.exec()
 
         if msg.clickedButton() == yes_button:
-            log("restart_tool_info", "info")  # ⚠️ Tool wird neu gestartet...
+            info_msg = lang_pack.get("restart_tool_info", "Restarting...")
+            if isinstance(widget, QTextEdit):
+                widget.append(f'<span style="color:gray">{info_msg}</span>')
             self.restart_application()
         else:
-            log("restart_tool_cancelled", "info")  # ℹ️ Neustart abgebrochen
-
-        if progress_callback:
-            progress_callback(100)
+            if progress_callback:
+                progress_callback(100)
 
     # ===================== ZIP PATCH =====================
     def zip_patch(self, info_widget=None, progress_callback=None):
@@ -3100,7 +3063,6 @@ class PatchManagerGUI(QWidget):
             "github_emu_config_button": "github_emu_config_button",
             # Tool / Sonstiges
             "plugin_update_button": "plugin_update",
-            # "restart_tool_button": "restart_tool",
             "edit_header_button": "edit_patch_header",
             "commits_button": "commits_button",
         }
