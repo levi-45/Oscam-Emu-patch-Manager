@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.3.2"
+APP_VERSION = "2.3.3"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -706,10 +706,12 @@ for key, value in TEXTS["en"].items():
 # 4️⃣ **Unbedingt einmalig vor GUI-Start aufrufen**
 fill_missing_keys(TEXTS)
 
+
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
     if not os.path.exists(path):
         os.makedirs(path)
+
 
 def save_config(cfg=None):
     """
@@ -733,6 +735,7 @@ def save_config(cfg=None):
             json.dump(cfg, f, indent=2)
     except Exception as e:
         self.append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
+
 
 # ===================== CONFIG =====================
 def load_config():
@@ -759,6 +762,7 @@ def load_config():
         except:
             return default_cfg
     return default_cfg
+
 
 # ===================== INFOSCREEN =====================
 def github_upload_patch_file(
@@ -923,6 +927,7 @@ import subprocess
 import os
 import shutil  # wird unten benötigt
 
+
 def get_patch_header(repo_dir=None, lang=LANG):
     """
     Liest Versions- und Build-Information aus globals.h
@@ -980,6 +985,7 @@ def get_patch_header(repo_dir=None, lang=LANG):
     )
 
     return header
+
 
 # ===================== TOOL CHECK & AUTOMATISCHE INSTALLATION =====================
 def check_tools(self, info_widget=None):
@@ -1042,9 +1048,11 @@ def check_tools(self, info_widget=None):
 
     return all_ok
 
+
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 import os, subprocess, shutil
+
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1202,6 +1210,7 @@ def log(text, level="info"):
     else:
         print(f"[{level.upper()}] {text}")
 
+
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
@@ -1313,10 +1322,12 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     # Fertig
     set_progress(100)
 
+
 # ===================== CLEAN PATCH FOLDER =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
+
 
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1399,8 +1410,10 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     log("clean_done", "success")
     set_progress(100)
 
+
 # ===================== ICONS =====================
 ICON_SIZE = 64
+
 
 def create_icons():
     """
@@ -1442,6 +1455,7 @@ def get_icon_for(name):
     safe_name = name.replace(" ", "_").replace("/", "_").replace("\\", "_")
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
+
 
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1516,6 +1530,7 @@ def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     # Abschluss
     set_progress(100)  # Balken voll auf 100%
     log("clean_done", "success")
+
 
 # ===================== patch_oscam_emu_git=====================
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
@@ -1691,6 +1706,7 @@ def save_github_config(cfg):
     except:
         pass
 
+
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
     dir_path,
@@ -1762,6 +1778,7 @@ def _github_upload(
         ),
         "success" if code == 0 else "error",
     )
+
 
 # ===================== GITHUB UPLOAD PATCH FILE =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1856,6 +1873,7 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     except Exception as e:
         log(f"run_bash execution error: {e}", "error")
         return -1
+
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -2034,6 +2052,7 @@ def github_upload_oscam_emu_folder(
         log("github_upload_failed", "error")
         set_progress(0)
 
+
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -2130,6 +2149,7 @@ class GithubConfigDialog(QDialog):
 
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QThread, pyqtSignal
 
+
 class TaskWorker(QThread):
     progress = pyqtSignal(int)
     info = pyqtSignal(str, str)
@@ -2152,10 +2172,12 @@ class TaskWorker(QThread):
             self.info.emit(f"Fehler: {str(e)}", "error")
             self.progress.emit(100)
 
+
 # =====================
 # PATCH MANAGER GUI
 # =====================
 from PyQt6.QtGui import QColor
+
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
@@ -2177,7 +2199,6 @@ class PatchManagerGUI(QWidget):
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
         # 4. GUI-Elemente für Pfadauswahl VORAB erstellen
-        
 
         # 5. Listen & Status-Variablen
         self.all_buttons = []
@@ -2204,10 +2225,9 @@ class PatchManagerGUI(QWidget):
         # ------------------------------
 
         # 7. Pfad-Layout in das bestehende UI integrieren
-       
 
         self.label_patch_path = QLabel()
-      
+
         self.update_language()
 
     def open_terminal(self, **kwargs):
@@ -2282,11 +2302,11 @@ class PatchManagerGUI(QWidget):
         """Sichert alle wichtigen Dateien und installiert das Update."""
         import requests, os, shutil, sys
         from PyQt6.QtWidgets import QMessageBox, QApplication
-        from PyQt6.QtCore import QCoreApplication
 
         current_lang = str(getattr(self, "LANG", "de")).lower()
         lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
 
+        # ---------- EINMAL DEFINIERT ----------
         def action_log(text_key, level="info", **kwargs):
             if hasattr(self, "info_text"):
                 safe_vars = {"version": latest_version or "???", "current": APP_VERSION}
@@ -2296,6 +2316,7 @@ class PatchManagerGUI(QWidget):
                     text = text_template.format(**safe_vars)
                 except:
                     text = text_template
+
                 color = (
                     "green"
                     if level == "success"
@@ -2308,7 +2329,7 @@ class PatchManagerGUI(QWidget):
             if progress_callback:
                 progress_callback(10)
 
-            # --- 1. VOLLSTÄNDIGES BACKUP IN OLD_PATCH_DIR ---
+            # --- 1. VOLLSTÄNDIGES BACKUP ---
             os.makedirs(OLD_PATCH_DIR, exist_ok=True)
             files_to_backup = {
                 os.path.abspath(__file__): PATCH_MANAGER_OLD,
@@ -2377,81 +2398,11 @@ class PatchManagerGUI(QWidget):
                 progress_callback(100)
 
             if msg_box.clickedButton() == yes_btn:
-                # Korrekter Neustart des Python-Interpreters mit dem aktuellen Skript
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
         except Exception as e:
             action_log("update_download_failed", "error", error=str(e))
             QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
-
-        def action_log(text_key, level="info", **kwargs):
-            if hasattr(self, "info_text"):
-                safe_vars = {"version": latest_version or "???", "current": APP_VERSION}
-                safe_vars.update(kwargs)
-                text_template = lang_pack.get(text_key, text_key)
-                try:
-                    text = text_template.format(**safe_vars)
-                except:
-                    text = text_template
-                color = (
-                    "green"
-                    if level == "success"
-                    else "red" if level == "error" else "yellow"
-                )
-                self.info_text.append(f'<span style="color:{color}">{text}</span>')
-                QApplication.processEvents()
-
-        try:
-            if progress_callback:
-                progress_callback(10)
-            download_url = (
-                "https://raw.githubusercontent.com/"
-                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
-            )
-            resp = requests.get(download_url, timeout=20)
-            resp.raise_for_status()
-            new_content = resp.text
-
-            if progress_callback:
-                progress_callback(50)
-
-            # Pfad-Fix für sys.argv
-            current_file = os.path.abspath(sys.argv[0])
-            backup_file = current_file + ".bak"
-            shutil.copy2(current_file, backup_file)
-            action_log("update_backup_done", "success")
-
-            with open(current_file, "w", encoding="utf-8") as f:
-                f.write(new_content)
-
-            if progress_callback:
-                progress_callback(90)
-            action_log("update_done", "success", version=latest_version)
-
-            # --- DIALOG ---
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle(lang_pack.get("restart_required_title", "Restart"))
-            success_msg = lang_pack.get("update_success", "Update successful!")
-            question_msg = lang_pack.get(
-                "restart_tool_question", "Do you want to restart now?"
-            )
-            msg_box.setText(f"{success_msg}\n\n{question_msg}")
-
-            yes_btn = msg_box.addButton(
-                lang_pack.get("yes", "Yes"), QMessageBox.ButtonRole.YesRole
-            )
-            no_btn = msg_box.addButton(
-                lang_pack.get("no", "No"), QMessageBox.ButtonRole.NoRole
-            )
-            msg_box.exec()
-
-            if progress_callback:
-                progress_callback(100)
-            if msg_box.clickedButton() == yes_btn:
-                # Korrekter Neustart
-                os.execl(sys.executable, sys.executable, sys.argv[0], *sys.argv[1:])
-        except Exception as e:
-            action_log("update_download_failed", "error", error=str(e))
 
     def update_clock(self):
         """Aktualisiert die digitale Uhr im Header"""
@@ -4534,6 +4485,7 @@ class PatchManagerGUI(QWidget):
         if msg.clickedButton() == yes_button:
             save_config(self.cfg)  # jetzt sauber, nur beim Beenden
             QApplication.quit()
+
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
