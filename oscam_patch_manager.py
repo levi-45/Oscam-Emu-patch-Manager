@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.2.1"
+APP_VERSION = "2.2.2"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2328,10 +2328,10 @@ class PatchManagerGUI(QWidget):
 
         # 2. Patch-Pfad Label & Buttons
         if hasattr(self, "label_patch_path") and self.label_patch_path:
-            self.label_patch_path.setText(get_t("patch_path_label", "Patch Pfad"))
+            self.label_patch_path.setText(get_t("patch_path_label", "Patch path"))
 
         if hasattr(self, "btn_choose_path") and self.btn_choose_path:
-            self.btn_choose_path.setText(get_t("choose_folder", "Ordner wählen"))
+            self.btn_choose_path.setText(get_t("choose_folder", "Choose folder"))
 
         # 3. Alle Option-Buttons übersetzen & Größe anpassen
         if hasattr(self, "option_buttons"):
@@ -2430,7 +2430,7 @@ class PatchManagerGUI(QWidget):
                 TEXTS.get(lang_key, {}).get("restart_required_title", "Restart")
             )
             msg_box.setText(
-                TEXTS.get(lang_key, {}).get("update_success", "Update erfolgreich!")
+                TEXTS.get(lang_key, {}).get("update_success", "Update successful!")
                 + "\n\n"
                 + TEXTS.get(lang_key, {}).get("restart_tool_question", "Restart now?")
             )
