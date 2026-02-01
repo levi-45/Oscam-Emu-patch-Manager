@@ -2205,10 +2205,10 @@ class PatchManagerGUI(QWidget):
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
         # 4. GUI-Elemente für Pfadauswahl VORAB erstellen
-        self.path_input = QLineEdit(self.OLD_PATCH_DIR)
-        self.path_input.setReadOnly(True)
-        self.btn_choose_path = QPushButton("Ordner wählen")
-        self.btn_choose_path.clicked.connect(self.select_patch_path)
+        # self.path_input = QLineEdit(self.OLD_PATCH_DIR)
+        # self.path_input.setReadOnly(True)
+        # self.btn_choose_path = QPushButton("Ordner wählen")
+        # self.btn_choose_path.clicked.connect(self.select_patch_path)
 
         # 5. Listen & Status-Variablen
         self.all_buttons = []
@@ -2235,19 +2235,19 @@ class PatchManagerGUI(QWidget):
         # ------------------------------
 
         # 7. Pfad-Layout in das bestehende UI integrieren
-        p_layout = QHBoxLayout()
+        # p_layout = QHBoxLayout()
 
         self.label_patch_path = QLabel()
-        p_layout.addWidget(self.label_patch_path)
+        # p_layout.addWidget(self.label_patch_path)
 
-        p_layout.addWidget(self.path_input)
-        p_layout.addWidget(self.btn_choose_path)
+        # p_layout.addWidget(self.path_input)
+        # p_layout.addWidget(self.btn_choose_path)
 
-        if self.layout():
-            self.layout().addLayout(p_layout)
-        else:
-            main_vbox = QVBoxLayout(self)
-            main_vbox.addLayout(p_layout)
+        # if self.layout():
+        # self.layout().addLayout(p_layout)
+        # else:
+        # main_vbox = QVBoxLayout(self)
+        # main_vbox.addLayout(p_layout)
 
         # Update der Sprache sofort auf das Label anwenden
         self.update_language()
@@ -2294,7 +2294,7 @@ class PatchManagerGUI(QWidget):
             directory = os.path.normpath(directory)
 
             # 1. GUI-Elemente aktualisieren
-            self.path_input.setText(directory)
+            # self.path_input.setText(directory)
 
             # 2. Interne Variablen im laufenden Betrieb updaten
             self.cfg["s3_patch_path"] = directory
