@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.2.8"
+APP_VERSION = "2.2.9"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2313,70 +2313,6 @@ class PatchManagerGUI(QWidget):
                     self.append_info(
                         self.info_text, f"❌ Fehler beim Speichern: {e}", "error"
                     )
-
-    def update_language(self):
-        """Aktualisiert Texte direkt basierend auf der Auswahl in der ComboBox."""
-        from PyQt6.QtWidgets import QSizePolicy
-        from PyQt6.QtCore import QTimer
-
-        # --- DER FIX: Wir schauen direkt in die Dropdown-Box! ---
-        if hasattr(self, "language_box"):
-            selected = self.language_box.currentText().upper()  # Holt "DE" oder "EN"
-            lang = "de" if selected == "DE" else "en"
-            self.LANG = lang  # Synchronisiert die interne Variable
-        else:
-            lang = getattr(self, "LANG", "de").lower()
-
-        def get_t(key, default):
-            return TEXTS.get(lang, {}).get(key, default)
-
-        # 1. Fenster-Titel
-        self.setWindowTitle(get_t("github_dialog_title", "OSCam Emu Patch Manager"))
-
-        # 2. Alle Option-Buttons übersetzen
-        if hasattr(self, "option_buttons"):
-            current_v = APP_VERSION.replace("v", "").strip()
-            latest_v = getattr(self, "latest_version", "...")
-
-            for key, (btn, text_key) in self.option_buttons.items():
-                raw_text = get_t(text_key, text_key)
-
-                if key == "plugin_update":
-                    btn.setText(
-                        raw_text.format(
-                            current=current_v, version=current_v, latest=latest_v
-                        )
-                    )
-                else:
-                    btn.setText(raw_text)
-
-                # --- BREITE ANPASSEN ---
-                btn.setMinimumWidth(0)
-                btn.setMaximumWidth(16777215)
-                needed_w = btn.fontMetrics().horizontalAdvance(btn.text()) + 50
-                btn.setMinimumWidth(max(needed_w, 140))
-                btn.adjustSize()
-
-        # 3. Terminal-Button (unten)
-        if hasattr(self, "btn_terminal_bottom") and self.btn_terminal_bottom:
-            term_text = get_t("btn_terminal", "Terminal")
-            self.btn_terminal_bottom.setText(term_text)
-            t_w = (
-                self.btn_terminal_bottom.fontMetrics().horizontalAdvance(term_text) + 50
-            )
-            self.btn_terminal_bottom.setMinimumWidth(max(t_w, 140))
-            self.btn_terminal_bottom.adjustSize()
-
-        # 4. Update-Zustand
-        self.update_plugin_button_state()
-
-        # 5. Layout-Refresh (OHNE adjustSize() am Fenster)
-        if self.layout():
-            self.layout().invalidate()
-            self.layout().activate()
-
-        # Verhindert das "Zusammenschnurren" des Fensters
-        self.updateGeometry()
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """Lädt die neue Version vom Master-Branch herunter, sichert die alte und ersetzt das Skript."""
