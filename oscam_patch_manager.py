@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.3.3"
+APP_VERSION = "2.3.4"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -121,29 +121,28 @@ PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def get_initial_patch_dir():
     """Wählt den sichersten Standardpfad je nach Betriebssystem."""
-    # 1. Unter Windows IMMER lokal bleiben
+    # Ordnername geändert von "old_patches" zu "backup"
+    folder_name = "backup"
+
     if platform.system() == "Windows":
-        path = os.path.join(PLUGIN_DIR, "old_patches")
+        path = os.path.join(PLUGIN_DIR, folder_name)
     else:
-        # 2. Unter Linux S3-Pfad prüfen, sonst lokal
         s3_path = "/opt/s3/support/patches"
         if os.path.exists(s3_path) and os.access(s3_path, os.W_OK):
             path = s3_path
         else:
-            path = os.path.join(PLUGIN_DIR, "old_patches")
+            path = os.path.join(PLUGIN_DIR, folder_name)
 
     os.makedirs(path, exist_ok=True)
     return path
 
 
-# Standard-Fallback setzen
+# Pfade aktualisieren
 OLD_PATCH_DIR_PLUGIN_DEFAULT = get_initial_patch_dir()
-# Lokaler Archiv-Ordner im Plugin-Verzeichnis
-OLD_PATCH_DIR_PLUGIN_DEFAULT = os.path.join(PLUGIN_DIR, "old_patches")
-# Aktueller Arbeitsordner für Archivierung (Standard: lokal)
 OLD_PATCH_DIR = OLD_PATCH_DIR_PLUGIN_DEFAULT
 OLD_ = OLD_PATCH_DIR  # Legacy-Support
-# Archivierte Dateien im gewählten Ordner
+
+# Die Dateipfade bleiben gleich, zeigen aber nun in den /backup/ Ordner
 OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
 ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
 PATCH_MANAGER_OLD = os.path.join(OLD_PATCH_DIR, "oscam_patch_manager_old.py")
