@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.1.7"
+APP_VERSION = "2.1.8"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2867,10 +2867,10 @@ class PatchManagerGUI(QWidget):
         widget = info_widget or getattr(self, "info_text", None)
 
         msg = QMessageBox(self)
-        msg.setWindowTitle(TEXTS[LANG].get("restart_tool", "Tool Neustarten"))
+        msg.setWindowTitle(TEXTS[LANG].get("restart_tool", "Restart tool"))
         msg.setText(
             TEXTS[LANG].get(
-                "restart_tool_question", "Möchten Sie das Tool wirklich neu starten?"
+                "restart_tool_question", "Do you really want to restart the tool?"
             )
         )
 
