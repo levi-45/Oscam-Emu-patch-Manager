@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.1.3"
+APP_VERSION = "2.1.4"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2196,7 +2196,6 @@ class PatchManagerGUI(QWidget):
             self.LANG = "en"
 
         # 3. Patch-Pfade (Windows-sicher über os.path.normpath)
-        # Nutzt den Pfad aus der Config oder den globalen Plugin-Default
         current_path = self.cfg.get("s3_patch_path", OLD_PATCH_DIR_PLUGIN_DEFAULT)
         self.OLD_PATCH_DIR = os.path.normpath(current_path)
 
@@ -2214,33 +2213,41 @@ class PatchManagerGUI(QWidget):
         self.option_buttons = {}
         self.buttons = {}
         self.active_button_key = ""
-        self.latest_version = None
+
+        # --- UPDATE INITIALISIERUNG START ---
+        # Wir setzen latest_version auf die aktuelle APP_VERSION,
+        # damit der Button beim Start nicht leer ist oder "..." anzeigt.
+        self.latest_version = APP_VERSION.replace("v", "").strip()
+        # --- UPDATE INITIALISIERUNG ENDE ---
 
         # 6. Haupt-UI aufbauen
         self.init_ui()
+
+        # --- UPDATE BUTTON TEXT FIX ---
+        # Nachdem die UI (und damit der Button) erstellt wurde,
+        # setzen wir sofort den korrekten Text ohne Platzhalter-Fehler.
+        self.update_plugin_button_state()
+
+        # Der Timer startet den Online-Check verzögert für flüssiges GUI-Laden
         QTimer.singleShot(500, self.check_for_update_on_start)
+        # ------------------------------
+
         # 7. Pfad-Layout in das bestehende UI integrieren
-        # Wir erstellen ein kleines Layout für die Pfad-Zeile
-        # Layout für Patch-Pfad
-        # Patch-Pfad Layout
         p_layout = QHBoxLayout()
 
-        # Label leer erstellen, wird später durch update_language() gesetzt
         self.label_patch_path = QLabel()
         p_layout.addWidget(self.label_patch_path)
 
-        # Pfad-Input und "Choose" Button
         p_layout.addWidget(self.path_input)
         p_layout.addWidget(self.btn_choose_path)
 
-        # Layout einfügen
         if self.layout():
             self.layout().addLayout(p_layout)
         else:
             main_vbox = QVBoxLayout(self)
             main_vbox.addLayout(p_layout)
 
-        # --- Update der Sprache sofort auf das Label anwenden ---
+        # Update der Sprache sofort auf das Label anwenden
         self.update_language()
 
     def select_patch_path(self):
@@ -2303,56 +2310,92 @@ class PatchManagerGUI(QWidget):
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """
-        Lädt die aktuelle oscam_patch_manager.py direkt aus GitHub,
-        sichert die alte Version, ersetzt sie und bietet optional Neustart an.
+        Lädt die neue Version herunter und ersetzt das Skript.
+        Nutzt die Original-URL-Struktur.
         """
-        import requests
-        import shutil
-        import os
+        import requests, os, shutil, sys
 
-        widget = getattr(self, "info_text", None)
-        lang = getattr(self, "LANG", "de").lower()
-        lang_texts = TEXTS.get(lang, TEXTS.get("en", {}))
+        lang_key = getattr(self, "LANG", "de").lower()
 
-        # --- Startmeldung ---
-        self.append_info(
-            widget,
-            lang_texts.get("update_started", "Updateprüfung gestartet..."),
-            "info",
-        )
-        if progress_callback:
-            progress_callback(5)
-
-        url = f"https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
-        target_file = "/opt/patch/oscam-patching/oscam_patch_manager.py"
-        backup_file = target_file + ".bak"
+        def action_log(text_key, level="info", **kwargs):
+            if hasattr(self, "info_text"):
+                safe_vars = {"version": latest_version or "???", "current": APP_VERSION}
+                safe_vars.update(kwargs)
+                text_template = TEXTS.get(lang_key, {}).get(text_key, text_key)
+                try:
+                    text = text_template.format(**safe_vars)
+                except:
+                    text = text_template
+                color = (
+                    "green"
+                    if level == "success"
+                    else "red" if level == "error" else "yellow"
+                )
+                self.info_text.append(f'<span style="color:{color}">{text}</span>')
+                QApplication.processEvents()
 
         try:
-            # --- Backup erstellen ---
-            if os.path.exists(target_file):
-                shutil.copy2(target_file, backup_file)
-                self.append_info(widget, f"⚠️ Backup erstellt: {backup_file}", "warning")
             if progress_callback:
-                progress_callback(20)
+                progress_callback(10)
 
-            # --- Datei herunterladen ---
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            with open(target_file, "wb") as f:
-                f.write(resp.content)
-            self.append_info(
-                widget, "✅ oscam_patch_manager.py erfolgreich aktualisiert!", "success"
+            # === ORIGINAL URL STRUKTUR ===
+            download_url = (
+                "https://raw.githubusercontent.com/"
+                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             )
-            if progress_callback:
-                progress_callback(80)
 
-            # --- Optional Neustart anzeigen ---
-            self.restart_application_with_info(info_widget=widget)
+            resp = requests.get(download_url, timeout=20)
+            resp.raise_for_status()
+            new_content = resp.text
+
+            if progress_callback:
+                progress_callback(50)
+
+            # Pfad der aktuellen Datei ermitteln
+            current_file = os.path.abspath(sys.argv[0])
+            backup_file = current_file + ".bak"
+
+            # Backup erstellen
+            shutil.copy2(current_file, backup_file)
+            action_log("update_backup_done", "success")
+
+            # Datei überschreiben
+            with open(current_file, "w", encoding="utf-8") as f:
+                f.write(new_content)
+
+            if progress_callback:
+                progress_callback(90)
+            action_log("update_done", "success", version=latest_version)
+
+            # Neustart-Dialog
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle(
+                TEXTS.get(lang_key, {}).get("restart_required_title", "Restart")
+            )
+            msg_box.setText(
+                TEXTS.get(lang_key, {}).get("update_success", "Update erfolgreich!")
+                + "\n\n"
+                + TEXTS.get(lang_key, {}).get(
+                    "restart_tool_question", "Jetzt neu starten?"
+                )
+            )
+
+            yes_btn = msg_box.addButton(
+                TEXTS.get(lang_key, {}).get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+            )
+            no_btn = msg_box.addButton(
+                TEXTS.get(lang_key, {}).get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+            )
+            msg_box.exec()
+
             if progress_callback:
                 progress_callback(100)
 
+            if msg_box.clickedButton() == yes_btn:
+                os.execl(sys.executable, sys.executable, *sys.argv)
+
         except Exception as e:
-            self.append_info(widget, f"❌ Update fehlgeschlagen: {e}", "error")
+            action_log("update_download_failed", "error", error=str(e))
             if progress_callback:
                 progress_callback(0)
 
@@ -2552,8 +2595,8 @@ class PatchManagerGUI(QWidget):
 
     def setup_option_buttons(self, parent_layout):
         """
-        Erstellt alle Option-Buttons (Commits, Plugin Update, Restart, GitHub/EMU Buttons, Patch Header)
-        mit Hover/Pressed Farben und fügt sie in das übergebene Layout ein.
+        Erstellt alle Option-Buttons mit korrekter Platzhalter-Initialisierung
+        für den Plugin-Update-Button.
         """
         # Alle Buttons: key, text_key, Farbe, Callback, optional fg
         button_defs = [
@@ -2619,18 +2662,29 @@ class PatchManagerGUI(QWidget):
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        buttons_layout.addStretch(1)  # Fügt flexiblen Platz am Ende hinzu
+        buttons_layout.addStretch(1)
 
         self.option_buttons = getattr(self, "option_buttons", {})
+        current_v = APP_VERSION.replace("v", "").strip()
 
         for key, text_key, color, callback, *rest in button_defs:
             fg = rest[0] if rest else "white"
-            button_text = TEXTS[self.LANG].get(text_key, text_key)
 
-            # Diese Version fixiert die Funktion 'f' korrekt für die Schleife
+            # --- PLATZHALTER FIX START ---
+            raw_text = TEXTS[self.LANG].get(text_key, text_key)
+            if key == "plugin_update":
+                try:
+                    # Wir füllen current und version sofort beim Start
+                    button_text = raw_text.format(
+                        current=current_v, version=current_v, latest="..."
+                    )
+                except:
+                    button_text = raw_text
+            else:
+                button_text = raw_text
+            # --- PLATZHALTER FIX ENDE ---
+
             def make_callback(f):
-                # Wir ignorieren das 'checked' von PyQt komplett mit *_
-                # und erzwingen die Zuweisung per Namen (Keyword Arguments)
                 return lambda *_: (
                     f(
                         gui_instance=self,
@@ -2646,7 +2700,7 @@ class PatchManagerGUI(QWidget):
                 text=button_text,
                 color=color,
                 fg=fg,
-                callback=make_callback(callback),  # Nutzt die neue Logik
+                callback=make_callback(callback),
                 all_buttons_list=self.all_buttons,
                 min_height=self.BUTTON_HEIGHT,
                 radius=self.BUTTON_RADIUS,
@@ -2657,12 +2711,15 @@ class PatchManagerGUI(QWidget):
             )
             btn.adjustSize()
 
+            # Referenz für spätere Text-Updates speichern
+            if key == "plugin_update":
+                self.btn_plugin_update = btn
+
             buttons_layout.addWidget(btn)
             self.option_buttons[key] = (btn, text_key)
 
         container = QWidget()
         container.setLayout(buttons_layout)
-        # Setze die Policy des Containers, damit er den Platz nutzen kann
         container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         parent_layout.addWidget(container)
 
@@ -3150,39 +3207,62 @@ class PatchManagerGUI(QWidget):
         # ---------------------
 
     def update_plugin_button_state(self):
+        """
+        Aktualisiert den Text und die Farbe des Update-Buttons nach der Prüfung.
+        Ersetzt {current} und {latest} durch echte Werte.
+        """
+        # Sicherstellen, dass der Button existiert (wurde in setup_option_buttons zugewiesen)
+        btn = getattr(self, "btn_plugin_update", None)
+        if not btn:
+            return
+
+        lang_key = getattr(self, "LANG", "de").lower()
+        current_v = APP_VERSION.replace("v", "").strip()
+        latest_v = getattr(self, "latest_version", None)
+
         from packaging.version import Version, InvalidVersion
 
-        if not hasattr(self, "plugin_update_button"):
-            return
-        if not getattr(self, "latest_version", None):
-            return
-
         try:
-            lv = Version(self.latest_version.strip().lstrip("v"))
-            cv = Version(APP_VERSION.strip().lstrip("v"))
+            # Falls wir eine Version von GitHub erhalten haben
+            if latest_v:
+                lv_clean = latest_v.replace("v", "").strip()
+                cv_clean = current_v
 
-            if lv <= cv:
-                self.plugin_update_button.setEnabled(False)
-                self.plugin_update_button.setText(
-                    TEXTS[self.LANG].get("state_plugin_uptodate", "Bereits aktuell")
-                    + " ✅"
-                )
-            else:
-                self.plugin_update_button.setEnabled(True)
-                self.plugin_update_button.setText(
-                    TEXTS[self.LANG]
-                    .get(
-                        "state_plugin_update_available",
-                        "Update verfügbar: {current} → {latest}",
+                # Vergleich: Ist GitHub neuer als lokal?
+                if Version(lv_clean) > Version(cv_clean):
+                    # Key: "Update verfügbar: {current} → {latest}"
+                    template = TEXTS.get(lang_key, {}).get(
+                        "state_plugin_update_available", "Update: {current} → {latest}"
                     )
-                    .format(current=cv, latest=lv)
-                )
+                    # Hier werden die Platzhalter sicher befüllt
+                    new_text = template.format(
+                        current=current_v, latest=latest_v, version=current_v
+                    )
+                    btn.setText(new_text)
+                    # Farbe auf Orange/Warnung setzen
+                    btn.setStyleSheet(
+                        "background-color: #d35400; color: white; font-weight: bold;"
+                    )
+                    return
 
-        except InvalidVersion:
-            self.plugin_update_button.setEnabled(True)
-            self.plugin_update_button.setText(
-                TEXTS[self.LANG].get("btn_plugin_update", "Plugin Update")
+            # Wenn alles aktuell ist oder noch keine Info vorliegt
+            uptodate_text = TEXTS.get(lang_key, {}).get(
+                "state_plugin_uptodate", "Plugin aktuell"
             )
+
+            # Auch hier sicherheitshalber Formatierung versuchen
+            try:
+                btn.setText(uptodate_text.format(version=current_v, current=current_v))
+            except:
+                btn.setText(uptodate_text)
+
+            # Standard-Farbe (Blau oder Grau, je nach Design)
+            btn.setStyleSheet("background-color: #1E90FF; color: white;")
+
+        except Exception as e:
+            # Notfall-Anzeige ohne Formatierung
+            btn.setText(f"OSCam-Emu v{current_v}")
+            print(f"[DEBUG] Fehler beim Button-Update: {e}")
 
     def fetch_latest_version(self):
         """Vergleicht lokale APP_VERSION mit version.txt auf GitHub"""
