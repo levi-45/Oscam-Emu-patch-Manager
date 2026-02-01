@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.3.1"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2371,7 +2371,7 @@ class PatchManagerGUI(QWidget):
 
             # --- 2. DOWNLOAD DER NEUEN VERSION ---
             download_url = (
-                "https://raw.githubusercontent.com"
+                "https://raw.githubusercontent.com/"
                 "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             )
 
