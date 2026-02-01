@@ -706,12 +706,10 @@ for key, value in TEXTS["en"].items():
 # 4️⃣ **Unbedingt einmalig vor GUI-Start aufrufen**
 fill_missing_keys(TEXTS)
 
-
 def ensure_dir(path):
     """Stellt sicher, dass das Verzeichnis `path` existiert."""
     if not os.path.exists(path):
         os.makedirs(path)
-
 
 def save_config(cfg=None):
     """
@@ -735,7 +733,6 @@ def save_config(cfg=None):
             json.dump(cfg, f, indent=2)
     except Exception as e:
         self.append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
-
 
 # ===================== CONFIG =====================
 def load_config():
@@ -762,7 +759,6 @@ def load_config():
         except:
             return default_cfg
     return default_cfg
-
 
 # ===================== INFOSCREEN =====================
 def github_upload_patch_file(
@@ -927,7 +923,6 @@ import subprocess
 import os
 import shutil  # wird unten benötigt
 
-
 def get_patch_header(repo_dir=None, lang=LANG):
     """
     Liest Versions- und Build-Information aus globals.h
@@ -985,7 +980,6 @@ def get_patch_header(repo_dir=None, lang=LANG):
     )
 
     return header
-
 
 # ===================== TOOL CHECK & AUTOMATISCHE INSTALLATION =====================
 def check_tools(self, info_widget=None):
@@ -1048,11 +1042,9 @@ def check_tools(self, info_widget=None):
 
     return all_ok
 
-
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 import os, subprocess, shutil
-
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1210,7 +1202,6 @@ def log(text, level="info"):
     else:
         print(f"[{level.upper()}] {text}")
 
-
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
@@ -1322,12 +1313,10 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     # Fertig
     set_progress(100)
 
-
 # ===================== CLEAN PATCH FOLDER =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1410,10 +1399,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     log("clean_done", "success")
     set_progress(100)
 
-
 # ===================== ICONS =====================
 ICON_SIZE = 64
-
 
 def create_icons():
     """
@@ -1455,7 +1442,6 @@ def get_icon_for(name):
     safe_name = name.replace(" ", "_").replace("/", "_").replace("\\", "_")
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
-
 
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1530,7 +1516,6 @@ def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     # Abschluss
     set_progress(100)  # Balken voll auf 100%
     log("clean_done", "success")
-
 
 # ===================== patch_oscam_emu_git=====================
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
@@ -1706,7 +1691,6 @@ def save_github_config(cfg):
     except:
         pass
 
-
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
     dir_path,
@@ -1778,7 +1762,6 @@ def _github_upload(
         ),
         "success" if code == 0 else "error",
     )
-
 
 # ===================== GITHUB UPLOAD PATCH FILE =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1873,7 +1856,6 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     except Exception as e:
         log(f"run_bash execution error: {e}", "error")
         return -1
-
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -2052,7 +2034,6 @@ def github_upload_oscam_emu_folder(
         log("github_upload_failed", "error")
         set_progress(0)
 
-
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -2149,7 +2130,6 @@ class GithubConfigDialog(QDialog):
 
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QThread, pyqtSignal
 
-
 class TaskWorker(QThread):
     progress = pyqtSignal(int)
     info = pyqtSignal(str, str)
@@ -2172,12 +2152,10 @@ class TaskWorker(QThread):
             self.info.emit(f"Fehler: {str(e)}", "error")
             self.progress.emit(100)
 
-
 # =====================
 # PATCH MANAGER GUI
 # =====================
 from PyQt6.QtGui import QColor
-
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
@@ -2199,10 +2177,7 @@ class PatchManagerGUI(QWidget):
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
         # 4. GUI-Elemente für Pfadauswahl VORAB erstellen
-        # self.path_input = QLineEdit(self.OLD_PATCH_DIR)
-        # self.path_input.setReadOnly(True)
-        # self.btn_choose_path = QPushButton("Ordner wählen")
-        # self.btn_choose_path.clicked.connect(self.select_patch_path)
+        
 
         # 5. Listen & Status-Variablen
         self.all_buttons = []
@@ -2229,21 +2204,10 @@ class PatchManagerGUI(QWidget):
         # ------------------------------
 
         # 7. Pfad-Layout in das bestehende UI integrieren
-        # p_layout = QHBoxLayout()
+       
 
         self.label_patch_path = QLabel()
-        # p_layout.addWidget(self.label_patch_path)
-
-        # p_layout.addWidget(self.path_input)
-        # p_layout.addWidget(self.btn_choose_path)
-
-        # if self.layout():
-        # self.layout().addLayout(p_layout)
-        # else:
-        # main_vbox = QVBoxLayout(self)
-        # main_vbox.addLayout(p_layout)
-
-        # Update der Sprache sofort auf das Label anwenden
+      
         self.update_language()
 
     def open_terminal(self, **kwargs):
@@ -4570,7 +4534,6 @@ class PatchManagerGUI(QWidget):
         if msg.clickedButton() == yes_button:
             save_config(self.cfg)  # jetzt sauber, nur beim Beenden
             QApplication.quit()
-
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
