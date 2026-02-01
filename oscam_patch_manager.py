@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.3.1"
+APP_VERSION = "2.3.2"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2648,9 +2648,17 @@ class PatchManagerGUI(QWidget):
             ("patch_create", lambda: create_patch(self, self.info_text, None)),
             ("patch_renew", lambda: create_patch(self, self.info_text, None)),
             ("patch_check", lambda: self.check_patch(self.info_text, None)),
+            # Korrigiert: Komma hinzugefügt, Klammern fixiert, Liste für Mehrfachbefehle
             (
                 "patch_apply",
-                lambda: (self.start_progress(), self.apply_patch(self.info_text, None)),
+                lambda: (
+                    (
+                        self.progress_bar.setValue(0)
+                        if hasattr(self, "progress_bar")
+                        else None
+                    ),
+                    self.apply_patch(self.info_text, None),
+                ),
             ),
             ("patch_zip", lambda: self.zip_patch(self.info_text, None)),
             ("backup_old", lambda: backup_old_patch(self, self.info_text, None)),
