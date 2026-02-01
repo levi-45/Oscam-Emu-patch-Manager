@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.1.4"
+APP_VERSION = "2.1.5"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2290,23 +2290,43 @@ class PatchManagerGUI(QWidget):
 
     def update_language(self):
         """Aktualisiert die Texte im Dialog basierend auf der aktuellen Sprache"""
-        lang = getattr(self, "LANG", "de")  # Großbuchstaben-LANG nutzen
+        lang = getattr(self, "LANG", "de").lower()  # Einheitlich kleingeschrieben
 
         def get_t(key, default):
             return TEXTS.get(lang, {}).get(key, default)
 
-        # Fenster-Titel
-        self.setWindowTitle(get_t("github_dialog_title", "GitHub Config"))
+        # 1. Fenster-Titel
+        self.setWindowTitle(get_t("github_dialog_title", "OSCam Emu Patch Manager"))
 
-        # Buttons
+        # 2. Standard Buttons (Save/Cancel)
         if hasattr(self, "save_button") and self.save_button:
-            self.save_button.setText(get_t("save", "Patch speichern"))
+            self.save_button.setText(get_t("save", "Speichern"))
         if hasattr(self, "cancel_button") and self.cancel_button:
             self.cancel_button.setText(get_t("cancel", "Abbrechen"))
 
-        # Patch-Pfad Label
+        # 3. Patch-Pfad Label
         if hasattr(self, "label_patch_path") and self.label_patch_path:
-            self.label_patch_path.setText(get_t("patch_path_label", "Patch speichern"))
+            self.label_patch_path.setText(get_t("patch_path_label", "Patch Pfad"))
+
+        # 4. Alle Option-Buttons übersetzen (Schleife durch deine registrierten Buttons)
+        if hasattr(self, "option_buttons"):
+            for key, (btn, text_key) in self.option_buttons.items():
+                raw_text = get_t(text_key, text_key)
+                # Sonderbehandlung für den Update-Button wegen der Platzhalter
+                if key == "plugin_update":
+                    current_v = APP_VERSION.replace("v", "").strip()
+                    # Initialen Text setzen (wird später durch Online-Check verfeinert)
+                    btn.setText(
+                        raw_text.format(
+                            current=current_v, version=current_v, latest="..."
+                        )
+                    )
+                else:
+                    btn.setText(raw_text)
+
+        # 5. WICHTIG: Update-Button-Status finalisieren (Platzhalter füllen!)
+        # Das ersetzt {current} durch die echte Version
+        self.update_plugin_button_state()
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """
