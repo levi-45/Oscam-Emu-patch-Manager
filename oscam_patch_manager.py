@@ -74,7 +74,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.1.5"
+APP_VERSION = "2.1.6"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -431,9 +431,10 @@ TEXTS = {
         "update_fail": "Update failed: {error}",
         "update_success": "✅ Update installed successfully! Please restart the tool.",
         "update_available_msg": "Current version: {current}\nNew version: {latest}",
-        "restart_required_title": "Restart required",
+        # "restart_required_title": "Restart required",
         "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
         "restart_tool_info": "ℹ️ Restarting application...",
+        "restart_tool_question": "Do you want to restart the tool now?",
         "restart_tool_cancelled": "ℹ️ Restart cancelled by user.",
         "update_started": "ℹ️ Update check started...",
         "update_backup_done": "✅ Old plugin files backed up.",
