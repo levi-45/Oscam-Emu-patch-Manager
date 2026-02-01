@@ -453,7 +453,6 @@ TEXTS = {
         "update_no_update": "ℹ️ No update available",
         # Option Buttons
         "git_status": "View Commits",
-        "restart_tool": "Restart Tool",
         "edit_patch_header": "Edit Patch Header",
         "github_emu_config_button": "Edit GitHub Config",
         "github_upload_patch": "Upload Patch File",
@@ -513,7 +512,6 @@ TEXTS = {
         "update_extract_failed": "❌ Entpacken der neuen Version fehlgeschlagen: {error}",
         "plugin_update": "Update available: {current} → {latest}",
         "update_done": "✅ Update auf Version {version} erfolgreich abgeschlossen.",
-        "restart_tool": "Tool Neustarten",
         "restart_tool_question": "Möchten Sie das Tool jetzt neu starten?",
         # Commits
         "loading_commits": "Lade Commits...",
@@ -3102,7 +3100,7 @@ class PatchManagerGUI(QWidget):
             "github_emu_config_button": "github_emu_config_button",
             # Tool / Sonstiges
             "plugin_update_button": "plugin_update",
-            "restart_tool_button": "restart_tool",
+            # "restart_tool_button": "restart_tool",
             "edit_header_button": "edit_patch_header",
             "commits_button": "commits_button",
         }
