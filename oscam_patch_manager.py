@@ -514,6 +514,8 @@ TEXTS = {
         # Backup
         "backup_old_start": "ℹ️ Creating backup of old patch…",
         "backup_done": "✅ Backup successfully created: {path}",
+        "update_downloading": "Downloading update...",
+        "update_success_msg": "Update successful! The tool will now restart.",
         "no_old_patch": "ℹ️ No old patch found.",
         "new_patch_installed": "✅ New patch successfully installed: {path}",
         "patch_file_missing": "❌ Patch file missing: {path}",
@@ -673,6 +675,8 @@ TEXTS = {
         "no_old_patch": "ℹ️ Keine alte Patch-Datei gefunden.",
         "new_patch_installed": "✅ Neuer Patch erfolgreich installiert: {path}",
         "patch_file_missing": "❌ Patch-Datei fehlt: {path}",
+        "update_downloading": "Lade Update herunter...",
+        "update_success_msg": "Update erfolgreich! Das Tool wird nun neu gestartet.",
         "github_dialog_title": "GitHub Emu Konfiguration",
         "patch_check_ok": "✅ Patch kann angewendet werden: keine Konflikte gefunden",
         "patch_check_fail": "❌ Patch kann nicht angewendet werden: Konflikte vorhanden oder Fehler",
@@ -2389,21 +2393,23 @@ class PatchManagerGUI(QWidget):
             os.makedirs(self.OLD_PATCH_DIR, exist_ok=True)
             current_script = os.path.abspath(__file__)
 
-            # Sichert das Skript in den Ordner old_patches
+            # Kopiert das laufende Skript in den Backup-Ordner
             shutil.copy2(current_script, self.PATCH_MANAGER_OLD)
 
+            # Falls vorhanden, auch die Config sichern
             if os.path.exists(CONFIG_FILE):
                 shutil.copy2(CONFIG_FILE, self.CONFIG_OLD)
 
             self.info_text.append(
-                f'<span style="color:green">✅ Backup erstellt in: {self.OLD_PATCH_DIR}</span>'
+                f'<span style="color:green">✅ Backup erstellt: '
+                f"{os.path.basename(self.PATCH_MANAGER_OLD)}</span>"
             )
         except Exception as e:
             self.info_text.append(
-                f'<span style="color:orange">⚠️ Backup übersprungen: {e}</span>'
+                f'<span style="color:orange">⚠️ Backup-Hinweis: {e}</span>'
             )
 
-        # --- DEINE KORREKTE RAW-URL ---
+        # --- KORREKTE RAW-URL ZU DEINER DATEI ---
         url = (
             "https://raw.githubusercontent.com/"
             "speedy005/Oscam-Emu-patch-Manager/"
@@ -2420,20 +2426,19 @@ class PatchManagerGUI(QWidget):
             response = requests.get(url, timeout=15)
             response.raise_for_status()
 
-            # Aktuelles Skript mit neuem Inhalt von GitHub überschreiben
+            # Neue Version auf die Platte schreiben (überschreibt das aktuelle Skript)
             with open(current_script, "wb") as f:
                 f.write(response.content)
 
             self.info_text.append(
-                '<span style="color:cyan">🚀 Update erfolgreich!</span>'
+                '<span style="color:cyan">🚀 Update erfolgreich durchgeführt!</span>'
             )
 
             # Erfolgsmeldung & Neustart-Dialog
             msg_text = lang_pack.get(
                 "update_success_msg",
-                "Update erfolgreich! Das Tool wird neu gestartet.",
+                "Update erfolgreich! Das Tool wird nun neu gestartet.",
             )
-
             QMessageBox.information(self, "Update", msg_text)
 
             # --- NEUSTART ---
