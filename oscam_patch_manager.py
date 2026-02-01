@@ -2289,8 +2289,8 @@ class PatchManagerGUI(QWidget):
                     )
 
     def update_language(self):
-        """Aktualisiert die Texte im Dialog basierend auf der aktuellen Sprache"""
-        lang = getattr(self, "LANG", "de").lower()  # Einheitlich kleingeschrieben
+        """Aktualisiert die Texte und passt die Button-Breiten automatisch an."""
+        lang = getattr(self, "LANG", "de").lower()
 
         def get_t(key, default):
             return TEXTS.get(lang, {}).get(key, default)
@@ -2298,24 +2298,22 @@ class PatchManagerGUI(QWidget):
         # 1. Fenster-Titel
         self.setWindowTitle(get_t("github_dialog_title", "OSCam Emu Patch Manager"))
 
-        # 2. Standard Buttons (Save/Cancel)
-        if hasattr(self, "save_button") and self.save_button:
-            self.save_button.setText(get_t("save", "Speichern"))
-        if hasattr(self, "cancel_button") and self.cancel_button:
-            self.cancel_button.setText(get_t("cancel", "Abbrechen"))
-
-        # 3. Patch-Pfad Label
+        # 2. Patch-Pfad Label & Buttons
         if hasattr(self, "label_patch_path") and self.label_patch_path:
             self.label_patch_path.setText(get_t("patch_path_label", "Patch Pfad"))
 
-        # 4. Alle Option-Buttons übersetzen (Schleife durch deine registrierten Buttons)
+        if hasattr(self, "btn_choose_path") and self.btn_choose_path:
+            self.btn_choose_path.setText(get_t("choose_folder", "Ordner wählen"))
+
+        # 3. Alle Option-Buttons übersetzen & Größe anpassen
         if hasattr(self, "option_buttons"):
+            current_v = APP_VERSION.replace("v", "").strip()
+
             for key, (btn, text_key) in self.option_buttons.items():
                 raw_text = get_t(text_key, text_key)
-                # Sonderbehandlung für den Update-Button wegen der Platzhalter
+
                 if key == "plugin_update":
-                    current_v = APP_VERSION.replace("v", "").strip()
-                    # Initialen Text setzen (wird später durch Online-Check verfeinert)
+                    # Platzhalter sofort befüllen
                     btn.setText(
                         raw_text.format(
                             current=current_v, version=current_v, latest="..."
@@ -2324,9 +2322,20 @@ class PatchManagerGUI(QWidget):
                 else:
                     btn.setText(raw_text)
 
-        # 5. WICHTIG: Update-Button-Status finalisieren (Platzhalter füllen!)
-        # Das ersetzt {current} durch die echte Version
+                # --- AUTOMATISCHE BREITE ---
+                # Erzwingt die Neuberechnung der benötigten Breite für den neuen Text
+                btn.setMinimumWidth(0)  # Reset
+                btn.adjustSize()
+                # Optional: Mindestbreite setzen, damit es nicht zu schmal wird
+                if btn.width() < 120:
+                    btn.setMinimumWidth(120)
+
+        # 4. WICHTIG: Update-Button finalisieren (Platzhalter füllen!)
         self.update_plugin_button_state()
+
+        # 5. UI-Layout-Refresh (Zwingt das Fenster, die neuen Button-Größen zu übernehmen)
+        if self.layout():
+            self.layout().activate()
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """
