@@ -2252,6 +2252,36 @@ class PatchManagerGUI(QWidget):
         # Update der Sprache sofort auf das Label anwenden
         self.update_language()
 
+    def open_terminal(self, **kwargs):
+        """Öffnet ein leeres Terminal ohne Verzeichniswechsel."""
+        import subprocess
+        import platform
+        import os
+
+        try:
+            system = platform.system()
+            if system == "Windows":
+                # Startet eine neue Instanz der Eingabeaufforderung
+                subprocess.Popen(["cmd"], creationflags=subprocess.CREATE_NEW_CONSOLE)
+
+            elif system == "Linux":
+                # Versucht das Standard-Terminal zu finden und zu starten
+                terminal_opened = False
+                for term in ["gnome-terminal", "konsole", "xfce4-terminal", "xterm"]:
+                    if shutil.which(term):
+                        subprocess.Popen([term])
+                        terminal_opened = True
+                        break
+
+                if not terminal_opened:
+                    # Fallback: Versuche es über xdg-open (manchmal für Apps verknüpft)
+                    subprocess.Popen(["x-terminal-emulator"])
+        except Exception as e:
+            if hasattr(self, "info_text"):
+                self.info_text.append(
+                    f'<span style="color:red">Terminal-Fehler: {str(e)}</span>'
+                )
+
     def select_patch_path(self):
         """Öffnet den Verzeichnis-Dialog und speichert den Pfad Windows-sicher."""
         # Dialog öffnen (startet im aktuell gesetzten Pfad)
@@ -2406,9 +2436,7 @@ class PatchManagerGUI(QWidget):
             msg_box.setText(
                 TEXTS.get(lang_key, {}).get("update_success", "Update erfolgreich!")
                 + "\n\n"
-                + TEXTS.get(lang_key, {}).get(
-                    "restart_tool_question", "Jetzt neu starten?"
-                )
+                + TEXTS.get(lang_key, {}).get("restart_tool_question", "Restart now?")
             )
 
             yes_btn = msg_box.addButton(
