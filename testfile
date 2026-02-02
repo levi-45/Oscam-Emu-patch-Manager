@@ -2290,7 +2290,7 @@ class PatchManagerGUI(QWidget):
                 color = (
                     "green"
                     if level == "success"
-                    else "red" if level == "error" else "yellow"
+                    else "red" if level == "error" else "blue"
                 )
                 self.info_text.append(f'<span style="color:{color}">{text}</span>')
                 QApplication.processEvents()
@@ -3523,7 +3523,7 @@ class PatchManagerGUI(QWidget):
                 "success": "green",
                 "warning": "orange",
                 "error": "red",
-                "info": "yellow",
+                "info": "blue",
             }
             color = colors.get(level, "gray")
             text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
