@@ -2157,9 +2157,9 @@ class PatchManagerGUI(QWidget):
         self.cfg = load_config()
 
         # 2. Sprache & Basis-Initialisierungen
-        self.LANG = self.cfg.get("language", "DE").lower()
-        if self.LANG not in ["en", "de"]:
-            self.LANG = "en"
+        self.LANG = self.cfg.get("language", "DE").upper() # Auf upper() geändert für TEXTS-Kompatibilität
+        if self.LANG not in ["EN", "DE"]:
+            self.LANG = "EN"
 
         # 3. Patch-Pfade (Windows-sicher über os.path.normpath)
         current_path = self.cfg.get("s3_patch_path", OLD_PATCH_DIR_PLUGIN_DEFAULT)
@@ -2168,26 +2168,28 @@ class PatchManagerGUI(QWidget):
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
-        # 4. Listen & Status-Variablen (WICHTIG für dynamische Anpassung)
+        # 4. Listen & Status-Variablen
         self.all_buttons = []
         self.option_buttons = {}
         self.buttons = {}
         self.active_button_key = ""
         
-        # Grid-Layout Referenz initialisieren (wird in init_ui befüllt)
+        # Grid-Layout Referenz initialisieren
         self.main_grid_layout = None 
 
-        # --- UPDATE INITIALISIERUNG START ---
+        # --- UPDATE INITIALISIERUNG ---
         self.latest_version = APP_VERSION.replace("v", "").strip()
-        # --- UPDATE INITIALISIERUNG ENDE ---
 
         # 5. Haupt-UI aufbauen 
-        # Hier muss in deiner init_ui() ein QGridLayout verwendet werden!
         self.init_ui()
 
         # 6. Pfad-Layout & Update-Logik
-        self.label_patch_path = QLabel()
-        self.update_plugin_button_state()
+        # Nur erstellen, falls es in init_ui noch nicht existiert
+        if not hasattr(self, "label_patch_path"):
+            self.label_patch_path = QLabel()
+            
+        # KORRIGIERTER FUNKTIONSNAME:
+        self.update_plugin_update_button_state()
 
         # Der Timer startet den Online-Check verzögert
         QTimer.singleShot(500, self.check_for_update_on_start)
@@ -2236,7 +2238,7 @@ class PatchManagerGUI(QWidget):
         # 5. Logo-Skalierung (Proportional zur Fensterhöhe begrenzen)
         if hasattr(self, "original_pixmap") and self.original_pixmap:
             # Breite auf 40% reduzieren, damit Header schmal bleibt
-            logo_width = min(700, int(self.width() * 0.4))
+            logo_width = min(500, int(self.width() * 0.4))
             logo_height = int(logo_width / 6.3) 
             self.update_logo(width=logo_width, height=logo_height)
 
@@ -2585,12 +2587,13 @@ class PatchManagerGUI(QWidget):
 
     def setup_option_buttons(self, parent_layout):
         """
-        Erstellt die Option-Buttons in zwei Reihen, um Überlappungen 
-        bei jeder Auflösung zu verhindern.
+        Erstellt die Option-Buttons in zwei Reihen.
+        Terminal steht nun direkt neben Git leeren.
         """
         from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy
         from PyQt6.QtGui import QFont
 
+        # Liste um den Terminal-Button am Ende erweitert
         button_defs = [
             ("git_status", "git_status", "#1E90FF", self.show_commits, "white"),
             ("plugin_update", "plugin_update", "#FF8C00", self.plugin_update_button_clicked, "white"),
@@ -2601,54 +2604,53 @@ class PatchManagerGUI(QWidget):
             ("github_upload_emu", "github_upload_emu", "#1E90FF", github_upload_oscam_emu_folder, "white"),
             ("oscam_emu_git_patch", "oscam_emu_git_patch", "#32CD32", patch_oscam_emu_git, "white"),
             ("oscam_emu_git_clear", "oscam_emu_git_clear", "#FF4500", self.oscam_emu_git_clear, "white"),
+            # NEU: Terminal Button direkt nach Git Clear
+            ("terminal", "Terminal", "#2E2E2E", self.open_terminal, "#39FF14"), 
         ]
 
         container = QWidget()
-        # Grid-Layout für 2 Reihen
         options_grid = QGridLayout(container)
         options_grid.setSpacing(6)
         options_grid.setContentsMargins(0, 0, 0, 0)
 
         self.option_buttons = getattr(self, "option_buttons", {})
-        current_v = APP_VERSION.replace("v", "").strip()
-
-        # Wir verteilen 9 Buttons auf 2 Reihen (5 oben, 4 unten)
         cols_per_row = 5 
 
         for idx, (key, text_key, color, callback, *rest) in enumerate(button_defs):
             fg = rest[0] if rest else "white"
-            raw_text = TEXTS[self.LANG].get(text_key, text_key)
-
-            button_text = raw_text # ... (deine Update-Text-Logik hier)
+            
+            # Text aus TEXTS holen oder Fallback (Icon + Text)
+            raw_text = TEXTS[self.LANG].get(text_key, "💻 Terminal" if key == "terminal" else text_key)
 
             btn = self.create_action_button(
                 parent=self,
-                text=button_text,
+                text=raw_text,
                 color=color,
                 fg=fg,
-                callback=lambda k=key, c=callback: c(info_widget=self.info_text, progress_callback=None),
+                # Wichtig: Terminal braucht oft keine info_widget/progress Parameter, 
+                # daher fangen wir das hier ab, falls die Funktion einfacher gestrickt ist
+                callback=lambda k=key, c=callback: c() if k == "terminal" else c(info_widget=self.info_text, progress_callback=None),
                 all_buttons_list=self.all_buttons,
                 min_height=35,
                 radius=self.BUTTON_RADIUS,
             )
 
-            # --- DYNAMIK-ANPASSUNG ---
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            btn.setMinimumWidth(50) # Erlaubt sehr schmales Schrumpfen
+            btn.setFixedHeight(self.BUTTON_HEIGHT) # Erzwingt gleiche Höhe wie bei den anderen Elementen
             btn.setFont(QFont("Arial", 9, QFont.Weight.Bold))
 
-            # Position berechnen (2 Reihen)
             row = idx // cols_per_row
             col = idx % cols_per_row
             options_grid.addWidget(btn, row, col)
             
             self.option_buttons[key] = (btn, text_key)
 
-        # Spalten gleichmäßig strecken
         for i in range(cols_per_row):
             options_grid.setColumnStretch(i, 1)
 
-        parent_layout.addWidget(container)
+        parent_layout.addWidget(container, 0)
+
+    
 
     def update_all_texts(self):
         # Labels
@@ -3145,61 +3147,60 @@ class PatchManagerGUI(QWidget):
         # PLUGIN UPDATE
         # ---------------------
 
-    def update_plugin_button_state(self):
+    def update_plugin_update_button_state(self):
         """
         Aktualisiert den Text und die Farbe des Update-Buttons nach der Prüfung.
-        Ersetzt {current} und {latest} durch echte Werte.
+        Verhindert die Anzeige von Updates, wenn die Versionen identisch sind.
         """
-        # Sicherstellen, dass der Button existiert (wurde in setup_option_buttons zugewiesen)
-        btn = getattr(self, "btn_plugin_update", None)
+        # Holen des Buttons aus dem Dictionary (da er in setup_option_buttons so registriert wurde)
+        btn_data = self.option_buttons.get("plugin_update")
+        btn = btn_data[0] if btn_data else None
+        
         if not btn:
             return
 
-        lang_key = getattr(self, "LANG", "de").lower()
+        lang_key = getattr(self, "LANG", "DE").upper()
         current_v = APP_VERSION.replace("v", "").strip()
-        latest_v = getattr(self, "latest_version", None)
+        # Sicherstellen, dass latest_version existiert und ein String ist
+        latest_v_raw = getattr(self, "latest_version", None)
 
         from packaging.version import Version, InvalidVersion
 
         try:
-            # Falls wir eine Version von GitHub erhalten haben
-            if latest_v:
-                lv_clean = latest_v.replace("v", "").strip()
-                cv_clean = current_v
+            if latest_v_raw:
+                lv_clean = str(latest_v_raw).replace("v", "").strip()
+                cv_clean = current_v.strip()
 
-                # Vergleich: Ist GitHub neuer als lokal?
+                # STRIKTE PRÜFUNG: Nur wenn GitHub ECHT NEUER ist
                 if Version(lv_clean) > Version(cv_clean):
-                    # Key: "Update verfügbar: {current} → {latest}"
                     template = TEXTS.get(lang_key, {}).get(
                         "state_plugin_update_available", "Update: {current} → {latest}"
                     )
-                    # Hier werden die Platzhalter sicher befüllt
-                    new_text = template.format(
-                        current=current_v, latest=latest_v, version=current_v
-                    )
+                    # Sicherstellen, dass keine Abstürze bei der Formatierung passieren
+                    try:
+                        new_text = template.format(current=cv_clean, latest=lv_clean)
+                    except:
+                        new_text = f"Update: {cv_clean} -> {lv_clean}"
+                        
                     btn.setText(new_text)
-                    # Farbe auf Orange/Warnung setzen
-                    btn.setStyleSheet(
-                        "background-color: #d35400; color: white; font-weight: bold;"
-                    )
-                    return
+                    btn.setStyleSheet("background-color: #d35400; color: white; font-weight: bold;")
+                    return 
 
-            # Wenn alles aktuell ist oder noch keine Info vorliegt
+            # FALLBACK: Wenn Versionen gleich sind, GitHub älter ist oder keine Info vorliegt
             uptodate_text = TEXTS.get(lang_key, {}).get(
-                "state_plugin_uptodate", "Plugin aktuell"
+                "state_plugin_uptodate", "Plugin aktuell (v{version})"
             )
 
-            # Auch hier sicherheitshalber Formatierung versuchen
             try:
+                # Zeigt einfach nur die aktuelle Version an
                 btn.setText(uptodate_text.format(version=current_v, current=current_v))
             except:
-                btn.setText(uptodate_text)
+                btn.setText(f"Plugin aktuell: v{current_v}")
 
-            # Standard-Farbe (Blau oder Grau, je nach Design)
+            # Standard-Farbe (Blau)
             btn.setStyleSheet("background-color: #1E90FF; color: white;")
 
         except Exception as e:
-            # Notfall-Anzeige ohne Formatierung
             btn.setText(f"OSCam-Emu v{current_v}")
             print(f"[DEBUG] Fehler beim Button-Update: {e}")
 
@@ -3717,32 +3718,33 @@ class PatchManagerGUI(QWidget):
         import requests
         from io import BytesIO
 
-        # 1. Grundwerte (Instanzvariablen für globale Verfügbarkeit)
+        # 1. Grundwerte
         self.TITLE_HEIGHT = 45 
         self.BUTTON_HEIGHT = 40
         self.BUTTON_RADIUS = 10
         self.all_buttons = []
         self.option_buttons = getattr(self, "option_buttons", {})
 
-        # Hauptlayout - Direkt an 'self' binden!
+        # Hauptlayout - Direkt an 'self' binden (Oberer Rand auf 0!)
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(8) 
-        main_layout.setContentsMargins(20, 5, 20, 10)
+        main_layout.setContentsMargins(20, 0, 20, 10)
 
         # ---------------------------------------------------------
-        # HEADER-SECTION (BANNER) - Absolut stabilisiert
+        # HEADER-SECTION (BANNER) - Stabilisiert auf 70px Höhe
         # ---------------------------------------------------------
         header_widget = QFrame()
-        header_widget.setMinimumHeight(85) 
-        header_widget.setMaximumHeight(50)
+        header_widget.setFixedHeight(70) # Einheitliche feste Höhe
         header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(15, 5, 15, 5)
+        header_layout.setContentsMargins(15, 0, 15, 0)
         header_layout.setSpacing(10)
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         # Links: Info + Uhr
         left_header_container = QWidget()
         left_header = QHBoxLayout(left_header_container)
         left_header.setContentsMargins(0, 0, 0, 0)
+        left_header.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         self.info_button = QPushButton("ℹ️")
         self.info_button.setFixedSize(45, 45)
@@ -3758,7 +3760,7 @@ class PatchManagerGUI(QWidget):
         
         header_layout.addStretch(1)
 
-        # Mitte: Logo (Download & Fixierung)
+        # Mitte: Logo (Label ERST erstellen, dann Download!)
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.logo_label.setMinimumWidth(300)
@@ -3775,7 +3777,8 @@ class PatchManagerGUI(QWidget):
             self.logo_label.setText("OSCAM TOOLKIT")
             self.original_pixmap = None
 
-        self.update_logo(width=350, height=35) 
+        # Sicherer Aufruf da logo_label nun existiert
+        self.update_logo(width=400, height=45) 
         header_layout.addWidget(self.logo_label, 3) 
         
         header_layout.addStretch(1)
@@ -3785,14 +3788,15 @@ class PatchManagerGUI(QWidget):
         right_header = QVBoxLayout(right_header_container)
         right_header.setContentsMargins(0, 0, 0, 0)
         right_header.setSpacing(0)
+        right_header.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         by_label = QLabel("by speedy005")
-        by_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        by_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         by_label.setStyleSheet("color: blue;")
         by_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         
         v_label = QLabel(f"v{APP_VERSION}")
-        v_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        v_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         v_label.setStyleSheet("color: red;")
         v_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         
@@ -3805,7 +3809,7 @@ class PatchManagerGUI(QWidget):
         main_layout.addWidget(header_widget, 0)
 
         # ---------------------------------------------------------
-        # MITTELTEIL (Info Text & Progress) - Flexibel
+        # MITTELTEIL (Info Text & Progress)
         # ---------------------------------------------------------
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
@@ -3822,23 +3826,42 @@ class PatchManagerGUI(QWidget):
         controls_widget = QFrame()
         controls_layout = QHBoxLayout(controls_widget)
         controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
+        control_style = f"""
+            QComboBox, QSpinBox {{
+                height: {self.BUTTON_HEIGHT}px; 
+                font-size: 14px; 
+                padding-left: 5px;
+                border: 1px solid #ccc;
+                border-radius: {self.BUTTON_RADIUS}px;
+            }}
+        """
+
         self.lang_label = QLabel(TEXTS[self.LANG]["language_label"])
         self.language_box = QComboBox()
         self.language_box.addItems(["EN", "DE"])
-        self.language_box.setFixedWidth(65)
+        self.language_box.setFixedWidth(80)
+        self.language_box.setFixedHeight(self.BUTTON_HEIGHT)
+        self.language_box.setStyleSheet(control_style)
         self.language_box.setCurrentText(self.cfg.get("language", "DE"))
         self.language_box.currentIndexChanged.connect(self.change_language)
         
         self.color_label = QLabel(TEXTS[self.LANG]["color_label"])
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
+        self.color_box.setFixedHeight(self.BUTTON_HEIGHT)
+        self.color_box.setMinimumWidth(150)
+        self.color_box.setStyleSheet(control_style)
         self.color_box.setCurrentText(self.cfg.get("color", "Classic"))
         self.color_box.currentIndexChanged.connect(self.change_colors)
         
         self.commit_label = QLabel(TEXTS[self.LANG]["commit_count_label"])
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
+        self.commit_spin.setFixedHeight(self.BUTTON_HEIGHT) 
+        self.commit_spin.setFixedWidth(70) 
+        self.commit_spin.setStyleSheet(control_style)
         self.commit_spin.setValue(self.cfg.get("commit_count", 5))
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
 
@@ -3855,13 +3878,10 @@ class PatchManagerGUI(QWidget):
         main_layout.addWidget(controls_widget, 0)
 
         # ---------------------------------------------------------
-        # OPTION BUTTONS (Git Status, Update etc.)
+        # OPTION BUTTONS & AKTIONS-GRID
         # ---------------------------------------------------------
         self.setup_option_buttons(main_layout)
 
-        # ---------------------------------------------------------
-        # AKTIONS-GRID (Patch erstellen, Zip, Exit etc.)
-        # ---------------------------------------------------------
         self.grid_container = QWidget()
         self.layout_grid_buttons = QGridLayout(self.grid_container)
         self.layout_grid_buttons.setSpacing(10)
@@ -3992,11 +4012,10 @@ class PatchManagerGUI(QWidget):
         self.cfg["color"] = current_color_name
 
     def setup_grid_buttons(self):
-        from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy, QHBoxLayout, QPushButton
+        from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy
         from PyQt6.QtGui import QFont
 
         # WICHTIG: Nutze das bereits in init_ui definierte Layout
-        # Falls es dort anders heißt, stelle sicher, dass es hier übereinstimmt
         if hasattr(self, 'layout_grid_buttons'):
             grid_layout = self.layout_grid_buttons
         else:
@@ -4009,6 +4028,7 @@ class PatchManagerGUI(QWidget):
 
         grid_layout.setSpacing(10)
 
+        # Aktions-Buttons Definition
         grid_actions = [
             ("patch_create", lambda: create_patch(self, self.info_text, None)),
             ("patch_renew", lambda: create_patch(self, self.info_text, None)),
@@ -4027,6 +4047,7 @@ class PatchManagerGUI(QWidget):
         self.buttons = {}
         cols = 3
         for idx, (key, func) in enumerate(grid_actions):
+            # Erstellt den Button über deine zentrale Funktion
             btn = self.create_action_button(
                 parent=self,
                 text=TEXTS[self.LANG].get(key, key),
@@ -4038,7 +4059,7 @@ class PatchManagerGUI(QWidget):
                 radius=self.BUTTON_RADIUS,
             )
             
-            # Verhindert Überlappung: Button darf wachsen, behält aber Struktur
+            # Layout-Verhalten: Button füllt den verfügbaren Platz im Grid
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             
             row, col = divmod(idx, cols)
@@ -4048,36 +4069,6 @@ class PatchManagerGUI(QWidget):
         # Erzwingt die gleichmäßige Verteilung der Spaltenbreite
         for i in range(cols):
             grid_layout.setColumnStretch(i, 1)
-
-        # Terminal Button Logik
-        if self.layout():
-            term_h_layout = QHBoxLayout()
-            
-        # 1. Puffer LINKS hinzufügen
-        term_h_layout.addStretch(1)
-
-        self.btn_terminal_bottom = QPushButton()
-        self.btn_terminal_bottom.setMinimumSize(220, 45)
-        self.btn_terminal_bottom.clicked.connect(self.open_terminal)
-            
-        # Style beibehalten
-        self.btn_terminal_bottom.setStyleSheet(
-            "background-color: #1a1a1a; color: #00FF00; font-weight: bold; border: 2px solid #00FF00; border-radius: 5px;"
-        )
-            
-        # In Liste für Skalierung aufnehmen
-        if self.btn_terminal_bottom not in self.all_buttons:
-            self.all_buttons.append(self.btn_terminal_bottom)
-
-        term_h_layout.addWidget(self.btn_terminal_bottom)
-
-        # 2. Puffer RECHTS hinzufügen (Dadurch wird er in die Mitte gedrückt)
-        term_h_layout.addStretch(1)
-
-        self.layout().addLayout(term_h_layout)
-
-        # Registrierung für Sprache & Status
-        self.option_buttons["terminal_bottom"] = (self.btn_terminal_bottom, "btn_terminal")
     
     def change_language(self):
         """Wird aufgerufen, wenn die Dropdown-Box geändert wird."""
@@ -4101,47 +4092,52 @@ class PatchManagerGUI(QWidget):
         """Übersetzt ALLE Buttons und behält die dynamische Skalierbarkeit bei."""
         from PyQt6.QtWidgets import QApplication
 
-        lang = self.LANG.lower()
+        # Sicherstellen, dass wir den Key in Großbuchstaben nutzen, falls TEXTS so aufgebaut ist
+        lang = self.LANG.upper() 
         current_v = APP_VERSION.replace("v", "").strip()
         latest_v = getattr(self, "latest_version", "...")
 
         def get_t(k, default):
+            # Holt Übersetzung aus dem globalen TEXTS Dictionary
             return TEXTS.get(lang, {}).get(k, default)
 
-        # A) GRID-BUTTONS
+        # A) GRID-BUTTONS (Unten)
         if hasattr(self, "buttons"):
             for key, btn in self.buttons.items():
                 new_text = get_t(key, key)
-                # Zeilenumbruch-Logik beibehalten für schmale Buttons
+                # Zeilenumbruch-Logik für bessere Lesbarkeit im Grid
                 if len(new_text) > 12:
                     new_text = new_text.replace(" ", "\n", 1)
                 btn.setText(new_text)
-                # WICHTIG: Keine feste MinimumWidth setzen! 
-                # Das Grid regelt die Breite dynamisch.
 
-        # B) OPTION-BUTTONS
+        # B) OPTION-BUTTONS (Oben inkl. neuem Terminal)
         if hasattr(self, "option_buttons"):
-            for val in self.option_buttons.values():
+            for key, val in self.option_buttons.items():
                 if isinstance(val, (list, tuple)) and len(val) == 2:
                     btn, text_key = val
-                    raw_text = get_t(text_key, text_key)
+                    
+                    # Spezialfall Terminal: Falls kein Key in TEXTS, Fallback auf Icon
+                    if key == "terminal":
+                        raw_text = get_t(text_key, "💻 Terminal")
+                    else:
+                        raw_text = get_t(text_key, text_key)
+
+                    # Plugin-Update Text-Formatierung
                     if text_key == "plugin_update":
-                        btn.setText(raw_text.format(
-                            current=current_v, latest=latest_v, version=current_v
-                        ))
+                        try:
+                            btn.setText(raw_text.format(
+                                current=current_v, latest=latest_v, version=current_v
+                            ))
+                        except:
+                            btn.setText(raw_text)
                     else:
                         btn.setText(raw_text)
                     
-                    # Verhindert, dass Buttons in der oberen Leiste starr werden
                     btn.setMinimumWidth(0) 
                     btn.adjustSize()
 
-        # C) TERMINAL-BUTTON
-        btn_term = getattr(self, "btn_terminal_bottom", None)
-        if btn_term:
-            btn_term.setText(get_t("btn_terminal", "Terminal"))
-            btn_term.show()
-            btn_term.raise_()
+        # C) TERMINAL-BUTTON (ALT) -> GELÖSCHT
+        # Dieser Teil wurde entfernt, da der Terminal-Button jetzt in 'option_buttons' lebt.
 
         # D) LABELS (Sprache, Farbe, Commits)
         if hasattr(self, "lang_label"): self.lang_label.setText(get_t("language_label", "Language:"))
@@ -4151,10 +4147,11 @@ class PatchManagerGUI(QWidget):
         # E) FENSTER-TITEL
         self.setWindowTitle(get_t("github_dialog_title", "OSCam Emu Patch Manager"))
 
-        # F) GUI REFRESH
-        self.update_plugin_button_state()
+        # F) GUI REFRESH - KORRIGIERTER FUNKTIONSNAME
+        # Hier lag der Fehler (AttributeError)
+        self.update_plugin_update_button_state()
 
-        # Layout-Refresh ohne starre Fixierung
+        # Layout-Refresh
         if self.layout():
             self.layout().activate() 
         QApplication.processEvents()
