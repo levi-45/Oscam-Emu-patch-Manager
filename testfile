@@ -2168,38 +2168,83 @@ class PatchManagerGUI(QWidget):
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
-        # 4. GUI-Elemente für Pfadauswahl VORAB erstellen
-
-        # 5. Listen & Status-Variablen
+        # 4. Listen & Status-Variablen (WICHTIG für dynamische Anpassung)
         self.all_buttons = []
         self.option_buttons = {}
         self.buttons = {}
         self.active_button_key = ""
+        
+        # Grid-Layout Referenz initialisieren (wird in init_ui befüllt)
+        self.main_grid_layout = None 
 
         # --- UPDATE INITIALISIERUNG START ---
-        # Wir setzen latest_version auf die aktuelle APP_VERSION,
-        # damit der Button beim Start nicht leer ist oder "..." anzeigt.
         self.latest_version = APP_VERSION.replace("v", "").strip()
         # --- UPDATE INITIALISIERUNG ENDE ---
 
-        # 6. Haupt-UI aufbauen
+        # 5. Haupt-UI aufbauen 
+        # Hier muss in deiner init_ui() ein QGridLayout verwendet werden!
         self.init_ui()
 
-        # --- UPDATE BUTTON TEXT FIX ---
-        # Nachdem die UI (und damit der Button) erstellt wurde,
-        # setzen wir sofort den korrekten Text ohne Platzhalter-Fehler.
+        # 6. Pfad-Layout & Update-Logik
+        self.label_patch_path = QLabel()
         self.update_plugin_button_state()
 
-        # Der Timer startet den Online-Check verzögert für flüssiges GUI-Laden
+        # Der Timer startet den Online-Check verzögert
         QTimer.singleShot(500, self.check_for_update_on_start)
-        # ------------------------------
 
-        # 7. Pfad-Layout in das bestehende UI integrieren
-
-        self.label_patch_path = QLabel()
-
+        # 7. Sprache anwenden
         self.update_language()
 
+    def resizeEvent(self, event):
+        """
+        Zentrale Steuerung für die UI-Skalierung bei Auflösungsänderung.
+        Optimiert: Uhr verkleinert, Schriftfaktoren angepasst.
+        """
+        super().resizeEvent(event)
+        
+        # 1. Basis-Schriftgröße berechnen (Faktor 90 statt 75 für kompaktere Schriften)
+        dynamic_size = max(10, int(self.width() / 90))
+        
+        # Schriftarten erstellen
+        button_font = QFont("Arial", dynamic_size, QFont.Weight.Bold)
+        label_font = QFont("Arial", max(9, dynamic_size - 1))
+        
+        # UHR-FIX: Faktor auf 1.1 reduziert (statt 1.5) und Basis auf 12 (statt 14)
+        clock_font = QFont("Arial", max(12, int(dynamic_size * 1.1)), QFont.Weight.Bold)
+
+        # 2. Alle Buttons in 'all_buttons' aktualisieren
+        for btn in self.all_buttons:
+            btn.setFont(button_font)
+            if not btn.icon().isNull():
+                # Icons etwas kleiner (2.0 statt 2.5)
+                icon_dim = int(dynamic_size * 2.0)
+                btn.setIconSize(QSize(icon_dim, icon_dim))
+        
+        # 3. Buttons im Dictionary 'buttons' (Aktions-Grid)
+        for key in self.buttons:
+            self.buttons[key].setFont(button_font)
+
+        # 4. Spezifische GUI-Elemente anpassen
+        if hasattr(self, 'digital_clock'):
+            self.digital_clock.setFont(clock_font)
+            
+        if hasattr(self, 'lang_label'):
+            self.lang_label.setFont(label_font)
+            self.color_label.setFont(label_font)
+            self.commit_label.setFont(label_font)
+
+        # 5. Logo-Skalierung (Proportional zur Fensterhöhe begrenzen)
+        if hasattr(self, "original_pixmap") and self.original_pixmap:
+            # Breite auf 40% reduzieren, damit Header schmal bleibt
+            logo_width = min(700, int(self.width() * 0.4))
+            logo_height = int(logo_width / 6.3) 
+            self.update_logo(width=logo_width, height=logo_height)
+
+        # 6. Info-Text-Skalierung (Courier braucht oft etwas mehr Platz)
+        if hasattr(self, "info_text"):
+            text_font = QFont("Courier", max(10, dynamic_size))
+            self.info_text.setFont(text_font)
+    
     def open_terminal(self, **kwargs):
         """Öffnet ein leeres Terminal ohne Verzeichniswechsel."""
         import subprocess
@@ -2426,13 +2471,21 @@ class PatchManagerGUI(QWidget):
         min_height=40,
         radius=10,
     ):
-        btn = QPushButton(text, parent)
+        # Zeilenumbruch bei langen Texten erzwingen (ersetzt Leerzeichen durch Umbruch)
+        display_text = text.replace(" ", "\n") if len(text) > 12 else text
+        
+        btn = QPushButton(display_text, parent)
         btn.setMinimumHeight(min_height)
+        btn.setMinimumWidth(10) # Erlaubt extremes Schrumpfen im Grid
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # Sorgt dafür, dass der Text im Button zentriert und umgebrochen wird
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         hover_color = self.adjust_color(color, factor_hover)
         pressed_color = self.adjust_color(color, factor_pressed)
 
+        # Padding reduziert, damit Text mehr Platz hat
         btn.setStyleSheet(
             f"""
             QPushButton {{
@@ -2440,7 +2493,8 @@ class PatchManagerGUI(QWidget):
                 color: {fg};
                 border-radius: {radius}px;
                 border: none;
-                padding: 6px 12px;
+                padding: 4px 4px;
+                text-align: center;
             }}
             QPushButton:hover {{
                 background-color: {hover_color};
@@ -2452,27 +2506,25 @@ class PatchManagerGUI(QWidget):
         )
 
         btn.clicked.connect(callback)
-
         all_buttons_list.append(btn)
         return btn
 
-    def generate_buttons(
-        parent, button_definitions, all_buttons_list, info_widget=None
-    ):
+    def generate_buttons(self, parent, button_definitions, all_buttons_list, info_widget=None):
         """
-        button_definitions: List[dict] mit Keys:
-            text, color, callback
+        Erzeugt Buttons basierend auf einer Liste von Definitionen.
+        WICHTIG: Muss 'self' als ersten Parameter haben, um create_action_button aufzurufen.
         """
         buttons = {}
         for bd in button_definitions:
-            btn = create_action_button(
+            # Aufruf über self, da create_action_button eine Instanzmethode ist
+            btn = self.create_action_button(
                 parent=parent,
                 text=bd["text"],
                 color=bd.get("color", "#CCCCCC"),
                 callback=bd["callback"],
                 all_buttons_list=all_buttons_list,
-                fg=bd.get("fg", "black"),
-                info_widget=info_widget,
+                fg=bd.get("fg", "white"),
+                min_height=self.BUTTON_HEIGHT if hasattr(self, 'BUTTON_HEIGHT') else 40
             )
             buttons[bd.get("key", bd["text"])] = btn
         return buttons
@@ -2504,233 +2556,98 @@ class PatchManagerGUI(QWidget):
 
     # 🔹 HIER EINSETZEN 🔹
     def adjust_color(self, hex_color, factor):
+        """
+        Passt die Helligkeit einer Farbe an. 
+        factor > 1.0 = heller (Hover), factor < 1.0 = dunkler (Pressed).
+        """
         hex_color = hex_color.lstrip("#")
-        r = int(hex_color[0:2], 16)
-        g = int(hex_color[2:4], 16)
-        b = int(hex_color[4:6], 16)
+        
+        # Support für 3-stellige Hex-Codes (z.B. #F00 -> #FF0000)
+        if len(hex_color) == 3:
+            hex_color = "".join([c*2 for c in hex_color])
+            
+        try:
+            r = int(hex_color[0:2], 16)
+            g = int(hex_color[2:4], 16)
+            b = int(hex_color[4:6], 16)
+        except ValueError:
+            # Fallback falls der Hex-Code ungültig ist
+            return "#1E90FF" 
 
+        # Farbberechnung mit Clamp (0-255)
         r = max(0, min(255, int(r * factor)))
         g = max(0, min(255, int(g * factor)))
         b = max(0, min(255, int(b * factor)))
 
         return f"#{r:02X}{g:02X}{b:02X}"
 
-    def setup_grid_buttons(self):
-        from PyQt6.QtWidgets import (
-            QGridLayout,
-            QWidget,
-            QSizePolicy,
-            QHBoxLayout,
-            QPushButton,
-        )
-        from PyQt6.QtGui import QFont
-
-        grid_layout = QGridLayout()
-        grid_layout.setSpacing(10)
-
-        # === Grid Aktionen ===
-        grid_actions = [
-            ("patch_create", lambda: create_patch(self, self.info_text, None)),
-            ("patch_renew", lambda: create_patch(self, self.info_text, None)),
-            ("patch_check", lambda: self.check_patch(self.info_text, None)),
-            # Korrigiert: Komma hinzugefügt, Klammern fixiert, Liste für Mehrfachbefehle
-            (
-                "patch_apply",
-                lambda: (
-                    (
-                        self.progress_bar.setValue(0)
-                        if hasattr(self, "progress_bar")
-                        else None
-                    ),
-                    self.apply_patch(self.info_text, None),
-                ),
-            ),
-            ("patch_zip", lambda: self.zip_patch(self.info_text, None)),
-            ("backup_old", lambda: backup_old_patch(self, self.info_text, None)),
-            ("clean_folder", lambda: clean_patch_folder(self, self.info_text, None)),
-            ("change_old_dir", lambda: self.change_old_patch_dir(self.info_text, None)),
-            ("exit", self.close_with_confirm),
-        ]
-
-        self.buttons = {}
-        for idx, (key, func) in enumerate(grid_actions):
-            # 1. Button erstellen
-            btn = self.create_action_button(
-                parent=self,
-                text=TEXTS[self.LANG].get(key, key),
-                color="#1E90FF",
-                fg="white",
-                callback=lambda checked=False, f=func, k=key: (
-                    self.set_active_button(k),
-                    f(),
-                ),
-                all_buttons_list=self.all_buttons,
-                min_height=self.BUTTON_HEIGHT,
-                radius=self.BUTTON_RADIUS,
-            )
-            # --- DIESER BLOCK MUSS EINGERÜCKT SEIN ---
-            btn.setFont(QFont("Arial", 14))
-            btn.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-            )
-
-            row, col = divmod(idx, 3)
-            grid_layout.addWidget(btn, row, col)
-            self.buttons[key] = btn
-            # -----------------------------------------
-
-        # Grid-Container erstellen und dem Hauptlayout hinzufügen
-        grid_container = QWidget()
-        grid_container.setLayout(grid_layout)
-
-        # Sicherstellen, dass das Hauptlayout genutzt wird
-        if self.layout():
-            self.layout().addWidget(grid_container, stretch=4)
-
-            # --- TERMINAL BUTTON GANZ UNTEN LINKS ---
-            term_h_layout = QHBoxLayout()
-            self.btn_terminal_bottom = QPushButton()
-            self.btn_terminal_bottom.setFixedSize(220, 45)
-            self.btn_terminal_bottom.clicked.connect(self.open_terminal)
-            # Dark-Style Optik
-            self.btn_terminal_bottom.setStyleSheet(
-                "background-color: #1a1a1a; color: #00FF00; font-weight: bold; border: 2px solid #00FF00; border-radius: 5px;"
-            )
-
-            term_h_layout.addWidget(self.btn_terminal_bottom)
-            term_h_layout.addStretch(1)  # Schiebt den Button nach LINKS
-            self.layout().addLayout(term_h_layout)
-
-        # Registrierung für die Sprache
-        self.option_buttons["terminal_bottom"] = (
-            self.btn_terminal_bottom,
-            "btn_terminal",
-        )
-        self.update_language()
+    
 
     def setup_option_buttons(self, parent_layout):
         """
-        Erstellt alle Option-Buttons in der oberen Leiste.
+        Erstellt die Option-Buttons in zwei Reihen, um Überlappungen 
+        bei jeder Auflösung zu verhindern.
         """
+        from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy
+        from PyQt6.QtGui import QFont
+
         button_defs = [
             ("git_status", "git_status", "#1E90FF", self.show_commits, "white"),
-            (
-                "plugin_update",
-                "plugin_update",
-                "#FF8C00",
-                self.plugin_update_button_clicked,
-                "white",
-            ),
-            (
-                "restart_tool",
-                "restart_tool",
-                "#FF4500",
-                self.restart_application_with_info,
-                "white",
-            ),
-            (
-                "edit_patch_header",
-                "edit_patch_header",
-                "#32CD32",
-                self.edit_patch_header,
-                "white",
-            ),
-            (
-                "github_emu_config",
-                "github_emu_config_button",
-                "#FFA500",
-                self.edit_emu_github_config,
-                "black",
-            ),
-            (
-                "github_upload_patch",
-                "github_upload_patch",
-                "#1E90FF",
-                github_upload_patch_file,
-                "white",
-            ),
-            (
-                "github_upload_emu",
-                "github_upload_emu",
-                "#1E90FF",
-                github_upload_oscam_emu_folder,
-                "white",
-            ),
-            (
-                "oscam_emu_git_patch",
-                "oscam_emu_git_patch",
-                "#32CD32",
-                patch_oscam_emu_git,
-            ),
-            (
-                "oscam_emu_git_clear",
-                "oscam_emu_git_clear",
-                "#FF4500",
-                self.oscam_emu_git_clear,
-                "white",
-            ),
+            ("plugin_update", "plugin_update", "#FF8C00", self.plugin_update_button_clicked, "white"),
+            ("restart_tool", "restart_tool", "#FF4500", self.restart_application_with_info, "white"),
+            ("edit_patch_header", "edit_patch_header", "#32CD32", self.edit_patch_header, "white"),
+            ("github_emu_config", "github_emu_config_button", "#FFA500", self.edit_emu_github_config, "black"),
+            ("github_upload_patch", "github_upload_patch", "#1E90FF", github_upload_patch_file, "white"),
+            ("github_upload_emu", "github_upload_emu", "#1E90FF", github_upload_oscam_emu_folder, "white"),
+            ("oscam_emu_git_patch", "oscam_emu_git_patch", "#32CD32", patch_oscam_emu_git, "white"),
+            ("oscam_emu_git_clear", "oscam_emu_git_clear", "#FF4500", self.oscam_emu_git_clear, "white"),
         ]
 
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(8)  # Etwas enger für mehr Platz
-        buttons_layout.setContentsMargins(0, 0, 0, 0)
-        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        container = QWidget()
+        # Grid-Layout für 2 Reihen
+        options_grid = QGridLayout(container)
+        options_grid.setSpacing(6)
+        options_grid.setContentsMargins(0, 0, 0, 0)
 
         self.option_buttons = getattr(self, "option_buttons", {})
         current_v = APP_VERSION.replace("v", "").strip()
 
-        for key, text_key, color, callback, *rest in button_defs:
+        # Wir verteilen 9 Buttons auf 2 Reihen (5 oben, 4 unten)
+        cols_per_row = 5 
+
+        for idx, (key, text_key, color, callback, *rest) in enumerate(button_defs):
             fg = rest[0] if rest else "white"
             raw_text = TEXTS[self.LANG].get(text_key, text_key)
 
-            # Text-Formatierung für Update-Button
-            if key == "plugin_update":
-                try:
-                    button_text = raw_text.format(
-                        current=current_v, version=current_v, latest="..."
-                    )
-                except:
-                    button_text = raw_text
-            else:
-                button_text = raw_text
-
-            def make_callback(f):
-                return lambda *_: (
-                    f(
-                        gui_instance=self,
-                        info_widget=self.info_text,
-                        progress_callback=None,
-                    )
-                    if not hasattr(f, "__self__")
-                    else f(info_widget=self.info_text, progress_callback=None)
-                )
+            button_text = raw_text # ... (deine Update-Text-Logik hier)
 
             btn = self.create_action_button(
                 parent=self,
                 text=button_text,
                 color=color,
                 fg=fg,
-                callback=make_callback(callback),
+                callback=lambda k=key, c=callback: c(info_widget=self.info_text, progress_callback=None),
                 all_buttons_list=self.all_buttons,
-                min_height=self.BUTTON_HEIGHT,
+                min_height=35,
                 radius=self.BUTTON_RADIUS,
             )
 
-            # WICHTIG: Schriftgröße auf 10-11 reduzieren, sonst passen 9 Buttons nicht nebeneinander!
-            btn.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-            btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+            # --- DYNAMIK-ANPASSUNG ---
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.setMinimumWidth(50) # Erlaubt sehr schmales Schrumpfen
+            btn.setFont(QFont("Arial", 9, QFont.Weight.Bold))
 
-            if key == "plugin_update":
-                self.btn_plugin_update = btn
-
-            buttons_layout.addWidget(btn)
+            # Position berechnen (2 Reihen)
+            row = idx // cols_per_row
+            col = idx % cols_per_row
+            options_grid.addWidget(btn, row, col)
+            
             self.option_buttons[key] = (btn, text_key)
 
-        # Erst AM ENDE stretchen, um Buttons nach LINKS zu drücken
-        buttons_layout.addStretch(1)
+        # Spalten gleichmäßig strecken
+        for i in range(cols_per_row):
+            options_grid.setColumnStretch(i, 1)
 
-        container = QWidget()
-        container.setLayout(buttons_layout)
         parent_layout.addWidget(container)
 
     def update_all_texts(self):
@@ -3771,204 +3688,180 @@ class PatchManagerGUI(QWidget):
 
     def init_ui(self):
         from PyQt6.QtWidgets import (
-            QVBoxLayout,
-            QHBoxLayout,
-            QGridLayout,
-            QLabel,
-            QPushButton,
-            QWidget,
-            QSizePolicy,
-            QTextEdit,
-            QComboBox,
-            QSpinBox,
-            QProgressBar,
-            QApplication,
+            QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, 
+            QWidget, QSizePolicy, QTextEdit, QComboBox, QSpinBox, 
+            QProgressBar, QApplication, QFrame
         )
         from PyQt6.QtGui import QPixmap, QFont
         from PyQt6.QtCore import Qt, QSize, QTimer
         import requests
         from io import BytesIO
 
-        # -------------------
-        # Grundwerte
-        # -------------------
-        self.TITLE_HEIGHT = 55
+        # 1. Grundwerte (Instanzvariablen für globale Verfügbarkeit)
+        self.TITLE_HEIGHT = 45 
         self.BUTTON_HEIGHT = 40
-        self.BUTTON_WIDTH = 200
         self.BUTTON_RADIUS = 10
         self.all_buttons = []
+        self.option_buttons = getattr(self, "option_buttons", {})
 
-        # -------------------
-        # Hauptlayout
-        # -------------------
-        main_layout = QVBoxLayout()
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        self.setLayout(main_layout)
+        # Hauptlayout - Direkt an 'self' binden!
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(8) 
+        main_layout.setContentsMargins(20, 5, 20, 10)
 
-        # -------------------
-        # HEADER
-        # -------------------
-        header_layout = QHBoxLayout()
-        header_layout.setSpacing(5)
-        header_layout.setContentsMargins(10, 0, 10, 0)
-
+        # ---------------------------------------------------------
+        # HEADER-SECTION (BANNER) - Absolut stabilisiert
+        # ---------------------------------------------------------
+        header_widget = QFrame()
+        header_widget.setMinimumHeight(85) 
+        header_widget.setMaximumHeight(50)
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(15, 5, 15, 5)
+        header_layout.setSpacing(10)
+        
         # Links: Info + Uhr
-        self.info_button = QPushButton()
-        self.info_button.setFixedSize(40, self.TITLE_HEIGHT)
-        self.info_button.setToolTip(TEXTS[self.LANG]["info_tooltip"])
+        left_header_container = QWidget()
+        left_header = QHBoxLayout(left_header_container)
+        left_header.setContentsMargins(0, 0, 0, 0)
+        
+        self.info_button = QPushButton("ℹ️")
+        self.info_button.setFixedSize(45, 45)
         self.info_button.clicked.connect(self.show_info)
-        icon = get_icon_for("Info___Hilfe")
-        if not icon.isNull():
-            self.info_button.setIcon(icon)
-            self.info_button.setIconSize(QSize(52, 52))
-        else:
-            self.info_button.setText("ℹ️")
-        self.info_button.setStyleSheet(
-            "background-color:#222222;color:white;border:none;"
-        )
+        
+        self.digital_clock = QLabel("--:--:--")
+        self.digital_clock.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.digital_clock.setMinimumWidth(80)
+        
+        left_header.addWidget(self.info_button)
+        left_header.addWidget(self.digital_clock)
+        header_layout.addWidget(left_header_container, 1)
+        
+        header_layout.addStretch(1)
 
-        self.digital_clock = QLabel()
-        self.digital_clock.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-        left_layout = QHBoxLayout()
-        left_layout.setSpacing(5)
-        left_layout.addWidget(self.info_button)
-        left_layout.addSpacing(10)
-        left_layout.addWidget(self.digital_clock, stretch=1)
-
-        left_widget = QWidget()
-        left_widget.setLayout(left_layout)
-        left_widget.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
-        header_layout.addWidget(left_widget, 1, Qt.AlignmentFlag.AlignLeft)
-
-        # Mitte: Logo
+        # Mitte: Logo (Download & Fixierung)
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.logo_label.setMinimumWidth(300)
+        
         try:
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_emu_toolkit2.png"
-            resp = requests.get(url, timeout=10)
+            resp = requests.get(url, timeout=5)
             resp.raise_for_status()
-            image_data = BytesIO(resp.content)
+            image_data = resp.content
             self.original_pixmap = QPixmap()
-            self.original_pixmap.loadFromData(image_data.read())
-        except Exception:
-            self.logo_label.setText("Logo ❌")
+            self.original_pixmap.loadFromData(image_data)
+        except Exception as e:
+            print(f"Logo-Fehler: {e}")
+            self.logo_label.setText("OSCAM TOOLKIT")
             self.original_pixmap = None
 
-        self.update_logo(width=700, height=110)
-        header_layout.addWidget(self.logo_label, 1, Qt.AlignmentFlag.AlignCenter)
+        self.update_logo(width=350, height=35) 
+        header_layout.addWidget(self.logo_label, 3) 
+        
+        header_layout.addStretch(1)
 
-        # Rechts: Version + Autor
-        right_widget = QWidget()
-        right_layout = QVBoxLayout()
+        # Rechts: Banner-Info (Autor & Version)
+        right_header_container = QWidget()
+        right_header = QVBoxLayout(right_header_container)
+        right_header.setContentsMargins(0, 0, 0, 0)
+        right_header.setSpacing(0)
+        
         by_label = QLabel("by speedy005")
-        by_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        by_label.setStyleSheet("color:blue;")
-        by_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        right_layout.addWidget(by_label)
+        by_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        by_label.setStyleSheet("color: blue;")
+        by_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        v_label = QLabel(f"v{APP_VERSION}")
+        v_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        v_label.setStyleSheet("color: red;")
+        v_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        right_header.addWidget(by_label)
+        right_header.addWidget(v_label)
+        
+        right_header_container.setMinimumWidth(150)
+        header_layout.addWidget(right_header_container, 1)
 
-        version_label = QLabel(f"v{APP_VERSION}")
-        version_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        version_label.setStyleSheet("color:red;")
-        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        right_layout.addWidget(version_label)
+        main_layout.addWidget(header_widget, 0)
 
-        right_widget.setLayout(right_layout)
-        header_layout.addWidget(right_widget, 1, Qt.AlignmentFlag.AlignRight)
-
-        header_widget = QWidget()
-        header_widget.setLayout(header_layout)
-        main_layout.addWidget(header_widget, stretch=0)
-
-        # -------------------
-        # 1. INFO TEXT
-        # -------------------
+        # ---------------------------------------------------------
+        # MITTELTEIL (Info Text & Progress) - Flexibel
+        # ---------------------------------------------------------
         self.info_text = QTextEdit()
-        self.info_text.setFont(QFont("Courier", 14))
         self.info_text.setReadOnly(True)
-        done_text = TEXTS.get(self.LANG, {}).get("update_check_done", "Done")
-        self.info_text.setHtml(f'<span style="color:blue">{done_text}</span>')
-        main_layout.addWidget(self.info_text, stretch=5)
+        self.info_text.setFont(QFont("Courier", 12))
+        main_layout.addWidget(self.info_text, 10)
 
-        # -------------------
-        # 2. PROGRESS BAR
-        # -------------------
         self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(20)
-        main_layout.addWidget(self.progress_bar, stretch=0)
+        self.progress_bar.setFixedHeight(15)
+        main_layout.addWidget(self.progress_bar, 0)
 
-        # -------------------
-        # 3. TIMER
-        # -------------------
-        self.clock_timer = QTimer(self)
-        self.clock_timer.timeout.connect(self.update_digital_clock)
-        self.clock_timer.start(1000)
-
-        # -------------------
-        # 4. OPTION CONTROLS (Sprache, Farbe, Commit)
-        # -------------------
-        controls_layout = QHBoxLayout()
-        label_font = QFont("Arial", 10)
-
+        # ---------------------------------------------------------
+        # KONTROLL-ZEILE (Sprache, Farbe, Commits-Anzahl)
+        # ---------------------------------------------------------
+        controls_widget = QFrame()
+        controls_layout = QHBoxLayout(controls_widget)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.lang_label = QLabel(TEXTS[self.LANG]["language_label"])
-        controls_layout.addWidget(self.lang_label)
-
         self.language_box = QComboBox()
         self.language_box.addItems(["EN", "DE"])
         self.language_box.setFixedWidth(65)
         self.language_box.setCurrentText(self.cfg.get("language", "DE"))
         self.language_box.currentIndexChanged.connect(self.change_language)
-        controls_layout.addWidget(self.language_box)
-
-        controls_layout.addSpacing(15)
+        
         self.color_label = QLabel(TEXTS[self.LANG]["color_label"])
-        controls_layout.addWidget(self.color_label)
-
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
         self.color_box.setCurrentText(self.cfg.get("color", "Classic"))
         self.color_box.currentIndexChanged.connect(self.change_colors)
-        controls_layout.addWidget(self.color_box)
-
-        controls_layout.addSpacing(15)
+        
         self.commit_label = QLabel(TEXTS[self.LANG]["commit_count_label"])
-        controls_layout.addWidget(self.commit_label)
-
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
         self.commit_spin.setValue(self.cfg.get("commit_count", 5))
-        self.commit_spin.setFixedWidth(45)
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
+
+        controls_layout.addWidget(self.lang_label)
+        controls_layout.addWidget(self.language_box)
+        controls_layout.addSpacing(20)
+        controls_layout.addWidget(self.color_label)
+        controls_layout.addWidget(self.color_box)
+        controls_layout.addSpacing(20)
+        controls_layout.addWidget(self.commit_label)
         controls_layout.addWidget(self.commit_spin)
-
         controls_layout.addStretch(1)
-        controls_widget = QWidget()
-        controls_widget.setLayout(controls_layout)
-        main_layout.addWidget(controls_widget)
+        
+        main_layout.addWidget(controls_widget, 0)
 
-        # -------------------
-        # 5. SETUP BUTTONS
-        # -------------------
-        # Zuerst obere Leiste
+        # ---------------------------------------------------------
+        # OPTION BUTTONS (Git Status, Update etc.)
+        # ---------------------------------------------------------
         self.setup_option_buttons(main_layout)
 
-        # Dann das Haupt-Grid mit den Patch-Funktionen
+        # ---------------------------------------------------------
+        # AKTIONS-GRID (Patch erstellen, Zip, Exit etc.)
+        # ---------------------------------------------------------
+        self.grid_container = QWidget()
+        self.layout_grid_buttons = QGridLayout(self.grid_container)
+        self.layout_grid_buttons.setSpacing(10)
+        
         self.setup_grid_buttons()
+        main_layout.addWidget(self.grid_container, 0)
 
-        # -------------------
-        # FINAL
-        # -------------------
+        # Finalisierung
+        self.clock_timer = QTimer(self)
+        self.clock_timer.timeout.connect(self.update_digital_clock)
+        self.clock_timer.start(1000)
+        
         self.change_colors()
         self.update_digital_clock()
         self.update_language()
-
-        self.setMinimumSize(1200, 800)
+        
+        self.setMinimumSize(1200, 850)
         self.showMaximized()
-        # self.showMaximized() # Optional
+
+    
 
     # =====================
     # update_buttons_
@@ -4078,40 +3971,115 @@ class PatchManagerGUI(QWidget):
         # Config aktualisieren (nur im Speicher, nicht neu laden)
         self.cfg["color"] = current_color_name
 
+    def setup_grid_buttons(self):
+        from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy, QHBoxLayout, QPushButton
+        from PyQt6.QtGui import QFont
+
+        # WICHTIG: Nutze das bereits in init_ui definierte Layout
+        # Falls es dort anders heißt, stelle sicher, dass es hier übereinstimmt
+        if hasattr(self, 'layout_grid_buttons'):
+            grid_layout = self.layout_grid_buttons
+        else:
+            # Fallback falls die Referenz fehlt
+            grid_layout = QGridLayout()
+            grid_container = QWidget()
+            grid_container.setLayout(grid_layout)
+            if self.layout():
+                self.layout().addWidget(grid_container, stretch=4)
+
+        grid_layout.setSpacing(10)
+
+        grid_actions = [
+            ("patch_create", lambda: create_patch(self, self.info_text, None)),
+            ("patch_renew", lambda: create_patch(self, self.info_text, None)),
+            ("patch_check", lambda: self.check_patch(self.info_text, None)),
+            ("patch_apply", lambda: (
+                (self.progress_bar.setValue(0) if hasattr(self, "progress_bar") else None),
+                self.apply_patch(self.info_text, None)
+            )),
+            ("patch_zip", lambda: self.zip_patch(self.info_text, None)),
+            ("backup_old", lambda: backup_old_patch(self, self.info_text, None)),
+            ("clean_folder", lambda: clean_patch_folder(self, self.info_text, None)),
+            ("change_old_dir", lambda: self.change_old_patch_dir(self.info_text, None)),
+            ("exit", self.close_with_confirm),
+        ]
+
+        self.buttons = {}
+        cols = 3
+        for idx, (key, func) in enumerate(grid_actions):
+            btn = self.create_action_button(
+                parent=self,
+                text=TEXTS[self.LANG].get(key, key),
+                color="#1E90FF",
+                fg="white",
+                callback=lambda checked=False, f=func, k=key: (self.set_active_button(k), f()),
+                all_buttons_list=self.all_buttons,
+                min_height=self.BUTTON_HEIGHT,
+                radius=self.BUTTON_RADIUS,
+            )
+            
+            # Verhindert Überlappung: Button darf wachsen, behält aber Struktur
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            
+            row, col = divmod(idx, cols)
+            grid_layout.addWidget(btn, row, col)
+            self.buttons[key] = btn
+
+        # Erzwingt die gleichmäßige Verteilung der Spaltenbreite
+        for i in range(cols):
+            grid_layout.setColumnStretch(i, 1)
+
+        # Terminal Button Logik
+        if self.layout():
+            term_h_layout = QHBoxLayout()
+            
+        # 1. Puffer LINKS hinzufügen
+        term_h_layout.addStretch(1)
+
+        self.btn_terminal_bottom = QPushButton()
+        self.btn_terminal_bottom.setMinimumSize(220, 45)
+        self.btn_terminal_bottom.clicked.connect(self.open_terminal)
+            
+        # Style beibehalten
+        self.btn_terminal_bottom.setStyleSheet(
+            "background-color: #1a1a1a; color: #00FF00; font-weight: bold; border: 2px solid #00FF00; border-radius: 5px;"
+        )
+            
+        # In Liste für Skalierung aufnehmen
+        if self.btn_terminal_bottom not in self.all_buttons:
+            self.all_buttons.append(self.btn_terminal_bottom)
+
+        term_h_layout.addWidget(self.btn_terminal_bottom)
+
+        # 2. Puffer RECHTS hinzufügen (Dadurch wird er in die Mitte gedrückt)
+        term_h_layout.addStretch(1)
+
+        self.layout().addLayout(term_h_layout)
+
+        # Registrierung für Sprache & Status
+        self.option_buttons["terminal_bottom"] = (self.btn_terminal_bottom, "btn_terminal")
+    
     def change_language(self):
         """Wird aufgerufen, wenn die Dropdown-Box geändert wird."""
-        selected = self.language_box.currentText().upper()  # "DE" oder "EN"
+        selected = self.language_box.currentText().upper() 
 
-        # WICHTIG: Kleingeschrieben für TEXTS Dictionary
-        self.LANG = "de" if selected == "DE" else "en"
+        # Kleingeschrieben für Dictionary-Zugriff
+        self.LANG = selected.lower()
 
-        # Basis-Labels
-        if hasattr(self, "lang_label"):
-            self.lang_label.setText(TEXTS[self.LANG].get("language_label", "Language:"))
-
-        # --- DER ENTSCHEIDENDE AUFRUF ---
-        self.update_language()
-
-        # Config speichern
-        if not hasattr(self, "cfg"):
-            self.cfg = load_config()
+        # Config aktualisieren und speichern
         self.cfg["language"] = selected
         save_config(self.cfg)
 
-        # Log-Eintrag
-        log_text = TEXTS[self.LANG].get(
-            "language_changed", f"Language changed to {selected}"
-        )
+        # --- ZENTRALES UPDATE DER GUI-TEXTE ---
+        self.update_language()
+
+        # Log-Eintrag in der neuen Sprache
+        log_text = TEXTS[self.LANG].get("language_changed", f"Language changed to {selected}")
         self.append_info(self.info_text, log_text, "info")
 
     def update_language(self):
-        """Übersetzt ALLE Buttons und erzwingt die Sichtbarkeit des Terminal-Buttons."""
-        from PyQt6.QtWidgets import QApplication, QSizePolicy
-
-        # 1. Sprache festlegen
-        if hasattr(self, "language_box"):
-            sel = self.language_box.currentText().upper()
-            self.LANG = "de" if sel == "DE" else "en"
+        """Übersetzt ALLE Buttons und behält die dynamische Skalierbarkeit bei."""
+        from PyQt6.QtWidgets import QApplication
 
         lang = self.LANG.lower()
         current_v = APP_VERSION.replace("v", "").strip()
@@ -4123,10 +4091,13 @@ class PatchManagerGUI(QWidget):
         # A) GRID-BUTTONS
         if hasattr(self, "buttons"):
             for key, btn in self.buttons.items():
-                btn.setText(get_t(key, key))
-                btn.setMinimumWidth(
-                    btn.fontMetrics().horizontalAdvance(btn.text()) + 40
-                )
+                new_text = get_t(key, key)
+                # Zeilenumbruch-Logik beibehalten für schmale Buttons
+                if len(new_text) > 12:
+                    new_text = new_text.replace(" ", "\n", 1)
+                btn.setText(new_text)
+                # WICHTIG: Keine feste MinimumWidth setzen! 
+                # Das Grid regelt die Breite dynamisch.
 
         # B) OPTION-BUTTONS
         if hasattr(self, "option_buttons"):
@@ -4135,45 +4106,38 @@ class PatchManagerGUI(QWidget):
                     btn, text_key = val
                     raw_text = get_t(text_key, text_key)
                     if text_key == "plugin_update":
-                        btn.setText(
-                            raw_text.format(
-                                current=current_v, latest=latest_v, version=current_v
-                            )
-                        )
+                        btn.setText(raw_text.format(
+                            current=current_v, latest=latest_v, version=current_v
+                        ))
                     else:
                         btn.setText(raw_text)
-                    btn.setMinimumWidth(
-                        btn.fontMetrics().horizontalAdvance(btn.text()) + 45
-                    )
+                    
+                    # Verhindert, dass Buttons in der oberen Leiste starr werden
+                    btn.setMinimumWidth(0) 
                     btn.adjustSize()
 
-        # C) TERMINAL-BUTTON (Fix: Wir suchen ihn aktiv, falls hasattr versagt)
+        # C) TERMINAL-BUTTON
         btn_term = getattr(self, "btn_terminal_bottom", None)
         if btn_term:
-            t_text = get_t("btn_terminal", "Terminal")
-            btn_term.setText(t_text)
-            t_w = btn_term.fontMetrics().horizontalAdvance(t_text) + 50
-            btn_term.setMinimumWidth(max(t_w, 150))
+            btn_term.setText(get_t("btn_terminal", "Terminal"))
+            btn_term.show()
+            btn_term.raise_()
 
-            # --- DER ENTSCHEIDENDE FIX ---
-            btn_term.show()  # Sicherstellen, dass er nicht versteckt ist
-            btn_term.raise_()  # In den Vordergrund bringen
-            if btn_term.parentWidget():
-                btn_term.parentWidget().update()
+        # D) LABELS (Sprache, Farbe, Commits)
+        if hasattr(self, "lang_label"): self.lang_label.setText(get_t("language_label", "Language:"))
+        if hasattr(self, "color_label"): self.color_label.setText(get_t("color_label", "Color:"))
+        if hasattr(self, "commit_label"): self.commit_label.setText(get_t("commit_count_label", "Commits:"))
 
-        # D) FENSTER-TITEL & INFO
+        # E) FENSTER-TITEL
         self.setWindowTitle(get_t("github_dialog_title", "OSCam Emu Patch Manager"))
-        if hasattr(self, "info_text") and "info_text" in TEXTS[lang]:
-            self.info_text.setPlainText(TEXTS[lang]["info_text"])
 
-        # E) GUI REFRESH
+        # F) GUI REFRESH
         self.update_plugin_button_state()
 
-        # Zwingt die GUI zum kompletten Neuzeichnen
-        QApplication.processEvents()
+        # Layout-Refresh ohne starre Fixierung
         if self.layout():
-            self.layout().invalidate()
-            self.layout().activate()
+            self.layout().activate() 
+        QApplication.processEvents()
 
     # =====================
     # GITHUB EMU CREDENTIALS
