@@ -3280,17 +3280,37 @@ class PatchManagerGUI(QWidget):
         self, checked=False, info_widget=None, progress_callback=None
     ):
         """
-        Button-Callback: Prüft GitHub-Version und bietet Update an.
+        Button-Callback: Prüft GitHub-Version und bietet Update NUR bei neuerer Version an.
         """
-        # lang_key am Anfang definieren, damit er überall verfügbar ist
         lang_key = getattr(self, "LANG", "en").lower()
         widget = info_widget or getattr(self, "info_text", None)
 
+        # 1. Versionen säubern und vergleichen
+        try:
+            current_v_raw = APP_VERSION.replace("v", "").strip()
+            # Falls latest_version noch "..." ist, erst prüfen
+            if not hasattr(self, "latest_version") or self.latest_version == "...":
+                self.check_for_update_on_start()
+                return
+
+            latest_v_raw = self.latest_version.replace("v", "").strip()
+
+            # Echter Versionsvergleich (1.2.10 > 1.2.9)
+            if Version(latest_v_raw) <= Version(current_v_raw):
+                msg = TEXTS[lang_key].get("up_to_date", "Plugin ist aktuell (v{v})").format(v=current_v_raw)
+                QMessageBox.information(self, "Update", msg)
+                return
+        except Exception as e:
+            print(f"[DEBUG] Versionsvergleich fehlgeschlagen: {e}")
+            return
+
+        # 2. Wenn eine neuere Version existiert:
         if hasattr(self, "progress_bar"):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
-            if not progress_callback:
-                progress_callback = self.progress_bar.setValue
+            
+        # Hier dein bestehender Update-Dialog Aufruf
+        self.show_update_dialog(latest_v_raw)
 
         # Sicherer Logger gegen KeyError 'current'
         def log(text_key, level="info", **kwargs):
