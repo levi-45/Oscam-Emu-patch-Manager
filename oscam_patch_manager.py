@@ -28,10 +28,12 @@ import subprocess
 import zipfile
 import requests
 import stat
+import platform
+import re
 from pathlib import Path
 from io import BytesIO
 from datetime import datetime, timezone
-from PyQt6.QtGui import QPixmap, QAction
+from PyQt6.QtGui import QPixmap, QAction, QFont, QColor, QTextCursor, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
@@ -53,9 +55,44 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QSizePolicy,
 )
-from PyQt6.QtGui import QFont, QColor, QTextCursor, QIcon
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize
-from packaging.version import Version, InvalidVersion
+
+# ===================== VERSION HANDLING =====================
+try:
+    # Versuche den Standard-Import
+    from packaging.version import Version, InvalidVersion
+except (ImportError, ModuleNotFoundError):
+    # Fallback-Klasse, falls 'packaging' nicht installiert ist
+    class Version:
+        def __init__(self, vstring):
+            self.v = [
+                int(x) for x in re.sub(r"[^0-9.]", "", str(vstring)).split(".") if x
+            ]
+
+        def __gt__(self, other):
+            return self.v > other.v
+
+        def __lt__(self, other):
+            return self.v < other.v
+
+        def __ge__(self, other):
+            return self.v >= other.v
+
+        def __le__(self, other):
+            return self.v <= other.v
+
+        def __eq__(self, other):
+            return self.v == other.v
+
+    class InvalidVersion(Exception):
+        pass
+
+
+# Unterdrückt Git-Fehlermeldungen in der Windows-Konsole global
+if platform.system() == "Windows":
+    os.environ["GIT_REDIRECT_STDERR"] = "2>nul"
+else:
+    os.environ["GIT_REDIRECT_STDERR"] = "2>/dev/null"
 
 
 def ensure_executable_self():
@@ -70,11 +107,12 @@ def ensure_executable_self():
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
 
+# Zeitstempel für die GUI
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.3.4"
+APP_VERSION = "2.3.5"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -392,6 +430,24 @@ TEXTS = {
         # Commits
         "loading_commits": "Loading commits...",
         "commits_loaded": "Commits successfully loaded",
+        # Githup Upload
+        "github_config_load": "Loading GitHub configuration...",
+        "github_emu_git_missing": "Error: GitHub configuration incomplete (URL, token, or user missing).",
+        "patch_emu_git_missing": "Error: Local source directory not found: {path}",
+        "git_repo_init": "Initializing new git repository in target folder...",
+        "git_remote_add": "Linking local repository to GitHub...",
+        "git_remote_update": "Updating remote connection...",
+        "git_fetching": "Fetching current data from GitHub repository...",
+        "plugin_uptodate": "✅ Plugin is up to date (Version: {current})",
+        "tools_ok": "✅ All required system tools are already installed.",
+        "checking_tools": "Starting system tool check...",
+        "git_config_user": "Setting git user data ({user_name})...",
+        "git_adding_files": "Indexing files for upload...",
+        "git_committing": "Creating commit...",
+        "github_upload_start": "Starting upload to GitHub (push)...",
+        "github_emu_git_uploaded": "Upload completed successfully!",
+        "github_emu_git_revision": "Uploaded revision {sha}. Message: {commit_msg}",
+        "github_upload_failed": "Failed to upload to GitHub!",
         # ... zip_patch ...
         "patch_file_missing": "Patch file does not exist: {path}",
         "zip_success": "✅ Patch successfully zipped: {zip_file}",
@@ -411,6 +467,7 @@ TEXTS = {
         "github_emu_git_uploaded": "✅ OSCam-Emu Git successfully uploaded!",
         "git_revision_failed": "⚠️ Git revision could not be determined: {error}",
         "github_emu_git_revision": "📊 Current Status: Revision {sha} ({commit_msg})",
+        "github_upload_start": "🚀 GitHub upload started, please wait...",
         "github_emu_git_revision_failed": "⚠️ Could not retrieve revision: {error}",
         # Exit / Confirmation
         "exit": "Exit",
@@ -420,6 +477,8 @@ TEXTS = {
         # "plugin_update": "Plugin Update",
         "btn_plugin_update": "Plugin Update",
         "state_plugin_uptodate": "Up to date",
+        "check_tools_button": "🛠️ Check Tools",
+        # "checking_tools": "Starting system check...",
         "state_plugin_update_available": "Update available: {current} → {latest}",
         "log_update_check_start": "Checking for updates …",
         "log_update_uptodate": "✅ Installed version: {version}",
@@ -445,6 +504,10 @@ TEXTS = {
         "update_check_start": "Checking for updates ...",
         "github_version_available": "New version available: {version}",
         "github_version_fetch_failed": "Version check failed: {error}",
+        # Close Tool
+        "info_title": "About this tool",
+        "credits_label": "Credits / Authors",
+        "close": "Close",
         # update on start
         "version_current": "Version {version} is up to date.",
         "update_check_failed": "Update check failed: {error}",
@@ -562,6 +625,17 @@ TEXTS = {
         "yes": "Ja",
         "no": "Nein",
         "cancel": "Abbrechen",
+        "github_upload_start": "🚀 GitHub Upload gestartet, bitte warten...",
+        "github_config_load": "Lade GitHub-Konfiguration...",
+        "github_emu_git_missing": "Fehler: GitHub-Konfigurationsdaten unvollständig (URL, Token oder User fehlen).",
+        "patch_emu_git_missing": "Fehler: Lokaler Quellordner nicht gefunden: {path}",
+        "git_repo_init": "Initialisiere neues Git-Repository im Zielordner...",
+        "git_remote_add": "Verknüpfe lokales Repository mit GitHub...",
+        "git_remote_update": "Aktualisiere Remote-Verbindung...",
+        "git_fetching": "Hole aktuelle Daten vom GitHub-Repository...",
+        "git_config_user": "Setze Git-Benutzerdaten ({user_name})...",
+        "git_adding_files": "Indiziere Dateien für den Upload...",
+        "git_committing": "Erstelle Commit...",
         "exit_question": "Möchten Sie das Tool wirklich schließen?",
         "update_current_version": "✅ Sie nutzen bereits die aktuelle Version: {version}",
         "update_started": "ℹ️ Update gestartet…",
@@ -577,6 +651,10 @@ TEXTS = {
         "zip_failed": "❌ Fehler beim Zippen: {error}",
         "zip_file_already_deleted": "Kein ZIP-Archiv zum Löschen gefunden.",
         "zip_file_deleted": "ZIP-Archiv wurde gelöscht: {path}",
+        # Close Tool
+        "info_title": "Über dieses Tool",
+        "credits_label": "Mitwirkende / Autoren",
+        "close": "Schließen",
         # Updates
         "restart_required_msg": "Das Update wurde erfolgreich installiert. Das Tool muss neu gestartet werden.\nJetzt neu starten?",
         "restart_required_title": "Neustart erforderlich",
@@ -614,7 +692,12 @@ TEXTS = {
         "version_current": "Version {version} ist aktuell.",
         "update_error": "Fehler bei Updateprüfung: {error}",
         "update_declined": "Update abgebrochen.",
+        "check_tools_button": "🛠️ Tools prüfen",
         "update_no_update": "ℹ️ Kein Update vorhanden",
+        "tools_ok": "✅ Alle benötigten System-Tools sind bereits installiert.",
+        "tools_missing": "⚠️ Folgende Tools fehlen: {tools}. Installation wird vorbereitet...",
+        "check_tools_button": "🛠️ Tools prüfen",
+        "checking_tools": "Starte System-Check...",
         "restart_required_title": "Neustart erforderlich",
         "restart_tool_question": "Möchten Sie das Tool jetzt neu starten?",
         "patch_emu_git_success": "✅ OSCam Emu Git successfully patched",
@@ -623,8 +706,9 @@ TEXTS = {
         "no": "Nein",
         "oscam_emu_patch_upload": "OSCam EMU Patch hochladen",
         # Labels
-        "language_label": "Sprache:",
-        "color_label": "Farbe",
+        # "language_label": "Sprache:",
+        "language_label": "Sprache auswählen:",
+        "color_label": "Farbe auswählen",
         "commit_count_label": "Anzahl der anzuzeigenden Commits",
         "info_tooltip": "Info / Hilfe",
         # Info Text
@@ -671,6 +755,10 @@ TEXTS = {
         # Backup
         "backup_old_start": "ℹ️ Erstelle Backup des alten Patches…",
         "backup_done": "✅ Backup erfolgreich erstellt: {path}",
+        "tools_ok": "✅ Alle benötigten System-Tools sind bereits installiert.",
+        "tools_missing": "⚠️ Folgende Tools fehlen: {tools}. Installation wird vorbereitet...",
+        "check_tools_button": "🛠️ Tools prüfen",
+        "checking_tools": "Starte System-Check...",
         "no_old_patch": "ℹ️ Keine alte Patch-Datei gefunden.",
         "new_patch_installed": "✅ Neuer Patch erfolgreich installiert: {path}",
         "patch_file_missing": "❌ Patch-Datei fehlt: {path}",
@@ -986,68 +1074,6 @@ def get_patch_header(repo_dir=None, lang=LANG):
     return header
 
 
-# ===================== TOOL CHECK & AUTOMATISCHE INSTALLATION =====================
-def check_tools(self, info_widget=None):
-    """
-    Prüft alle benötigten Tools und installiert fehlende automatisch (Debian/Ubuntu).
-    (Hinweis: Diese Funktion verwendet self.append_info → muss Methode einer Klasse sein)
-    """
-    tools = {
-        "git": "git",
-        "patch": "patch",
-        "zip": "zip",
-        "python3": "python3",
-        "pip3": "python3-pip",
-    }
-
-    all_ok = True
-
-    for tool, package in tools.items():
-        if shutil.which(tool) is None:
-            self.append_info(
-                info_widget,
-                f"{tool} {TEXTS[LANG]['not_installed']}, versuche zu installieren...",
-                "warning",
-            )
-
-            # Installation versuchen (Debian/Ubuntu)
-            install_cmd = f"sudo apt update && sudo apt install -y {package}"
-            run_bash(install_cmd, info_widget=info_widget)
-
-            # Prüfen, ob Installation erfolgreich war
-            if shutil.which(tool) is None:
-                self.append_info(
-                    info_widget,
-                    f"{tool} konnte nicht installiert werden!",
-                    "error",
-                )
-                all_ok = False
-            else:
-                self.append_info(
-                    info_widget,
-                    f"{tool} erfolgreich installiert.",
-                    "success",
-                )
-
-    # Finaler Check
-    missing = [t for t in tools if shutil.which(t) is None]
-
-    if missing:
-        self.append_info(
-            info_widget,
-            f"❌ Folgende Tools fehlen immer noch: {', '.join(missing)}",
-            "error",
-        )
-    else:
-        self.append_info(
-            info_widget,
-            TEXTS[LANG]["all_tools_installed"],
-            "success",
-        )
-
-    return all_ok
-
-
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 import os, subprocess, shutil
@@ -1331,9 +1357,10 @@ import shutil, os
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Löscht TEMP_REPO, PATCH_FILE, ZIP_FILE und TEMP_PATCH_GIT komplett.
+    Windows-Fix: Entfernt Schreibschutz von Git-Dateien (stat.S_IWRITE).
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
-    import os, shutil
+    import os, shutil, stat
 
     # 1. Widget & Sprache sicherstellen
     widget = (
@@ -1341,12 +1368,6 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
         if isinstance(info_widget, QTextEdit)
         else getattr(gui_instance, "info_text", None)
     )
-
-    if not isinstance(widget, QTextEdit):
-        active_win = QApplication.activeWindow()
-        widget = getattr(active_win, "info_text", None)
-
-    # FIX: Sprache auf Kleinschreibung umstellen, passend zum Dictionary
     lang = getattr(gui_instance, "LANG", "de").lower()
 
     def set_progress(val):
@@ -1358,10 +1379,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
                 pass
 
     def log(text_key, level="info", **kwargs):
-        # Holt Sprache aus TEXTS, Fallback auf Englisch falls 'lang' nicht existiert
-        lang_data = TEXTS.get(lang, TEXTS.get("en", {}))
+        lang_data = TEXTS.get(lang, TEXTS.get("En", {}))
         text_template = lang_data.get(text_key, text_key)
-
         try:
             text = text_template.format(**kwargs)
         except:
@@ -1373,19 +1392,30 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
             colors = {"success": "green", "warning": "orange", "error": "red"}
             color = colors.get(level, "gray")
             widget.append(f'<span style="color:{color}">{text}</span>')
-
         QApplication.processEvents()
+
+    # --- Windows Schreibschutz-Fix ---
+    def on_rm_error(func, path, exc_info):
+        """Entfernt Schreibschutz und versucht das Löschen erneut (für Git-Dateien)."""
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        except:
+            pass  # Falls Datei wirklich gesperrt ist
 
     def delete_path(path, path_name):
         if path and os.path.exists(path):
             try:
                 if os.path.isdir(path):
-                    shutil.rmtree(path, ignore_errors=True)
+                    # Nutze on_rm_error statt ignore_errors für Windows-Kompatibilität
+                    shutil.rmtree(path, onerror=on_rm_error)
                 else:
+                    # Vor dem Löschen von Dateien ebenfalls Schreibschutz entfernen
+                    os.chmod(path, stat.S_IWRITE)
                     os.remove(path)
                 log(f"{path_name}_deleted", "success", path=path)
                 return True
-            except:
+            except Exception as e:
                 log("delete_failed", "error", path=path_name)
         else:
             log(f"{path_name}_already_deleted", "info", path=path)
@@ -1394,18 +1424,17 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     # --- Ablauf ---
     set_progress(10)
     delete_path(TEMP_REPO, "temp_repo")
-    set_progress(35)
 
+    set_progress(35)
     temp_patch_git = os.path.join(PLUGIN_DIR, "temp_patch_git")
     delete_path(temp_patch_git, "temp_patch_git")
+
     set_progress(60)
-
     delete_path(PATCH_FILE, "patch_file")
-    set_progress(85)
 
+    set_progress(85)
     delete_path(ZIP_FILE, "zip_file")
 
-    # Wird nun korrekt in Deutsch ausgegeben
     log("clean_done", "success")
     set_progress(100)
 
@@ -1465,12 +1494,11 @@ import shutil, os
 def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Löscht den PATCH_EMU_GIT Ordner flüssig mit Fortschrittsanzeige.
-    Meldungen erscheinen NUR im Infoscreen.
+    Windows-Fix: Entfernt Schreibschutz von Git-Dateien vor dem Löschen.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
-    import os, shutil
+    import os, shutil, stat
 
-    # 1. Widget-Suche & Sprache (Fix: .lower() für Dictionary-Match)
     widget = (
         info_widget
         if isinstance(info_widget, QTextEdit)
@@ -1478,78 +1506,6 @@ def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     )
     lang = getattr(gui_instance, "LANG", "de").lower()
 
-    # Hilfsfunktion für Fortschritt (Damit der Balken sich bewegt)
-    def set_progress(val):
-        if progress_callback:
-            try:
-                progress_callback(val)
-                QApplication.processEvents()  # UI-Update erzwingen
-            except:
-                pass
-
-    # Logger mit Übersetzungen
-    def log(text_key, level="info", **kwargs):
-        lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
-        text_template = lang_dict.get(text_key, text_key)
-        try:
-            text = text_template.format(**kwargs)
-        except Exception:
-            text = text_template
-
-        if gui_instance and hasattr(gui_instance, "append_info"):
-            gui_instance.append_info(widget, text, level)
-        elif isinstance(widget, QTextEdit):
-            colors = {
-                "success": "green",
-                "warning": "orange",
-                "error": "red",
-                "info": "gray",
-            }
-            color = colors.get(level, "gray")
-            widget.append(f'<span style="color:{color}">{text}</span>')
-
-        QApplication.processEvents()
-
-    # --- Start der Ausführung ---
-    set_progress(10)  # Balken auf 10%
-    log("cleaning_oscam_emu_git", "info", path=PATCH_EMU_GIT_DIR)
-
-    if os.path.exists(PATCH_EMU_GIT_DIR):
-        try:
-            set_progress(50)  # Balken auf 50% während shutil.rmtree arbeitet
-            shutil.rmtree(PATCH_EMU_GIT_DIR, ignore_errors=True)
-            log("oscam_emu_git_deleted", "success", path=PATCH_EMU_GIT_DIR)
-        except Exception as e:
-            log("delete_failed", "error", path="OSCam-Emu Git", error=str(e))
-            set_progress(0)
-            return
-    else:
-        log("oscam_emu_git_missing", "warning", path=PATCH_EMU_GIT_DIR)
-
-    # Abschluss
-    set_progress(100)  # Balken voll auf 100%
-    log("clean_done", "success")
-
-
-# ===================== patch_oscam_emu_git=====================
-def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
-    """
-    Klont das Streamboard Git, wendet oscam-emu.patch an und commitet.
-    Zeigt Fortschritt und finale Erfolgsmeldungen im Info-Widget an.
-    """
-    from PyQt6.QtWidgets import QTextEdit, QApplication
-    from PyQt6.QtCore import QTimer
-    import os, shutil, subprocess
-
-    # --- 1. Widget & Sprache ---
-    widget = (
-        info_widget
-        if isinstance(info_widget, QTextEdit)
-        else getattr(gui_instance, "info_text", None)
-    )
-    lang = getattr(gui_instance, "LANG", "DE").lower()  # immer klein für TEXTS
-
-    # --- 2. Fortschritts-Helper ---
     def set_progress(val):
         if progress_callback:
             try:
@@ -1558,57 +1514,144 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
             except:
                 pass
 
-    # --- 3. Log-Funktion ---
     def log(text_key, level="info", **kwargs):
-        text_template = TEXTS.get(lang, {}).get(text_key, text_key)
+        lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
+        text_template = lang_dict.get(text_key, text_key)
+        try:
+            text = text_template.format(**kwargs)
+        except:
+            text = text_template
+
+        if gui_instance and hasattr(gui_instance, "append_info"):
+            gui_instance.append_info(widget, text, level)
+        elif isinstance(widget, QTextEdit):
+            color = {"success": "green", "warning": "orange", "error": "red"}.get(
+                level, "gray"
+            )
+            widget.append(f'<span style="color:{color}">{text}</span>')
+        QApplication.processEvents()
+
+    # --- Windows-Spezifischer Fix für Schreibschutz ---
+    def remove_readonly(func, path, excinfo):
+        """Hilfsfunktion: Entfernt Schreibschutz, falls shutil.rmtree scheitert."""
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+
+    # --- Start ---
+    set_progress(10)
+    log("cleaning_oscam_emu_git", "info", path=PATCH_EMU_GIT_DIR)
+
+    if os.path.exists(PATCH_EMU_GIT_DIR):
+        try:
+            set_progress(50)
+            # onerror=remove_readonly ist der entscheidende Teil für Windows!
+            shutil.rmtree(PATCH_EMU_GIT_DIR, onerror=remove_readonly)
+            log("oscam_emu_git_deleted", "success", path=PATCH_EMU_GIT_DIR)
+        except Exception as e:
+            # Notfallplan: Falls rmtree immer noch blockiert (z.B. Datei offen)
+            log("delete_failed", "error", path=PATCH_EMU_GIT_DIR)
+            set_progress(0)
+            return
+    else:
+        log("oscam_emu_git_missing", "warning", path=PATCH_EMU_GIT_DIR)
+
+    set_progress(100)
+    log("clean_done", "success")
+
+
+# ===================== patch_oscam_emu_git=====================
+def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
+    """
+    Klont das Streamboard Git, wendet oscam-emu.patch an und commitet.
+    Optimiert für Windows 11: Keine Terminal-Ausgaben, SSL-Fix inklusive.
+    """
+    from PyQt6.QtWidgets import QTextEdit, QApplication
+    from PyQt6.QtCore import QTimer
+    import os, shutil, subprocess
+
+    widget = (
+        info_widget
+        if isinstance(info_widget, QTextEdit)
+        else getattr(gui_instance, "info_text", None)
+    )
+    lang = getattr(gui_instance, "LANG", "de").lower()
+
+    def set_progress(val):
+        if progress_callback:
+            try:
+                progress_callback(val)
+                QApplication.processEvents()
+            except:
+                pass
+
+    def log(text_key, level="info", **kwargs):
+        lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
+        text_template = lang_dict.get(text_key, text_key)
         try:
             text = text_template.format(**kwargs)
         except Exception:
             text = text_key
-        if isinstance(widget, QTextEdit):
-            PatchManagerGUI.append_info(widget, text, level)
+
+        if isinstance(widget, QTextEdit) and gui_instance:
+            gui_instance.append_info(widget, text, level)
+        elif isinstance(widget, QTextEdit):
+            widget.append(text)
+        QApplication.processEvents()
 
     # --- Start ---
     set_progress(5)
     log("patch_emu_git_start", "info", path=PATCH_EMU_GIT_DIR)
 
-    # --- Alten Ordner löschen ---
+    # Ordner bereinigen (mit Retry für Windows-Dateisperren)
     if os.path.exists(PATCH_EMU_GIT_DIR):
         try:
             shutil.rmtree(PATCH_EMU_GIT_DIR, ignore_errors=True)
             log("patch_emu_git_deleted", "success", path=PATCH_EMU_GIT_DIR)
-        except Exception as e:
-            log("delete_failed", "error", path=f"{PATCH_EMU_GIT_DIR} ({e})")
-            set_progress(0)
-            return
+        except Exception:
+            log("delete_failed", "error", path=PATCH_EMU_GIT_DIR)
 
-    set_progress(15)
     os.makedirs(PATCH_EMU_GIT_DIR, exist_ok=True)
+    set_progress(15)
 
-    # --- Git Clone ---
+    # --- Git Clone (Informativ & Silent) ---
     set_progress(20)
-    code = run_bash(
-        f"git clone {STREAMREPO} .",
+    # -c http.sslVerify=false behebt Klon-Fehler auf vielen Windows-Systemen
+    clone = subprocess.run(
+        ["git", "clone", "-c", "http.sslVerify=false", STREAMREPO, "."],
         cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
+        capture_output=True,
+        text=True,
     )
-    if code != 0:
+
+    if clone.returncode != 0:
         log("patch_emu_git_clone_failed", "error")
-        set_progress(0)
+        # Fehlermeldung nur in die GUI schreiben
+        if isinstance(widget, QTextEdit):
+            widget.append(
+                f'<span style="color:red">Git Error: {clone.stderr.strip()}</span>'
+            )
         return
 
     # --- Patch anwenden ---
     set_progress(50)
-    code = run_bash(
-        f"git apply --whitespace=fix {PATCH_FILE}",
+    if not os.path.exists(PATCH_FILE):
+        log("patch_file_missing", "error")
+        return
+
+    abs_patch_path = os.path.abspath(PATCH_FILE)
+    apply_patch = subprocess.run(
+        ["git", "apply", "--whitespace=fix", abs_patch_path],
         cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
+        capture_output=True,
+        text=True,
     )
-    if code != 0:
+
+    if apply_patch.returncode != 0:
         log("patch_emu_git_apply_failed", "error")
-        set_progress(0)
+        if isinstance(widget, QTextEdit):
+            widget.append(
+                f'<span style="color:red">Patch Error: {apply_patch.stderr.strip()}</span>'
+            )
         return
 
     # --- Git Config ---
@@ -1617,67 +1660,65 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     user = cfg.get("user_name", "speedy005")
     mail = cfg.get("user_email", "patch@oscam.local")
 
-    run_bash(
-        f'git config user.name "{user}"',
-        cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
+    subprocess.run(
+        ["git", "config", "user.name", user], cwd=PATCH_EMU_GIT_DIR, capture_output=True
     )
-    run_bash(
-        f'git config user.email "{mail}"',
+    subprocess.run(
+        ["git", "config", "user.email", mail],
         cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
+        capture_output=True,
     )
 
-    # --- Commit ---
+    # --- Header Context Fix (Keine Terminal fatal Meldungen) ---
+    old_cwd = os.getcwd()
     try:
+        os.chdir(PATCH_EMU_GIT_DIR)
         header_raw = get_patch_header()
         header = header_raw.splitlines()[0] if header_raw else "Update"
-        commit_msg = f"Sync patch {header}"
     except:
-        commit_msg = "Sync patch (automatic commit)"
+        header = "Update"
+    finally:
+        os.chdir(old_cwd)
 
-    run_bash(
-        f'git commit -am "{commit_msg}" --allow-empty',
+    commit_msg = f"Sync patch {header}"
+
+    # --- Commit ---
+    subprocess.run(["git", "add", "."], cwd=PATCH_EMU_GIT_DIR, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-am", commit_msg, "--allow-empty"],
         cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
+        capture_output=True,
     )
     log("patch_emu_git_applied", "success", commit_msg=commit_msg)
 
-    # --- Git Revision auslesen ---
+    # --- Revision auslesen (Silent) ---
     rev = None
     try:
-        rev = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=PATCH_EMU_GIT_DIR, text=True
-        ).strip()
-    except Exception as e:
-        log("patch_emu_git_revision_failed", "warning", error=str(e))
+        rev_res = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=PATCH_EMU_GIT_DIR,
+            capture_output=True,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        if rev_res.returncode == 0:
+            rev = rev_res.stdout.strip()
+    except:
+        pass
 
-    # --- Finale Meldungen (grün) ---
+    # --- Finale Meldungen ---
     def final_logs():
         if gui_instance:
-            gui_instance.append_info(
-                widget,
-                TEXTS[lang].get(
-                    "patch_emu_git_done",
-                    "✅ Oscam Emu Git successfully patched",
-                ),
-                "success",
-            )
+            log("patch_emu_git_done", "success")
             if rev:
-                gui_instance.append_info(
-                    widget,
+                rev_text = (
                     TEXTS[lang]
-                    .get("patch_emu_git_revision", "🧾 Git revision: {sha}")
-                    .format(sha=rev),
-                    "success",
+                    .get("patch_emu_git_revision", "Git revision: {sha}")
+                    .format(sha=rev)
                 )
+                gui_instance.append_info(widget, rev_text, "success")
 
     QTimer.singleShot(100, final_logs)
-
-    # --- Fortschritt abschließen ---
     set_progress(100)
 
 
@@ -1880,175 +1921,184 @@ def github_upload_oscam_emu_folder(
 ):
     """
     Lädt den gesamten Inhalt des OSCam-EMU-Git-Ordners auf GitHub hoch.
-    Inklusive flüssiger Fortschrittsanzeige und Statusmeldung am Ende.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
-    import os, subprocess
+    import os, subprocess, shutil
 
-    # 1. Widget & Sprache sicherstellen
+    # 1. Sicherstellen, dass wir Instanzen haben
+    gui = gui_instance if gui_instance else self
     widget = (
         info_widget
         if isinstance(info_widget, QTextEdit)
-        else getattr(gui_instance, "info_text", None)
+        else getattr(gui, "info_text", None)
     )
-    # Sprache auf Kleinschreibung für Dictionary-Match vereinheitlichen
-    lang = getattr(gui_instance, "LANG", "de").lower()
+    lang = getattr(gui, "LANG", "de").lower()
 
-    # Hilfsfunktion für Fortschritt
     def set_progress(val):
         if progress_callback:
             try:
                 progress_callback(val)
-                QApplication.processEvents()
             except:
                 pass
+        elif hasattr(gui, "progress_bar"):
+            gui.progress_bar.setValue(val)
+        QApplication.processEvents()
 
-    # Lokaler Logger
     def log(text_key, level="info", **kwargs):
-        lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
-        text_template = lang_dict.get(text_key, text_key)
+        # Greift auf das globale TEXTS dictionary zu
+        lang_dict = (
+            globals()
+            .get("TEXTS", {})
+            .get(lang, globals().get("TEXTS", {}).get("en", {}))
+        )
+        fallback = text_key.replace("_", " ").capitalize()
+        text_template = lang_dict.get(text_key, fallback)
         try:
             text = text_template.format(**kwargs)
         except:
-            text = text_key
+            text = text_template
 
-        if isinstance(widget, QTextEdit) and gui_instance:
-            gui_instance.append_info(widget, text, level)
-        elif isinstance(widget, QTextEdit):
-            color = {"success": "green", "warning": "orange", "error": "red"}.get(
-                level, "gray"
-            )
-            widget.append(f'<span style="color:{color}">{text}</span>')
-
+        if widget and hasattr(gui, "append_info"):
+            gui.append_info(widget, text, level)
+        else:
+            print(f"[{level.upper()}] {text}")
         QApplication.processEvents()
 
-    # --- Start ---
+    # --- Start der Logik ---
     set_progress(5)
-    cfg = load_github_config()
-    repo_url, branch = cfg.get("emu_repo_url"), cfg.get("emu_branch", "master")
+    log("github_config_load", "info")
+
+    # Sicherer Aufruf der Ladefunktion (muss global oder in self existieren)
+    load_func = globals().get("load_github_config") or getattr(
+        self, "load_github_config", None
+    )
+    if not load_func:
+        log("Konfigurations-Ladefunktion fehlt!", "error")
+        return
+
+    cfg = load_func()
+    repo_url = cfg.get("emu_repo_url")
+    branch = cfg.get("emu_branch", "master")
     username, token = cfg.get("username"), cfg.get("token")
     user_name, user_email = cfg.get("user_name"), cfg.get("user_email")
 
-    # Validierung
+    # Check ob Config vollständig
     if not all([repo_url, branch, username, token, user_name, user_email]):
         log("github_emu_git_missing", "error")
-        set_progress(0)
         return
 
-    if not os.path.exists(PATCH_EMU_GIT_DIR):
-        log("patch_emu_git_missing", "error", path=PATCH_EMU_GIT_DIR)
-        set_progress(0)
+    # Globaler Pfad-Check
+    target_dir = globals().get("PATCH_EMU_GIT_DIR")
+    if not target_dir or not os.path.exists(target_dir):
+        log("patch_emu_git_missing", "error", path=str(target_dir))
         return
 
     set_progress(15)
     token_url = repo_url.replace("https://", f"https://{username}:{token}@")
-    git_dir = os.path.join(PATCH_EMU_GIT_DIR, ".git")
+    git_dir = os.path.join(target_dir, ".git")
+    silent_env = os.environ.copy()
+    silent_env["GIT_TERMINAL_PROMPT"] = "0"
 
-    # Git Repository initialisieren oder remote setzen
-    if not os.path.exists(git_dir):
-        log("git_repo_init", "warning", path=PATCH_EMU_GIT_DIR)
-        run_bash("git init", cwd=PATCH_EMU_GIT_DIR, info_widget=widget, lang=lang)
-        run_bash(
-            f"git remote add origin {token_url}",
-            cwd=PATCH_EMU_GIT_DIR,
-            info_widget=widget,
-            lang=lang,
+    # --- Git Operationen ---
+    try:
+        if not os.path.exists(git_dir):
+            log("git_repo_init", "warning")
+            subprocess.run(["git", "init"], cwd=target_dir, capture_output=True)
+            subprocess.run(
+                ["git", "remote", "add", "origin", token_url],
+                cwd=target_dir,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "checkout", "-b", branch], cwd=target_dir, capture_output=True
+            )
+        else:
+            log("git_remote_update", "info")
+            subprocess.run(
+                ["git", "remote", "remove", "origin"],
+                cwd=target_dir,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "remote", "add", "origin", token_url],
+                cwd=target_dir,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "fetch", "origin", branch], cwd=target_dir, capture_output=True
+            )
+            subprocess.run(
+                ["git", "checkout", branch], cwd=target_dir, capture_output=True
+            )
+
+        set_progress(40)
+        log("git_config_user", "info")
+        subprocess.run(
+            ["git", "config", "user.name", user_name],
+            cwd=target_dir,
+            capture_output=True,
         )
-        run_bash(
-            f"git checkout -b {branch}",
-            cwd=PATCH_EMU_GIT_DIR,
-            info_widget=widget,
-            lang=lang,
-        )
-    else:
-        run_bash(
-            "git remote remove origin || true",
-            cwd=PATCH_EMU_GIT_DIR,
-            info_widget=widget,
-            lang=lang,
-        )
-        run_bash(
-            f"git remote add origin {token_url}",
-            cwd=PATCH_EMU_GIT_DIR,
-            info_widget=widget,
-            lang=lang,
-        )
-        run_bash(
-            f"git fetch origin {branch}",
-            cwd=PATCH_EMU_GIT_DIR,
-            info_widget=widget,
-            lang=lang,
-        )
-        run_bash(
-            f"git checkout {branch}",
-            cwd=PATCH_EMU_GIT_DIR,
-            info_widget=widget,
-            lang=lang,
+        subprocess.run(
+            ["git", "config", "user.email", user_email],
+            cwd=target_dir,
+            capture_output=True,
         )
 
-    set_progress(40)
+        set_progress(50)
+        log("git_adding_files", "info")
+        subprocess.run(["git", "add", "."], cwd=target_dir, capture_output=True)
 
-    # Git Config & Staging
-    run_bash(
-        f'git config user.name "{user_name}"',
-        cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
-    )
-    run_bash(
-        f'git config user.email "{user_email}"',
-        cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
-    )
+        # Commit Message
+        commit_msg = "Sync OSCam-Emu folder"
+        header_func = globals().get("get_patch_header")
+        if header_func:
+            try:
+                raw = header_func()
+                commit_msg = raw.splitlines()[0] if raw else commit_msg
+            except:
+                pass
 
-    set_progress(50)
-    run_bash("git add .", cwd=PATCH_EMU_GIT_DIR, info_widget=widget, lang=lang)
+        log("git_committing", "info")
+        subprocess.run(
+            ["git", "commit", "-m", commit_msg, "--allow-empty"],
+            cwd=target_dir,
+            capture_output=True,
+        )
 
-    # Commit erstellen
-    header_raw = get_patch_header()
-    commit_msg_ext = header_raw.splitlines()[0] if header_raw else "Sync"
-    run_bash(
-        f'git commit -m "Sync OSCam-Emu folder {commit_msg_ext}" --allow-empty',
-        cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
-    )
+        set_progress(70)
+        log("github_upload_start", "warning")
 
-    set_progress(70)
+        push = subprocess.run(
+            ["git", "push", "--force", "origin", branch],
+            cwd=target_dir,
+            capture_output=True,
+            text=True,
+            env=silent_env,
+        )
 
-    # Push auf GitHub
-    log("github_upload_start", "info")
-    code = run_bash(
-        f"git push --force origin {branch}",
-        cwd=PATCH_EMU_GIT_DIR,
-        info_widget=widget,
-        lang=lang,
-    )
-
-    if code == 0:
-        # --- Revision / Stand abfragen ---
-        try:
-            # Holt den kurzen Hash und die letzte Nachricht
-            sha = subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=PATCH_EMU_GIT_DIR,
-                text=True,
-            ).strip()
-            msg = subprocess.check_output(
-                ["git", "log", "-1", "--pretty=%B"], cwd=PATCH_EMU_GIT_DIR, text=True
-            ).strip()
-
+        if push.returncode == 0:
+            sha = "N/A"
+            try:
+                sha = subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"], cwd=target_dir, text=True
+                ).strip()
+            except:
+                pass
             log("github_emu_git_uploaded", "success")
-            # Neue Meldung mit dem aktuellen Stand
-            log("github_emu_git_revision", "success", sha=sha, commit_msg=msg)
-        except Exception as e:
-            log("github_emu_git_uploaded", "success")
-            log("github_emu_git_revision_failed", "warning", error=str(e))
+            log("github_emu_git_revision", "success", sha=sha, commit_msg=commit_msg)
+            set_progress(100)
+        else:
+            log("github_upload_failed", "error")
+            err = (
+                push.stderr.replace(token, "***")
+                if push.stderr
+                else "Unknown Git Error"
+            )
+            log(err.strip(), "error")
+            set_progress(0)
 
-        set_progress(100)
-    else:
-        log("github_upload_failed", "error")
+    except Exception as e:
+        log(f"Kritischer Fehler: {str(e)}", "error")
         set_progress(0)
 
 
@@ -2061,7 +2111,7 @@ class GithubConfigDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         # Sprache sicher ermitteln
-        self.lang = getattr(parent, "LANG", globals().get("LANG", "DE"))
+        self.lang = getattr(parent, "LANG", globals().get("LANG", "de"))
 
         # Titel sicher setzen (Fallback falls Key fehlt)
         title = TEXTS.get(self.lang, {}).get("github_dialog_title", "GitHub Config")
@@ -2185,10 +2235,15 @@ class PatchManagerGUI(QWidget):
         # 1. Daten laden (Einheitlich self.cfg verwenden)
         self.cfg = load_config()
 
-        # 2. Sprache & Basis-Initialisierungen
-        self.LANG = self.cfg.get("language", "DE").lower()
-        if self.LANG not in ["en", "de"]:
-            self.LANG = "en"
+        # 2. Sprache & Basis-Initialisierungen (KORRIGIERT)
+        # Wir nutzen .lower(), damit es zum Dictionary TEXTS["de"] passt
+        stored_lang = str(self.cfg.get("language", "de")).lower()
+
+        # Validierung: Nur erlauben, was wir auch im Dictionary haben
+        if stored_lang in ["en", "de"]:
+            self.LANG = stored_lang
+        else:
+            self.LANG = "de"  # Sicherer Standard-Fallback
 
         # 3. Patch-Pfade (Windows-sicher über os.path.normpath)
         current_path = self.cfg.get("s3_patch_path", OLD_PATCH_DIR_PLUGIN_DEFAULT)
@@ -2197,37 +2252,226 @@ class PatchManagerGUI(QWidget):
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
-        # 4. GUI-Elemente für Pfadauswahl VORAB erstellen
-
-        # 5. Listen & Status-Variablen
+        # 4. Listen & Status-Variablen
         self.all_buttons = []
         self.option_buttons = {}
         self.buttons = {}
         self.active_button_key = ""
 
-        # --- UPDATE INITIALISIERUNG START ---
-        # Wir setzen latest_version auf die aktuelle APP_VERSION,
-        # damit der Button beim Start nicht leer ist oder "..." anzeigt.
+        # Grid-Layout Referenz initialisieren
+        self.main_grid_layout = None
+
+        # --- UPDATE INITIALISIERUNG ---
         self.latest_version = APP_VERSION.replace("v", "").strip()
-        # --- UPDATE INITIALISIERUNG ENDE ---
 
-        # 6. Haupt-UI aufbauen
+        # 5. Haupt-UI aufbauen
         self.init_ui()
+        QTimer.singleShot(1000, self.manual_tool_check)
+        # 6. Pfad-Layout sicherstellen
+        if not hasattr(self, "label_patch_path"):
+            self.label_patch_path = QLabel()
 
-        # --- UPDATE BUTTON TEXT FIX ---
-        # Nachdem die UI (und damit der Button) erstellt wurde,
-        # setzen wir sofort den korrekten Text ohne Platzhalter-Fehler.
+        # 7. SPRACHE ANWENDEN (Zuerst Anleitung setzen)
+        # Dies befüllt den info_text via Teil E deiner update_language
+        self.update_language()
+
+        # 8. UPDATE-LOGIK STARTEN
+        # Erst den Button-Zustand (Farbe) initialisieren
         self.update_plugin_button_state()
 
-        # Der Timer startet den Online-Check verzögert für flüssiges GUI-Laden
-        QTimer.singleShot(500, self.check_for_update_on_start)
-        # ------------------------------
+        # Der Timer startet den Online-Check verzögert, damit die GUI erst steht.
+        # Nutzt check_for_plugin_update, da diese Methode den Status UNTER die Anleitung hängt.
+        QTimer.singleShot(500, self.check_for_plugin_update)
 
-        # 7. Pfad-Layout in das bestehende UI integrieren
+    def show_info(self):
+        """Zeigt ein modernes Info-Fenster mit Credits und System-Icon."""
+        # 1. Sprache ermitteln
+        lang = str(getattr(self, "LANG", "de")).lower()
+        t = TEXTS.get(lang, TEXTS.get("en", {}))
 
-        self.label_patch_path = QLabel()
+        # 2. Dialog erstellen
+        info_dialog = QDialog(self)
+        info_dialog.setWindowTitle(t.get("info_title", "About OSCam Emu Toolkit"))
+        info_dialog.setFixedSize(450, 320)
 
-        self.update_language()
+        layout = QVBoxLayout(info_dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        # 3. Oberer Teil: Icon & Titel
+        header_layout = QHBoxLayout()
+
+        # Das Info-Icon (das gleiche wie im Button)
+        icon_label = QLabel()
+        icon = self.style().standardIcon(
+            QApplication.style().StandardPixmap.SP_MessageBoxInformation
+        )
+        icon_label.setPixmap(icon.pixmap(64, 64))
+
+        title_vbox = QVBoxLayout()
+        title_label = QLabel("OSCam Emu Patch Manager")
+        title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+
+        version_label = QLabel(f"Version {APP_VERSION}")
+        version_label.setStyleSheet("color: #666;")
+
+        title_vbox.addWidget(title_label)
+        title_vbox.addWidget(version_label)
+
+        header_layout.addWidget(icon_label)
+        header_layout.addLayout(title_vbox)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+
+        # 4. Mittlerer Teil: Credits / Mitwirkende
+        credits_group = QGroupBox(t.get("credits_label", "Credits / Authors"))
+        credits_layout = QFormLayout(credits_group)
+
+        # Hier kannst du deine Liste erweitern
+        credits_layout.addRow("Main Author:", QLabel("<b>speedy005</b>"))
+        credits_layout.addRow("Emu Patch:", QLabel("OSCam-Emu Team"))
+        credits_layout.addRow("License:", QLabel("MIT License"))
+
+        layout.addWidget(credits_group)
+
+        # 5. Unterer Teil: Copyright & Schließen
+        copy_label = QLabel(f"© 2026 speedy005 - All rights reserved.")
+        copy_label.setFont(QFont("Arial", 8))
+        copy_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(copy_label)
+
+        close_btn = QPushButton(t.get("close", "Close"))
+        close_btn.setFixedHeight(35)
+        close_btn.setStyleSheet(
+            f"border-radius: {self.BUTTON_RADIUS}px; background-color: #f0f0f0; font-weight: bold;"
+        )
+        close_btn.clicked.connect(info_dialog.accept)
+        layout.addWidget(close_btn)
+
+        info_dialog.exec()
+
+    def get_t(self, key, default=None):
+        """Zentrale Methode zur Textübersetzung."""
+        lang = str(getattr(self, "LANG", "de")).lower()
+        # Dictionary für die aktuelle Sprache holen, Fallback auf Englisch
+        lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
+
+        if key in lang_dict:
+            return lang_dict[key]
+
+        # Falls Key fehlt, technischen Namen schön machen
+        if default:
+            return default
+
+        return str(key).replace("_", " ").title()
+
+    def manual_tool_check(self):
+        """Prüft installierte Tools und nutzt strikt die gewählte Sprache."""
+        import shutil
+        import subprocess
+
+        # 1. Sprache & Texte laden (Fallback auf EN, falls Key fehlt)
+        lang = str(getattr(self, "LANG", "de")).lower()
+        t = TEXTS.get(lang, TEXTS.get("en", {}))
+
+        # 2. Start-Meldung (Fallback Englisch)
+        self.append_info(
+            self.info_text,
+            t.get("checking_tools", "Starting system tool check..."),
+            "info",
+        )
+
+        # 3. System-Tools prüfen
+        required_tools = ["git", "patch", "zip", "python3"]
+        missing = [tool for tool in required_tools if shutil.which(tool) is None]
+
+        if not missing:
+            # 4. Erfolgs-Meldung (Fallback Englisch)
+            msg = t.get(
+                "tools_ok", "✅ All required system tools are already installed."
+            )
+            self.append_info(self.info_text, msg, "success")
+            return
+
+        # 5. Falls Tools fehlen (Fallback Englisch)
+        missing_str = " ".join(missing)
+        template = t.get(
+            "tools_missing", "⚠️ Missing tools: {tools}. Starting installation..."
+        )
+        self.append_info(self.info_text, template.format(tools=missing_str), "warning")
+
+        # Installations-Befehl
+        install_cmd = f"sudo apt-get update && sudo apt-get install -y {missing_str}"
+        full_cmd = (
+            f"bash -c '{install_cmd}; echo; echo Done. Press Enter to close...; read'"
+        )
+
+        term = (
+            shutil.which("x-terminal-emulator")
+            or shutil.which("xterm")
+            or "gnome-terminal"
+        )
+
+        try:
+            if term and "gnome" in term:
+                subprocess.Popen([term, "--", "bash", "-c", full_cmd])
+            else:
+                subprocess.Popen([term, "-e", full_cmd])
+        except Exception as e:
+            err_msg = (
+                f"Terminal Error: {e}" if lang == "en" else f"Terminal-Fehler: {e}"
+            )
+            self.append_info(self.info_text, err_msg, "error")
+
+    def resizeEvent(self, event):
+        """
+        Zentrale Steuerung für die UI-Skalierung bei Auflösungsänderung.
+        Optimiert: Uhr verkleinert, Schriftfaktoren angepasst.
+        """
+        super().resizeEvent(event)
+
+        # 1. Basis-Schriftgröße berechnen (Faktor 90 statt 75 für kompaktere Schriften)
+        dynamic_size = max(10, int(self.width() / 90))
+
+        # Schriftarten erstellen
+        button_font = QFont("Arial", dynamic_size, QFont.Weight.Bold)
+        label_font = QFont("Arial", max(9, dynamic_size - 1))
+
+        # UHR-FIX: Faktor auf 1.1 reduziert (statt 1.5) und Basis auf 12 (statt 14)
+        clock_font = QFont("Arial", max(12, int(dynamic_size * 1.1)), QFont.Weight.Bold)
+
+        # 2. Alle Buttons in 'all_buttons' aktualisieren
+        for btn in self.all_buttons:
+            btn.setFont(button_font)
+            if not btn.icon().isNull():
+                # Icons etwas kleiner (2.0 statt 2.5)
+                icon_dim = int(dynamic_size * 2.0)
+                btn.setIconSize(QSize(icon_dim, icon_dim))
+
+        # 3. Buttons im Dictionary 'buttons' (Aktions-Grid)
+        for key in self.buttons:
+            self.buttons[key].setFont(button_font)
+
+        # 4. Spezifische GUI-Elemente anpassen
+        if hasattr(self, "digital_clock"):
+            self.digital_clock.setFont(clock_font)
+
+        if hasattr(self, "lang_label"):
+            self.lang_label.setFont(label_font)
+            self.color_label.setFont(label_font)
+            self.commit_label.setFont(label_font)
+
+        # 5. Logo-Skalierung (Proportional zur Fensterhöhe begrenzen)
+        if hasattr(self, "original_pixmap") and self.original_pixmap:
+            # Breite auf 40% reduzieren, damit Header schmal bleibt
+            logo_width = min(500, int(self.width() * 0.4))
+            logo_height = int(logo_width / 6.3)
+            self.update_logo(width=logo_width, height=logo_height)
+
+        # 6. Info-Text-Skalierung (Courier braucht oft etwas mehr Platz)
+        if hasattr(self, "info_text"):
+            text_font = QFont("Courier", max(10, dynamic_size))
+            self.info_text.setFont(text_font)
 
     def open_terminal(self, **kwargs):
         """Öffnet ein leeres Terminal ohne Verzeichniswechsel."""
@@ -2319,7 +2563,7 @@ class PatchManagerGUI(QWidget):
                 color = (
                     "green"
                     if level == "success"
-                    else "red" if level == "error" else "yellow"
+                    else "red" if level == "error" else "blue"
                 )
                 self.info_text.append(f'<span style="color:{color}">{text}</span>')
                 QApplication.processEvents()
@@ -2455,13 +2699,21 @@ class PatchManagerGUI(QWidget):
         min_height=40,
         radius=10,
     ):
-        btn = QPushButton(text, parent)
+        # Zeilenumbruch bei langen Texten erzwingen (ersetzt Leerzeichen durch Umbruch)
+        display_text = text.replace(" ", "\n") if len(text) > 12 else text
+
+        btn = QPushButton(display_text, parent)
         btn.setMinimumHeight(min_height)
+        btn.setMinimumWidth(10)  # Erlaubt extremes Schrumpfen im Grid
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # Sorgt dafür, dass der Text im Button zentriert und umgebrochen wird
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         hover_color = self.adjust_color(color, factor_hover)
         pressed_color = self.adjust_color(color, factor_pressed)
 
+        # Padding reduziert, damit Text mehr Platz hat
         btn.setStyleSheet(
             f"""
             QPushButton {{
@@ -2469,7 +2721,8 @@ class PatchManagerGUI(QWidget):
                 color: {fg};
                 border-radius: {radius}px;
                 border: none;
-                padding: 6px 12px;
+                padding: 4px 4px;
+                text-align: center;
             }}
             QPushButton:hover {{
                 background-color: {hover_color};
@@ -2481,27 +2734,27 @@ class PatchManagerGUI(QWidget):
         )
 
         btn.clicked.connect(callback)
-
         all_buttons_list.append(btn)
         return btn
 
     def generate_buttons(
-        parent, button_definitions, all_buttons_list, info_widget=None
+        self, parent, button_definitions, all_buttons_list, info_widget=None
     ):
         """
-        button_definitions: List[dict] mit Keys:
-            text, color, callback
+        Erzeugt Buttons basierend auf einer Liste von Definitionen.
+        WICHTIG: Muss 'self' als ersten Parameter haben, um create_action_button aufzurufen.
         """
         buttons = {}
         for bd in button_definitions:
-            btn = create_action_button(
+            # Aufruf über self, da create_action_button eine Instanzmethode ist
+            btn = self.create_action_button(
                 parent=parent,
                 text=bd["text"],
                 color=bd.get("color", "#CCCCCC"),
                 callback=bd["callback"],
                 all_buttons_list=all_buttons_list,
-                fg=bd.get("fg", "black"),
-                info_widget=info_widget,
+                fg=bd.get("fg", "white"),
+                min_height=self.BUTTON_HEIGHT if hasattr(self, "BUTTON_HEIGHT") else 40,
             )
             buttons[bd.get("key", bd["text"])] = btn
         return buttons
@@ -2533,114 +2786,35 @@ class PatchManagerGUI(QWidget):
 
     # 🔹 HIER EINSETZEN 🔹
     def adjust_color(self, hex_color, factor):
+        """
+        Passt die Helligkeit einer Farbe an.
+        factor > 1.0 = heller (Hover), factor < 1.0 = dunkler (Pressed).
+        """
         hex_color = hex_color.lstrip("#")
-        r = int(hex_color[0:2], 16)
-        g = int(hex_color[2:4], 16)
-        b = int(hex_color[4:6], 16)
 
+        # Support für 3-stellige Hex-Codes (z.B. #F00 -> #FF0000)
+        if len(hex_color) == 3:
+            hex_color = "".join([c * 2 for c in hex_color])
+
+        try:
+            r = int(hex_color[0:2], 16)
+            g = int(hex_color[2:4], 16)
+            b = int(hex_color[4:6], 16)
+        except ValueError:
+            # Fallback falls der Hex-Code ungültig ist
+            return "#1E90FF"
+
+        # Farbberechnung mit Clamp (0-255)
         r = max(0, min(255, int(r * factor)))
         g = max(0, min(255, int(g * factor)))
         b = max(0, min(255, int(b * factor)))
 
         return f"#{r:02X}{g:02X}{b:02X}"
 
-    def setup_grid_buttons(self):
-        from PyQt6.QtWidgets import (
-            QGridLayout,
-            QWidget,
-            QSizePolicy,
-            QHBoxLayout,
-            QPushButton,
-        )
+    def setup_option_buttons(self, parent_layout):
+        from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy
         from PyQt6.QtGui import QFont
 
-        grid_layout = QGridLayout()
-        grid_layout.setSpacing(10)
-
-        # === Grid Aktionen ===
-        grid_actions = [
-            ("patch_create", lambda: create_patch(self, self.info_text, None)),
-            ("patch_renew", lambda: create_patch(self, self.info_text, None)),
-            ("patch_check", lambda: self.check_patch(self.info_text, None)),
-            # Korrigiert: Komma hinzugefügt, Klammern fixiert, Liste für Mehrfachbefehle
-            (
-                "patch_apply",
-                lambda: (
-                    (
-                        self.progress_bar.setValue(0)
-                        if hasattr(self, "progress_bar")
-                        else None
-                    ),
-                    self.apply_patch(self.info_text, None),
-                ),
-            ),
-            ("patch_zip", lambda: self.zip_patch(self.info_text, None)),
-            ("backup_old", lambda: backup_old_patch(self, self.info_text, None)),
-            ("clean_folder", lambda: clean_patch_folder(self, self.info_text, None)),
-            ("change_old_dir", lambda: self.change_old_patch_dir(self.info_text, None)),
-            ("exit", self.close_with_confirm),
-        ]
-
-        self.buttons = {}
-        for idx, (key, func) in enumerate(grid_actions):
-            # 1. Button erstellen
-            btn = self.create_action_button(
-                parent=self,
-                text=TEXTS[self.LANG].get(key, key),
-                color="#1E90FF",
-                fg="white",
-                callback=lambda checked=False, f=func, k=key: (
-                    self.set_active_button(k),
-                    f(),
-                ),
-                all_buttons_list=self.all_buttons,
-                min_height=self.BUTTON_HEIGHT,
-                radius=self.BUTTON_RADIUS,
-            )
-            # --- DIESER BLOCK MUSS EINGERÜCKT SEIN ---
-            btn.setFont(QFont("Arial", 14))
-            btn.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-            )
-
-            row, col = divmod(idx, 3)
-            grid_layout.addWidget(btn, row, col)
-            self.buttons[key] = btn
-            # -----------------------------------------
-
-        # Grid-Container erstellen und dem Hauptlayout hinzufügen
-        grid_container = QWidget()
-        grid_container.setLayout(grid_layout)
-
-        # Sicherstellen, dass das Hauptlayout genutzt wird
-        if self.layout():
-            self.layout().addWidget(grid_container, stretch=4)
-
-            # --- TERMINAL BUTTON GANZ UNTEN LINKS ---
-            term_h_layout = QHBoxLayout()
-            self.btn_terminal_bottom = QPushButton()
-            self.btn_terminal_bottom.setFixedSize(220, 45)
-            self.btn_terminal_bottom.clicked.connect(self.open_terminal)
-            # Dark-Style Optik
-            self.btn_terminal_bottom.setStyleSheet(
-                "background-color: #1a1a1a; color: #00FF00; font-weight: bold; border: 2px solid #00FF00; border-radius: 5px;"
-            )
-
-            term_h_layout.addWidget(self.btn_terminal_bottom)
-            term_h_layout.addStretch(1)  # Schiebt den Button nach LINKS
-            self.layout().addLayout(term_h_layout)
-
-        # Registrierung für die Sprache
-        self.option_buttons["terminal_bottom"] = (
-            self.btn_terminal_bottom,
-            "btn_terminal",
-        )
-        self.update_language()
-
-    def setup_option_buttons(self, parent_layout):
-        """
-        Erstellt alle Option-Buttons in der oberen Leiste.
-        """
         button_defs = [
             ("git_status", "git_status", "#1E90FF", self.show_commits, "white"),
             (
@@ -2690,6 +2864,7 @@ class PatchManagerGUI(QWidget):
                 "oscam_emu_git_patch",
                 "#32CD32",
                 patch_oscam_emu_git,
+                "white",
             ),
             (
                 "oscam_emu_git_clear",
@@ -2698,69 +2873,57 @@ class PatchManagerGUI(QWidget):
                 self.oscam_emu_git_clear,
                 "white",
             ),
+            ("terminal", "Terminal", "#2E2E2E", self.open_terminal, "#39FF14"),
         ]
 
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(8)  # Etwas enger für mehr Platz
-        buttons_layout.setContentsMargins(0, 0, 0, 0)
-        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        container = QWidget()
+        options_grid = QGridLayout(container)
+        options_grid.setSpacing(6)
+        options_grid.setContentsMargins(0, 0, 0, 0)
 
         self.option_buttons = getattr(self, "option_buttons", {})
-        current_v = APP_VERSION.replace("v", "").strip()
+        cols_per_row = 5
 
-        for key, text_key, color, callback, *rest in button_defs:
+        for idx, (key, text_key, color, callback, *rest) in enumerate(button_defs):
             fg = rest[0] if rest else "white"
-            raw_text = TEXTS[self.LANG].get(text_key, text_key)
+            raw_text = self.get_t(text_key, text_key)
 
-            # Text-Formatierung für Update-Button
-            if key == "plugin_update":
-                try:
-                    button_text = raw_text.format(
-                        current=current_v, version=current_v, latest="..."
-                    )
-                except:
-                    button_text = raw_text
-            else:
-                button_text = raw_text
-
-            def make_callback(f):
-                return lambda *_: (
-                    f(
-                        gui_instance=self,
-                        info_widget=self.info_text,
-                        progress_callback=None,
-                    )
-                    if not hasattr(f, "__self__")
-                    else f(info_widget=self.info_text, progress_callback=None)
+            # Dieser Part regelt den Aufruf ohne 'self' Konflikt
+            def create_cb(c):
+                # Wenn es eine Methode der Klasse ist (self.name)
+                if hasattr(c, "__self__"):
+                    return lambda: c()
+                # Wenn es eine externe Funktion ist
+                return lambda: c(
+                    gui_instance=self,
+                    info_widget=self.info_text,
+                    progress_callback=None,
                 )
 
             btn = self.create_action_button(
                 parent=self,
-                text=button_text,
+                text=raw_text,
                 color=color,
                 fg=fg,
-                callback=make_callback(callback),
+                callback=create_cb(callback),
                 all_buttons_list=self.all_buttons,
-                min_height=self.BUTTON_HEIGHT,
+                min_height=35,
                 radius=self.BUTTON_RADIUS,
             )
 
-            # WICHTIG: Schriftgröße auf 10-11 reduzieren, sonst passen 9 Buttons nicht nebeneinander!
-            btn.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-            btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.setFixedHeight(self.BUTTON_HEIGHT)
+            btn.setFont(QFont("Arial", 9, QFont.Weight.Bold))
 
-            if key == "plugin_update":
-                self.btn_plugin_update = btn
-
-            buttons_layout.addWidget(btn)
+            row = idx // cols_per_row
+            col = idx % cols_per_row
+            options_grid.addWidget(btn, row, col)
             self.option_buttons[key] = (btn, text_key)
 
-        # Erst AM ENDE stretchen, um Buttons nach LINKS zu drücken
-        buttons_layout.addStretch(1)
+        for i in range(cols_per_row):
+            options_grid.setColumnStretch(i, 1)
 
-        container = QWidget()
-        container.setLayout(buttons_layout)
-        parent_layout.addWidget(container)
+        parent_layout.addWidget(container, 0)
 
     def update_all_texts(self):
         # Labels
@@ -2842,35 +3005,71 @@ class PatchManagerGUI(QWidget):
     def restart_application_with_info(
         self, checked=False, progress_callback=None, info_widget=None
     ):
-        """Startet das Tool neu via Button-Klick."""
+        """
+        Startet das Tool neu via Button-Klick.
+        Plattformübergreifend für Windows und Linux optimiert.
+        """
+        from PyQt6.QtWidgets import QMessageBox, QTextEdit, QApplication
+        import sys
+        import os
+        import subprocess
+
+        # 1. Widget & Sprache sicherstellen
         widget = info_widget or getattr(self, "info_text", None)
         current_lang = str(getattr(self, "LANG", "de")).lower()
-        print(f"[DEBUG] restart_application nutzt Sprache: {current_lang}")
 
-        lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
+        # Falls TEXTS global definiert ist, sonst Fallback
+        try:
+            lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
+        except NameError:
+            lang_pack = {}
 
+        # 2. Dialog aufbauen
         msg = QMessageBox(self)
         msg.setWindowTitle(lang_pack.get("restart_tool", "Restart tool"))
         msg.setText(
             lang_pack.get("restart_tool_question", "Do you want to restart now?")
         )
 
-        yes_button = msg.addButton(
-            lang_pack.get("yes", "Yes"), QMessageBox.ButtonRole.YesRole
-        )
-        no_button = msg.addButton(
-            lang_pack.get("no", "No"), QMessageBox.ButtonRole.NoRole
-        )
-        msg_box_res = msg.exec()
+        # Buttons mit Übersetzung
+        yes_text = lang_pack.get("yes", "Yes")
+        no_text = lang_pack.get("no", "No")
+        yes_button = msg.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
+        no_button = msg.addButton(no_text, QMessageBox.ButtonRole.NoRole)
+
+        msg.exec()
 
         if msg.clickedButton() == yes_button:
             info_msg = lang_pack.get("restart_tool_info", "Restarting...")
             if isinstance(widget, QTextEdit):
                 widget.append(f'<span style="color:gray">{info_msg}</span>')
-            self.restart_application()
+
+            # 3. Plattformübergreifende Neustart-Logik
+            try:
+                # Aktuellen Python-Interpreter und Skriptpfad ermitteln
+                executable = sys.executable
+                args = sys.argv[:]
+
+                # Unter Linux/Unix ist os.execl der sauberste Weg (ersetzt Prozess)
+                # Unter Windows nutzen wir Popen, da os.execl oft GUI-Instanzen blockiert
+                if os.name != "nt":
+                    os.execl(executable, executable, *args)
+                else:
+                    subprocess.Popen([executable] + args)
+                    QApplication.quit()
+            except Exception as e:
+                print(f"Fehler beim Neustart: {e}")
+                # Letzter Rettungsanker
+                os.system(f"{sys.executable} {' '.join(sys.argv)}")
+                QApplication.quit()
         else:
+            # Falls "Nein" geklickt wurde, Balken auf 100% setzen
             if progress_callback:
                 progress_callback(100)
+
+    def restart_application(self):
+        """Interne Hilfsmethode, falls diese separat gerufen wird."""
+        self.restart_application_with_info()
 
     # ===================== ZIP PATCH =====================
     def zip_patch(self, info_widget=None, progress_callback=None):
@@ -3226,62 +3425,30 @@ class PatchManagerGUI(QWidget):
         # ---------------------
 
     def update_plugin_button_state(self):
-        """
-        Aktualisiert den Text und die Farbe des Update-Buttons nach der Prüfung.
-        Ersetzt {current} und {latest} durch echte Werte.
-        """
-        # Sicherstellen, dass der Button existiert (wurde in setup_option_buttons zugewiesen)
-        btn = getattr(self, "btn_plugin_update", None)
-        if not btn:
+        """Aktualisiert den Text und die Farbe des Update-Buttons."""
+        btn_data = self.option_buttons.get("plugin_update")
+        if not btn_data:
             return
+        btn = btn_data[0]
 
-        lang_key = getattr(self, "LANG", "de").lower()
-        current_v = APP_VERSION.replace("v", "").strip()
-        latest_v = getattr(self, "latest_version", None)
+        lang = str(getattr(self, "LANG", "de")).lower()
+        t = TEXTS.get(lang, TEXTS.get("de", {}))
 
-        from packaging.version import Version, InvalidVersion
+        cv = APP_VERSION.lstrip("v")
+        lv = getattr(self, "latest_version", cv)
 
-        try:
-            # Falls wir eine Version von GitHub erhalten haben
-            if latest_v:
-                lv_clean = latest_v.replace("v", "").strip()
-                cv_clean = current_v
-
-                # Vergleich: Ist GitHub neuer als lokal?
-                if Version(lv_clean) > Version(cv_clean):
-                    # Key: "Update verfügbar: {current} → {latest}"
-                    template = TEXTS.get(lang_key, {}).get(
-                        "state_plugin_update_available", "Update: {current} → {latest}"
-                    )
-                    # Hier werden die Platzhalter sicher befüllt
-                    new_text = template.format(
-                        current=current_v, latest=latest_v, version=current_v
-                    )
-                    btn.setText(new_text)
-                    # Farbe auf Orange/Warnung setzen
-                    btn.setStyleSheet(
-                        "background-color: #d35400; color: white; font-weight: bold;"
-                    )
-                    return
-
-            # Wenn alles aktuell ist oder noch keine Info vorliegt
-            uptodate_text = TEXTS.get(lang_key, {}).get(
-                "state_plugin_uptodate", "Plugin aktuell"
+        if Version(lv) > Version(cv):
+            txt = t.get("state_plugin_update_available", "Update: {current} → {latest}")
+            btn.setText(txt.format(current=cv, latest=lv))
+            btn.setStyleSheet(
+                "background-color: #d35400; color: white; font-weight: bold;"
             )
-
-            # Auch hier sicherheitshalber Formatierung versuchen
-            try:
-                btn.setText(uptodate_text.format(version=current_v, current=current_v))
-            except:
-                btn.setText(uptodate_text)
-
-            # Standard-Farbe (Blau oder Grau, je nach Design)
-            btn.setStyleSheet("background-color: #1E90FF; color: white;")
-
-        except Exception as e:
-            # Notfall-Anzeige ohne Formatierung
-            btn.setText(f"OSCam-Emu v{current_v}")
-            print(f"[DEBUG] Fehler beim Button-Update: {e}")
+        else:
+            txt = t.get("state_plugin_uptodate", "v{version} aktuell")
+            btn.setText(txt.format(version=cv))
+            btn.setStyleSheet(
+                "background-color: #1E90FF; color: white; font-weight: bold;"
+            )
 
     def fetch_latest_version(self):
         """Vergleicht lokale APP_VERSION mit version.txt auf GitHub"""
@@ -3360,17 +3527,41 @@ class PatchManagerGUI(QWidget):
         self, checked=False, info_widget=None, progress_callback=None
     ):
         """
-        Button-Callback: Prüft GitHub-Version und bietet Update an.
+        Button-Callback: Prüft GitHub-Version und bietet Update NUR bei neuerer Version an.
         """
-        # lang_key am Anfang definieren, damit er überall verfügbar ist
         lang_key = getattr(self, "LANG", "en").lower()
         widget = info_widget or getattr(self, "info_text", None)
 
+        # 1. Versionen säubern und vergleichen
+        try:
+            current_v_raw = APP_VERSION.replace("v", "").strip()
+            # Falls latest_version noch "..." ist, erst prüfen
+            if not hasattr(self, "latest_version") or self.latest_version == "...":
+                self.check_for_update_on_start()
+                return
+
+            latest_v_raw = self.latest_version.replace("v", "").strip()
+
+            # Echter Versionsvergleich (1.2.10 > 1.2.9)
+            if Version(latest_v_raw) <= Version(current_v_raw):
+                msg = (
+                    TEXTS[lang_key]
+                    .get("up_to_date", "Plugin ist aktuell (v{v})")
+                    .format(v=current_v_raw)
+                )
+                QMessageBox.information(self, "Update", msg)
+                return
+        except Exception as e:
+            print(f"[DEBUG] Versionsvergleich fehlgeschlagen: {e}")
+            return
+
+        # 2. Wenn eine neuere Version existiert:
         if hasattr(self, "progress_bar"):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
-            if not progress_callback:
-                progress_callback = self.progress_bar.setValue
+
+        # Hier dein bestehender Update-Dialog Aufruf
+        self.show_update_dialog(latest_v_raw)
 
         # Sicherer Logger gegen KeyError 'current'
         def log(text_key, level="info", **kwargs):
@@ -3409,7 +3600,7 @@ class PatchManagerGUI(QWidget):
 
         try:
             import requests, re
-            from packaging.version import Version, InvalidVersion
+            from packaging.version import Version as PackagingVersion, InvalidVersion
 
             # ORIGINAL URL STRUKTUR (mit Fix: Slash nach .com hinzugefügt)
             url = (
@@ -3520,7 +3711,7 @@ class PatchManagerGUI(QWidget):
                 "success": "green",
                 "warning": "orange",
                 "error": "red",
-                "info": "yellow",
+                "info": "blue",
             }
             color = colors.get(level, "gray")
             text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
@@ -3640,54 +3831,69 @@ class PatchManagerGUI(QWidget):
     # ---------------------
 
     def check_for_plugin_update(self):
-        """Prüft sofort auf Updates und aktualisiert den Button-Status."""
+        """Prüft auf Updates und hängt den Status an den bestehenden Infoscreen an."""
         import requests
-        from packaging.version import Version, InvalidVersion
         from PyQt6.QtWidgets import QTextEdit
 
+        # 1. Sprache sicher abrufen
+        lang = str(getattr(self, "LANG", "de")).lower()
+
+        # Sicherer Zugriff: Wenn 'de', dann Fallback auf 'de', sonst 'en'
+        fallback_dict = TEXTS.get("de", {}) if lang == "de" else TEXTS.get("en", {})
+        t = TEXTS.get(lang, fallback_dict)
+
+        widget = getattr(self, "info_text", None)
+
+        if hasattr(self, "append_info") and widget:
+            self.append_info(widget, "\n" + "-" * 30 + "\n", "info")
+
         try:
-            # 1. Version von GitHub holen
+            # 2. Version von GitHub holen
             version_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
 
-            # Säuberung der Versionsstrings
             latest_version_str = resp.text.strip().lstrip("v")
             current_version_str = APP_VERSION.strip().lstrip("v")
-
             self.latest_version = latest_version_str
-            self.update_plugin_button_state()
 
-            # 2. Sicherer Vergleich mit packaging.version
-            try:
-                lv = Version(latest_version_str)
-                cv = Version(current_version_str)
+            # Button Status aktualisieren
+            if hasattr(self, "update_plugin_update_button_state"):
+                self.update_plugin_update_button_state()
+            elif hasattr(self, "update_plugin_button_state"):
+                self.update_plugin_button_state()
 
-                widget = getattr(self, "info_text", None)
-                if lv > cv:
-                    msg = f"<span style='color:orange'>Update verfügbar: {latest_version_str} (aktuell: {current_version_str})</span>"
-                else:
-                    msg = f"<span style='color:lime'>Plugin ist aktuell (Version: {current_version_str})</span>"
+            # 3. Versions-Vergleich (Nutzt globales Version-Objekt)
+            lv = Version(latest_version_str)
+            cv = Version(current_version_str)
 
-                if isinstance(widget, QTextEdit):
-                    widget.append(msg)
-                else:
-                    print(msg)
-
-            except InvalidVersion:
-                print(
-                    f"[ERROR] Ungültiges Versionsformat: Local '{current_version_str}', Remote '{latest_version_str}'"
+            if lv > cv:
+                # Nutzt Key aus Dictionary, Fallback-Text ist Englisch
+                template = t.get(
+                    "update_available",
+                    "Update available: {latest} (current: {current})",
                 )
+                msg = template.format(
+                    latest=latest_version_str, current=current_version_str
+                )
+                tag = "warning"
+            else:
+                # Nutzt Key aus Dictionary, Fallback-Text ist Englisch
+                template = t.get(
+                    "plugin_uptodate", "✅ Plugin is up to date (Version: {current})"
+                )
+                msg = template.format(current=current_version_str)
+                tag = "success"
+
+            if hasattr(self, "append_info") and widget:
+                self.append_info(widget, msg, tag)
 
         except Exception as e:
-            # Hier lag der Fehler: Falls 'e' den Text 'current' enthält (KeyError)
-            error_msg = str(e)
-            print(f"[WARN] Update-Check fehlgeschlagen: {error_msg}")
-            widget = getattr(self, "info_text", None)
-            if isinstance(widget, QTextEdit):
-                widget.append(
-                    f"<span style='color:red'>Update-Fehler: {error_msg}</span>"
-                )
+            error_msg = t.get("update_error", "Update error: {error}").format(
+                error=str(e)
+            )
+            if hasattr(self, "append_info") and widget:
+                self.append_info(widget, error_msg, "error")
 
     def check_tool(self, name, cmd):
         try:
@@ -3780,192 +3986,222 @@ class PatchManagerGUI(QWidget):
             QSpinBox,
             QProgressBar,
             QApplication,
+            QFrame,
         )
         from PyQt6.QtGui import QPixmap, QFont
         from PyQt6.QtCore import Qt, QSize, QTimer
         import requests
         from io import BytesIO
 
-        # -------------------
-        # Grundwerte
-        # -------------------
-        self.TITLE_HEIGHT = 55
+        # 1. Grundwerte
+        self.TITLE_HEIGHT = 45
         self.BUTTON_HEIGHT = 40
-        self.BUTTON_WIDTH = 200
         self.BUTTON_RADIUS = 10
-        self.all_buttons = []
 
-        # -------------------
         # Hauptlayout
-        # -------------------
-        main_layout = QVBoxLayout()
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        self.setLayout(main_layout)
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(20, 0, 20, 10)
 
-        # -------------------
-        # HEADER
-        # -------------------
-        header_layout = QHBoxLayout()
-        header_layout.setSpacing(5)
-        header_layout.setContentsMargins(10, 0, 10, 0)
+        # ---------------------------------------------------------
+        # HEADER-SECTION (BANNER)
+        # ---------------------------------------------------------
+        header_widget = QFrame()
+        header_widget.setFixedHeight(70)
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(5, 0, 15, 0)
+        header_layout.setSpacing(10)
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        # Links: Info + Uhr
+        # Links: Container für [Info-Button | Uhr+Datum]
+        left_header_container = QWidget()
+        left_header_container.setFixedWidth(240)
+        left_header_main = QHBoxLayout(left_header_container)
+        left_header_main.setContentsMargins(0, 0, 0, 0)
+        left_header_main.setSpacing(10)
+
+        # --- INFO BUTTON (ganz links) ---
         self.info_button = QPushButton()
-        self.info_button.setFixedSize(40, self.TITLE_HEIGHT)
-        self.info_button.setToolTip(TEXTS[self.LANG]["info_tooltip"])
-        self.info_button.clicked.connect(self.show_info)
-        icon = get_icon_for("Info___Hilfe")
-        if not icon.isNull():
-            self.info_button.setIcon(icon)
-            self.info_button.setIconSize(QSize(52, 52))
-        else:
-            self.info_button.setText("ℹ️")
+        self.info_button.setFixedSize(45, 45)
+        icon = self.style().standardIcon(
+            QApplication.style().StandardPixmap.SP_MessageBoxInformation
+        )
+        self.info_button.setIcon(icon)
+        self.info_button.setIconSize(QSize(28, 28))
         self.info_button.setStyleSheet(
-            "background-color:#222222;color:white;border:none;"
+            f"""
+            QPushButton {{ background-color: #f0f0f0; border-radius: {self.BUTTON_RADIUS}px; border: 1px solid #ccc; }}
+            QPushButton:hover {{ background-color: #e0e0e0; }}
+        """
         )
+        self.info_button.clicked.connect(self.show_info)
+        left_header_main.addWidget(self.info_button)
 
-        self.digital_clock = QLabel()
-        self.digital_clock.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        # Flexibler Platzhalter drückt Zeit-Block nach rechts
+        left_header_main.addStretch(1)
 
-        left_layout = QHBoxLayout()
-        left_layout.setSpacing(5)
-        left_layout.addWidget(self.info_button)
-        left_layout.addSpacing(10)
-        left_layout.addWidget(self.digital_clock, stretch=1)
+        # --- 3. ZEIT-BLOCK (Korrektur: Kompakter, damit nichts abgeschnitten wird) ---
+        time_date_container = QWidget()
+        time_date_layout = QVBoxLayout(time_date_container)
 
-        left_widget = QWidget()
-        left_widget.setLayout(left_layout)
-        left_widget.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
-        header_layout.addWidget(left_widget, 1, Qt.AlignmentFlag.AlignLeft)
+        # Margins auf 0 setzen, um Platz zu sparen
+        time_date_layout.setContentsMargins(0, 0, 0, 0)
+        # Spacing auf -2 oder -3 setzen, um Uhr und Datum näher zusammenzurücken
+        time_date_layout.setSpacing(-2)
+        time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        # Uhrzeit (etwas kleiner, falls immer noch zu eng)
+        self.digital_clock = QLabel("--:--:--")
+        self.digital_clock.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.digital_clock.setStyleSheet("margin-bottom: 0px; padding-bottom: 0px;")
+
+        # Datum (Kompakter)
+        self.date_label = QLabel(date_str)
+        self.date_label.setFont(QFont("Arial", 8))  # Von 9 auf 8 verringert
+        self.date_label.setStyleSheet("color: #555; margin-top: 0px; padding-top: 0px;")
+        self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        time_date_layout.addWidget(self.digital_clock)
+        time_date_layout.addWidget(self.date_label)
+        left_header_main.addWidget(time_date_container)
+
+        header_layout.addWidget(left_header_container)
+        header_layout.addStretch(1)
 
         # Mitte: Logo
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.logo_label.setMinimumWidth(300)
+
         try:
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_emu_toolkit2.png"
-            resp = requests.get(url, timeout=10)
+            resp = requests.get(url, timeout=5)
             resp.raise_for_status()
-            image_data = BytesIO(resp.content)
             self.original_pixmap = QPixmap()
-            self.original_pixmap.loadFromData(image_data.read())
-        except Exception:
-            self.logo_label.setText("Logo ❌")
+            self.original_pixmap.loadFromData(resp.content)
+            self.update_logo(width=300, height=35)
+        except Exception as e:
+            print(f"Logo-Fehler: {e}")
+            self.logo_label.setText("OSCAM TOOLKIT")
             self.original_pixmap = None
 
-        self.update_logo(width=700, height=110)
-        header_layout.addWidget(self.logo_label, 1, Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(self.logo_label, 3)
+        header_layout.addStretch(1)
 
-        # Rechts: Version + Autor
-        right_widget = QWidget()
-        right_layout = QVBoxLayout()
+        # Rechts: Banner-Info (Autor & Version)
+        right_header_container = QWidget()
+        right_header = QVBoxLayout(right_header_container)
+        right_header.setContentsMargins(0, 0, 0, 0)
+        right_header.setSpacing(0)
+
         by_label = QLabel("by speedy005")
         by_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        by_label.setStyleSheet("color:blue;")
-        by_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        right_layout.addWidget(by_label)
+        by_label.setStyleSheet("color: blue;")
+        by_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        version_label = QLabel(f"v{APP_VERSION}")
-        version_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        version_label.setStyleSheet("color:red;")
-        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        right_layout.addWidget(version_label)
+        v_label = QLabel(f"v{APP_VERSION}")
+        v_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        v_label.setStyleSheet("color: red;")
+        v_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        right_widget.setLayout(right_layout)
-        header_layout.addWidget(right_widget, 1, Qt.AlignmentFlag.AlignRight)
+        right_header.addWidget(by_label)
+        right_header.addWidget(v_label)
+        header_layout.addWidget(right_header_container, 1)
 
-        header_widget = QWidget()
-        header_widget.setLayout(header_layout)
-        main_layout.addWidget(header_widget, stretch=0)
+        main_layout.addWidget(header_widget, 0)
 
-        # -------------------
-        # 1. INFO TEXT
-        # -------------------
+        # ---------------------------------------------------------
+        # MITTELTEIL (Info Text & Progress)
+        # ---------------------------------------------------------
         self.info_text = QTextEdit()
-        self.info_text.setFont(QFont("Courier", 14))
         self.info_text.setReadOnly(True)
-        done_text = TEXTS.get(self.LANG, {}).get("update_check_done", "Done")
-        self.info_text.setHtml(f'<span style="color:blue">{done_text}</span>')
-        main_layout.addWidget(self.info_text, stretch=5)
+        self.info_text.setFont(QFont("Courier", 12))
+        main_layout.addWidget(self.info_text, 10)
 
-        # -------------------
-        # 2. PROGRESS BAR
-        # -------------------
         self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(20)
-        main_layout.addWidget(self.progress_bar, stretch=0)
+        self.progress_bar.setFixedHeight(15)
+        main_layout.addWidget(self.progress_bar, 0)
 
-        # -------------------
-        # 3. TIMER
-        # -------------------
+        # ---------------------------------------------------------
+        # KONTROLL-ZEILE
+        # ---------------------------------------------------------
+        controls_widget = QFrame()
+        controls_layout = QHBoxLayout(controls_widget)
+        controls_layout.setContentsMargins(0, 5, 0, 5)
+
+        control_style = f"QComboBox, QSpinBox {{ height: {self.BUTTON_HEIGHT}px; font-size: 14px; border-radius: {self.BUTTON_RADIUS}px; border: 1px solid #ccc; }}"
+
+        self.lang_label = QLabel(self.get_t("language_label", "Language:"))
+        self.language_box = QComboBox()
+        self.language_box.addItems(["EN", "DE"])
+        self.language_box.setFixedWidth(80)
+        self.language_box.setStyleSheet(control_style)
+        self.language_box.setCurrentText(self.cfg.get("language", "DE").upper())
+        self.language_box.currentIndexChanged.connect(self.change_language)
+
+        self.color_label = QLabel(self.get_t("color_label", "Farbe:"))
+        self.color_box = QComboBox()
+        self.color_box.addItems(list(DIFF_COLORS.keys()))
+        self.color_box.setMinimumWidth(150)
+        self.color_box.setStyleSheet(control_style)
+        self.color_box.setCurrentText(self.cfg.get("color", "Classic"))
+        self.color_box.currentIndexChanged.connect(self.change_colors)
+
+        self.commit_label = QLabel(self.get_t("commit_count_label", "Commits:"))
+        self.commit_spin = QSpinBox()
+        self.commit_spin.setRange(1, 20)
+        self.commit_spin.setFixedWidth(70)
+        self.commit_spin.setStyleSheet(control_style)
+        self.commit_spin.setValue(self.cfg.get("commit_count", 5))
+        self.commit_spin.valueChanged.connect(self.commit_value_changed)
+
+        # Tools-Button
+        self.btn_check_tools = QPushButton(
+            self.get_t("check_tools_button", "🛠️ Tools prüfen")
+        )
+        self.btn_check_tools.setFixedHeight(self.BUTTON_HEIGHT)
+        self.btn_check_tools.setFixedWidth(160)
+        self.btn_check_tools.setStyleSheet(
+            "background-color: #FFD700; color: black; font-weight: bold; border-radius: 4px;"
+        )
+        self.btn_check_tools.clicked.connect(self.manual_tool_check)
+
+        controls_layout.addWidget(self.lang_label)
+        controls_layout.addWidget(self.language_box)
+        controls_layout.addSpacing(15)
+        controls_layout.addWidget(self.color_label)
+        controls_layout.addWidget(self.color_box)
+        controls_layout.addSpacing(15)
+        controls_layout.addWidget(self.commit_label)
+        controls_layout.addWidget(self.commit_spin)
+        controls_layout.addSpacing(10)
+        controls_layout.addWidget(self.btn_check_tools)
+        controls_layout.addStretch(1)
+
+        main_layout.addWidget(controls_widget, 0)
+
+        # Aktions-Buttons
+        self.setup_option_buttons(main_layout)
+
+        self.grid_container = QWidget()
+        self.layout_grid_buttons = QGridLayout(self.grid_container)
+        self.layout_grid_buttons.setSpacing(10)
+
+        self.setup_grid_buttons()
+        main_layout.addWidget(self.grid_container, 0)
+
+        # Finalisierung
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self.update_digital_clock)
         self.clock_timer.start(1000)
 
-        # -------------------
-        # 4. OPTION CONTROLS (Sprache, Farbe, Commit)
-        # -------------------
-        controls_layout = QHBoxLayout()
-        label_font = QFont("Arial", 10)
-
-        self.lang_label = QLabel(TEXTS[self.LANG]["language_label"])
-        controls_layout.addWidget(self.lang_label)
-
-        self.language_box = QComboBox()
-        self.language_box.addItems(["EN", "DE"])
-        self.language_box.setFixedWidth(65)
-        self.language_box.setCurrentText(self.cfg.get("language", "DE"))
-        self.language_box.currentIndexChanged.connect(self.change_language)
-        controls_layout.addWidget(self.language_box)
-
-        controls_layout.addSpacing(15)
-        self.color_label = QLabel(TEXTS[self.LANG]["color_label"])
-        controls_layout.addWidget(self.color_label)
-
-        self.color_box = QComboBox()
-        self.color_box.addItems(list(DIFF_COLORS.keys()))
-        self.color_box.setCurrentText(self.cfg.get("color", "Classic"))
-        self.color_box.currentIndexChanged.connect(self.change_colors)
-        controls_layout.addWidget(self.color_box)
-
-        controls_layout.addSpacing(15)
-        self.commit_label = QLabel(TEXTS[self.LANG]["commit_count_label"])
-        controls_layout.addWidget(self.commit_label)
-
-        self.commit_spin = QSpinBox()
-        self.commit_spin.setRange(1, 20)
-        self.commit_spin.setValue(self.cfg.get("commit_count", 5))
-        self.commit_spin.setFixedWidth(45)
-        self.commit_spin.valueChanged.connect(self.commit_value_changed)
-        controls_layout.addWidget(self.commit_spin)
-
-        controls_layout.addStretch(1)
-        controls_widget = QWidget()
-        controls_widget.setLayout(controls_layout)
-        main_layout.addWidget(controls_widget)
-
-        # -------------------
-        # 5. SETUP BUTTONS
-        # -------------------
-        # Zuerst obere Leiste
-        self.setup_option_buttons(main_layout)
-
-        # Dann das Haupt-Grid mit den Patch-Funktionen
-        self.setup_grid_buttons()
-
-        # -------------------
-        # FINAL
-        # -------------------
         self.change_colors()
         self.update_digital_clock()
         self.update_language()
 
-        self.setMinimumSize(1200, 800)
+        self.setMinimumSize(1200, 850)
         self.showMaximized()
-        # self.showMaximized() # Optional
 
     # =====================
     # update_buttons_
@@ -4075,102 +4311,190 @@ class PatchManagerGUI(QWidget):
         # Config aktualisieren (nur im Speicher, nicht neu laden)
         self.cfg["color"] = current_color_name
 
-    def change_language(self):
-        """Wird aufgerufen, wenn die Dropdown-Box geändert wird."""
-        selected = self.language_box.currentText().upper()  # "DE" oder "EN"
+    def setup_grid_buttons(self):
+        from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy
+        from PyQt6.QtGui import QFont
 
-        # WICHTIG: Kleingeschrieben für TEXTS Dictionary
-        self.LANG = "de" if selected == "DE" else "en"
+        # WICHTIG: Nutze das bereits in init_ui definierte Layout
+        if hasattr(self, "layout_grid_buttons"):
+            grid_layout = self.layout_grid_buttons
+        else:
+            # Fallback falls die Referenz fehlt
+            grid_layout = QGridLayout()
+            grid_container = QWidget()
+            grid_container.setLayout(grid_layout)
+            if self.layout():
+                self.layout().addWidget(grid_container, stretch=4)
 
-        # Basis-Labels
-        if hasattr(self, "lang_label"):
-            self.lang_label.setText(TEXTS[self.LANG].get("language_label", "Language:"))
+        grid_layout.setSpacing(10)
 
-        # --- DER ENTSCHEIDENDE AUFRUF ---
-        self.update_language()
+        # Aktions-Buttons Definition
+        grid_actions = [
+            ("patch_create", lambda: create_patch(self, self.info_text, None)),
+            ("patch_renew", lambda: create_patch(self, self.info_text, None)),
+            ("patch_check", lambda: self.check_patch(self.info_text, None)),
+            (
+                "patch_apply",
+                lambda: (
+                    (
+                        self.progress_bar.setValue(0)
+                        if hasattr(self, "progress_bar")
+                        else None
+                    ),
+                    self.apply_patch(self.info_text, None),
+                ),
+            ),
+            ("patch_zip", lambda: self.zip_patch(self.info_text, None)),
+            ("backup_old", lambda: backup_old_patch(self, self.info_text, None)),
+            ("clean_folder", lambda: clean_patch_folder(self, self.info_text, None)),
+            ("change_old_dir", lambda: self.change_old_patch_dir(self.info_text, None)),
+            ("exit", self.close_with_confirm),
+        ]
 
-        # Config speichern
-        if not hasattr(self, "cfg"):
-            self.cfg = load_config()
-        self.cfg["language"] = selected
-        save_config(self.cfg)
+        self.buttons = {}
+        cols = 3
+        for idx, (key, func) in enumerate(grid_actions):
+            # Erstellt den Button über deine zentrale Funktion
+            btn = self.create_action_button(
+                parent=self,
+                text=self.get_t(key, key),
+                color="#1E90FF",
+                fg="white",
+                callback=lambda checked=False, f=func, k=key: (
+                    self.set_active_button(k),
+                    f(),
+                ),
+                all_buttons_list=self.all_buttons,
+                min_height=self.BUTTON_HEIGHT,
+                radius=self.BUTTON_RADIUS,
+            )
 
-        # Log-Eintrag
-        log_text = TEXTS[self.LANG].get(
-            "language_changed", f"Language changed to {selected}"
-        )
-        self.append_info(self.info_text, log_text, "info")
+            # Layout-Verhalten: Button füllt den verfügbaren Platz im Grid
+            btn.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+            )
+
+            row, col = divmod(idx, cols)
+            grid_layout.addWidget(btn, row, col)
+            self.buttons[key] = btn
+
+        # Erzwingt die gleichmäßige Verteilung der Spaltenbreite
+        for i in range(cols):
+            grid_layout.setColumnStretch(i, 1)
 
     def update_language(self):
-        """Übersetzt ALLE Buttons und erzwingt die Sichtbarkeit des Terminal-Buttons."""
-        from PyQt6.QtWidgets import QApplication, QSizePolicy
+        """Übersetzt alle Buttons, Labels und den großen Infoscreen."""
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtGui import QTextCursor
 
-        # 1. Sprache festlegen
-        if hasattr(self, "language_box"):
-            sel = self.language_box.currentText().upper()
-            self.LANG = "de" if sel == "DE" else "en"
+        # 1. Sprache normieren (Kürzel de/en)
+        lang = str(getattr(self, "LANG", "de")).lower()
 
-        lang = self.LANG.lower()
-        current_v = APP_VERSION.replace("v", "").strip()
-        latest_v = getattr(self, "latest_version", "...")
+        # 2. Dictionary sicher abrufen (Fallback auf Englisch bei Fehlern)
+        lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
 
-        def get_t(k, default):
-            return TEXTS.get(lang, {}).get(k, default)
+        def get_t(k, default=None):
+            if k in lang_dict:
+                return lang_dict[k]
+            clean = str(k).replace("_", " ").title()
+            mapping = {
+                "Language Label": "Language:" if lang == "en" else "Sprache auswählen:",
+                "Color Label": "Color:" if lang == "en" else "Farbe wählen:",
+                "Commit Count Label": "Commits:" if lang == "en" else "Commits:",
+                "Check Tools Button": (
+                    "🛠️ Check Tools" if lang == "en" else "🛠️ Tools prüfen"
+                ),
+            }
+            return mapping.get(clean, default if default else clean)
 
         # A) GRID-BUTTONS
         if hasattr(self, "buttons"):
             for key, btn in self.buttons.items():
-                btn.setText(get_t(key, key))
-                btn.setMinimumWidth(
-                    btn.fontMetrics().horizontalAdvance(btn.text()) + 40
-                )
+                btn.setText(get_t(key))
 
-        # B) OPTION-BUTTONS
+        # B) OPTION-BUTTONS (Kopfzeile) - FIX: Hintergrundfarben wiederherstellen
         if hasattr(self, "option_buttons"):
-            for val in self.option_buttons.values():
-                if isinstance(val, (list, tuple)) and len(val) == 2:
-                    btn, text_key = val
-                    raw_text = get_t(text_key, text_key)
+            for key, val in self.option_buttons.items():
+                if isinstance(val, (list, tuple)) and len(val) >= 2:
+                    btn, text_key = val[0], val[1]
                     if text_key == "plugin_update":
-                        btn.setText(
-                            raw_text.format(
-                                current=current_v, latest=latest_v, version=current_v
-                            )
-                        )
-                    else:
-                        btn.setText(raw_text)
-                    btn.setMinimumWidth(
-                        btn.fontMetrics().horizontalAdvance(btn.text()) + 45
+                        continue
+
+                    # Text setzen
+                    translated = get_t(text_key)
+                    btn.setText(
+                        f"💻 {translated}"
+                        if "terminal" in str(key).lower()
+                        else translated
                     )
-                    btn.adjustSize()
 
-        # C) TERMINAL-BUTTON (Fix: Wir suchen ihn aktiv, falls hasattr versagt)
-        btn_term = getattr(self, "btn_terminal_bottom", None)
-        if btn_term:
-            t_text = get_t("btn_terminal", "Terminal")
-            btn_term.setText(t_text)
-            t_w = btn_term.fontMetrics().horizontalAdvance(t_text) + 50
-            btn_term.setMinimumWidth(max(t_w, 150))
+                    # --- FARB-FIX START ---
+                    # Wir holen die Farben aus dem gespeicherten Tuple (val[2] = BG, val[4] = FG)
+                    # Falls das Tuple kürzer ist, nutzen wir Fallbacks
+                    bg = val[2] if len(val) >= 3 else "#1E90FF"
+                    fg = val[4] if len(val) >= 5 else "white"
 
-            # --- DER ENTSCHEIDENDE FIX ---
-            btn_term.show()  # Sicherstellen, dass er nicht versteckt ist
-            btn_term.raise_()  # In den Vordergrund bringen
-            if btn_term.parentWidget():
-                btn_term.parentWidget().update()
+                    # StyleSheet zwingend neu setzen, sonst wird es grau/standard
+                    btn.setStyleSheet(
+                        f"background-color: {bg}; color: {fg}; font-weight: bold; border-radius: 4px;"
+                    )
+                    # --- FARB-FIX ENDE ---
 
-        # D) FENSTER-TITEL & INFO
-        self.setWindowTitle(get_t("github_dialog_title", "OSCam Emu Patch Manager"))
-        if hasattr(self, "info_text") and "info_text" in TEXTS[lang]:
-            self.info_text.setPlainText(TEXTS[lang]["info_text"])
+        # C) TOOLS-BUTTON & LABELS (Commit-Zeile)
+        if hasattr(self, "btn_check_tools"):
+            self.btn_check_tools.setText(get_t("check_tools_button", "🛠️ Tools"))
 
-        # E) GUI REFRESH
-        self.update_plugin_button_state()
+        if hasattr(self, "lang_label"):
+            self.lang_label.setText(get_t("language_label", "Language:"))
 
-        # Zwingt die GUI zum kompletten Neuzeichnen
+        if hasattr(self, "color_label"):
+            self.color_label.setText(get_t("color_label", "Color:"))
+
+        if hasattr(self, "commit_label"):
+            self.commit_label.setText(get_t("commit_count_label", "Commits:"))
+
+        # E) INFOSCREEN / ANLEITUNG
+        if hasattr(self, "info_text"):
+            full_info = get_t("info_text", None)
+            if full_info:
+                self.info_text.setText(full_info)
+                self.info_text.moveCursor(QTextCursor.MoveOperation.Start)
+
         QApplication.processEvents()
-        if self.layout():
-            self.layout().invalidate()
-            self.layout().activate()
+
+    def change_language(self):
+        """Wird aufgerufen, wenn die Dropdown-Box geändert wird."""
+        if not hasattr(self, "language_box"):
+            return
+
+        # 1. Sprache aus GUI ermitteln & setzen
+        selected = self.language_box.currentText().lower()
+        # Setzt self.LANG auf "de" oder "en"
+        self.LANG = "de" if "de" in selected else "en"
+
+        # 2. In Konfiguration speichern (für Neustart)
+        self.cfg["language"] = self.LANG
+        # Nutzt die globale save_config Funktion
+        if "save_config" in globals():
+            save_config(self.cfg)
+        elif hasattr(self, "save_config"):
+            self.save_config()
+
+        # 3. UI-Elemente und Anleitung (info_text) sofort übersetzen
+        # Hinweis: update_language überschreibt info_text mit der Anleitung
+        self.update_language()
+
+        # 4. Status-Meldungen in der neuen Sprache neu generieren
+        # Wir nutzen QTimer, damit die Meldungen sauber UNTER die Anleitung
+        # im info_text angehängt werden, nachdem update_language fertig ist.
+
+        # Plugin-Status prüfen (Version etc.)
+        if hasattr(self, "check_for_plugin_update"):
+            QTimer.singleShot(100, self.check_for_plugin_update)
+
+        # System-Tools prüfen (git, patch etc.)
+        if hasattr(self, "manual_tool_check"):
+            QTimer.singleShot(200, self.manual_tool_check)
 
     # =====================
     # GITHUB EMU CREDENTIALS
@@ -4189,17 +4513,22 @@ class PatchManagerGUI(QWidget):
 
     def edit_emu_github_config(self, info_widget=None, progress_callback=None):
         """Öffnet den GitHub-Konfigurationsdialog mit Sicherheits-Fallbacks für TEXTS"""
-        lang = getattr(self, "LANG", "DE")
-        dialog = GithubConfigDialog()
+        # 1. Sprache sicher abrufen (kleingeschrieben für Dictionary)
+        current_lang = str(getattr(self, "LANG", "de")).lower()
+        dialog = GithubConfigDialog(self)
 
-        # Hilfsfunktion für sicheres Auslesen der Texte
-        def get_txt(key, default):
-            return TEXTS.get(lang, {}).get(key, default)
+        # 2. Hilfsfunktion für Texte (muss get_txt heißen, damit es unten passt)
+        def get_txt(key, default=""):
+            try:
+                lang_pkg = TEXTS.get(current_lang, TEXTS.get("de", {}))
+                return lang_pkg.get(key, default)
+            except:
+                return default
 
-        # Titel des Dialogs
+        # 3. Titel des Dialogs setzen
         dialog.setWindowTitle(get_txt("github_dialog_title", "GitHub Configuration"))
 
-        # Labels im Dialog setzen
+        # 4. Labels im Dialog dynamisch übersetzen
         form_layout = dialog.layout()
         if isinstance(form_layout, QFormLayout):
             mapping = [
@@ -4214,24 +4543,25 @@ class PatchManagerGUI(QWidget):
             ]
             for field, key, default_text in mapping:
                 label = form_layout.labelForField(field)
-                if label:
+                if label and isinstance(label, QLabel):
                     label.setText(get_txt(key, default_text))
 
-        # Save/Cancel Buttons übersetzen
+        # 5. Save/Cancel Buttons übersetzen (Nutzt jetzt einheitlich get_txt)
         button_box = dialog.findChild(QDialogButtonBox)
         if button_box:
             save_btn = button_box.button(QDialogButtonBox.StandardButton.Save)
             cancel_btn = button_box.button(QDialogButtonBox.StandardButton.Cancel)
             if save_btn:
-                save_btn.setText(get_txt("save", "Save"))
+                save_btn.setText(get_txt("save", "Speichern"))
             if cancel_btn:
-                cancel_btn.setText(get_txt("cancel", "Cancel"))
+                cancel_btn.setText(get_txt("cancel", "Abbrechen"))
 
-        # Dialog öffnen
+        # 6. Dialog ausführen
         if dialog.exec():
-            msg = get_txt("github_config_saved", "Konfiguration gespeichert.")
+            msg = get_txt("github_config_saved", "GitHub Konfiguration gespeichert.")
             self.append_info(info_widget or self.info_text, msg, "success")
 
+        # 7. Progress-Bar Abschluss
         if progress_callback:
             progress_callback(100)
 
@@ -4472,17 +4802,38 @@ class PatchManagerGUI(QWidget):
             progress_callback(100)
 
     def close_with_confirm(self):
-        lang = getattr(self, "LANG", LANG)  # aktuelle GUI-Sprache verwenden
+        # 1. Sprache abrufen und normieren (KLEINGESCHRIEBEN passend zum Dictionary)
+        lang = str(getattr(self, "LANG", "de")).lower()
 
+        # 2. Sicherer Zugriff auf das Dictionary (Fallback auf ENGLISCH statt DE)
+        t = TEXTS.get(lang, TEXTS.get("en", {}))
+
+        # 3. GUI mit Fallback-Texten aufbauen
         msg = QMessageBox(self)
-        msg.setWindowTitle(TEXTS[lang]["exit"])
-        msg.setText(TEXTS[lang]["exit_question"])
-        yes_button = msg.addButton(TEXTS[lang]["yes"], QMessageBox.ButtonRole.YesRole)
-        no_button = msg.addButton(TEXTS[lang]["no"], QMessageBox.ButtonRole.NoRole)
+        # Fallbacks hinter dem Komma jetzt auf Englisch
+        msg.setWindowTitle(t.get("exit", "Exit"))
+        msg.setText(t.get("exit_question", "Do you really want to exit?"))
+
+        # Buttons mit Fallbacks beschriften
+        yes_text = t.get("yes", "Yes")
+        no_text = t.get("no", "No")
+
+        yes_button = msg.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
+        no_button = msg.addButton(no_text, QMessageBox.ButtonRole.NoRole)
+        msg.setDefaultButton(no_button)
+
         msg.exec()
 
         if msg.clickedButton() == yes_button:
-            save_config(self.cfg)  # jetzt sauber, nur beim Beenden
+            # 4. Config speichern und beenden
+            if hasattr(self, "cfg"):
+                try:
+                    # Nutzt die globale save_config Funktion
+                    if "save_config" in globals():
+                        save_config(self.cfg)
+                except Exception as e:
+                    print(f"[WARN] Config save failed: {e}")
+
             QApplication.quit()
 
 
