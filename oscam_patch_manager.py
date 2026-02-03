@@ -2281,7 +2281,7 @@ class PatchManagerGUI(QWidget):
 
         # Der Timer startet den Online-Check verzögert, damit die GUI erst steht.
         # Nutzt check_for_plugin_update, da diese Methode den Status UNTER die Anleitung hängt.
-        QTimer.singleShot(500, self.check_for_plugin_update)
+        QTimer.singleShot(1500, self.check_for_update_on_start)
 
     def show_info(self):
         """Zeigt ein modernes Info-Fenster mit Credits und System-Icon."""
@@ -3523,58 +3523,27 @@ class PatchManagerGUI(QWidget):
             self.update_plugin_button_state()
             return None
 
-    def plugin_update_button_clicked(
-        self, checked=False, info_widget=None, progress_callback=None
-    ):
+    def plugin_update_button_clicked(self, checked=False, info_widget=None, progress_callback=None):
         """
         Button-Callback: Prüft GitHub-Version und bietet Update NUR bei neuerer Version an.
         """
+        from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
+        from PyQt6.QtGui import QTextCursor
+        import requests, time
+        from packaging.version import Version
+
         lang_key = getattr(self, "LANG", "en").lower()
         widget = info_widget or getattr(self, "info_text", None)
+        progress = progress_callback or (self.progress_bar.setValue if hasattr(self, "progress_bar") else None)
 
-        # 1. Versionen säubern und vergleichen
-        try:
-            current_v_raw = APP_VERSION.replace("v", "").strip()
-            # Falls latest_version noch "..." ist, erst prüfen
-            if not hasattr(self, "latest_version") or self.latest_version == "...":
-                self.check_for_update_on_start()
-                return
-
-            latest_v_raw = self.latest_version.replace("v", "").strip()
-
-            # Echter Versionsvergleich (1.2.10 > 1.2.9)
-            if Version(latest_v_raw) <= Version(current_v_raw):
-                msg = (
-                    TEXTS[lang_key]
-                    .get("up_to_date", "Plugin ist aktuell (v{v})")
-                    .format(v=current_v_raw)
-                )
-                QMessageBox.information(self, "Update", msg)
-                return
-        except Exception as e:
-            print(f"[DEBUG] Versionsvergleich fehlgeschlagen: {e}")
-            return
-
-        # 2. Wenn eine neuere Version existiert:
         if hasattr(self, "progress_bar"):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
 
-        # Hier dein bestehender Update-Dialog Aufruf
-        self.show_update_dialog(latest_v_raw)
-
-        # Sicherer Logger gegen KeyError 'current'
         def log(text_key, level="info", **kwargs):
-            colors = {
-                "success": "green",
-                "warning": "orange",
-                "error": "red",
-                "info": "gray",
-            }
+            colors = {"success": "green", "warning": "orange", "error": "red", "info": "blue"}
             color = colors.get(level, "gray")
-            text_template = TEXTS.get(lang_key, TEXTS.get("en", {})).get(
-                text_key, text_key
-            )
+            text_template = TEXTS.get(lang_key, TEXTS.get("en", {})).get(text_key, text_key)
             try:
                 safe_kwargs = {
                     "current": APP_VERSION,
@@ -3588,97 +3557,75 @@ class PatchManagerGUI(QWidget):
                 text = text_template
 
             if isinstance(widget, QTextEdit):
-                widget.moveCursor(QTextCursor.MoveOperation.End)
                 widget.append(f'<span style="color:{color}">{text}</span>')
+                widget.moveCursor(QTextCursor.MoveOperation.End)
                 QApplication.processEvents()
-            else:
-                print(f"[{level.upper()}] {text}")
 
         log("update_check_start", "info")
-        if progress_callback:
-            progress_callback(10)
+        if progress: progress(10)
 
         try:
-            import requests, re
-            from packaging.version import Version as PackagingVersion, InvalidVersion
-
-            # ORIGINAL URL STRUKTUR (mit Fix: Slash nach .com hinzugefügt)
-            url = (
+            # FIX: Korrekte URL-Zusammensetzung und direkter Zeitstempel
+            version_url = (
                 "https://raw.githubusercontent.com/"
-                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+                "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+                f"?t={int(time.time())}"
             )
-            resp = requests.get(url, timeout=10)
+            
+            # FIX: Request muss ausgeführt werden, bevor resp.text genutzt wird
+            resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
-
-            if progress_callback:
-                progress_callback(40)
-
-            match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', resp.text)
-            if not match:
-                raise RuntimeError("APP_VERSION not found on GitHub")
-
-            latest_version = match.group(1)
+            
+            latest_version = resp.text.strip().lstrip("v")
             self.latest_version = latest_version
+            current_version = APP_VERSION.strip().lstrip("v")
 
-            try:
-                lv = Version(latest_version.strip().lstrip("v"))
-                cv = Version(APP_VERSION.strip().lstrip("v"))
-                if lv <= cv:
-                    log("update_current_version", "success", version=APP_VERSION)
-                    if progress_callback:
-                        progress_callback(100)
-                    return
-            except InvalidVersion:
-                log(
-                    "update_fail", "error", error=f"Invalid version: '{latest_version}'"
-                )
-                if progress_callback:
-                    progress_callback(100)
+            if progress: progress(50)
+
+            # 1. Prüfen ob Update nötig
+            if not Version(latest_version) > Version(current_version):
+                msg = TEXTS.get(lang_key, TEXTS["en"]).get("up_to_date", "Plugin ist aktuell (v{v})").format(v=current_version)
+                QMessageBox.information(self, "Update", msg)
+                log("update_no_update", "success")
+                if progress: progress(100)
                 return
 
-            if progress_callback:
-                progress_callback(60)
-
-            # Dialog mit sicherem lang_key
+            # 2. Wenn Update verfügbar
+            if progress: progress(80)
+            
             msg_box = QMessageBox(self)
-            msg_box.setWindowTitle(
-                TEXTS.get(lang_key, TEXTS["en"]).get(
-                    "update_available_title", "Update available"
-                )
-            )
-
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setWindowTitle(TEXTS.get(lang_key, TEXTS["en"]).get("update_available_title", "Update verfügbar"))
+            
             raw_msg = TEXTS.get(lang_key, TEXTS["en"]).get(
-                "update_available_msg", "Version {latest} is available."
+                "update_available_msg", 
+                "Version {latest} verfügbar. Aktuell: {current}. Jetzt updaten?"
             )
-            msg_box.setText(
-                raw_msg.format(
-                    current=APP_VERSION, latest=latest_version, version=latest_version
-                )
-            )
+            msg_box.setText(raw_msg.format(current=APP_VERSION, latest=latest_version))
+            
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            
+            # Button-Texte übersetzen
+            btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
+            if btn_yes: btn_yes.setText(TEXTS.get(lang_key, {}).get("yes", "Ja"))
+            btn_no = msg_box.button(QMessageBox.StandardButton.No)
+            if btn_no: btn_no.setText(TEXTS.get(lang_key, {}).get("no", "Nein"))
+            
+            result = msg_box.exec()
 
-            yes_button = msg_box.addButton(
-                TEXTS.get(lang_key, TEXTS["en"]).get("yes", "Yes"),
-                QMessageBox.ButtonRole.YesRole,
-            )
-            no_button = msg_box.addButton(
-                TEXTS.get(lang_key, TEXTS["en"]).get("no", "No"),
-                QMessageBox.ButtonRole.NoRole,
-            )
-            msg_box.exec()
-
-            if msg_box.clickedButton() == yes_button:
-                self.plugin_update_action(
-                    latest_version=latest_version, progress_callback=progress_callback
-                )
+            if result == QMessageBox.StandardButton.Yes:
+                if hasattr(self, "plugin_update_action"):
+                    self.plugin_update_action(
+                        latest_version=latest_version, 
+                        progress_callback=progress
+                    )
             else:
                 log("update_declined", "info")
-                if progress_callback:
-                    progress_callback(100)
+                if progress: progress(100)
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
-            if progress_callback:
-                progress_callback(0)
+            if progress: progress(0)
 
     # ---------------------
     # UPDATE CHECK
@@ -3687,7 +3634,6 @@ class PatchManagerGUI(QWidget):
         """
         Prüft beim Start die GitHub-Version, aktualisiert den Update-Button
         und fragt den Nutzer, ob er direkt updaten möchte.
-        Meldungen erscheinen im Info-Widget.
         """
         from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
         from PyQt6.QtGui import QTextCursor
@@ -3698,35 +3644,22 @@ class PatchManagerGUI(QWidget):
         progress = getattr(self, "progress_bar", None)
         lang = getattr(self, "LANG", "de").lower()
 
-        # Progress reset
         if progress:
             progress.setValue(0)
             progress.show()
 
-        # ==========================================================
-        # DIE FIX-LOG-FUNKTION (SICHER GEGEN KEYERROR 'current')
-        # ==========================================================
         def log(text_key, level="info", **kwargs):
-            colors = {
-                "success": "green",
-                "warning": "orange",
-                "error": "red",
-                "info": "blue",
-            }
+            colors = {"success": "green", "warning": "orange", "error": "red", "info": "blue"}
             color = colors.get(level, "gray")
             text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
-
             try:
-                # Wir definieren Standardwerte für alle Platzhalter, die in TEXTS vorkommen
-                # So verhindern wir den Absturz, falls ein Key {current} oder {version} erwartet
                 safe_params = {
                     "current": APP_VERSION,
                     "version": APP_VERSION,
                     "latest": getattr(self, "latest_version", "???"),
                     "error": kwargs.get("error", "Unknown Error"),
                 }
-                safe_params.update(kwargs)  # Echte Werte überschreiben die Standards
-
+                safe_params.update(kwargs)
                 text = text_template.format(**safe_params)
             except Exception:
                 text = text_template
@@ -3735,96 +3668,77 @@ class PatchManagerGUI(QWidget):
                 widget.append(f'<span style="color:{color}">{text}</span>')
                 widget.moveCursor(QTextCursor.MoveOperation.End)
                 QApplication.processEvents()
-            else:
-                print(f"[{level.upper()}] {text}")
 
-        # ==========================================================
-
-        # Start
         log("update_check_start", "info")
-        if progress:
-            progress.setValue(10)
-
+        
         try:
-            # ORIGINAL URLS BEIBEHALTEN
+            # FIX: URL-Format und Zeitstempel
             version_url = (
                 "https://raw.githubusercontent.com/"
                 "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
                 f"?t={int(time.time())}"
             )
+
+            # FIX: Den Request auch wirklich absenden!
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
 
             latest_version = resp.text.strip().lstrip("v")
             self.latest_version = latest_version
-            self.update_plugin_button_state()
-
-            if progress:
-                progress.setValue(50)
+            
+            if hasattr(self, "update_plugin_button_state"):
+                self.update_plugin_button_state()
 
             current_version = APP_VERSION.strip().lstrip("v")
 
-            # 🔹 Kein Update vorhanden
+            # Kein Update nötig
             if not Version(latest_version) > Version(current_version):
                 log("update_current_version", "success", version=current_version)
                 log("update_no_update", "info")
-                if progress:
-                    progress.setValue(100)
+                if progress: progress.setValue(100)
                 return
 
-            # 🔹 Update verfügbar
-            if progress:
-                progress.setValue(80)
+            # Update verfügbar
+            if progress: progress.setValue(80)
 
+            # MessageBox Setup
             msg_box = QMessageBox(self)
-            msg_box.setWindowTitle(
-                TEXTS.get(lang, {}).get("update_available_title", "Update verfügbar")
-            )
-
-            # Sicherer Zugriff auf den Dialog-Text
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setWindowTitle(TEXTS.get(lang, {}).get("update_available_title", "Update verfügbar"))
+            
             raw_dialog_text = TEXTS.get(lang, {}).get(
-                "update_available_msg",
-                "Eine neue Version ({latest}) ist verfügbar.\nAktuell installiert: {current}.\nJetzt updaten?",
+                "update_available_msg", 
+                "Neue Version {latest} verfügbar. Jetzt updaten?"
             )
-            msg_box.setText(
-                raw_dialog_text.format(
-                    current=current_version,
-                    latest=latest_version,
-                    version=latest_version,
-                )
-            )
+            msg_box.setText(raw_dialog_text.format(current=current_version, latest=latest_version))
+            
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            
+            # Button-Texte übersetzen
+            btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
+            if btn_yes: btn_yes.setText(TEXTS.get(lang, {}).get("yes", "Ja"))
+            btn_no = msg_box.button(QMessageBox.StandardButton.No)
+            if btn_no: btn_no.setText(TEXTS.get(lang, {}).get("no", "Nein"))
+            
+            msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
 
-            yes_btn = msg_box.addButton(
-                TEXTS.get(lang, {}).get("yes", "Ja"),
-                QMessageBox.ButtonRole.YesRole,
-            )
-            no_btn = msg_box.addButton(
-                TEXTS.get(lang, {}).get("no", "Nein"),
-                QMessageBox.ButtonRole.NoRole,
-            )
-            msg_box.setDefaultButton(yes_btn)
-            msg_box.exec()
+            # Ergebnis abfangen
+            result = msg_box.exec()
 
-            if msg_box.clickedButton() == yes_btn:
+            if result == QMessageBox.StandardButton.Yes:
                 if hasattr(self, "plugin_update_action"):
-                    # Übergibt die Version an die Update-Aktion
                     self.plugin_update_action(
                         latest_version=latest_version,
                         progress_callback=progress.setValue if progress else None,
                     )
             else:
                 log("update_declined", "info")
-                # Hier wurde 'current' oft vermisst -> durch die neue log() Funktion nun sicher
                 log("update_current_version", "success", version=current_version)
-                log("update_no_update", "info")
-                if progress:
-                    progress.setValue(100)
+                if progress: progress.setValue(100)
 
         except Exception as e:
-            # DER FIX: log fängt jetzt ab, wenn TEXTS Keys {current} wollen, aber nur 'error' geliefert wird
             log("update_fail", "error", error=str(e))
-            if progress:
-                progress.setValue(0)
+            if progress: progress.setValue(0)
 
     # ---------------------
     # TOOLS CHECK
@@ -4490,7 +4404,7 @@ class PatchManagerGUI(QWidget):
 
         # Plugin-Status prüfen (Version etc.)
         if hasattr(self, "check_for_plugin_update"):
-            QTimer.singleShot(100, self.check_for_plugin_update)
+            QTimer.singleShot(500, self.check_for_plugin_update)
 
         # System-Tools prüfen (git, patch etc.)
         if hasattr(self, "manual_tool_check"):
