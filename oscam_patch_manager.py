@@ -33,6 +33,7 @@ import re
 from pathlib import Path
 from io import BytesIO
 from datetime import datetime, timezone
+
 from PyQt6.QtGui import QPixmap, QAction, QFont, QColor, QTextCursor, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -59,109 +60,63 @@ from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize
 
 # ===================== VERSION HANDLING =====================
 try:
-    # Versuche den Standard-Import
     from packaging.version import Version, InvalidVersion
 except (ImportError, ModuleNotFoundError):
-    # Fallback-Klasse, falls 'packaging' nicht installiert ist
     class Version:
         def __init__(self, vstring):
-            self.v = [
-                int(x) for x in re.sub(r"[^0-9.]", "", str(vstring)).split(".") if x
-            ]
+            self.v = [int(x) for x in re.sub(r"[^0-9.]", "", str(vstring)).split(".") if x]
 
-        def __gt__(self, other):
-            return self.v > other.v
+        def __gt__(self, other): return self.v > other.v
+        def __lt__(self, other): return self.v < other.v
+        def __ge__(self, other): return self.v >= other.v
+        def __le__(self, other): return self.v <= other.v
+        def __eq__(self, other): return self.v == other.v
 
-        def __lt__(self, other):
-            return self.v < other.v
+    class InvalidVersion(Exception): pass
 
-        def __ge__(self, other):
-            return self.v >= other.v
-
-        def __le__(self, other):
-            return self.v <= other.v
-
-        def __eq__(self, other):
-            return self.v == other.v
-
-    class InvalidVersion(Exception):
-        pass
-
-
-# Unterdrückt Git-Fehlermeldungen in der Windows-Konsole global
+# ===================== ENV SETUP =====================
+# Git Fehler unterdrücken
 if platform.system() == "Windows":
     os.environ["GIT_REDIRECT_STDERR"] = "2>nul"
 else:
     os.environ["GIT_REDIRECT_STDERR"] = "2>/dev/null"
 
+# ===================== SCRIPT DIR =====================
+PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def ensure_executable_self():
+    """Setzt Ausführungsrechte für das eigene Skript (Linux/Unix)."""
     try:
-        script_path = os.path.abspath(__file__)
-        st = os.stat(script_path)
+        st = os.stat(__file__)
         if not (st.st_mode & stat.S_IXUSR):
-            os.chmod(
-                script_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-            )
+            os.chmod(__file__, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     except Exception as e:
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
-
-# Zeitstempel für die GUI
+# ===================== ZEIT =====================
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
+
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.3.8"
-# Basis-Verzeichnis des Scripts (absoluter Pfad)
-PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_VERSION = "2.4.0"
 
-
+# ===================== PATCH DIRS =====================
 def get_best_patch_dir():
-    # 1. Priorität: Existierender S3-Pfad (nur wenn beschreibbar)
+    """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
     s3_path = "/opt/s3/support/patches"
     if os.path.exists(s3_path) and os.access(s3_path, os.W_OK):
         return s3_path
 
-    # 2. Priorität: Ein lokaler Ordner "patches" im Skript-Verzeichnis
     local_path = os.path.join(PLUGIN_DIR, "patches")
-
-    # 3. Fallback: Home-Verzeichnis des Nutzers (immer sicher)
     home_fallback = os.path.join(os.path.expanduser("~"), ".oscam_patch_manager")
 
-    # Sicherstellen, dass der lokale Pfad existiert
     os.makedirs(local_path, exist_ok=True)
     return local_path
 
-
-# Python Cache & Systemdateien
-PYC_FILE = os.path.join(PLUGIN_DIR, "oscam_patch_manager.pyc")
-CACHE_DIR = os.path.join(PLUGIN_DIR, "__pycache__")
-# Konfigurationsdateien
-CONFIG_FILE = os.path.join(PLUGIN_DIR, "config.json")
-GITHUB_CONF_FILE = os.path.join(PLUGIN_DIR, "github_upload_config.json")
-# Patch-Dateien im Hauptordner
-PATCH_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.patch")
-ZIP_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.zip")
-# Arbeits-Ordner
-ICON_DIR = os.path.join(PLUGIN_DIR, "icons")
-TEMP_REPO = os.path.join(PLUGIN_DIR, "temp_repo")
-PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
-# -----------------------------
-# Alte Patch-Ordner / Dateien (Archiv)
-# -----------------------------
-# Standard-Systempfad (Fallback)
-import platform
-
-# Basis-Verzeichnis
-PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
 def get_initial_patch_dir():
-    """Wählt den sichersten Standardpfad je nach Betriebssystem."""
-    # Ordnername geändert von "old_patches" zu "backup"
+    """Wählt den sichersten Backup-Ordner je nach OS."""
     folder_name = "backup"
-
     if platform.system() == "Windows":
         path = os.path.join(PLUGIN_DIR, folder_name)
     else:
@@ -174,29 +129,32 @@ def get_initial_patch_dir():
     os.makedirs(path, exist_ok=True)
     return path
 
-
-# Pfade aktualisieren
-OLD_PATCH_DIR_PLUGIN_DEFAULT = get_initial_patch_dir()
-OLD_PATCH_DIR = OLD_PATCH_DIR_PLUGIN_DEFAULT
-OLD_ = OLD_PATCH_DIR  # Legacy-Support
-
-# Die Dateipfade bleiben gleich, zeigen aber nun in den /backup/ Ordner
+OLD_PATCH_DIR = get_initial_patch_dir()
 OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
 ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
 PATCH_MANAGER_OLD = os.path.join(OLD_PATCH_DIR, "oscam_patch_manager_old.py")
 CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "config_old.json")
 GITHUB_CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "github_upload_config_old.json")
-# -----------------------------
-# Tools & Repos
-# -----------------------------
+
+# ===================== CACHE & CONFIG =====================
+PYC_FILE = os.path.join(PLUGIN_DIR, "oscam_patch_manager.pyc")
+CACHE_DIR = os.path.join(PLUGIN_DIR, "__pycache__")
+CONFIG_FILE = os.path.join(PLUGIN_DIR, "config.json")
+GITHUB_CONF_FILE = os.path.join(PLUGIN_DIR, "github_upload_config.json")
+PATCH_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.patch")
+ZIP_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.zip")
+ICON_DIR = os.path.join(PLUGIN_DIR, "icons")
+TEMP_REPO = os.path.join(PLUGIN_DIR, "temp_repo")
+PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
+
+# ===================== TOOLS & REPOS =====================
 CHECK_TOOLS_SCRIPT = os.path.join(PLUGIN_DIR, "check_tools.sh")
 PATCH_MODIFIER = "speedy005"
-# Repository URLs
 EMUREPO = "https://github.com/oscam-mirror/oscam-emu.git"
 STREAMREPO = "https://git.streamboard.tv/common/oscam.git"
 
 # Sicherstellen, dass Basis-Ordner existieren
-for d in [TEMP_REPO, PATCH_EMU_GIT_DIR, OLD_PATCH_DIR_PLUGIN_DEFAULT]:
+for d in [TEMP_REPO, PATCH_EMU_GIT_DIR, OLD_PATCH_DIR]:
     if not os.path.exists(d):
         try:
             os.makedirs(d, exist_ok=True)
@@ -831,7 +789,7 @@ def load_config():
         "commit_count": 5,
         "color": "Classic",
         "language": "DE",
-        "s3_patch_path": OLD_PATCH_DIR_PLUGIN_DEFAULT,  # Nutzt den Pfad aus Schritt 1
+        "s3_patch_path": OLD_PATCH_DIR,  # Nutzt den Pfad aus Schritt 1
     }
 
     if os.path.exists(CONFIG_FILE):
@@ -2246,7 +2204,7 @@ class PatchManagerGUI(QWidget):
             self.LANG = "de"  # Sicherer Standard-Fallback
 
         # 3. Patch-Pfade (Windows-sicher über os.path.normpath)
-        current_path = self.cfg.get("s3_patch_path", OLD_PATCH_DIR_PLUGIN_DEFAULT)
+        current_path = self.cfg.get("s3_patch_path", OLD_PATCH_DIR)
         self.OLD_PATCH_DIR = os.path.normpath(current_path)
 
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
@@ -3829,21 +3787,11 @@ class PatchManagerGUI(QWidget):
 
     def init_ui(self):
         from PyQt6.QtWidgets import (
-            QVBoxLayout,
-            QHBoxLayout,
-            QGridLayout,
-            QLabel,
-            QPushButton,
-            QWidget,
-            QTextEdit,
-            QComboBox,
-            QSpinBox,
-            QProgressBar,
-            QApplication,
-            QFrame,
+            QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
+            QWidget, QTextEdit, QComboBox, QSpinBox, QProgressBar, QApplication, QFrame
         )
         from PyQt6.QtGui import QPixmap, QFont
-        from PyQt6.QtCore import Qt, QSize, QTimer
+        from PyQt6.QtCore import Qt, QSize, QTimer, QDateTime
         import requests
 
         # ---------------------------------------------------------
@@ -3866,64 +3814,59 @@ class PatchManagerGUI(QWidget):
         header_widget = QFrame()
         header_widget.setFixedHeight(90)
         header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(5, 0, 15, 0)
+        header_layout.setContentsMargins(15, 0, 15, 0)
         header_layout.setSpacing(10)
-        header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        # Links: Info + Uhr
+        # ---------------- LEFT: Info + Uhr/Daten ----------------
         left_header_container = QWidget()
-        left_header_container.setFixedWidth(240)
-        left_header_main = QHBoxLayout(left_header_container)
-        left_header_main.setContentsMargins(0, 0, 0, 0)
-        left_header_main.setSpacing(10)
+        left_header_layout = QHBoxLayout(left_header_container)
+        left_header_layout.setContentsMargins(0, 0, 0, 0)
+        left_header_layout.setSpacing(10)
+        left_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
+        # Info-Button
         self.info_button = QPushButton()
         self.info_button.setFixedSize(45, 45)
-        icon = self.style().standardIcon(
-            QApplication.style().StandardPixmap.SP_MessageBoxInformation
-        )
+        icon = self.style().standardIcon(QApplication.style().StandardPixmap.SP_MessageBoxInformation)
         self.info_button.setIcon(icon)
         self.info_button.setIconSize(QSize(28, 28))
-        self.info_button.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: #f0f0f0;
-                border-radius: {self.BUTTON_RADIUS}px;
-                border: 1px solid #ccc;
-            }}
-            QPushButton:hover {{ background-color: #e0e0e0; }}
-            """
-        )
         self.info_button.clicked.connect(self.show_info)
-        left_header_main.addWidget(self.info_button)
-        left_header_main.addStretch(1)
+        left_header_layout.addWidget(self.info_button)
 
+        # Uhr & Datum vertikal in eigenem Container
         time_date_container = QWidget()
         time_date_layout = QVBoxLayout(time_date_container)
         time_date_layout.setContentsMargins(0, 0, 0, 0)
-        time_date_layout.setSpacing(-2)
-        time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        time_date_layout.setSpacing(2)
+        time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         self.digital_clock = QLabel("--:--:--")
-        self.digital_clock.setFont(QFont("Arial", 11, QFont.Weight.Bold))
-        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.date_label = QLabel("")
-        self.date_label.setFont(QFont("Arial", 8))
-        self.date_label.setStyleSheet("color: #555;")
-        self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
+        self.digital_clock.setFont(QFont("Bold", 22, QFont.Weight.Bold))
+        self.digital_clock.setStyleSheet("color: red;")
+        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignLeft)
         time_date_layout.addWidget(self.digital_clock)
+
+        # Datum-Label
+        self.date_label = QLabel("--.--.----")
+        self.date_label.setFont(QFont("Bold", 22))
+        self.date_label.setStyleSheet("color: green;")  # <-- hier Grün!
+        self.date_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         time_date_layout.addWidget(self.date_label)
-        left_header_main.addWidget(time_date_container)
 
-        header_layout.addWidget(left_header_container)
-        header_layout.addStretch(1)
+        # Container korrekt setzen
+        time_date_container.setLayout(time_date_layout)
 
-        # Logo
+        # Füge den Container der linken HBox hinzu
+        left_header_layout.addWidget(time_date_container)
+
+        # Linken Header dem Header-Layout hinzufügen
+        header_layout.addWidget(left_header_container, 1)
+
+        # ---------------- MIDDLE: Logo ----------------
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.logo_label.setMinimumWidth(300)
+        header_layout.addWidget(self.logo_label, 2)
 
         try:
             url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_emu_toolkit2.png"
@@ -3936,13 +3879,11 @@ class PatchManagerGUI(QWidget):
             self.logo_label.setText("OSCAM TOOLKIT")
             self.original_pixmap = None
 
-        header_layout.addWidget(self.logo_label, 3)
-        header_layout.addStretch(1)
-
-        # Rechts: Version
+        # ---------------- RIGHT: Version ----------------
         right_header_container = QWidget()
-        right_header = QVBoxLayout(right_header_container)
-        right_header.setContentsMargins(0, 0, 0, 0)
+        right_header_layout = QVBoxLayout(right_header_container)
+        right_header_layout.setContentsMargins(0, 0, 0, 0)
+        right_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
 
         by_label = QLabel("by speedy005")
         by_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
@@ -3954,11 +3895,16 @@ class PatchManagerGUI(QWidget):
         v_label.setStyleSheet("color: red;")
         v_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        right_header.addWidget(by_label)
-        right_header.addWidget(v_label)
-        header_layout.addWidget(right_header_container)
+        right_header_layout.addStretch(1)
+        right_header_layout.addWidget(by_label)
+        right_header_layout.addWidget(v_label)
+        right_header_layout.addStretch(1)
 
+        header_layout.addWidget(right_header_container, 1)
+
+        # Header dem Hauptlayout hinzufügen
         main_layout.addWidget(header_widget)
+
 
         # ---------------------------------------------------------
         # INFO + PROGRESS
@@ -3983,7 +3929,6 @@ class PatchManagerGUI(QWidget):
             background-color: #f7f7f7;
         }
         """)
-
         controls_group_layout = QVBoxLayout(controls_group)
         controls_group_layout.setContentsMargins(10, 8, 10, 10)
         controls_group_layout.setSpacing(6)
@@ -4008,7 +3953,6 @@ class PatchManagerGUI(QWidget):
         controls_layout.setSpacing(10)
 
         CONTROL_HEIGHT = self.BUTTON_HEIGHT
-
         control_style = f"""
         QComboBox, QSpinBox {{
             font-size: 14px;
@@ -4076,7 +4020,6 @@ class PatchManagerGUI(QWidget):
         # BUTTON-GRIDS
         # ---------------------------------------------------------
         self.setup_option_buttons(main_layout)
-
         self.grid_container = QWidget()
         self.layout_grid_buttons = QGridLayout(self.grid_container)
         self.layout_grid_buttons.setSpacing(10)
@@ -4084,36 +4027,26 @@ class PatchManagerGUI(QWidget):
         main_layout.addWidget(self.grid_container)
 
         # ---------------------------------------------------------
-        # FINAL
+        # TIMER & DIGITAL CLOCK
         # ---------------------------------------------------------
+        def update_digital_clock():
+            now = QDateTime.currentDateTime()
+            self.digital_clock.setText(now.toString("HH:mm:ss"))
+            self.date_label.setText(now.toString("dd.MM.yyyy"))
+
         self.clock_timer = QTimer(self)
-        self.clock_timer.timeout.connect(self.update_digital_clock)
+        self.clock_timer.timeout.connect(update_digital_clock)
         self.clock_timer.start(1000)
+        update_digital_clock()
 
+        # ---------------------------------------------------------
+        # FINAL SETTINGS
+        # ---------------------------------------------------------
         self.change_colors()
-        self.update_digital_clock()
         self.update_language()
-
         self.setMinimumSize(1200, 850)
         self.showMaximized()
 
-    # =====================
-    # update_buttons_
-    # =====================
-    def update_digital_clock(self):
-        """Aktualisiert die Uhrzeit (rot) und das Datum (gelb) im Header"""
-        from PyQt6.QtCore import QDateTime
-
-        now = QDateTime.currentDateTime()
-        time_str = now.toString("HH:mm:ss")
-        date_str = now.toString("dd.MM.yyyy")
-
-        # Setze den Text als HTML, damit die Farben angezeigt werden
-        if hasattr(self, "digital_clock"):
-            self.digital_clock.setText(
-                f'<span style="color:red;">{time_str}</span><br>'
-                f'<span style="color:yellow;">{date_str}</span>'
-            )
 
     def update_buttons_language(self):
         self.github_upload_patch_button.setText(TEXTS[LANG]["github_upload_patch"])
