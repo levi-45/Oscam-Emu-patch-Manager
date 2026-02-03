@@ -112,7 +112,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.3.7"
+APP_VERSION = "2.3.8"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -3795,60 +3795,33 @@ class PatchManagerGUI(QWidget):
 
     def check_tools_on_start(self):
         self.info_text.clear()
-        cfg = {}
-        if os.path.exists(CONFIG_FILE):
-            try:
-                with open(CONFIG_FILE, "r") as f:
-                    cfg = json.load(f)
-            except Exception as e:
-                self.append_info(
-                    self.info_text, f"⚠️ Fehler beim Lesen der Config: {e}", "warning"
-                )
+        import shutil, os, json
+        
+        # ... (Config laden bleibt gleich) ...
 
-        tools_ok = cfg.get("tools_ok", False)
-        if tools_ok:
-            self.append_info(
-                self.info_text,
-                "DEBUG: tools_ok geladen (Toolsprüfung übersprungen)",
-                "info",
-            )
-            return
-
-        tools = {
-            "git": "git --version",
-            "patch": "patch --version | head -n 1",
-            "zip": "zip -v | head -n 1",
-            "python3": "python3 --version",
-            "pip3": "pip3 --version",
-        }
+        # KORREKTUR: Wir definieren, welche Tools wirklich EXTERN gebraucht werden.
+        # 'zip' und 'patch' entfernen wir hier für Windows/Git-Bash.
+        tools_to_check = ["git"]
+        if os.name != 'nt':  # Nur unter echtem Linux prüfen wir zip/patch
+            tools_to_check.extend(["zip", "patch"])
 
         all_ok = True
-        for name, cmd in tools.items():
-            try:
-                result = subprocess.getoutput(cmd).splitlines()[0]
-                if "not found" in result.lower() or "error" in result.lower():
-                    self.append_info(self.info_text, f"⚠️ {name}: {result}", "warning")
-                    all_ok = False
-                else:
-                    self.append_info(self.info_text, f"✅ {name}: {result}", "success")
-            except Exception:
-                self.append_info(self.info_text, f"⚠️ {name}: Fehler", "warning")
+        for name in tools_to_check:
+            # shutil.which wirft keinen WinError 2, wenn die Datei fehlt!
+            if shutil.which(name) is None:
+                self.append_info(self.info_text, f"⚠️ {name} fehlt im System.", "warning")
                 all_ok = False
+            else:
+                self.append_info(self.info_text, f"✅ {name} ist bereit.", "success")
 
         if all_ok:
-            self.append_info(
-                self.info_text, TEXTS[LANG]["all_tools_installed"], "success"
-            )
+            self.append_info(self.info_text, "✅ System-Check erfolgreich.", "success")
             cfg["tools_ok"] = True
             with open(CONFIG_FILE, "w") as f:
                 json.dump(cfg, f, indent=2)
-            self.append_info(self.info_text, TEXTS[LANG]["tool_saved"], "info")
         else:
-            self.append_info(
-                self.info_text,
-                "❌ Einige Tools fehlen oder Fehler aufgetreten",
-                "error",
-            )
+            # Hier den automatischen Installationsversuch löschen!
+            self.append_info(self.info_text, "❌ Bitte fehlende Tools manuell installieren.", "error")
 
         # =====================
         # INIT UI
@@ -3862,7 +3835,6 @@ class PatchManagerGUI(QWidget):
             QLabel,
             QPushButton,
             QWidget,
-            QSizePolicy,
             QTextEdit,
             QComboBox,
             QSpinBox,
@@ -3873,14 +3845,17 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtGui import QPixmap, QFont
         from PyQt6.QtCore import Qt, QSize, QTimer
         import requests
-        from io import BytesIO
 
+        # ---------------------------------------------------------
         # 1. Grundwerte
+        # ---------------------------------------------------------
         self.TITLE_HEIGHT = 45
         self.BUTTON_HEIGHT = 40
         self.BUTTON_RADIUS = 10
 
+        # ---------------------------------------------------------
         # Hauptlayout
+        # ---------------------------------------------------------
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(8)
         main_layout.setContentsMargins(20, 0, 20, 10)
@@ -3889,20 +3864,19 @@ class PatchManagerGUI(QWidget):
         # HEADER-SECTION (BANNER)
         # ---------------------------------------------------------
         header_widget = QFrame()
-        header_widget.setFixedHeight(70)
+        header_widget.setFixedHeight(90)
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(5, 0, 15, 0)
         header_layout.setSpacing(10)
         header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        # Links: Container für [Info-Button | Uhr+Datum]
+        # Links: Info + Uhr
         left_header_container = QWidget()
         left_header_container.setFixedWidth(240)
         left_header_main = QHBoxLayout(left_header_container)
         left_header_main.setContentsMargins(0, 0, 0, 0)
         left_header_main.setSpacing(10)
 
-        # --- INFO BUTTON (ganz links) ---
         self.info_button = QPushButton()
         self.info_button.setFixedSize(45, 45)
         icon = self.style().standardIcon(
@@ -3912,36 +3886,31 @@ class PatchManagerGUI(QWidget):
         self.info_button.setIconSize(QSize(28, 28))
         self.info_button.setStyleSheet(
             f"""
-            QPushButton {{ background-color: #f0f0f0; border-radius: {self.BUTTON_RADIUS}px; border: 1px solid #ccc; }}
+            QPushButton {{
+                background-color: #f0f0f0;
+                border-radius: {self.BUTTON_RADIUS}px;
+                border: 1px solid #ccc;
+            }}
             QPushButton:hover {{ background-color: #e0e0e0; }}
-        """
+            """
         )
         self.info_button.clicked.connect(self.show_info)
         left_header_main.addWidget(self.info_button)
-
-        # Flexibler Platzhalter drückt Zeit-Block nach rechts
         left_header_main.addStretch(1)
 
-        # --- 3. ZEIT-BLOCK (Korrektur: Kompakter, damit nichts abgeschnitten wird) ---
         time_date_container = QWidget()
         time_date_layout = QVBoxLayout(time_date_container)
-
-        # Margins auf 0 setzen, um Platz zu sparen
         time_date_layout.setContentsMargins(0, 0, 0, 0)
-        # Spacing auf -2 oder -3 setzen, um Uhr und Datum näher zusammenzurücken
         time_date_layout.setSpacing(-2)
         time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        # Uhrzeit (etwas kleiner, falls immer noch zu eng)
         self.digital_clock = QLabel("--:--:--")
         self.digital_clock.setFont(QFont("Arial", 11, QFont.Weight.Bold))
         self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.digital_clock.setStyleSheet("margin-bottom: 0px; padding-bottom: 0px;")
 
-        # Datum (Kompakter)
-        self.date_label = QLabel(date_str)
-        self.date_label.setFont(QFont("Arial", 8))  # Von 9 auf 8 verringert
-        self.date_label.setStyleSheet("color: #555; margin-top: 0px; padding-top: 0px;")
+        self.date_label = QLabel("")
+        self.date_label.setFont(QFont("Arial", 8))
+        self.date_label.setStyleSheet("color: #555;")
         self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         time_date_layout.addWidget(self.digital_clock)
@@ -3951,7 +3920,7 @@ class PatchManagerGUI(QWidget):
         header_layout.addWidget(left_header_container)
         header_layout.addStretch(1)
 
-        # Mitte: Logo
+        # Logo
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.logo_label.setMinimumWidth(300)
@@ -3963,19 +3932,17 @@ class PatchManagerGUI(QWidget):
             self.original_pixmap = QPixmap()
             self.original_pixmap.loadFromData(resp.content)
             self.update_logo(width=300, height=35)
-        except Exception as e:
-            print(f"Logo-Fehler: {e}")
+        except Exception:
             self.logo_label.setText("OSCAM TOOLKIT")
             self.original_pixmap = None
 
         header_layout.addWidget(self.logo_label, 3)
         header_layout.addStretch(1)
 
-        # Rechts: Banner-Info (Autor & Version)
+        # Rechts: Version
         right_header_container = QWidget()
         right_header = QVBoxLayout(right_header_container)
         right_header.setContentsMargins(0, 0, 0, 0)
-        right_header.setSpacing(0)
 
         by_label = QLabel("by speedy005")
         by_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
@@ -3989,12 +3956,12 @@ class PatchManagerGUI(QWidget):
 
         right_header.addWidget(by_label)
         right_header.addWidget(v_label)
-        header_layout.addWidget(right_header_container, 1)
+        header_layout.addWidget(right_header_container)
 
-        main_layout.addWidget(header_widget, 0)
+        main_layout.addWidget(header_widget)
 
         # ---------------------------------------------------------
-        # MITTELTEIL (Info Text & Progress)
+        # INFO + PROGRESS
         # ---------------------------------------------------------
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
@@ -4003,50 +3970,91 @@ class PatchManagerGUI(QWidget):
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(15)
-        main_layout.addWidget(self.progress_bar, 0)
+        main_layout.addWidget(self.progress_bar)
 
         # ---------------------------------------------------------
-        # KONTROLL-ZEILE
+        # KONTROLL-BLOCK MIT HEADER
         # ---------------------------------------------------------
-        controls_widget = QFrame()
-        controls_layout = QHBoxLayout(controls_widget)
-        controls_layout.setContentsMargins(0, 5, 0, 5)
+        controls_group = QFrame()
+        controls_group.setStyleSheet("""
+        QFrame {
+            border: 1px solid #bbb;
+            border-radius: 10px;
+            background-color: #f7f7f7;
+        }
+        """)
 
-        control_style = f"QComboBox, QSpinBox {{ height: {self.BUTTON_HEIGHT}px; font-size: 14px; border-radius: {self.BUTTON_RADIUS}px; border: 1px solid #ccc; }}"
+        controls_group_layout = QVBoxLayout(controls_group)
+        controls_group_layout.setContentsMargins(10, 8, 10, 10)
+        controls_group_layout.setSpacing(6)
 
-        self.lang_label = QLabel(self.get_t("language_label", "Language:"))
+        controls_header = QLabel(self.get_t("settings_header", "Einstellungen"))
+        controls_header.setFixedHeight(28)
+        controls_header.setStyleSheet("""
+        QLabel {
+            background-color: #3a6ea5;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+            padding-left: 10px;
+            border-radius: 6px;
+        }
+        """)
+        controls_group_layout.addWidget(controls_header)
+
+        controls_row = QWidget()
+        controls_layout = QHBoxLayout(controls_row)
+        controls_layout.setContentsMargins(5, 5, 5, 5)
+        controls_layout.setSpacing(10)
+
+        CONTROL_HEIGHT = self.BUTTON_HEIGHT
+
+        control_style = f"""
+        QComboBox, QSpinBox {{
+            font-size: 14px;
+            border-radius: {self.BUTTON_RADIUS}px;
+            border: 1px solid #ccc;
+            padding: 4px 8px;
+        }}
+        """
+
+        def make_label(text):
+            lbl = QLabel(text)
+            lbl.setFixedHeight(CONTROL_HEIGHT)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+            return lbl
+
+        self.lang_label = make_label(self.get_t("language_label", "Language:"))
         self.language_box = QComboBox()
         self.language_box.addItems(["EN", "DE"])
-        self.language_box.setFixedWidth(80)
+        self.language_box.setFixedSize(80, CONTROL_HEIGHT)
         self.language_box.setStyleSheet(control_style)
-        self.language_box.setCurrentText(self.cfg.get("language", "DE").upper())
         self.language_box.currentIndexChanged.connect(self.change_language)
 
-        self.color_label = QLabel(self.get_t("color_label", "Farbe:"))
+        self.color_label = make_label(self.get_t("color_label", "Farbe:"))
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
-        self.color_box.setMinimumWidth(150)
+        self.color_box.setFixedSize(150, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
-        self.color_box.setCurrentText(self.cfg.get("color", "Classic"))
         self.color_box.currentIndexChanged.connect(self.change_colors)
 
-        self.commit_label = QLabel(self.get_t("commit_count_label", "Commits:"))
+        self.commit_label = make_label(self.get_t("commit_count_label", "Commits:"))
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
-        self.commit_spin.setFixedWidth(70)
+        self.commit_spin.setFixedSize(70, CONTROL_HEIGHT)
         self.commit_spin.setStyleSheet(control_style)
-        self.commit_spin.setValue(self.cfg.get("commit_count", 5))
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
 
-        # Tools-Button
-        self.btn_check_tools = QPushButton(
-            self.get_t("check_tools_button", "🛠️ Tools prüfen")
-        )
-        self.btn_check_tools.setFixedHeight(self.BUTTON_HEIGHT)
-        self.btn_check_tools.setFixedWidth(160)
-        self.btn_check_tools.setStyleSheet(
-            "background-color: #FFD700; color: black; font-weight: bold; border-radius: 4px;"
-        )
+        self.btn_check_tools = QPushButton(self.get_t("check_tools_button", "🛠️ Tools prüfen"))
+        self.btn_check_tools.setFixedSize(160, CONTROL_HEIGHT)
+        self.btn_check_tools.setStyleSheet("""
+        QPushButton {
+            background-color: #FFD700;
+            font-weight: bold;
+            border-radius: 6px;
+        }
+        QPushButton:hover { background-color: #ffea70; }
+        """)
         self.btn_check_tools.clicked.connect(self.manual_tool_check)
 
         controls_layout.addWidget(self.lang_label)
@@ -4061,19 +4069,23 @@ class PatchManagerGUI(QWidget):
         controls_layout.addWidget(self.btn_check_tools)
         controls_layout.addStretch(1)
 
-        main_layout.addWidget(controls_widget, 0)
+        controls_group_layout.addWidget(controls_row)
+        main_layout.addWidget(controls_group)
 
-        # Aktions-Buttons
+        # ---------------------------------------------------------
+        # BUTTON-GRIDS
+        # ---------------------------------------------------------
         self.setup_option_buttons(main_layout)
 
         self.grid_container = QWidget()
         self.layout_grid_buttons = QGridLayout(self.grid_container)
         self.layout_grid_buttons.setSpacing(10)
-
         self.setup_grid_buttons()
-        main_layout.addWidget(self.grid_container, 0)
+        main_layout.addWidget(self.grid_container)
 
-        # Finalisierung
+        # ---------------------------------------------------------
+        # FINAL
+        # ---------------------------------------------------------
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self.update_digital_clock)
         self.clock_timer.start(1000)
