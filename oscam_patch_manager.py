@@ -62,17 +62,31 @@ from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize
 try:
     from packaging.version import Version, InvalidVersion
 except (ImportError, ModuleNotFoundError):
+
     class Version:
         def __init__(self, vstring):
-            self.v = [int(x) for x in re.sub(r"[^0-9.]", "", str(vstring)).split(".") if x]
+            self.v = [
+                int(x) for x in re.sub(r"[^0-9.]", "", str(vstring)).split(".") if x
+            ]
 
-        def __gt__(self, other): return self.v > other.v
-        def __lt__(self, other): return self.v < other.v
-        def __ge__(self, other): return self.v >= other.v
-        def __le__(self, other): return self.v <= other.v
-        def __eq__(self, other): return self.v == other.v
+        def __gt__(self, other):
+            return self.v > other.v
 
-    class InvalidVersion(Exception): pass
+        def __lt__(self, other):
+            return self.v < other.v
+
+        def __ge__(self, other):
+            return self.v >= other.v
+
+        def __le__(self, other):
+            return self.v <= other.v
+
+        def __eq__(self, other):
+            return self.v == other.v
+
+    class InvalidVersion(Exception):
+        pass
+
 
 # ===================== ENV SETUP =====================
 # Git Fehler unterdrücken
@@ -84,6 +98,7 @@ else:
 # ===================== SCRIPT DIR =====================
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
 def ensure_executable_self():
     """Setzt Ausführungsrechte für das eigene Skript (Linux/Unix)."""
     try:
@@ -93,13 +108,15 @@ def ensure_executable_self():
     except Exception as e:
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
+
 # ===================== ZEIT =====================
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.4.0"
+APP_VERSION = "2.4.1"
+
 
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
@@ -113,6 +130,7 @@ def get_best_patch_dir():
 
     os.makedirs(local_path, exist_ok=True)
     return local_path
+
 
 def get_initial_patch_dir():
     """Wählt den sichersten Backup-Ordner je nach OS."""
@@ -129,7 +147,9 @@ def get_initial_patch_dir():
     os.makedirs(path, exist_ok=True)
     return path
 
+
 OLD_PATCH_DIR = get_initial_patch_dir()
+OLD_PATCH_DIR_PLUGIN_DEFAULT = OLD_PATCH_DIR
 OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
 ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
 PATCH_MANAGER_OLD = os.path.join(OLD_PATCH_DIR, "oscam_patch_manager_old.py")
@@ -237,6 +257,15 @@ class FlowLayout(QLayout):
             line_height = max(line_height, widget_size.height())
 
         return y + line_height - rect.y()
+
+
+def ensure_dir(directory):
+    """Erstellt das Verzeichnis, falls es noch nicht existiert."""
+    if not os.path.exists(directory):
+        try:
+            os.makedirs(directory, exist_ok=True)
+        except Exception as e:
+            print(f"[ERROR] Konnte Verzeichnis {directory} nicht erstellen: {e}")
 
 
 # ===================== NEVER_DELETE =====================
@@ -752,34 +781,24 @@ for key, value in TEXTS["en"].items():
 fill_missing_keys(TEXTS)
 
 
-def ensure_dir(path):
-    """Stellt sicher, dass das Verzeichnis `path` existiert."""
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-
-def save_config(cfg=None):
+def save_config(cfg):
     """
-    Speichert die Config in CONFIG_FILE.
-    Wenn cfg gesetzt ist, wird die gesamte Config gespeichert.
+    Speichert die übergebene Config in CONFIG_FILE.
     """
-    if cfg is None:
-        # Falls keine Config übergeben wird, einfach aus Datei laden
-        cfg = {}
-        if os.path.exists(CONFIG_FILE):
-            try:
-                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
-            except Exception as e:
-                self.append_info(
-                    None, f"⚠️ Config konnte nicht gelesen werden: {e}", "warning"
-                )
 
     try:
+        # Falls CONFIG_FILE in einem Unterordner liegt → sicherstellen, dass er existiert
+        config_dir = os.path.dirname(CONFIG_FILE)
+        if config_dir:
+            os.makedirs(config_dir, exist_ok=True)
+
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
+
+        print("✅ Config erfolgreich gespeichert.")
+
     except Exception as e:
-        self.append_info(None, f"Fehler beim Speichern der Config: {e}", "error")
+        print(f"❌ Fehler beim Speichern der Config: {e}")
 
 
 # ===================== CONFIG =====================
@@ -789,24 +808,30 @@ def load_config():
         "commit_count": 5,
         "color": "Classic",
         "language": "DE",
-        "s3_patch_path": OLD_PATCH_DIR,  # Nutzt den Pfad aus Schritt 1
+        "s3_patch_path": OLD_PATCH_DIR,
     }
 
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            if not isinstance(cfg, dict):
-                return default_cfg
+    # Falls keine Config existiert → Standard zurückgeben
+    if not os.path.exists(CONFIG_FILE):
+        return default_cfg.copy()
 
-            # Fehlende Keys ergänzen
-            for key, value in default_cfg.items():
-                if key not in cfg:
-                    cfg[key] = value
-            return cfg
-        except:
-            return default_cfg
-    return default_cfg
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+
+        # Falls kaputte Datei → Standard zurückgeben
+        if not isinstance(cfg, dict):
+            return default_cfg.copy()
+
+        # 🔹 Fehlende Keys ergänzen (wichtig!)
+        for key, value in default_cfg.items():
+            cfg.setdefault(key, value)
+
+        return cfg
+
+    except Exception as e:
+        print(f"⚠️ Config konnte nicht geladen werden: {e}")
+        return default_cfg.copy()
 
 
 # ===================== INFOSCREEN =====================
@@ -2240,8 +2265,7 @@ class PatchManagerGUI(QWidget):
         # Der Timer startet den Online-Check verzögert, damit die GUI erst steht.
         # Nutzt check_for_plugin_update, da diese Methode den Status UNTER die Anleitung hängt.
         QTimer.singleShot(1500, self.check_for_update_on_start)
-        
-    
+
     def show_info(self):
         """Zeigt ein modernes Info-Fenster mit Credits und System-Icon."""
         # 1. Sprache ermitteln
@@ -2323,6 +2347,70 @@ class PatchManagerGUI(QWidget):
             return default
 
         return str(key).replace("_", " ").title()
+
+    def apply_config_to_ui(self):
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+
+                # 1. Theme laden UND anwenden
+                theme_val = cfg.get("theme") or cfg.get("color")
+                if theme_val:
+                    index = self.color_box.findText(theme_val)
+                    if index >= 0:
+                        self.color_box.setCurrentIndex(index)
+                        # WICHTIG: Hier die Funktion aufrufen, die die Farben ändert!
+                        # Falls deine Funktion anders heißt (z.B. update_theme), bitte anpassen.
+                        self.change_color(theme_val) 
+
+                # 2. Commits setzen
+                self.commit_spin.setValue(int(cfg.get("commit_count", 5)))
+
+                self.info_text.append("✅ GUI-Einstellungen geladen.")
+            except Exception as e:
+                self.info_text.append(f"⚠️ Fehler beim Laden: {e}")
+
+    def collect_and_save(self):
+        try:
+            new_cfg = {
+                "theme": self.color_box.currentText(),
+                "commit_count": int(self.commit_spin.value()),
+                "language": self.language_box.currentText(),
+            }
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(new_cfg, f, indent=4, ensure_ascii=False)
+            
+            # Nur im Info-Screen anzeigen, nicht im Telnet (kein print!)
+            self.info_text.append(f"✅ Konfiguration gespeichert: {new_cfg['theme']}")
+
+        except Exception as e:
+            self.info_text.append(f"❌ Fehler beim Speichern: {e}")
+
+
+    def collect_and_save(self):
+        """Sammelt Werte und erzwingt das Schreiben in die Datei."""
+        try:
+            # 1. Daten direkt aus den Widgets ziehen
+            new_cfg = {
+                "theme": self.color_box.currentText(),
+                "commit_count": int(self.commit_spin.value()),
+                "language": self.language_box.currentText(),
+            }
+
+            # 2. Pfad sicherstellen (PLUGIN_DIR muss definiert sein)
+            target_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "config.json"
+            )
+
+            # 3. Direktes Schreiben (um Fehler in der globalen save_config zu umgehen)
+            with open(target_path, "w", encoding="utf-8") as f:
+                json.dump(new_cfg, f, indent=4, ensure_ascii=False)
+
+            print(f"✅ Gespeichert in {target_path}: {new_cfg}")
+
+        except Exception as e:
+            print(f"❌ KRITISCHER FEHLER beim Speichern: {e}")
 
     def manual_tool_check(self):
         """Prüft installierte Tools und nutzt strikt die gewählte Sprache."""
@@ -2509,7 +2597,7 @@ class PatchManagerGUI(QWidget):
         lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
         current_file = os.path.abspath(__file__)
         # Pfad zum Backup der Hauptdatei (aus deiner Konfiguration)
-        backup_file = PATCH_MANAGER_OLD 
+        backup_file = PATCH_MANAGER_OLD
 
         def action_log(text_key, level="info", **kwargs):
             if hasattr(self, "info_text"):
@@ -2520,22 +2608,28 @@ class PatchManagerGUI(QWidget):
                     text = text_template.format(**safe_vars)
                 except:
                     text = text_template
-                color = "green" if level == "success" else "red" if level == "error" else "blue"
+                color = (
+                    "green"
+                    if level == "success"
+                    else "red" if level == "error" else "blue"
+                )
                 self.info_text.append(f'<span style="color:{color}">{text}</span>')
                 QApplication.processEvents()
 
         try:
-            if progress_callback: progress_callback(10)
+            if progress_callback:
+                progress_callback(10)
 
             # --- 1. BACKUP ERSTELLEN ---
             patch_dir = getattr(self, "OLD_PATCH_DIR", "patch_backup")
             os.makedirs(patch_dir, exist_ok=True)
-            
+
             # Wichtigstes Backup: Die aktuelle .py Datei
             shutil.copy2(current_file, backup_file)
             action_log("update_backup_done", "success")
 
-            if progress_callback: progress_callback(30)
+            if progress_callback:
+                progress_callback(30)
 
             # --- 2. DOWNLOAD ---
             download_url = (
@@ -2548,39 +2642,58 @@ class PatchManagerGUI(QWidget):
 
             # --- 3. DATEI ERSETZEN MIT ROLLBACK-SCHUTZ ---
             try:
-                if len(new_content) < 1000: # Plausibilitätscheck: Zu kleine Datei?
-                    raise ValueError("Download-Datei scheint korrupt oder zu klein zu sein.")
+                if len(new_content) < 1000:  # Plausibilitätscheck: Zu kleine Datei?
+                    raise ValueError(
+                        "Download-Datei scheint korrupt oder zu klein zu sein."
+                    )
 
                 with open(current_file, "wb") as f:
                     f.write(new_content)
-                
+
             except Exception as write_error:
                 # ROLLBACK: Falls das Schreiben fehlschlägt, Backup sofort zurückspielen
                 if os.path.exists(backup_file):
                     shutil.copy2(backup_file, current_file)
-                    action_log("update_fail", "error", error=f"Rollback durchgeführt: {str(write_error)}")
+                    action_log(
+                        "update_fail",
+                        "error",
+                        error=f"Rollback durchgeführt: {str(write_error)}",
+                    )
                 raise write_error
 
-            if progress_callback: progress_callback(90)
+            if progress_callback:
+                progress_callback(90)
             action_log("update_done", "success", version=latest_version)
 
             # --- 4. NEUSTART ---
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(lang_pack.get("restart_required_title", "Restart"))
-            msg_box.setText(f"{lang_pack.get('update_success', 'Update OK')}\n\n{lang_pack.get('restart_tool_question', 'Restart?')}")
-            
-            yes_btn = msg_box.addButton(lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
-            msg_box.addButton(lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
+            msg_box.setText(
+                f"{lang_pack.get('update_success', 'Update OK')}\n\n{lang_pack.get('restart_tool_question', 'Restart?')}"
+            )
+
+            yes_btn = msg_box.addButton(
+                lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+            )
+            msg_box.addButton(
+                lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+            )
             msg_box.exec()
 
-            if progress_callback: progress_callback(100)
+            if progress_callback:
+                progress_callback(100)
             if msg_box.clickedButton() == yes_btn:
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
         except Exception as e:
             action_log("update_download_failed", "error", error=str(e))
-            QMessageBox.critical(self, "Update Error", f"Update fehlgeschlagen.\nDas Tool wurde (falls möglich) wiederhergestellt.\n\nFehler: {str(e)}")
-            if progress_callback: progress_callback(0)
+            QMessageBox.critical(
+                self,
+                "Update Error",
+                f"Update fehlgeschlagen.\nDas Tool wurde (falls möglich) wiederhergestellt.\n\nFehler: {str(e)}",
+            )
+            if progress_callback:
+                progress_callback(0)
 
     def ask_for_update(self, latest_version):
         lang = getattr(self, "LANG", "DE")
@@ -3210,67 +3323,71 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "info_text") and "info_text" in TEXTS[self.LANG]:
             self.info_text.setPlainText(TEXTS[self.LANG]["info_text"])
 
-    def repaint_ui_colors(self):
-        # Labels, ComboBoxes, Buttons, ProgressBar etc.
-        for w in [
-            getattr(self, "lang_label", None),
-            getattr(self, "color_label", None),
-            getattr(self, "language_box", None),
-            getattr(self, "color_box", None),
-        ]:
-            if w:
-                w.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']};"
-                )
+    def apply_config_to_ui(self):
+        """Lädt Config und wendet Farben ohne Telnet-Log an."""
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
 
-        for btn in [
-            getattr(self, "edit_header_button", None),
-            getattr(self, "commits_button", None),
-            getattr(self, "clean_emu_button", None),
-            getattr(self, "patch_emu_git_button", None),
-            getattr(self, "github_upload_patch_button", None),
-            getattr(self, "github_upload_emu_button", None),
-            getattr(self, "github_emu_config_button", None),
-            getattr(self, "plugin_update_button", None),
-            getattr(self, "restart_tool_button", None),
-        ]:
-            if btn:
-                btn.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:10px;"
-                )
+                # 1. Farbschema laden
+                theme_val = cfg.get("theme") or cfg.get("color")
+                if theme_val and theme_val in DIFF_COLORS:
+                    # WICHTIG: Globale Farbe für repaint_ui_colors setzen
+                    global current_diff_colors
+                    current_diff_colors = DIFF_COLORS[theme_val] # FIX: theme_val statt theme_name
+                    
+                    idx = self.color_box.findText(theme_val)
+                    if idx >= 0:
+                        self.color_box.setCurrentIndex(idx)
+                        # JETZT die UI wirklich umfärben
+                        self.repaint_ui_colors() 
 
-        for btn in getattr(self, "buttons", {}).values():
-            if btn:
-                btn.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:10px;"
-                )
+                # 2. Commits setzen
+                commit_val = cfg.get("commit_count", 5)
+                self.commit_spin.setValue(int(commit_val))
 
-        if hasattr(self, "commit_label") and self.commit_label:
-            self.commit_label.setStyleSheet(
-                f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; padding:4px;"
-            )
-        if hasattr(self, "commit_spin") and self.commit_spin:
-            self.commit_spin.setStyleSheet(
-                f"""
-                QSpinBox {{
-                    background-color:{current_diff_colors['bg']};
-                    color:{current_diff_colors['text']};
-                    border:1px solid {current_diff_colors['text']};
-                    border-radius:6px;
-                }}
-                QSpinBox::up-button, QSpinBox::down-button {{
-                    background-color:{current_diff_colors['bg']};
-                }}
-            """
-            )
-        if hasattr(self, "progress") and self.progress:
-            self.progress.setStyleSheet(
-                f"QProgressBar::chunk {{background-color:{current_diff_colors['bg']};}}"
-            )
+                # 3. Sprache setzen
+                lang_val = cfg.get("language", "DE")
+                l_idx = self.language_box.findText(lang_val)
+                if l_idx >= 0:
+                    self.language_box.setCurrentIndex(l_idx)
 
-        # UI sofort updaten
-        self.repaint()
-        QApplication.processEvents()
+                # Log nur in der GUI
+                self.info_text.append(f"✅ Einstellungen geladen.")
+            except Exception as e:
+                self.info_text.append(f"⚠️ Fehler beim Laden: {e}")
+
+    def collect_and_save(self):
+        """Speichert leise und aktualisiert die Farben sofort."""
+        try:
+            theme_name = self.color_box.currentText()
+            
+            # Globale Farbe aktualisieren, damit repaint_ui_colors sie findet
+            global current_diff_colors
+            if theme_name in DIFF_COLORS:
+                current_diff_colors = DIFF_COLORS[theme_name]
+
+            new_cfg = {
+                "theme": theme_name,
+                "commit_count": int(self.commit_spin.value()),
+                "language": self.language_box.currentText(),
+                "work_dir": "/opt/s3_neu/support/patches",
+                "s3_patch_path": "/opt/s3_neu/support/patches",
+                "tools_ok": True
+            }
+            
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(new_cfg, f, indent=4, ensure_ascii=False)
+            
+            # UI sofort neu färben
+            self.repaint_ui_colors()
+            
+            # Log nur in der GUI (kein print!)
+            self.info_text.append(f"💾 Konfiguration gespeichert: {theme_name}")
+
+        except Exception as e:
+            self.info_text.append(f"❌ Fehler beim Speichern: {e}")
 
     # Callback nach Schließengg
     def edit_patch_header(self, info_widget=None, progress_callback=None):
@@ -3449,7 +3566,9 @@ class PatchManagerGUI(QWidget):
             self.update_plugin_button_state()
             return None
 
-    def plugin_update_button_clicked(self, checked=False, info_widget=None, progress_callback=None):
+    def plugin_update_button_clicked(
+        self, checked=False, info_widget=None, progress_callback=None
+    ):
         """
         Button-Callback: Prüft GitHub-Version und bietet Update NUR bei neuerer Version an.
         """
@@ -3460,16 +3579,25 @@ class PatchManagerGUI(QWidget):
 
         lang_key = getattr(self, "LANG", "en").lower()
         widget = info_widget or getattr(self, "info_text", None)
-        progress = progress_callback or (self.progress_bar.setValue if hasattr(self, "progress_bar") else None)
+        progress = progress_callback or (
+            self.progress_bar.setValue if hasattr(self, "progress_bar") else None
+        )
 
         if hasattr(self, "progress_bar"):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
 
         def log(text_key, level="info", **kwargs):
-            colors = {"success": "green", "warning": "orange", "error": "red", "info": "blue"}
+            colors = {
+                "success": "green",
+                "warning": "orange",
+                "error": "red",
+                "info": "blue",
+            }
             color = colors.get(level, "gray")
-            text_template = TEXTS.get(lang_key, TEXTS.get("en", {})).get(text_key, text_key)
+            text_template = TEXTS.get(lang_key, TEXTS.get("en", {})).get(
+                text_key, text_key
+            )
             try:
                 safe_kwargs = {
                     "current": APP_VERSION,
@@ -3488,7 +3616,8 @@ class PatchManagerGUI(QWidget):
                 QApplication.processEvents()
 
         log("update_check_start", "info")
-        if progress: progress(10)
+        if progress:
+            progress(10)
 
         try:
             # FIX: Korrekte URL-Zusammensetzung und direkter Zeitstempel
@@ -3497,61 +3626,77 @@ class PatchManagerGUI(QWidget):
                 "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
                 f"?t={int(time.time())}"
             )
-            
+
             # FIX: Request muss ausgeführt werden, bevor resp.text genutzt wird
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
-            
+
             latest_version = resp.text.strip().lstrip("v")
             self.latest_version = latest_version
             current_version = APP_VERSION.strip().lstrip("v")
 
-            if progress: progress(50)
+            if progress:
+                progress(50)
 
             # 1. Prüfen ob Update nötig
             if not Version(latest_version) > Version(current_version):
-                msg = TEXTS.get(lang_key, TEXTS["en"]).get("up_to_date", "Plugin ist aktuell (v{v})").format(v=current_version)
+                msg = (
+                    TEXTS.get(lang_key, TEXTS["en"])
+                    .get("up_to_date", "Plugin ist aktuell (v{v})")
+                    .format(v=current_version)
+                )
                 QMessageBox.information(self, "Update", msg)
                 log("update_no_update", "success")
-                if progress: progress(100)
+                if progress:
+                    progress(100)
                 return
 
             # 2. Wenn Update verfügbar
-            if progress: progress(80)
-            
+            if progress:
+                progress(80)
+
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Question)
-            msg_box.setWindowTitle(TEXTS.get(lang_key, TEXTS["en"]).get("update_available_title", "Update verfügbar"))
-            
+            msg_box.setWindowTitle(
+                TEXTS.get(lang_key, TEXTS["en"]).get(
+                    "update_available_title", "Update verfügbar"
+                )
+            )
+
             raw_msg = TEXTS.get(lang_key, TEXTS["en"]).get(
-                "update_available_msg", 
-                "Version {latest} verfügbar. Aktuell: {current}. Jetzt updaten?"
+                "update_available_msg",
+                "Version {latest} verfügbar. Aktuell: {current}. Jetzt updaten?",
             )
             msg_box.setText(raw_msg.format(current=APP_VERSION, latest=latest_version))
-            
-            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            
+
+            msg_box.setStandardButtons(
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+
             # Button-Texte übersetzen
             btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
-            if btn_yes: btn_yes.setText(TEXTS.get(lang_key, {}).get("yes", "Ja"))
+            if btn_yes:
+                btn_yes.setText(TEXTS.get(lang_key, {}).get("yes", "Ja"))
             btn_no = msg_box.button(QMessageBox.StandardButton.No)
-            if btn_no: btn_no.setText(TEXTS.get(lang_key, {}).get("no", "Nein"))
-            
+            if btn_no:
+                btn_no.setText(TEXTS.get(lang_key, {}).get("no", "Nein"))
+
             result = msg_box.exec()
 
             if result == QMessageBox.StandardButton.Yes:
                 if hasattr(self, "plugin_update_action"):
                     self.plugin_update_action(
-                        latest_version=latest_version, 
-                        progress_callback=progress
+                        latest_version=latest_version, progress_callback=progress
                     )
             else:
                 log("update_declined", "info")
-                if progress: progress(100)
+                if progress:
+                    progress(100)
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
-            if progress: progress(0)
+            if progress:
+                progress(0)
 
     # ---------------------
     # UPDATE CHECK
@@ -3575,7 +3720,12 @@ class PatchManagerGUI(QWidget):
             progress.show()
 
         def log(text_key, level="info", **kwargs):
-            colors = {"success": "green", "warning": "orange", "error": "red", "info": "blue"}
+            colors = {
+                "success": "green",
+                "warning": "orange",
+                "error": "red",
+                "info": "blue",
+            }
             color = colors.get(level, "gray")
             text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
             try:
@@ -3596,7 +3746,7 @@ class PatchManagerGUI(QWidget):
                 QApplication.processEvents()
 
         log("update_check_start", "info")
-        
+
         try:
             # FIX: URL-Format und Zeitstempel
             version_url = (
@@ -3611,7 +3761,7 @@ class PatchManagerGUI(QWidget):
 
             latest_version = resp.text.strip().lstrip("v")
             self.latest_version = latest_version
-            
+
             if hasattr(self, "update_plugin_button_state"):
                 self.update_plugin_button_state()
 
@@ -3621,31 +3771,41 @@ class PatchManagerGUI(QWidget):
             if not Version(latest_version) > Version(current_version):
                 log("update_current_version", "success", version=current_version)
                 log("update_no_update", "info")
-                if progress: progress.setValue(100)
+                if progress:
+                    progress.setValue(100)
                 return
 
             # Update verfügbar
-            if progress: progress.setValue(80)
+            if progress:
+                progress.setValue(80)
 
             # MessageBox Setup
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Question)
-            msg_box.setWindowTitle(TEXTS.get(lang, {}).get("update_available_title", "Update verfügbar"))
-            
-            raw_dialog_text = TEXTS.get(lang, {}).get(
-                "update_available_msg", 
-                "Neue Version {latest} verfügbar. Jetzt updaten?"
+            msg_box.setWindowTitle(
+                TEXTS.get(lang, {}).get("update_available_title", "Update verfügbar")
             )
-            msg_box.setText(raw_dialog_text.format(current=current_version, latest=latest_version))
-            
-            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            
+
+            raw_dialog_text = TEXTS.get(lang, {}).get(
+                "update_available_msg",
+                "Neue Version {latest} verfügbar. Jetzt updaten?",
+            )
+            msg_box.setText(
+                raw_dialog_text.format(current=current_version, latest=latest_version)
+            )
+
+            msg_box.setStandardButtons(
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+
             # Button-Texte übersetzen
             btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
-            if btn_yes: btn_yes.setText(TEXTS.get(lang, {}).get("yes", "Ja"))
+            if btn_yes:
+                btn_yes.setText(TEXTS.get(lang, {}).get("yes", "Ja"))
             btn_no = msg_box.button(QMessageBox.StandardButton.No)
-            if btn_no: btn_no.setText(TEXTS.get(lang, {}).get("no", "Nein"))
-            
+            if btn_no:
+                btn_no.setText(TEXTS.get(lang, {}).get("no", "Nein"))
+
             msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
 
             # Ergebnis abfangen
@@ -3660,11 +3820,13 @@ class PatchManagerGUI(QWidget):
             else:
                 log("update_declined", "info")
                 log("update_current_version", "success", version=current_version)
-                if progress: progress.setValue(100)
+                if progress:
+                    progress.setValue(100)
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
-            if progress: progress.setValue(0)
+            if progress:
+                progress.setValue(0)
 
     # ---------------------
     # TOOLS CHECK
@@ -3754,20 +3916,22 @@ class PatchManagerGUI(QWidget):
     def check_tools_on_start(self):
         self.info_text.clear()
         import shutil, os, json
-        
+
         # ... (Config laden bleibt gleich) ...
 
         # KORREKTUR: Wir definieren, welche Tools wirklich EXTERN gebraucht werden.
         # 'zip' und 'patch' entfernen wir hier für Windows/Git-Bash.
         tools_to_check = ["git"]
-        if os.name != 'nt':  # Nur unter echtem Linux prüfen wir zip/patch
+        if os.name != "nt":  # Nur unter echtem Linux prüfen wir zip/patch
             tools_to_check.extend(["zip", "patch"])
 
         all_ok = True
         for name in tools_to_check:
             # shutil.which wirft keinen WinError 2, wenn die Datei fehlt!
             if shutil.which(name) is None:
-                self.append_info(self.info_text, f"⚠️ {name} fehlt im System.", "warning")
+                self.append_info(
+                    self.info_text, f"⚠️ {name} fehlt im System.", "warning"
+                )
                 all_ok = False
             else:
                 self.append_info(self.info_text, f"✅ {name} ist bereit.", "success")
@@ -3779,7 +3943,9 @@ class PatchManagerGUI(QWidget):
                 json.dump(cfg, f, indent=2)
         else:
             # Hier den automatischen Installationsversuch löschen!
-            self.append_info(self.info_text, "❌ Bitte fehlende Tools manuell installieren.", "error")
+            self.append_info(
+                self.info_text, "❌ Bitte fehlende Tools manuell installieren.", "error"
+            )
 
         # =====================
         # INIT UI
@@ -3787,8 +3953,18 @@ class PatchManagerGUI(QWidget):
 
     def init_ui(self):
         from PyQt6.QtWidgets import (
-            QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
-            QWidget, QTextEdit, QComboBox, QSpinBox, QProgressBar, QApplication, QFrame
+            QVBoxLayout,
+            QHBoxLayout,
+            QGridLayout,
+            QLabel,
+            QPushButton,
+            QWidget,
+            QTextEdit,
+            QComboBox,
+            QSpinBox,
+            QProgressBar,
+            QApplication,
+            QFrame,
         )
         from PyQt6.QtGui import QPixmap, QFont
         from PyQt6.QtCore import Qt, QSize, QTimer, QDateTime
@@ -3827,7 +4003,9 @@ class PatchManagerGUI(QWidget):
         # Info-Button
         self.info_button = QPushButton()
         self.info_button.setFixedSize(45, 45)
-        icon = self.style().standardIcon(QApplication.style().StandardPixmap.SP_MessageBoxInformation)
+        icon = self.style().standardIcon(
+            QApplication.style().StandardPixmap.SP_MessageBoxInformation
+        )
         self.info_button.setIcon(icon)
         self.info_button.setIconSize(QSize(28, 28))
         self.info_button.clicked.connect(self.show_info)
@@ -3838,7 +4016,9 @@ class PatchManagerGUI(QWidget):
         time_date_layout = QVBoxLayout(time_date_container)
         time_date_layout.setContentsMargins(0, 0, 0, 0)
         time_date_layout.setSpacing(2)
-        time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        time_date_layout.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+        )
 
         self.digital_clock = QLabel("--:--:--")
         self.digital_clock.setFont(QFont("Bold", 22, QFont.Weight.Bold))
@@ -3883,7 +4063,9 @@ class PatchManagerGUI(QWidget):
         right_header_container = QWidget()
         right_header_layout = QVBoxLayout(right_header_container)
         right_header_layout.setContentsMargins(0, 0, 0, 0)
-        right_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        right_header_layout.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+        )
 
         by_label = QLabel("by speedy005")
         by_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
@@ -3905,7 +4087,6 @@ class PatchManagerGUI(QWidget):
         # Header dem Hauptlayout hinzufügen
         main_layout.addWidget(header_widget)
 
-
         # ---------------------------------------------------------
         # INFO + PROGRESS
         # ---------------------------------------------------------
@@ -3922,20 +4103,23 @@ class PatchManagerGUI(QWidget):
         # KONTROLL-BLOCK MIT HEADER
         # ---------------------------------------------------------
         controls_group = QFrame()
-        controls_group.setStyleSheet("""
+        controls_group.setStyleSheet(
+            """
         QFrame {
             border: 1px solid #bbb;
             border-radius: 10px;
             background-color: #f7f7f7;
         }
-        """)
+        """
+        )
         controls_group_layout = QVBoxLayout(controls_group)
         controls_group_layout.setContentsMargins(10, 8, 10, 10)
         controls_group_layout.setSpacing(6)
 
         controls_header = QLabel(self.get_t("settings_header", "Einstellungen"))
         controls_header.setFixedHeight(28)
-        controls_header.setStyleSheet("""
+        controls_header.setStyleSheet(
+            """
         QLabel {
             background-color: #3a6ea5;
             color: white;
@@ -3944,7 +4128,8 @@ class PatchManagerGUI(QWidget):
             padding-left: 10px;
             border-radius: 6px;
         }
-        """)
+        """
+        )
         controls_group_layout.addWidget(controls_header)
 
         controls_row = QWidget()
@@ -3965,7 +4150,9 @@ class PatchManagerGUI(QWidget):
         def make_label(text):
             lbl = QLabel(text)
             lbl.setFixedHeight(CONTROL_HEIGHT)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+            lbl.setAlignment(
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+            )
             return lbl
 
         self.lang_label = make_label(self.get_t("language_label", "Language:"))
@@ -3989,16 +4176,20 @@ class PatchManagerGUI(QWidget):
         self.commit_spin.setStyleSheet(control_style)
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
 
-        self.btn_check_tools = QPushButton(self.get_t("check_tools_button", "🛠️ Tools prüfen"))
+        self.btn_check_tools = QPushButton(
+            self.get_t("check_tools_button", "🛠️ Tools prüfen")
+        )
         self.btn_check_tools.setFixedSize(160, CONTROL_HEIGHT)
-        self.btn_check_tools.setStyleSheet("""
+        self.btn_check_tools.setStyleSheet(
+            """
         QPushButton {
             background-color: #FFD700;
             font-weight: bold;
             border-radius: 6px;
         }
         QPushButton:hover { background-color: #ffea70; }
-        """)
+        """
+        )
         self.btn_check_tools.clicked.connect(self.manual_tool_check)
 
         controls_layout.addWidget(self.lang_label)
@@ -4046,7 +4237,9 @@ class PatchManagerGUI(QWidget):
         self.update_language()
         self.setMinimumSize(1200, 850)
         self.showMaximized()
-
+        # Automatisch speichern bei Änderung
+        self.color_box.currentTextChanged.connect(self.collect_and_save)
+        self.commit_spin.valueChanged.connect(self.collect_and_save)
 
     def update_buttons_language(self):
         self.github_upload_patch_button.setText(TEXTS[LANG]["github_upload_patch"])
@@ -4137,6 +4330,48 @@ class PatchManagerGUI(QWidget):
 
         # Config aktualisieren (nur im Speicher, nicht neu laden)
         self.cfg["color"] = current_color_name
+
+    def repaint_ui_colors(self):
+        """Aktualisiert alle UI-Elemente basierend auf current_diff_colors."""
+        # Sicherstellen, dass die globale Variable existiert
+        global current_diff_colors
+        
+        # Labels, ComboBoxes, Buttons etc. färben
+        widgets_to_paint = [
+            getattr(self, "lang_label", None),
+            getattr(self, "color_label", None),
+            getattr(self, "language_box", None),
+            getattr(self, "color_box", None),
+            getattr(self, "commit_label", None)
+        ]
+        
+        for w in widgets_to_paint:
+            if w:
+                w.setStyleSheet(
+                    f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']};"
+                )
+
+        # Buttons färben
+        buttons = [
+            "edit_header_button", "commits_button", "clean_emu_button", 
+            "patch_emu_git_button", "github_upload_patch_button", 
+            "plugin_update_button", "restart_tool_button"
+        ]
+        for btn_name in buttons:
+            btn = getattr(self, btn_name, None)
+            if btn:
+                btn.setStyleSheet(
+                    f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:10px;"
+                )
+
+        # Spezial-Widgets
+        if hasattr(self, "commit_spin") and self.commit_spin:
+            self.commit_spin.setStyleSheet(f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']};")
+
+        # UI-Refresh erzwingen
+        self.repaint()
+
+
 
     def setup_grid_buttons(self):
         from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy
@@ -4676,7 +4911,7 @@ if __name__ == "__main__":
         PatchManagerGUI,
         TEXTS,
         fill_missing_keys,
-        ensure_dir,
+        # ensure_dir,
         PLUGIN_DIR,
         ICON_DIR,
         TEMP_REPO,
