@@ -565,6 +565,22 @@ TEXTS = {
         "patch_version_from_header": "✅ Patch version from header: {patch_version}",
         "patch_create_failed": "❌ Patch creation failed: {error}",
         "plugin_update": "Update available: {current} → {latest}",
+        "patch_create_start": "ℹ️ Patch creation started...",
+        "patch_create_clone_start": "⚠️ TEMP_REPO does not exist, cloning repository...",
+        "patch_create_clone_failed": "❌ Git clone failed!",
+        "patch_git_error": "❌ Git error: {error}",
+        "patch_git_exception": "❌ Exception running git command: {error}",
+        "patch_create_no_changes": "⚠️ No changes found, patch is empty.",
+        "patch_create_success": "✅ Patch successfully created: {patch_file}",
+        "patch_version_from_header": "Patch version from header: {patch_version}",
+        "patch_create_start": "ℹ️ Patch creation started...",
+        "patch_create_clone_start": "⚠️ TEMP_REPO does not exist, cloning repository...",
+        "patch_create_clone_failed": "❌ Git clone failed!",
+        "patch_git_error": "❌ Git error: {error}",
+        "patch_git_exception": "❌ Git exception: {error}",
+        "patch_create_no_changes": "⚠️ No changes found to create a patch.",
+        "patch_create_success": "✅ Patch successfully created: {patch_file}",
+        "patch_version_from_header": "Patch version from header: {patch_version}",
         # Commits
         "loading_commits": "Lade Commits...",
         "commits_loaded": "Commits erfolgreich geladen",
@@ -746,12 +762,20 @@ TEXTS = {
         # Patch creation
         "patch_create_start": "ℹ️ Patch-Erstellung gestartet...",
         "patch_create_clone_start": "⚠️ TEMP_REPO existiert nicht, Repository wird geklont...",
-        "patch_create_clone_failed": "❌ Klonen fehlgeschlagen, Patch-Erstellung abgebrochen.",
-        "patch_create_no_changes": "ℹ️ Keine Änderungen zwischen STREAM_REPO und EMU_REPO gefunden",
+        "patch_create_clone_failed": "❌ Git Clone fehlgeschlagen!",
+        "patch_git_error": "❌ Git Fehler: {error}",
+        "patch_git_exception": "❌ Git Exception: {error}",
+        "patch_create_no_changes": "⚠️ Keine Änderungen zum Patchen gefunden.",
         "patch_create_success": "✅ Patch erfolgreich erstellt: {patch_file}",
-        "patch_version_from_header": "✅ Patch-Version aus Header: {patch_version}",
-        "patch_create_failed": "❌ Patch-Erstellung fehlgeschlagen: {error}",
-        "git_patch_success": "✅ Git Patch erfolgreich erstellt! Revision: {rev}",
+        "patch_version_from_header": "Patch-Version aus Header: {patch_version}",
+        
+        "patch_create_clone_start": "⚠️ TEMP_REPO existiert nicht, Repository wird geklont...",
+        "patch_create_clone_failed": "❌ Git Clone fehlgeschlagen!",
+        "patch_git_error": "❌ Git Fehler: {error}",
+        "patch_git_exception": "❌ Ausnahme beim Git-Befehl: {error}",
+        "patch_create_no_changes": "⚠️ Keine Änderungen gefunden, Patch ist leer.",
+        "patch_create_success": "✅ Patch erfolgreich erstellt: {patch_file}",
+        "patch_version_from_header": "Patch-Version aus Header: {patch_version}",
         # Patch ordner leeren
         "temp_patch_git_already_deleted": "Patch-Git-Ordner war bereits gelöscht oder nicht vorhanden.",
         "patch_file_deleted": "Patch-Datei wurde erfolgreich entfernt: {path}",
@@ -1146,7 +1170,7 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             except:
                 pass
 
-    def run_git(cmd_list):
+    def run_git(cmd_list, ignore_no_remote=False):
         """Führt Git Befehle robust aus und loggt Fehler."""
         try:
             result = subprocess.run(
@@ -1158,6 +1182,9 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
                 check=False
             )
             if result.returncode != 0:
+                # Optional: 'No such remote' ignorieren beim Entfernen
+                if ignore_no_remote and "No such remote" in result.stderr:
+                    return 0, result.stdout, result.stderr
                 log("patch_git_error", "error", error=result.stderr.strip())
             return result.returncode, result.stdout, result.stderr
         except Exception as e:
@@ -1186,10 +1213,10 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             set_progress(0)
             return
 
-    # 2️⃣ Remotes hinzufügen (safe)
-    run_git(["git", "remote", "remove", "origin"])
+    # 2️⃣ Remotes sicher setzen
+    run_git(["git", "remote", "remove", "origin"], ignore_no_remote=True)
     run_git(["git", "remote", "add", "origin", STREAMREPO])
-    run_git(["git", "remote", "remove", "emu-repo"])
+    run_git(["git", "remote", "remove", "emu-repo"], ignore_no_remote=True)
     run_git(["git", "remote", "add", "emu-repo", EMUREPO])
 
     set_progress(40)
@@ -2995,32 +3022,41 @@ class PatchManagerGUI(QWidget):
                 return template
 
         try:
-            # Existenzprüfung
+            # Fortschritt: 0% Start
+            if progress_callback:
+                progress_callback(0)
+
+            # 1️⃣ Existenzprüfung
             if not os.path.exists(PATCH_FILE):
-                msg = get_msg("patch_file_missing", "Datei nicht gefunden: {path}", path=PATCH_FILE)
+                msg = get_msg(
+                    "patch_file_missing", 
+                    "Datei nicht gefunden: {path}", 
+                    path=PATCH_FILE
+                )
                 self.append_info(widget, msg, "error")
+                if progress_callback:
+                    progress_callback(0)
                 return
 
-            # ZIP erstellen
+            # Fortschritt: 50% Vorbereitung abgeschlossen
+            if progress_callback:
+                progress_callback(50)
+
+            # 2️⃣ ZIP erstellen (nur oscam-emu.patch)
             with zipfile.ZipFile(ZIP_FILE, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
-                if os.path.isdir(PATCH_EMU_GIT_DIR):
-                    # ganzen Ordner zippen
-                    for root, dirs, files in os.walk(PATCH_EMU_GIT_DIR):
-                        for file in files:
-                            file_path = os.path.join(root, file)
-                            rel_path = os.path.relpath(file_path, PATCH_EMU_GIT_DIR)
-                            zipf.write(file_path, rel_path)
-                else:
-                    # nur einzelne Datei
-                    zipf.write(PATCH_FILE, os.path.basename(PATCH_FILE))
+                zipf.write(PATCH_FILE, os.path.basename(PATCH_FILE))
 
-            # Erfolgsmeldung
-            msg = get_msg("zip_success", "✅ Patch erfolgreich gepackt: {zip_file}", zip_file=ZIP_FILE)
-            self.append_info(widget, msg, "success")
-
-            # Fortschritt
+            # Fortschritt: 100% ZIP erstellt
             if progress_callback:
                 progress_callback(100)
+
+            # Erfolgsmeldung
+            msg = get_msg(
+                "zip_success", 
+                "✅ Patch erfolgreich gepackt: {zip_file}", 
+                zip_file=ZIP_FILE
+            )
+            self.append_info(widget, msg, "success")
 
         except Exception as e:
             self.append_info(widget, f"❌ Fehler beim ZIP: {e}", "error")
@@ -3728,64 +3764,69 @@ class PatchManagerGUI(QWidget):
             )
 
     def check_tools_on_start(self):
-        """Überprüft die wichtigsten externen Tools beim Start."""
+        """
+        Prüft die externen Tools beim Start. 
+        Unter Windows nur Git, unter Linux zusätzlich zip/patch.
+        Zeigt Meldungen im GUI-Info-Widget an.
+        """
         import shutil, os, json
 
         self.info_text.clear()
 
-        # Sprache bestimmen (Fallback auf 'de')
-        lang = getattr(self, "LANG", "de").lower()
-        t = TEXTS.get(lang, TEXTS.get("en", {}))  # fallback EN
-
-        # Config laden, falls vorhanden
-        cfg = {}
+        # Config laden
         if os.path.exists(CONFIG_FILE):
-            try:
-                with open(CONFIG_FILE, "r") as f:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                try:
                     cfg = json.load(f)
-            except Exception:
-                cfg = {}
+                except Exception:
+                    cfg = {}
+        else:
+            cfg = {}
 
-        # Welche Tools prüfen? Git immer, zip/patch nur unter Linux
+        # Tools definieren
         tools_to_check = ["git"]
-        if os.name != "nt":
+        if os.name != "nt":  # Linux/Unix: prüfe zusätzliche Tools
             tools_to_check.extend(["zip", "patch"])
 
         all_ok = True
-        for name in tools_to_check:
-            if shutil.which(name) is None:
-                self.append_info(
-                    self.info_text,
-                    t.get("tool_missing", "⚠️ {tool} fehlt im System.").format(tool=name),
-                    "warning",
+        for tool in tools_to_check:
+            if shutil.which(tool) is None:
+                if os.name == "nt" and tool in ["zip", "patch"]:
+                    # Windows: zip/patch sind nicht nötig, nur Hinweis
+                    self.append_info(
+                        self.info_text,
+                        f"ℹ️ Windows: {tool} wird nicht benötigt, falls Python benutzt wird.",
+                        "info",
                 )
-                all_ok = False
+                else:
+                    self.append_info(
+                        self.info_text,
+                        f"⚠️ {tool} fehlt im System!",
+                        "warning",
+                    )
+                    all_ok = False
             else:
                 self.append_info(
                     self.info_text,
-                    t.get("tool_ok", "✅ {tool} ist bereit.").format(tool=name),
+                    f"✅ {tool} ist bereit.",
                     "success",
                 )
 
-        # Endergebnis
+        # Zusammenfassung
         if all_ok:
-            self.append_info(
-                self.info_text,
-                t.get("system_check_ok", "✅ System-Check erfolgreich."),
-                "success",
-            )
+            self.append_info(self.info_text, "✅ System-Check erfolgreich.", "success")
             cfg["tools_ok"] = True
-            try:
-                with open(CONFIG_FILE, "w") as f:
-                    json.dump(cfg, f, indent=2)
-            except Exception as e:
-                self.append_info(self.info_text, f"[WARN] Config konnte nicht gespeichert werden: {e}", "warning")
         else:
             self.append_info(
                 self.info_text,
-                t.get("manual_install", "❌ Bitte fehlende Tools manuell installieren."),
+                "❌ Bitte fehlende Tools manuell installieren.",
                 "error",
             )
+            cfg["tools_ok"] = False
+
+        # Config speichern
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
 
         # =====================
         # INIT UI
