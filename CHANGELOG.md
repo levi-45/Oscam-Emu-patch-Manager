@@ -5,7 +5,7 @@ Letzte Aktualisierung: 03.02.2026 08:24
 
 ## 🔧 Änderungen am Script
 
-
+* Update version to 2.3.8 and refactor tool checks (335ba43)
 ---
 
 ## 📊 Aktueller Tool-Status
