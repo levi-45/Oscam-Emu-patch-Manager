@@ -112,7 +112,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.3.6"
+APP_VERSION = "2.3.7"
 # Basis-Verzeichnis des Scripts (absoluter Pfad)
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -2282,7 +2282,8 @@ class PatchManagerGUI(QWidget):
         # Der Timer startet den Online-Check verzögert, damit die GUI erst steht.
         # Nutzt check_for_plugin_update, da diese Methode den Status UNTER die Anleitung hängt.
         QTimer.singleShot(1500, self.check_for_update_on_start)
-
+        
+    
     def show_info(self):
         """Zeigt ein modernes Info-Fenster mit Credits und System-Icon."""
         # 1. Sprache ermitteln
@@ -2542,14 +2543,16 @@ class PatchManagerGUI(QWidget):
                     )
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """Sichert alle wichtigen Dateien und installiert das Update."""
+        """Sichert alle wichtigen Dateien, installiert das Update und bietet Rollback bei Fehlern."""
         import requests, os, shutil, sys
         from PyQt6.QtWidgets import QMessageBox, QApplication
 
         current_lang = str(getattr(self, "LANG", "de")).lower()
         lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
+        current_file = os.path.abspath(__file__)
+        # Pfad zum Backup der Hauptdatei (aus deiner Konfiguration)
+        backup_file = PATCH_MANAGER_OLD 
 
-        # ---------- EINMAL DEFINIERT ----------
         def action_log(text_key, level="info", **kwargs):
             if hasattr(self, "info_text"):
                 safe_vars = {"version": latest_version or "???", "current": APP_VERSION}
@@ -2559,102 +2562,67 @@ class PatchManagerGUI(QWidget):
                     text = text_template.format(**safe_vars)
                 except:
                     text = text_template
-
-                color = (
-                    "green"
-                    if level == "success"
-                    else "red" if level == "error" else "blue"
-                )
+                color = "green" if level == "success" else "red" if level == "error" else "blue"
                 self.info_text.append(f'<span style="color:{color}">{text}</span>')
                 QApplication.processEvents()
 
         try:
-            if progress_callback:
-                progress_callback(10)
+            if progress_callback: progress_callback(10)
 
-            # --- 1. VOLLSTÄNDIGES BACKUP ---
-            os.makedirs(OLD_PATCH_DIR, exist_ok=True)
-            files_to_backup = {
-                os.path.abspath(__file__): PATCH_MANAGER_OLD,
-                CONFIG_FILE: CONFIG_OLD,
-                GITHUB_CONF_FILE: GITHUB_CONFIG_OLD,
-                PATCH_FILE: OLD_PATCH_FILE,
-            }
+            # --- 1. BACKUP ERSTELLEN ---
+            patch_dir = getattr(self, "OLD_PATCH_DIR", "patch_backup")
+            os.makedirs(patch_dir, exist_ok=True)
+            
+            # Wichtigstes Backup: Die aktuelle .py Datei
+            shutil.copy2(current_file, backup_file)
+            action_log("update_backup_done", "success")
 
-            backup_success = True
-            for src, dst in files_to_backup.items():
-                if os.path.exists(src):
-                    try:
-                        shutil.copy2(src, dst)
-                    except Exception as e:
-                        print(f"Fehler beim Sichern von {src}: {e}")
-                        backup_success = False
+            if progress_callback: progress_callback(30)
 
-            if backup_success:
-                action_log("update_backup_done", "success")
-            else:
-                self.info_text.append(
-                    '<span style="color:orange">⚠️ Teilweises Backup fehlgeschlagen</span>'
-                )
-
-            # --- 2. DOWNLOAD DER NEUEN VERSION ---
+            # --- 2. DOWNLOAD ---
             download_url = (
                 "https://raw.githubusercontent.com/"
                 "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
             )
-
             resp = requests.get(download_url, timeout=20)
             resp.raise_for_status()
-            new_content = resp.content  # Binär lesen für Sicherheit
+            new_content = resp.content
 
-            if progress_callback:
-                progress_callback(60)
+            # --- 3. DATEI ERSETZEN MIT ROLLBACK-SCHUTZ ---
+            try:
+                if len(new_content) < 1000: # Plausibilitätscheck: Zu kleine Datei?
+                    raise ValueError("Download-Datei scheint korrupt oder zu klein zu sein.")
 
-            # --- 3. DATEI ERSETZEN ---
-            current_file = os.path.abspath(__file__)
-            with open(current_file, "wb") as f:
-                f.write(new_content)
+                with open(current_file, "wb") as f:
+                    f.write(new_content)
+                
+            except Exception as write_error:
+                # ROLLBACK: Falls das Schreiben fehlschlägt, Backup sofort zurückspielen
+                if os.path.exists(backup_file):
+                    shutil.copy2(backup_file, current_file)
+                    action_log("update_fail", "error", error=f"Rollback durchgeführt: {str(write_error)}")
+                raise write_error
 
-            if progress_callback:
-                progress_callback(90)
-
+            if progress_callback: progress_callback(90)
             action_log("update_done", "success", version=latest_version)
 
-            # --- 4. NEUSTART DIALOG ---
+            # --- 4. NEUSTART ---
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(lang_pack.get("restart_required_title", "Restart"))
-            success_msg = lang_pack.get("update_success", "Update erfolgreich!")
-            question_msg = lang_pack.get(
-                "restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"
-            )
-            msg_box.setText(f"{success_msg}\n\n{question_msg}")
-
-            yes_btn = msg_box.addButton(
-                lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
-            )
-            msg_box.addButton(
-                lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole
-            )
+            msg_box.setText(f"{lang_pack.get('update_success', 'Update OK')}\n\n{lang_pack.get('restart_tool_question', 'Restart?')}")
+            
+            yes_btn = msg_box.addButton(lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
+            msg_box.addButton(lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
             msg_box.exec()
 
-            if progress_callback:
-                progress_callback(100)
-
+            if progress_callback: progress_callback(100)
             if msg_box.clickedButton() == yes_btn:
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
         except Exception as e:
             action_log("update_download_failed", "error", error=str(e))
-            QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
-
-    def update_clock(self):
-        """Aktualisiert die digitale Uhr im Header"""
-        from PyQt6.QtCore import QDateTime
-
-        now = QDateTime.currentDateTime()
-        # Das Format muss zu deinem Label in init_ui passen
-        if hasattr(self, "digital_clock"):
-            self.digital_clock.setText(now.toString("HH:mm:ss  dd.MM.yyyy"))
+            QMessageBox.critical(self, "Update Error", f"Update fehlgeschlagen.\nDas Tool wurde (falls möglich) wiederhergestellt.\n\nFehler: {str(e)}")
+            if progress_callback: progress_callback(0)
 
     def ask_for_update(self, latest_version):
         lang = getattr(self, "LANG", "DE")
