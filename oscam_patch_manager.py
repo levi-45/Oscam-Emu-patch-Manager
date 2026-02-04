@@ -3239,9 +3239,18 @@ class PatchManagerGUI(QWidget):
         QApplication.quit()
 
     def commit_value_changed(self, value):
-        self.cfg["commit_count"] = value  # nur im Dict speichern
+        # 1. Im Dict speichern (hast du bereits)
+        self.cfg["commit_count"] = value  
+    
+        # 2. In die Datei schreiben (WICHTIG!)
+        if hasattr(self, "save_config"):
+            self.save_config()
+    
+        # 3. Rückmeldung geben
         self.append_info(
-            self.info_text, f"Commit-Anzahl auf {value} gesetzt", "success"
+            self.info_text, 
+            f"Commit-Anzahl auf {value} gesetzt (gespeichert)", 
+            "success"
         )
 
     def change_old_patch_dir(self, info_widget=None, progress_callback=None):
@@ -4212,6 +4221,8 @@ class PatchManagerGUI(QWidget):
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
         self.commit_spin.setFixedSize(70, CONTROL_HEIGHT)
+        saved_commits = self.cfg.get("commit_count", 10)
+        self.commit_spin.setValue(saved_commits)
         self.commit_spin.setStyleSheet(control_style)
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
 
