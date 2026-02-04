@@ -79,7 +79,6 @@ except (ImportError, ModuleNotFoundError):
     class InvalidVersion(Exception):
         pass
 
-
 # ===================== ENV SETUP =====================
 # Git Fehler unterdrücken
 if platform.system() == "Windows":
@@ -90,7 +89,6 @@ else:
 # ===================== SCRIPT DIR =====================
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
 def ensure_executable_self():
     """Setzt Ausführungsrechte für das eigene Skript (Linux/Unix)."""
     try:
@@ -100,15 +98,12 @@ def ensure_executable_self():
     except Exception as e:
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
-
 # ===================== ZEIT =====================
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
-
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.4.3"
-
+APP_VERSION = "2.4.4"
 
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
@@ -122,7 +117,6 @@ def get_best_patch_dir():
 
     os.makedirs(local_path, exist_ok=True)
     return local_path
-
 
 def get_initial_patch_dir():
     """Wählt den sichersten Backup-Ordner je nach OS."""
@@ -139,7 +133,6 @@ def get_initial_patch_dir():
     os.makedirs(path, exist_ok=True)
     return path
 
-
 OLD_PATCH_DIR = get_initial_patch_dir()
 OLD_PATCH_DIR_PLUGIN_DEFAULT = OLD_PATCH_DIR
 OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
@@ -147,7 +140,6 @@ ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
 PATCH_MANAGER_OLD = os.path.join(OLD_PATCH_DIR, "oscam_patch_manager_old.py")
 CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "config_old.json")
 GITHUB_CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "github_upload_config_old.json")
-
 # ===================== CACHE & CONFIG =====================
 PYC_FILE = os.path.join(PLUGIN_DIR, "oscam_patch_manager.pyc")
 CACHE_DIR = os.path.join(PLUGIN_DIR, "__pycache__")
@@ -158,7 +150,6 @@ ZIP_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.zip")
 ICON_DIR = os.path.join(PLUGIN_DIR, "icons")
 TEMP_REPO = os.path.join(PLUGIN_DIR, "temp_repo")
 PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
-
 # ===================== TOOLS & REPOS =====================
 CHECK_TOOLS_SCRIPT = os.path.join(PLUGIN_DIR, "check_tools.sh")
 PATCH_MODIFIER = "speedy005"
@@ -175,7 +166,6 @@ for d in [TEMP_REPO, PATCH_EMU_GIT_DIR, OLD_PATCH_DIR]:
 
 from PyQt6.QtWidgets import QLayout, QSizePolicy, QWidgetItem
 from PyQt6.QtCore import QRect, QSize, Qt, QPoint
-
 
 class FlowLayout(QLayout):
     def __init__(self, parent=None, margin=0, spacing=5):
@@ -250,7 +240,6 @@ class FlowLayout(QLayout):
 
         return y + line_height - rect.y()
 
-
 def ensure_dir(directory):
     """Erstellt das Verzeichnis, falls es noch nicht existiert."""
     if not os.path.exists(directory):
@@ -258,7 +247,6 @@ def ensure_dir(directory):
             os.makedirs(directory, exist_ok=True)
         except Exception as e:
             print(f"[ERROR] Konnte Verzeichnis {directory} nicht erstellen: {e}")
-
 
 class StreamToGui:
     """Leitet stdout/stderr an einen Slot (Funktion) weiter."""
@@ -272,7 +260,6 @@ class StreamToGui:
 
     def flush(self):
         pass  # Notwendig für die Kompatibilität
-
 
 # ===================== NEVER_DELETE =====================
 NEVER_DELETE = [
@@ -291,104 +278,369 @@ NEVER_DELETE = [
 
 # ===================== COLORS =====================
 DIFF_COLORS = {
-    "Classic": {"bg": "#1E1E1E", "text": "#FFFFFF"},
-    "Ocean": {"bg": "#2B3A67", "text": "#A8D0E6"},
-    "Sunset": {"bg": "#FF6B6B", "text": "#FFE66D"},
-    "Forest": {"bg": "#2E8B57", "text": "#E0F2F1"},
-    "Candy": {"bg": "#FFB6C1", "text": "#4B0082"},
-    "Cyberpunk": {"bg": "#0D0D0D", "text": "#FF00FF"},
-    "CoolMint": {"bg": "#A8FFF0", "text": "#003F3F"},
-    "Sunrise": {"bg": "#FFD580", "text": "#B22222"},
-    "DeepSea": {"bg": "#001F3F", "text": "#7FDBFF"},
-    "Lavender": {"bg": "#E6E6FA", "text": "#4B0082"},
-    "Blue-Orange": {"bg": "#FF8C00", "text": "#FFFFFF"},
-    "Yellow-Purple": {"bg": "#800080", "text": "#FFFF00"},
-    "Green-Red": {"bg": "#228B22", "text": "#FFFFFF"},
-    "Midnight": {"bg": "#121212", "text": "#BB86FC"},
-    "Solarized": {"bg": "#002B36", "text": "#839496"},
-    "Neon": {"bg": "#0B0C10", "text": "#66FCF1"},
-    "Fire": {"bg": "#7F0000", "text": "#FF4500"},
-    "Moss": {"bg": "#2E3A23", "text": "#A9BA9D"},
-    "Peach": {"bg": "#FFDAB9", "text": "#8B4513"},
-    "Galaxy": {"bg": "#1B1B2F", "text": "#E94560"},
-    "Aqua": {"bg": "#004D4D", "text": "#00FFFF"},
-    "Lavish": {"bg": "#3D2B56", "text": "#F1C40F"},
-    "Tech": {"bg": "#0F0F0F", "text": "#00FF00"},
-    "NeonPink": {"bg": "#1A1A1D", "text": "#FF6EC7"},
-    "ElectricBlue": {"bg": "#0B0C10", "text": "#00FFFF"},
-    "CyberGreen": {"bg": "#050A05", "text": "#39FF14"},
-    "SunsetVibes": {"bg": "#FF4500", "text": "#FFF8DC"},
-    "PurpleHaze": {"bg": "#2E004F", "text": "#D580FF"},
-    "MintyFresh": {"bg": "#002B2B", "text": "#7FFFD4"},
-    "HotMagenta": {"bg": "#1B0B1B", "text": "#FF00FF"},
-    "GoldenHour": {"bg": "#2F1E00", "text": "#FFD700"},
-    "OceanDeep": {"bg": "#001F3F", "text": "#00BFFF"},
-    "Tropical": {"bg": "#003300", "text": "#FFDD00"},
-    "MagentaGlow": {"bg": "#1C001C", "text": "#FF00FF"},
-    "CyanWave": {"bg": "#001F1F", "text": "#00FFFF"},
-    "SunriseGold": {"bg": "#2B1A00", "text": "#FFD700"},
-    "CoralReef": {"bg": "#2F0A0A", "text": "#FF7F50"},
-    "LimePunch": {"bg": "#0A1F00", "text": "#BFFF00"},
-    "VioletStorm": {"bg": "#1E003F", "text": "#D580FF"},
-    "OceanMist": {"bg": "#002B3A", "text": "#7FDBFF"},
-    "PeachySun": {"bg": "#3F1E00", "text": "#FFA07A"},
-    "NeonOrange": {"bg": "#1A0A00", "text": "#FF8C00"},
-    "ElectricLime": {"bg": "#00FF00", "text": "#0D0D0D"},
-    "NeonCoral": {"bg": "#FF4040", "text": "#0D0D0D"},
-    "RoyalTeal": {"bg": "#005F6B", "text": "#FFD700"},
-    "MidnightPurple": {"bg": "#1C003D", "text": "#FF77FF"},
-    "SolarFlare": {"bg": "#FFB300", "text": "#2C003E"},
-    "FrostBlue": {"bg": "#00D4FF", "text": "#1A1A2E"},
-    "CandyFloss": {"bg": "#FFB3FF", "text": "#330033"},
-    "TangerineDream": {"bg": "#FF6F3C", "text": "#1A1A1A"},
-    "EmeraldNight": {"bg": "#004D40", "text": "#A8FF60"},
-    "CrimsonWave": {"bg": "#8B0000", "text": "#FFDDFF"},
-    "NeonLemon": {"bg": "#1A1A00", "text": "#FFFF33"},
-    "UltraViolet": {"bg": "#330066", "text": "#FF99FF"},
-    "AquaBlast": {"bg": "#002233", "text": "#33FFFF"},
-    "MagentaRush": {"bg": "#2A001A", "text": "#FF33CC"},
-    "GoldenEmerald": {"bg": "#003300", "text": "#FFD700"},
-    "ElectricFuchsia": {"bg": "#1A001A", "text": "#FF33FF"},
-    "IceMint": {"bg": "#001F1A", "text": "#99FFCC"},
-    "FlamingSun": {"bg": "#4B0000", "text": "#FFCC33"},
-    "CobaltSky": {"bg": "#00114D", "text": "#66CCFF"},
-    "PinkGalaxy": {"bg": "#1A0022", "text": "#FF66FF"},
-    "NeonPink": {"bg": "#1A1A1D", "text": "#FF6EC7"},
-    "ElectricBlue": {"bg": "#1A1A1D", "text": "#00FFFF"},
-    "LimeGreen": {"bg": "#1A1A1D", "text": "#32CD32"},
-    "SunsetOrange": {"bg": "#1A1A1D", "text": "#FF4500"},
-    "VioletDream": {"bg": "#1A1A1D", "text": "#8A2BE2"},
-    "GoldenYellow": {"bg": "#1A1A1D", "text": "#FFD700"},
-    "CandyRed": {"bg": "#1A1A1D", "text": "#FF1493"},
-    "AquaMarine": {"bg": "#1A1A1D", "text": "#7FFFD4"},
-    "CoralPink": {"bg": "#1A1A1D", "text": "#FF7F50"},
-    "Turquoise": {"bg": "#1A1A1D", "text": "#40E0D0"},
-    "MagentaPop": {"bg": "#1A1A1D", "text": "#FF00FF"},
-    "SkyBlue": {"bg": "#1A1A1D", "text": "#87CEEB"},
-    "LemonYellow": {"bg": "#1A1A1D", "text": "#FFF44F"},
-    "HotPink": {"bg": "#1A1A1D", "text": "#FF69B4"},
-    "BrightOrange": {"bg": "#1A1A1D", "text": "#FFA500"},
-    "MagentaPop": {"bg": "#1A1A1D", "text": "#FF00FF"},
-    "NeonCyan": {"bg": "#0D0D0D", "text": "#00FFFF"},
-    "ElectricLime": {"bg": "#1B1B1B", "text": "#00FF00"},
-    "CrimsonNight": {"bg": "#1C1C1F", "text": "#DC143C"},
-    "RoyalPurple": {"bg": "#161618", "text": "#800080"},
-    "OrangeFever": {"bg": "#1F1F1F", "text": "#FFA500"},
-    "BlueSteel": {"bg": "#101018", "text": "#4682B4"},
-    "PinkGalaxy": {"bg": "#1A101A", "text": "#FF69B4"},
-    "AmberGlow": {"bg": "#1C1B10", "text": "#FFBF00"},
-    "TealShadow": {"bg": "#121212", "text": "#008080"},
-    "VioletHaze": {"bg": "#1A1A2E", "text": "#EE82EE"},
-    "RedStorm": {"bg": "#1B0B0B", "text": "#FF4500"},
-    "CyanIce": {"bg": "#0F1A1A", "text": "#00CED1"},
-    "LimePulse": {"bg": "#101810", "text": "#32CD32"},
-    "FuchsiaDream": {"bg": "#1A1018", "text": "#FF00FF"},
-    "TurquoiseDream": {"bg": "#002222", "text": "#40E0D0"},
+    # --- KLASSIKER & STANDARDS ---
+    "Classics": {
+        "bg": "#3a6ea5",
+        "fg": "#FFFFFF",
+        "hover": "#4a7eb5",
+        "active": "#2a5e95",
+        "window_bg": "#000000",
+    },
+    "Standard": {
+        "bg": "#444444",
+        "fg": "#FFFFFF",
+        "hover": "#555555",
+        "active": "#333333",
+        "window_bg": "#000000",
+    },
+    "Silver": {
+        "bg": "#B0B0B0",
+        "fg": "#000000",
+        "hover": "#C0C0C0",
+        "active": "#A0A0A0",
+        "window_bg": "#000000",
+    },
+    # --- DARK MODES ---
+    "Midnight": {
+        "bg": "#1A1A1A",
+        "fg": "#F7F7F7",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Anthrazit": {
+        "bg": "#2F2F2F",
+        "fg": "#FFFFFF",
+        "hover": "#3D3D3D",
+        "active": "#242424",
+        "window_bg": "#000000",
+    },
+    "DeepBlack": {
+        "bg": "#1A1A1A",
+        "fg": "#FFD700",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Steel": {
+        "bg": "#455A64",
+        "fg": "#FFFFFF",
+        "hover": "#546E7A",
+        "active": "#37474F",
+        "window_bg": "#000000",
+    },
+    # --- BLAUTÖNE ---
+    "RoyalBlue": {
+        "bg": "#002366",
+        "fg": "#FFFFFF",
+        "hover": "#003399",
+        "active": "#001a4d",
+        "window_bg": "#000000",
+    },
+    "SkyBlue": {
+        "bg": "#0288D1",
+        "fg": "#FFFFFF",
+        "hover": "#039BE5",
+        "active": "#01579B",
+        "window_bg": "#000000",
+    },
+    "Ocean": {
+        "bg": "#006064",
+        "fg": "#FFFFFF",
+        "hover": "#00838F",
+        "active": "#004D40",
+        "window_bg": "#000000",
+    },
+    # --- NATUR & ERDE ---
+    "Emerald": {
+        "bg": "#2E7D32",
+        "fg": "#FFFFFF",
+        "hover": "#388E3C",
+        "active": "#1B5E20",
+        "window_bg": "#000000",
+    },
+    "Forest": {
+        "bg": "#1B5E20",
+        "fg": "#E8F5E9",
+        "hover": "#2E7D32",
+        "active": "#0D5302",
+        "window_bg": "#000000",
+    },
+    "Coffee": {
+        "bg": "#4E342E",
+        "fg": "#D7CCC8",
+        "hover": "#5D4037",
+        "active": "#3E2723",
+        "window_bg": "#000000",
+    },
+    "Olive": {
+        "bg": "#556B2F",
+        "fg": "#FFFFFF",
+        "hover": "#6B8E23",
+        "active": "#3E4E21",
+        "window_bg": "#000000",
+    },
+    # --- WARME TÖNE ---
+    "Ruby": {
+        "bg": "#C62828",
+        "fg": "#FFFFFF",
+        "hover": "#D32F2F",
+        "active": "#B71C1C",
+        "window_bg": "#000000",
+    },
+    "Bordeaux": {
+        "bg": "#800000",
+        "fg": "#FFFFFF",
+        "hover": "#A52A2A",
+        "active": "#5D0000",
+        "window_bg": "#000000",
+    },
+    "Orange": {
+        "bg": "#EF6C00",
+        "fg": "#FFFFFF",
+        "hover": "#F57C00",
+        "active": "#E65100",
+        "window_bg": "#000000",
+    },
+    "Gold": {
+        "bg": "#FFD700",
+        "fg": "#000000",
+        "hover": "#FFEA70",
+        "active": "#DAA520",
+        "window_bg": "#000000",
+    },
+    # --- LUXUS & SPEZIAL ---
+    "Purple": {
+        "bg": "#6A1B9A",
+        "fg": "#FFFFFF",
+        "hover": "#7B1FA2",
+        "active": "#4A148C",
+        "window_bg": "#000000",
+    },
+    "Neon": {
+        "bg": "#000000",
+        "fg": "#00FF00",
+        "hover": "#003300",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    # --- MEGA HAMMER STYLES ---
+    "Inferno": {
+        "bg": "#212121",
+        "fg": "#FF4500",
+        "hover": "#FF8C00",
+        "active": "#8B0000",
+        "window_bg": "#000000",
+    },
+    "Electric": {
+        "bg": "#0000FF",
+        "fg": "#FFFF00",
+        "hover": "#00FFFF",
+        "active": "#00008B",
+        "window_bg": "#000000",
+    },
+    "Lava": {
+        "bg": "#4E0000",
+        "fg": "#FF3300",
+        "hover": "#FF6600",
+        "active": "#220000",
+        "window_bg": "#000000",
+    },
+    "Acid": {
+        "bg": "#1D1D1D",
+        "fg": "#DFFF00",
+        "hover": "#BFFF00",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Ultraviolet": {
+        "bg": "#120021",
+        "fg": "#BF00FF",
+        "hover": "#FF00FF",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Iceberg": {
+        "bg": "#E1F5FE",
+        "fg": "#01579B",
+        "hover": "#FFFFFF",
+        "active": "#B3E5FC",
+        "window_bg": "#000000",
+    },
+    "Hazard": {
+        "bg": "#000000",
+        "fg": "#FFFF00",
+        "hover": "#444400",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Alien": {
+        "bg": "#00FF41",
+        "fg": "#000000",
+        "hover": "#008F11",
+        "active": "#003B00",
+        "window_bg": "#000000",
+    },
+    "HotPink": {
+        "bg": "#FF69B4",
+        "fg": "#FFFFFF",
+        "hover": "#FF1493",
+        "active": "#C71585",
+        "window_bg": "#000000",
+    },
+    "DeepSea": {
+        "bg": "#001219",
+        "fg": "#94D2BD",
+        "hover": "#0A9396",
+        "active": "#005F73",
+        "window_bg": "#000000",
+    },
+    "Magma": {
+        "bg": "#000000",
+        "fg": "#FF0000",
+        "hover": "#660000",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Turquoise": {
+        "bg": "#00CED1",
+        "fg": "#FFFFFF",
+        "hover": "#40E0D0",
+        "active": "#008B8B",
+        "window_bg": "#000000",
+    },
+    "Carbon": {
+        "bg": "#232323",
+        "fg": "#E0E0E0",
+        "hover": "#111111",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Candy": {
+        "bg": "#FF80AB",
+        "fg": "#FCE4EC",
+        "hover": "#F06292",
+        "active": "#C2185B",
+        "window_bg": "#000000",
+    },
+    "Plasma": {
+        "bg": "#000000",
+        "fg": "#7F00FF",
+        "hover": "#3F007F",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    # --- TOP 50 COMPLETE (ULTRA) ---
+    "Cyberpunk": {
+        "bg": "#000000",
+        "fg": "#00FFFF",
+        "hover": "#F305FF",
+        "active": "#FF0055",
+        "window_bg": "#000000",
+    },
+    "Nuclear": {
+        "bg": "#1A1A1A",
+        "fg": "#CCFF00",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Phoenix": {
+        "bg": "#000000",
+        "fg": "#FF4E00",
+        "hover": "#FFD700",
+        "active": "#8B0000",
+        "window_bg": "#000000",
+    },
+    "Vaporwave": {
+        "bg": "#2D004B",
+        "fg": "#FF71CE",
+        "hover": "#01CDFE",
+        "active": "#05FFA1",
+        "window_bg": "#000000",
+    },
+    "Matrix_Pro": {
+        "bg": "#000000",
+        "fg": "#00FF41",
+        "hover": "#003B00",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "BloodMoon": {
+        "bg": "#330000",
+        "fg": "#FF0000",
+        "hover": "#660000",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Arctic": {
+        "bg": "#000000",
+        "fg": "#00D2FF",
+        "hover": "#0081FF",
+        "active": "#00458B",
+        "window_bg": "#000000",
+    },
+    "Toxic_Glow": {
+        "bg": "#0D0D0D",
+        "fg": "#ADFF2F",
+        "hover": "#32CD32",
+        "active": "#006400",
+        "window_bg": "#000000",
+    },
+    "Obsidian": {
+        "bg": "#1B1B1B",
+        "fg": "#E0E0E0",
+        "hover": "#444444",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Crimson": {
+        "bg": "#000000",
+        "fg": "#DC143C",
+        "hover": "#800000",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Galaxy": {
+        "bg": "#0D001A",
+        "fg": "#9D50BB",
+        "hover": "#6E48AA",
+        "active": "#300055",
+        "window_bg": "#000000",
+    },
+    "Titan": {
+        "bg": "#263238",
+        "fg": "#CFD8DC",
+        "hover": "#546E7A",
+        "active": "#102027",
+        "window_bg": "#000000",
+    },
+    "Bumblebee": {
+        "bg": "#FFCC00",
+        "fg": "#000000",
+        "hover": "#000000",
+        "active": "#333300",
+        "window_bg": "#000000",
+    },
+    "Frost": {
+        "bg": "#000000",
+        "fg": "#A5F2F3",
+        "hover": "#2196F3",
+        "active": "#0D47A1",
+        "window_bg": "#000000",
+    },
+    "Volcano": {
+        "bg": "#000000",
+        "fg": "#FF3D00",
+        "hover": "#DD2C00",
+        "active": "#3E0000",
+        "window_bg": "#000000",
+    },
 }
 
-current_diff_colors = DIFF_COLORS["Classic"]
-current_color_name = "Classic"
 
+current_diff_colors = DIFF_COLORS["Classics"]
+current_color_name = "Classics"
 
 def fill_missing_keys(texts):
     """
@@ -404,7 +656,6 @@ def fill_missing_keys(texts):
 
     texts["de"] = de_keys
 
-
 # ===================== LANGUAGE =====================
 LANG = "de"
 TEXTS = {
@@ -413,6 +664,7 @@ TEXTS = {
         "patch_create": "Create Patch",
         "patch_renew": "Renew Patch",
         "patch_check": "Check Patch",
+        "settings_header": "Settings",
         # "patch_save_label": "Save Patch",
         "patch_apply": "Apply Patch",
         "patch_path_label": "Save Patch",
@@ -462,6 +714,17 @@ TEXTS = {
         "github_emu_git_revision": "📊 Current Status: Revision {sha} ({commit_msg})",
         "github_upload_start": "🚀 GitHub upload started, please wait...",
         "github_emu_git_revision_failed": "⚠️ Could not retrieve revision: {error}",
+        # Patch anwenden
+        "executing_cmd": "Executing command:",
+        "cmd_failed": "Command failed with exit code:",
+        "executing_git_apply": "🚀 Applying patch: {patch}",
+        "executing_git_check": "🔍 Checking patch compatibility: {patch}",
+        
+        # --- Patch Status ---
+        "patch_file_missing": "❌ Patch file missing: {path}",
+        "patch_emu_git_done": "✅ Patch applied successfully!",
+        "patch_emu_git_apply_failed": "❌ Failed to apply patch!",
+        
         # Exit / Confirmation
         "exit": "Exit",
         "yes": "Yes",
@@ -563,6 +826,8 @@ TEXTS = {
         "patch_version_from_header": "✅ Patch version from header: {patch_version}",
         "patch_create_failed": "❌ Patch creation failed: {error}",
         "plugin_update": "Update available: {current} → {latest}",
+        "executing_git_apply": "🚀 Applying patch: {patch}",
+        "executing_git_check": "🔍 Checking patch compatibility: {patch}",
         # Commits
         "loading_commits": "Lade Commits...",
         "commits_loaded": "Commits erfolgreich geladen",
@@ -613,6 +878,16 @@ TEXTS = {
         "patch_emu_git_revision_failed": "⚠️ Git-Revision konnte nicht ermittelt werden: {error}",
         "patch_emu_git_done": "✅ Oscam Emu Git erfolgreich gepatcht",
         "patch_emu_git_revision": "🧾 Git-Revision: {sha}",
+         # --- GitHub Dialog ---
+        "github_dialog_title": "GitHub Configuration",
+        "patch_repo_label": "Patch Repository:",
+        "patch_branch_label": "Patch Branch:",
+        "emu_repo_label": "EMU Repository:",
+        "emu_branch_label": "EMU Branch:",
+        "github_username_label": "GitHub User:",
+        "github_token_label": "Token / PAT:",
+        "github_user_name_label": "Git Name:",
+        "github_user_email_label": "Git Email:",
         # Exit / Confirmation
         "exit": "Beenden",
         "yes": "Ja",
@@ -638,6 +913,16 @@ TEXTS = {
         "github_emu_git_uploaded": "✅ OSCam-Emu Git erfolgreich hochgeladen!",
         "github_emu_git_revision": "📊 Aktueller Stand: Revision {sha} ({commit_msg})",
         "github_emu_git_revision_failed": "⚠️ Revision konnte nicht ausgelesen werden: {error}",
+        #Patch anwenden
+        "executing_cmd": "Führe Befehl aus:",
+        "cmd_failed": "Befehl fehlgeschlagen mit Code:",
+        "executing_git_apply": "🚀 Wende Patch an: {patch}",
+        "executing_git_check": "🔍 Prüfe Patch-Kompatibilität: {patch}",
+        
+        # --- Patch Status ---
+        "patch_file_missing": "❌ Patch-Datei fehlt: {path}",
+        "patch_emu_git_done": "✅ Patch erfolgreich angewendet!",
+        "patch_emu_git_apply_failed": "❌ Patch konnte nicht angewendet werden!",
         # ... zip_patch ...
         "patch_file_missing": "Patch-Datei existiert nicht: {path}",
         "zip_success": "✅ Patch erfolgreich gepackt: {zip_file}",
@@ -701,7 +986,8 @@ TEXTS = {
         # "language_label": "Sprache:",
         "language_label": "Sprache auswählen:",
         "color_label": "Farbe auswählen",
-        "commit_count_label": "Anzahl der anzuzeigenden Commits",
+        "commit_count_label": "Anzahl der Commits",
+        "settings_header": "Einstellungen",
         "info_tooltip": "Info / Hilfe",
         # Info Text
         "info_text": (
@@ -759,6 +1045,21 @@ TEXTS = {
         "patch_check_ok": "✅ Patch kann angewendet werden: keine Konflikte gefunden",
         "patch_check_fail": "❌ Patch kann nicht angewendet werden: Konflikte vorhanden oder Fehler",
         "patch_failed": "❌ Patch fehlgeschlagen: {path}",
+        # Github config
+        "github_dialog_title": "GitHub Konfiguration",
+        "patch_repo_label": "Patch Repository:",
+        "patch_branch_label": "Patch Branch:",
+        "emu_repo_label": "EMU Repository:",
+        "emu_branch_label": "EMU Branch:",
+        "github_username_label": "GitHub Benutzer:",
+        "github_token_label": "GitHub Token:",
+        "github_user_name_label": "Git Name:",
+        "github_user_email_label": "Git E-Mail:",
+        "save": "Speichern",
+        "cancel": "Abbrechen",
+        "github_config_saved": "✅ GitHub Konfiguration gespeichert.",
+        "executing_git_apply": "🚀 Wende Patch an: {patch}",
+        "executing_git_check": "🔍 Prüfe Patch-Kompatibilität: {patch}",
         # Clean Patch Folder
         "cleaning_oscam_emu_git": "ℹ️ Lösche OSCam-Emu Git Ordner: {path}",
         "oscam_emu_git_deleted": "✅ OSCam-Emu Git Ordner erfolgreich gelöscht.",
@@ -784,7 +1085,6 @@ for key, value in TEXTS["en"].items():
 # 4️⃣ **Unbedingt einmalig vor GUI-Start aufrufen**
 fill_missing_keys(TEXTS)
 
-
 def save_config(cfg):
     """
     Speichert die übergebene Config in CONFIG_FILE.
@@ -803,7 +1103,6 @@ def save_config(cfg):
 
     except Exception as e:
         print(f"❌ Fehler beim Speichern der Config: {e}")
-
 
 # ===================== CONFIG =====================
 def load_config():
@@ -836,7 +1135,6 @@ def load_config():
     except Exception as e:
         print(f"⚠️ Config konnte nicht geladen werden: {e}")
         return default_cfg.copy()
-
 
 # ===================== INFOSCREEN =====================
 def github_upload_patch_file(
@@ -995,12 +1293,10 @@ def github_upload_patch_file(
     # 7. Cleanup
     shutil.rmtree(temp_repo, ignore_errors=True)
 
-
 from datetime import datetime, timezone
 import subprocess
 import os
 import shutil  # wird unten benötigt
-
 
 def get_patch_header(repo_dir=None, lang=LANG):
     """
@@ -1059,7 +1355,6 @@ def get_patch_header(repo_dir=None, lang=LANG):
     )
 
     return header
-
 
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1205,7 +1500,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
     set_progress(100)
 
-
 def log(text, level="info"):
     colors = {
         "success": "green",
@@ -1222,12 +1516,10 @@ def log(text, level="info"):
     else:
         print(f"[{level.upper()}] {text}")
 
-
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os, re
-
 
 def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback=None):
     """
@@ -1334,12 +1626,10 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     # Fertig
     set_progress(100)
 
-
 # ===================== CLEAN PATCH FOLDER =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1425,10 +1715,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     log("clean_done", "success")
     set_progress(100)
 
-
 # ===================== ICONS =====================
 ICON_SIZE = 64
-
 
 def create_icons():
     """
@@ -1465,12 +1753,10 @@ def create_icons():
         file_name = os.path.join(ICON_DIR, f"{key}.png")
         img.save(file_name)
 
-
 def get_icon_for(name):
     safe_name = name.replace(" ", "_").replace("/", "_").replace("\\", "_")
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
-
 
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -1544,7 +1830,6 @@ def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
 
     set_progress(100)
     log("clean_done", "success")
-
 
 # ===================== patch_oscam_emu_git=====================
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
@@ -1708,7 +1993,6 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     QTimer.singleShot(100, final_logs)
     set_progress(100)
 
-
 def load_github_config():
     if os.path.exists(GITHUB_CONF_FILE):
         try:
@@ -1732,7 +2016,6 @@ def save_github_config(cfg):
         json.dump(cfg, open(GITHUB_CONF_FILE, "w"))
     except:
         pass
-
 
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
@@ -1806,27 +2089,29 @@ def _github_upload(
         "success" if code == 0 else "error",
     )
 
-
 # ===================== GITHUB UPLOAD PATCH FILE =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
 
-
 def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     """
     Führt einen Bash-Befehl aus und schreibt jede Zeile live ins Info-Widget.
-    Optimiert für Git-Operationen und Thread-Sicherheit.
+    Optimiert für Sprachunterstützung und ohne Terminal-Leaks.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
     import os, subprocess
 
-    # 1. Widget-Suche (Fallback)
+    # 1. Widget-Suche (behalten)
     if not isinstance(info_widget, QTextEdit):
         active_win = QApplication.activeWindow()
         if active_win and hasattr(active_win, "info_text"):
             info_widget = active_win.info_text
+
+    # Sprach-Dictionary laden
+    current_lang = lang.lower()
+    t = TEXTS.get(current_lang, TEXTS.get("en", {}))
 
     def log(text, level="info"):
         colors = {
@@ -1836,20 +2121,18 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
             "info": "#7f8c8d",
         }
         color = colors.get(level, "#7f8c8d")
-
-        # Prüfen, ob der Text ein Key aus deiner TEXTS-Struktur ist
-        translated = (
-            TEXTS.get(lang, {}).get(text, text) if "TEXTS" in globals() else text
-        )
+        
+        # Falls der Text ein Key ist, übersetzen, sonst Original behalten
+        translated = t.get(text, text)
 
         if isinstance(info_widget, QTextEdit):
-            # Nutzt HTML für saubere Farben in der GUI
             info_widget.append(
                 f'<span style="color:{color}; font-family: monospace;">{translated}</span>'
             )
             info_widget.moveCursor(QTextCursor.MoveOperation.End)
-            QApplication.processEvents()  # Erlaubt das "Live-Update" der UI
+            QApplication.processEvents()
         else:
+            # Falls kein GUI-Widget da ist (Notfall), schreibe ins Terminal
             print(f"[{level.upper()}] {translated}")
 
     # 2. Arbeitsverzeichnis validieren
@@ -1857,14 +2140,14 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
         try:
             os.makedirs(cwd, exist_ok=True)
         except Exception as e:
-            log(f"Could not create directory {cwd}: {e}", "error")
+            log(f"Fehler: Verzeichnis konnte nicht erstellt werden {cwd}: {e}", "error")
             return -1
 
-    log(f"Executing: {cmd}", "info")
+    # --- ÜBERSETZTER START-LOG (ERSETZT DAS ALTE 'Executing:...') ---
+    exec_msg = t.get("executing_cmd", "Führe Befehl aus:")
+    log(f"🚀 {exec_msg} {cmd}", "warning")
 
     try:
-        # Popen mit Shell=True ist für "git clone ..." Ketten okay,
-        # aber wir fügen env hinzu, um Git-Prompts (Passwörter) zu unterdrücken
         env = os.environ.copy()
         env["GIT_TERMINAL_PROMPT"] = "0"
 
@@ -1873,7 +2156,7 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
             shell=True,
             cwd=cwd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,  # Leitet Fehler direkt in stdout um
+            stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
             encoding="utf-8",
@@ -1881,26 +2164,26 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
             env=env,
         )
 
-        # 3. Live-Ausgabe der Zeilen
+        # 3. Live-Ausgabe
         if process.stdout:
             for line in iter(process.stdout.readline, ""):
                 line = line.strip()
                 if line:
-                    # Filtert unnötiges "Fetching..." Rauschen oder zeigt es dezent an
                     log(line, "info")
             process.stdout.close()
 
         return_code = process.wait()
 
         if return_code != 0:
-            log(f"Command failed with exit code {return_code}", "error")
+            # Fehlermeldung übersetzen
+            err_msg = t.get("cmd_failed", "Befehl fehlgeschlagen mit Code")
+            log(f"❌ {err_msg} {return_code}", "error")
 
         return return_code
 
     except Exception as e:
-        log(f"run_bash execution error: {e}", "error")
+        log(f"run_bash error: {e}", "error")
         return -1
-
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -2088,7 +2371,6 @@ def github_upload_oscam_emu_folder(
         log(f"Kritischer Fehler: {str(e)}", "error")
         set_progress(0)
 
-
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -2182,9 +2464,7 @@ class GithubConfigDialog(QDialog):
             print(f"Fehler beim Speichern der GitHub-Config: {e}")
             self.reject()
 
-
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QThread, pyqtSignal
-
 
 class TaskWorker(QThread):
     progress = pyqtSignal(int)
@@ -2208,12 +2488,10 @@ class TaskWorker(QThread):
             self.info.emit(f"Fehler: {str(e)}", "error")
             self.progress.emit(100)
 
-
 # =====================
 # PATCH MANAGER GUI
 # =====================
 from PyQt6.QtGui import QColor
-
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
@@ -2221,19 +2499,28 @@ class PatchManagerGUI(QWidget):
 
         # --- 1. INFOSCREEN & REDIRECTOR (Muss ganz oben stehen!) ---
         # Erstellen des Widgets, damit der Redirector ein Ziel hat
-        self.info_text = QTextEdit() 
+        self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
 
         # Redirector aktivieren: Alle 'print' landen ab jetzt im info_text
         # Falls deine Klasse 'TerminalRedirector' heißt, nutze diesen Namen
         import sys
+
         try:
-            sys.stdout = TerminalRedirector(lambda msg: self.append_info(self.info_text, msg, "info"))
-            sys.stderr = TerminalRedirector(lambda msg: self.append_info(self.info_text, msg, "error"))
+            sys.stdout = TerminalRedirector(
+                lambda msg: self.append_info(self.info_text, msg, "info")
+            )
+            sys.stderr = TerminalRedirector(
+                lambda msg: self.append_info(self.info_text, msg, "error")
+            )
         except NameError:
             # Fallback falls die Klasse anders benannt wurde (z.B. StreamToGui)
-            sys.stdout = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "info"))
-            sys.stderr = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "error"))
+            sys.stdout = StreamToGui(
+                lambda msg: self.append_info(self.info_text, msg, "info")
+            )
+            sys.stderr = StreamToGui(
+                lambda msg: self.append_info(self.info_text, msg, "error")
+            )
 
         # --- 2. DATEN LADEN ---
         self.cfg = load_config()
@@ -2256,7 +2543,7 @@ class PatchManagerGUI(QWidget):
         self.latest_version = APP_VERSION.replace("v", "").strip()
 
         # --- 5. HAUPT-UI AUFBAUEN ---
-        # Wichtig: In init_ui darf kein NEUES info_text erstellt werden, 
+        # Wichtig: In init_ui darf kein NEUES info_text erstellt werden,
         # es muss das bereits existierende self.info_text eingebaut werden.
         self.init_ui()
 
@@ -4168,40 +4455,48 @@ class PatchManagerGUI(QWidget):
         }
         """
         )
+        # --- Layout für die Einstellungen-Gruppe ---
         controls_group_layout = QVBoxLayout(controls_group)
         controls_group_layout.setContentsMargins(10, 8, 10, 10)
         controls_group_layout.setSpacing(6)
 
+        # 1. Label erstellen und an self binden (WICHTIG für Übersetzung!)
         translated_text = self.get_t("settings_header", "Einstellungen")
-        controls_header = QLabel(translated_text)
+        self.controls_header = QLabel(translated_text)
 
-        controls_header.setFixedHeight(28)
+        # 2. Dimensionen und Verhalten
+        self.controls_header.setFixedHeight(28)
 
-        # 1. WICHTIG: Sagt dem Label, es soll nur so breit wie der Text sein
-        controls_header.setSizePolicy(
+        # Sagt dem Label, es soll nur so breit wie der Text sein
+        self.controls_header.setSizePolicy(
             QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
         )
 
-        # 2. Textausrichtung innerhalb des Labels
-        controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Textausrichtung innerhalb des blauen/farbigen Balkens
+        self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        controls_header.setStyleSheet(
-            """
-        QLabel {
-            background-color: #3a6ea5;
-            color: white;
-            font-size: 15px;
-            font-weight: bold;
-            padding-left: 15px;   /* Sorgt für Puffer links vom Text */
-            padding-right: 15px;  /* Sorgt für Puffer rechts vom Text */
-            border-radius: 6px;
-        }
+        # 3. Stylesheet (Hier nutzen wir bg_color und text_color aus deinem Theme)
+        # Falls repaint_ui_colors noch nicht gelaufen ist, nutzen wir Fallbacks
+        bg = current_diff_colors.get("bg", "#3a6ea5")
+        fg = current_diff_colors.get("fg", "#FFFFFF")
+
+        self.controls_header.setStyleSheet(
+            f"""
+            QLabel {{
+                background-color: {bg};
+                color: {fg};
+                font-size: 15px;
+                font-weight: bold;
+                padding-left: 15px;
+                padding-right: 15px;
+                border-radius: 6px;
+            }}
         """
         )
 
-        # 3. WICHTIG: Linksbündig zum Layout hinzufügen, damit der kurze Balken nicht wandert
+        # 4. Linksbündig zum Layout hinzufügen (der Balken ist kurz, sitzt aber links)
         controls_group_layout.addWidget(
-            controls_header, alignment=Qt.AlignmentFlag.AlignLeft
+            self.controls_header, alignment=Qt.AlignmentFlag.AlignLeft
         )
 
         controls_row = QWidget()
@@ -4249,7 +4544,9 @@ class PatchManagerGUI(QWidget):
         self.color_label = make_label(self.get_t("color_label", "Farbe:"))
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
-        saved_color = self.cfg.get("theme_color", "Classics") # oder "color", je nachdem was du jetzt nutzt
+        saved_color = self.cfg.get(
+            "theme_color", "Classics"
+        )  # oder "color", je nachdem was du jetzt nutzt
         index = self.color_box.findText(saved_color)
         if index >= 0:
             self.color_box.setCurrentIndex(index)
@@ -4392,14 +4689,47 @@ class PatchManagerGUI(QWidget):
 
     def set_active_button(self, active_key):
         self.active_button_key = active_key
+
+        # 1. Sicherstellen, dass wir die richtige Textfarbe aus dem aktuellen Theme haben
+        # Wir probieren 'fg', falls das fehlt 'text', sonst weiß als Notlösung.
+        text_color = current_diff_colors.get(
+            "fg", current_diff_colors.get("text", "#FFFFFF")
+        )
+
+        # 2. Die Hover-Farbe für den inaktiven Zustand holen
+        hover_color = current_diff_colors.get("hover", current_diff_colors["bg"])
+
         for key, btn in self.buttons.items():
             if key == active_key:
+                # AKTIVER BUTTON: Giftgrün (wie in deinem Original)
+                # Tipp: Du könntest hier auch current_diff_colors['active'] nutzen!
                 btn.setStyleSheet(
-                    f"background-color:#00FF00; color:black; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;"
+                    f"""
+                    QPushButton {{
+                        background-color: #00FF00; 
+                        color: #000000; 
+                        border-radius: {self.BUTTON_RADIUS}px; 
+                        min-height: {self.BUTTON_HEIGHT}px;
+                        font-weight: bold;
+                        border: 2px solid white;
+                    }}
+                """
                 )
             else:
+                # INAKTIVE BUTTONS: Nutzen das aktuelle Farbschema (Theme)
+                # Wir bauen hier auch den Hover-Effekt wieder ein, damit er nicht verloren geht!
                 btn.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:{self.BUTTON_RADIUS}px; min-height:{self.BUTTON_HEIGHT}px;"
+                    f"""
+                    QPushButton {{
+                        background-color: {current_diff_colors['bg']}; 
+                        color: {text_color}; 
+                        border-radius: {self.BUTTON_RADIUS}px; 
+                        min-height: {self.BUTTON_HEIGHT}px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {hover_color};
+                    }}
+                """
                 )
 
     # ---------- change_colors ----------
@@ -4410,54 +4740,89 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "color_box"):
             current_color_name = self.color_box.currentText()
         else:
-            # Hier den gleichen Key nutzen wie beim Laden!
+            # Den Key nutzen, der auch beim Laden verwendet wird
             current_color_name = self.cfg.get("theme_color", "Classics")
 
+        # Basis-Farben aus dem Dictionary holen
         base_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS.get("Classics"))
 
-        # Hover / Active Farben ableiten
+        # 2. Hover / Active Farben bestimmen
+        # Wir schauen erst, ob sie fest im Dictionary stehen (base_colors.get),
+        # falls nicht, berechnen wir sie wie früher (self.adjust_color).
         bg = base_colors["bg"]
+
         current_diff_colors = {
             **base_colors,
-            "hover": self.adjust_color(bg, 1.15),
-            "active": self.adjust_color(bg, 0.85),
+            "hover": base_colors.get("hover", self.adjust_color(bg, 1.15)),
+            "active": base_colors.get("active", self.adjust_color(bg, 0.85)),
         }
 
-        # UI-Farben anwenden
+        # 3. UI-Farben anwenden (Stylesheets neu zeichnen)
         self.repaint_ui_colors()
 
-        # 2. Config aktualisieren (Nutze den Key "theme_color"!)
+        # 4. Config aktualisieren
         self.cfg["theme_color"] = current_color_name
-    
-        # 3. WICHTIG: Die Datei wirklich speichern!
+
+        # 5. Dauerhaft speichern
         if hasattr(self, "save_config"):
             self.save_config()
         elif "save_config" in globals():
             save_config(self.cfg)
 
-
     def repaint_ui_colors(self):
-        """Aktualisiert alle UI-Elemente basierend auf current_diff_colors."""
-        # Sicherstellen, dass die globale Variable existiert
+        """Aktualisiert ALLE GUI-Elemente basierend auf current_diff_colors."""
         global current_diff_colors
 
-        # Labels, ComboBoxes, Buttons etc. färben
+        # Farben und Schriftgröße zentral definieren
+        text_color = current_diff_colors.get("fg", "#FFFFFF")
+        bg_color = current_diff_colors["bg"]
+        hover_color = current_diff_colors.get("hover", bg_color)
+        active_color = current_diff_colors.get("active", bg_color)
+
+        # 1. Gemeinsames Design für Labels, Boxen und Pfadanzeige
+        common_style = f"""
+            background-color: {bg_color}; 
+            color: {text_color}; 
+            border-radius: 4px;
+            padding: 2px;
+            font-weight: bold;
+        """
+
         widgets_to_paint = [
             getattr(self, "lang_label", None),
             getattr(self, "color_label", None),
             getattr(self, "language_box", None),
             getattr(self, "color_box", None),
             getattr(self, "commit_label", None),
+            getattr(self, "commit_spin", None),
+            getattr(self, "label_patch_path", None),
         ]
 
         for w in widgets_to_paint:
             if w:
-                w.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']};"
-                )
+                w.setStyleSheet(common_style)
 
-        # Buttons färben
-        buttons = [
+        # 2. MEGA BUTTON STYLE (Für ALLE Buttons im Tool)
+        button_style = f"""
+            QPushButton {{
+                background-color: {bg_color};
+                color: {text_color};
+                border-radius: 10px;
+                font-weight: bold;
+                padding: 6px;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_color};
+                border: 1px solid {text_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {active_color};
+            }}
+        """
+
+        # A) Manuelle Liste der Funktions-Buttons
+        main_buttons = [
             "edit_header_button",
             "commits_button",
             "clean_emu_button",
@@ -4465,21 +4830,64 @@ class PatchManagerGUI(QWidget):
             "github_upload_patch_button",
             "plugin_update_button",
             "restart_tool_button",
+            "btn_check_tools",
         ]
-        for btn_name in buttons:
+
+        for btn_name in main_buttons:
             btn = getattr(self, btn_name, None)
             if btn:
-                btn.setStyleSheet(
-                    f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']}; border-radius:10px;"
-                )
+                btn.setStyleSheet(button_style)
 
-        # Spezial-Widgets
-        if hasattr(self, "commit_spin") and self.commit_spin:
-            self.commit_spin.setStyleSheet(
-                f"background-color:{current_diff_colors['bg']}; color:{current_diff_colors['text']};"
+        # B) ALLE dynamischen Buttons aus dem Grid (self.buttons)
+        if hasattr(self, "buttons"):
+            for btn in self.buttons.values():
+                btn.setStyleSheet(button_style)
+
+        # C) ALLE Buttons aus der Options-Leiste
+        if hasattr(self, "option_buttons"):
+            for val in self.option_buttons.values():
+                if isinstance(val, (list, tuple)):
+                    val[0].setStyleSheet(button_style)
+
+        # 3. INFOSCREEN (Immer Schwarz, Schrift GROSS)
+        if hasattr(self, "info_text") and self.info_text:
+            self.info_text.setStyleSheet(
+                f"""
+                QTextEdit {{
+                    background-color: #000000;
+                    color: {text_color};
+                    border: 1px solid {hover_color};
+                    border-radius: 8px;
+                    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                    font-size: 26px;  /* Vergrößerte Schrift */
+                    padding: 10px;
+                    line-height: 1.2;
+                }}
+            """
             )
 
-        # UI-Refresh erzwingen
+            # Scrollbar passend dazu
+            scrollbar_style = f"""
+                QScrollBar:vertical {{ border: none; background: #000000; width: 12px; }}
+                QScrollBar::handle:vertical {{ background: {hover_color}; border-radius: 6px; }}
+            """
+            self.info_text.verticalScrollBar().setStyleSheet(scrollbar_style)
+
+        # 4. Header-Balken (Einstellungen)
+        if hasattr(self, "controls_header") and self.controls_header:
+            self.controls_header.setStyleSheet(
+                f"""
+                background-color: {bg_color};
+                color: {text_color};
+                font-weight: bold;
+                border-radius: 6px;
+                padding-left: 10px;
+                border-bottom: 2px solid {hover_color};
+            """
+            )
+
+        # 5. HAUPTFENSTER (Immer Schwarz)
+        self.setStyleSheet("background-color: #000000;")
         self.repaint()
 
     def setup_grid_buttons(self):
@@ -4554,82 +4962,82 @@ class PatchManagerGUI(QWidget):
             grid_layout.setColumnStretch(i, 1)
 
     def update_language(self):
-        """Übersetzt alle Buttons, Labels und den großen Infoscreen."""
+        """
+        Übersetzt alle Buttons, Labels, den Header und den Infoscreen.
+        Zusätzlich: GitHub & Emu Konfiguration.
+        """
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtGui import QTextCursor
 
-        # 1. Sprache normieren (Kürzel de/en)
+        # 1. Aktuelle Sprache ermitteln (de/en)
         lang = str(getattr(self, "LANG", "de")).lower()
-
-        # 2. Dictionary sicher abrufen (Fallback auf Englisch bei Fehlern)
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
 
+        # Interne Hilfsfunktion für Übersetzungen
         def get_t(k, default=None):
             if k in lang_dict:
                 return lang_dict[k]
             clean = str(k).replace("_", " ").title()
-            mapping = {
-                "Language Label": "Language:" if lang == "en" else "Sprache auswählen:",
-                "Color Label": "Color:" if lang == "en" else "Farbe wählen:",
-                "Commit Count Label": "Commits:" if lang == "en" else "Commits:",
-                "Check Tools Button": (
-                    "🛠️ Check Tools" if lang == "en" else "🛠️ Tools prüfen"
-                ),
-            }
-            return mapping.get(clean, default if default else clean)
+            return clean if default is None else default
 
-        # A) GRID-BUTTONS
-        if hasattr(self, "buttons"):
+        # A) GRID-BUTTONS (Patch-Auswahl)
+        if hasattr(self, "buttons") and self.buttons:
             for key, btn in self.buttons.items():
                 btn.setText(get_t(key))
 
-        # B) OPTION-BUTTONS (Kopfzeile) - FIX: Hintergrundfarben wiederherstellen
-        if hasattr(self, "option_buttons"):
+        # B) OPTION-BUTTONS (Obere Zeile)
+        if hasattr(self, "option_buttons") and self.option_buttons:
             for key, val in self.option_buttons.items():
                 if isinstance(val, (list, tuple)) and len(val) >= 2:
-                    btn, text_key = val[0], val[1]
-                    if text_key == "plugin_update":
-                        continue
-
-                    # Text setzen
+                    btn = val[0]
+                    text_key = val[1]
                     translated = get_t(text_key)
-                    btn.setText(
-                        f"💻 {translated}"
-                        if "terminal" in str(key).lower()
-                        else translated
-                    )
+                    if "terminal" in str(key).lower():
+                        btn.setText(f"💻 {translated}")
+                    else:
+                        btn.setText(translated)
 
-                    # --- FARB-FIX START ---
-                    # Wir holen die Farben aus dem gespeicherten Tuple (val[2] = BG, val[4] = FG)
-                    # Falls das Tuple kürzer ist, nutzen wir Fallbacks
-                    bg = val[2] if len(val) >= 3 else "#1E90FF"
-                    fg = val[4] if len(val) >= 5 else "white"
+        # C) HEADER (Einstellungen & GitHub Header)
+        if hasattr(self, "controls_header") and self.controls_header:
+            self.controls_header.setText(get_t("settings_header", "Einstellungen"))
+    
+        # NEU: Falls du einen extra Header für GitHub hast:
+        if hasattr(self, "github_header") and self.github_header:
+            self.github_header.setText(get_t("github_config_header", "GitHub Konfiguration"))
 
-                    # StyleSheet zwingend neu setzen, sonst wird es grau/standard
-                    btn.setStyleSheet(
-                        f"background-color: {bg}; color: {fg}; font-weight: bold; border-radius: 4px;"
-                    )
-                    # --- FARB-FIX ENDE ---
+        # D) LABELS & TOOLS-BUTTON
+        if hasattr(self, "btn_check_tools") and self.btn_check_tools:
+            self.btn_check_tools.setText(get_t("check_tools_button", "🛠️ Tools prüfen"))
 
-        # C) TOOLS-BUTTON & LABELS (Commit-Zeile)
-        if hasattr(self, "btn_check_tools"):
-            self.btn_check_tools.setText(get_t("check_tools_button", "🛠️ Tools"))
+        if hasattr(self, "lang_label") and self.lang_label:
+            self.lang_label.setText(get_t("language_label", "Sprache:"))
 
-        if hasattr(self, "lang_label"):
-            self.lang_label.setText(get_t("language_label", "Language:"))
+        if hasattr(self, "color_label") and self.color_label:
+            self.color_label.setText(get_t("color_label", "Farbe:"))
 
-        if hasattr(self, "color_label"):
-            self.color_label.setText(get_t("color_label", "Color:"))
-
-        if hasattr(self, "commit_label"):
+        if hasattr(self, "commit_label") and self.commit_label:
             self.commit_label.setText(get_t("commit_count_label", "Commits:"))
 
-        # E) INFOSCREEN / ANLEITUNG
-        if hasattr(self, "info_text"):
+        # E) GITHUB & EMU SPEZIFISCHE BUTTONS (Die oft vergessen werden)
+        if hasattr(self, "patch_emu_git_button") and self.patch_emu_git_button:
+            self.patch_emu_git_button.setText(get_t("patch_emu_git_button", "OSCam Emu patchen"))
+
+        if hasattr(self, "github_upload_patch_button") and self.github_upload_patch_button:
+            self.github_upload_patch_button.setText(get_t("github_upload_button", "GitHub Upload"))
+
+        if hasattr(self, "clean_emu_button") and self.clean_emu_button:
+            self.clean_emu_button.setText(get_t("clean_emu_button", "Emu aufräumen"))
+
+        # F) INFOSCREEN / ANLEITUNG
+        if hasattr(self, "info_text") and self.info_text:
             full_info = get_t("info_text", None)
             if full_info:
                 self.info_text.setText(full_info)
                 self.info_text.moveCursor(QTextCursor.MoveOperation.Start)
+
+        # G) FARBEN & HOVER ERNEUERN (Wichtig für das 50er-Set!)
+        if hasattr(self, "repaint_ui_colors"):
+            self.repaint_ui_colors()
 
         QApplication.processEvents()
 
@@ -4929,23 +5337,29 @@ class PatchManagerGUI(QWidget):
 
     def apply_patch(self, info_widget=None, progress_callback=None):
         info_widget = info_widget or self.info_text
-
+        lang = getattr(self, "LANG", "de").lower()
+    
+        # 1. Check ob Datei existiert
         if not os.path.exists(PATCH_FILE):
-            self.append_info(info_widget, "❌ Patch-Datei fehlt!", "error")
+            msg = self.get_t("patch_file_missing", "❌ Patch-Datei fehlt!").format(path=PATCH_FILE)
+            self.append_info(info_widget, msg, "error")
             return
 
-        # Logger für run_bash
+        # Logger definieren
         logger = lambda text, level="info": self.append_info(info_widget, text, level)
 
-        # Patch anwenden
+        # 2. Eigene Start-Meldung auf Deutsch (bevor run_bash loslegt)
+        start_msg = self.get_t("executing_git_apply", "🚀 Wende Patch an...").format(patch="oscam-emu.patch")
+        self.append_info(info_widget, start_msg, "warning")
+
+        # Patch ausführen
+        # Hinweis: Falls run_bash selbst "Executing..." printet, musst du run_bash anpassen!
         code = run_bash(f"git apply {PATCH_FILE}", cwd=TEMP_REPO, logger=logger)
 
         if code == 0:
-            self.append_info(info_widget, "✅ Patch erfolgreich angewendet", "success")
+            self.append_info(info_widget, self.get_t("patch_emu_git_done", "✅ Patch erfolgreich angewendet"), "success")
         else:
-            self.append_info(
-                info_widget, "❌ Patch konnte nicht angewendet werden", "error"
-            )
+            self.append_info(info_widget, self.get_t("patch_emu_git_apply_failed", "❌ Patch fehlgeschlagen"), "error")
 
         if progress_callback:
             progress_callback(100)
@@ -5014,7 +5428,6 @@ class PatchManagerGUI(QWidget):
                     print(f"[WARN] Config save failed: {e}")
 
             QApplication.quit()
-
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
