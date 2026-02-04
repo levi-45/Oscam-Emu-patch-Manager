@@ -107,7 +107,7 @@ time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.4.2"
+APP_VERSION = "2.4.3"
 
 
 # ===================== PATCH DIRS =====================
@@ -259,8 +259,10 @@ def ensure_dir(directory):
         except Exception as e:
             print(f"[ERROR] Konnte Verzeichnis {directory} nicht erstellen: {e}")
 
+
 class StreamToGui:
     """Leitet stdout/stderr an einen Slot (Funktion) weiter."""
+
     def __init__(self, slot):
         self.slot = slot
 
@@ -269,7 +271,8 @@ class StreamToGui:
             self.slot(text.strip())
 
     def flush(self):
-        pass # Notwendig für die Kompatibilität
+        pass  # Notwendig für die Kompatibilität
+
 
 # ===================== NEVER_DELETE =====================
 NEVER_DELETE = [
@@ -682,7 +685,6 @@ TEXTS = {
         "version_current": "Version {version} ist aktuell.",
         "update_error": "Fehler bei Updateprüfung: {error}",
         "update_declined": "Update abgebrochen.",
-        
         "update_no_update": "ℹ️ Kein Update vorhanden",
         "tools_ok": "✅ Alle benötigten System-Tools sind bereits installiert.",
         "tools_missing": "⚠️ Folgende Tools fehlen: {tools}. Installation wird vorbereitet...",
@@ -747,7 +749,6 @@ TEXTS = {
         "backup_done": "✅ Backup erfolgreich erstellt: {path}",
         "tools_ok": "✅ Alle benötigten System-Tools sind bereits installiert.",
         "tools_missing": "⚠️ Folgende Tools fehlen: {tools}. Installation wird vorbereitet...",
-       
         "checking_tools": "Starte System-Check...",
         "no_old_patch": "ℹ️ Keine alte Patch-Datei gefunden.",
         "new_patch_installed": "✅ Neuer Patch erfolgreich installiert: {path}",
@@ -2218,65 +2219,70 @@ class PatchManagerGUI(QWidget):
     def __init__(self):
         super().__init__()
 
-        # 1. Daten laden (Einheitlich self.cfg verwenden)
+        # --- 1. INFOSCREEN & REDIRECTOR (Muss ganz oben stehen!) ---
+        # Erstellen des Widgets, damit der Redirector ein Ziel hat
+        self.info_text = QTextEdit() 
+        self.info_text.setReadOnly(True)
+
+        # Redirector aktivieren: Alle 'print' landen ab jetzt im info_text
+        # Falls deine Klasse 'TerminalRedirector' heißt, nutze diesen Namen
+        import sys
+        try:
+            sys.stdout = TerminalRedirector(lambda msg: self.append_info(self.info_text, msg, "info"))
+            sys.stderr = TerminalRedirector(lambda msg: self.append_info(self.info_text, msg, "error"))
+        except NameError:
+            # Fallback falls die Klasse anders benannt wurde (z.B. StreamToGui)
+            sys.stdout = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "info"))
+            sys.stderr = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "error"))
+
+        # --- 2. DATEN LADEN ---
         self.cfg = load_config()
 
-        # 2. Sprache & Basis-Initialisierungen (KORRIGIERT)
-        # Wir nutzen .lower(), damit es zum Dictionary TEXTS["de"] passt
+        # --- 3. SPRACHE & BASIS-LOGIK ---
         stored_lang = str(self.cfg.get("language", "de")).lower()
+        self.LANG = stored_lang if stored_lang in ["en", "de"] else "de"
 
-        # Validierung: Nur erlauben, was wir auch im Dictionary haben
-        if stored_lang in ["en", "de"]:
-            self.LANG = stored_lang
-        else:
-            self.LANG = "de"  # Sicherer Standard-Fallback
-
-        # 3. Patch-Pfade (Windows-sicher über os.path.normpath)
+        # --- 4. PFADE & VARIABLEN ---
         current_path = self.cfg.get("s3_patch_path", OLD_PATCH_DIR)
         self.OLD_PATCH_DIR = os.path.normpath(current_path)
-
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
-        # 4. Listen & Status-Variablen
         self.all_buttons = []
         self.option_buttons = {}
         self.buttons = {}
         self.active_button_key = ""
-
-        # Grid-Layout Referenz initialisieren
         self.main_grid_layout = None
-
-        # --- UPDATE INITIALISIERUNG ---
         self.latest_version = APP_VERSION.replace("v", "").strip()
 
-        # 5. Haupt-UI aufbauen
+        # --- 5. HAUPT-UI AUFBAUEN ---
+        # Wichtig: In init_ui darf kein NEUES info_text erstellt werden, 
+        # es muss das bereits existierende self.info_text eingebaut werden.
         self.init_ui()
-        QTimer.singleShot(1000, self.manual_tool_check)
-        # 6. Pfad-Layout sicherstellen
+
+        # --- 6. NACH-INITIALISIERUNG ---
         if not hasattr(self, "label_patch_path"):
             self.label_patch_path = QLabel()
 
-        # 7. SPRACHE ANWENDEN (Zuerst Anleitung setzen)
-        # Dies befüllt den info_text via Teil E deiner update_language
+        # Zuerst Sprache setzen (füllt die Anleitung)
         self.update_language()
 
-        # 8. UPDATE-LOGIK STARTEN
-        # Erst den Button-Zustand (Farbe) initialisieren
-        self.update_plugin_button_state()
+        # DANN Farben setzen (überschreibt die Styles der Sprache mit Wunschfarben)
+        if hasattr(self, "change_colors"):
+            self.change_colors()
 
-        # Der Timer startet den Online-Check verzögert, damit die GUI erst steht.
-        # Nutzt check_for_plugin_update, da diese Methode den Status UNTER die Anleitung hängt.
-        QTimer.singleShot(1500, self.check_for_update_on_start)
-         # 1. Den Infoscreen (QTextEdit) erstellen
-        self.info_screen = QTextEdit()
-        self.info_screen.setReadOnly(True)
-        
-        # 2. Den Redirector aktivieren
-        # Alles was ab jetzt 'print' nutzt, landet im info_screen
-        sys.stdout = StreamToGui(self.log_message)
-        sys.stderr = StreamToGui(self.log_message)
-    
+        # Plugin-Button Zustand
+        if hasattr(self, "update_plugin_button_state"):
+            self.update_plugin_button_state()
+
+        # --- 7. VERZÖGERTE AUTOMATIK-CHECKS ---
+        # Tools prüfen (nach 1 Sekunde)
+        QTimer.singleShot(1000, self.manual_tool_check)
+
+        # Online-Update-Check (nach 2 Sekunden, ganz unten im Screen)
+        if hasattr(self, "check_for_update_on_start"):
+            QTimer.singleShot(2000, self.check_for_update_on_start)
+
     def log_message(self, message):
         """Zentrale Funktion für alle Log-Ausgaben."""
         now = datetime.now().strftime("%H:%M:%S")
@@ -2284,7 +2290,6 @@ class PatchManagerGUI(QWidget):
         self.info_screen.append(f"<b>[{now}]</b> {message}")
         # Automatisch nach unten scrollen
         self.info_screen.moveCursor(QTextCursor.MoveOperation.End)
-
 
     def show_info(self):
         """Zeigt ein modernes Info-Fenster mit Credits und System-Icon."""
@@ -2436,11 +2441,11 @@ class PatchManagerGUI(QWidget):
         import shutil
         import subprocess
 
-        # 1. Sprache & Texte laden (Fallback auf EN, falls Key fehlt)
+        # 1. Sprache & Texte laden
         lang = str(getattr(self, "LANG", "de")).lower()
         t = TEXTS.get(lang, TEXTS.get("en", {}))
 
-        # 2. Start-Meldung (Fallback Englisch)
+        # 2. Start-Meldung (Nur im Infoscreen)
         self.append_info(
             self.info_text,
             t.get("checking_tools", "Starting system tool check..."),
@@ -2452,21 +2457,21 @@ class PatchManagerGUI(QWidget):
         missing = [tool for tool in required_tools if shutil.which(tool) is None]
 
         if not missing:
-            # 4. Erfolgs-Meldung (Fallback Englisch)
+            # 4. Erfolgs-Meldung (Alles ok -> kein Terminal!)
             msg = t.get(
                 "tools_ok", "✅ All required system tools are already installed."
             )
             self.append_info(self.info_text, msg, "success")
             return
 
-        # 5. Falls Tools fehlen (Fallback Englisch)
+        # 5. Falls Tools fehlen -> Information im Infoscreen
         missing_str = " ".join(missing)
         template = t.get(
             "tools_missing", "⚠️ Missing tools: {tools}. Starting installation..."
         )
         self.append_info(self.info_text, template.format(tools=missing_str), "warning")
 
-        # Installations-Befehl
+        # Installations-Befehl vorbereiten
         install_cmd = f"sudo apt-get update && sudo apt-get install -y {missing_str}"
         full_cmd = (
             f"bash -c '{install_cmd}; echo; echo Done. Press Enter to close...; read'"
@@ -2478,16 +2483,31 @@ class PatchManagerGUI(QWidget):
             or "gnome-terminal"
         )
 
-        try:
-            if term and "gnome" in term:
-                subprocess.Popen([term, "--", "bash", "-c", full_cmd])
-            else:
-                subprocess.Popen([term, "-e", full_cmd])
-        except Exception as e:
-            err_msg = (
-                f"Terminal Error: {e}" if lang == "en" else f"Terminal-Fehler: {e}"
-            )
-            self.append_info(self.info_text, err_msg, "error")
+        # 6. Terminal NUR für die Installation starten
+        if term:
+            try:
+                # Wir leiten stdout/stderr von Popen selbst nach DEVNULL,
+                # damit keine GTK/System-Warnungen im Hauptterminal erscheinen.
+                if "gnome" in term:
+                    subprocess.Popen(
+                        [term, "--", "bash", "-c", full_cmd],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                else:
+                    subprocess.Popen(
+                        [term, "-e", full_cmd],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+            except Exception as e:
+                err_msg = (
+                    f"Terminal Error: {e}" if lang == "en" else f"Terminal-Fehler: {e}"
+                )
+                self.append_info(self.info_text, err_msg, "error")
+        else:
+            # Fallback falls gar kein Terminal gefunden wurde
+            self.append_info(self.info_text, "❌ No terminal emulator found!", "error")
 
     def resizeEvent(self, event):
         """
@@ -3193,16 +3213,16 @@ class PatchManagerGUI(QWidget):
                 cwd=cwd,
                 capture_output=True,
                 text=True,
-                shell=True, # Erlaubt die Übergabe als ganzer String
-                check=False
+                shell=True,  # Erlaubt die Übergabe als ganzer String
+                check=False,
             )
-        
+
             if result.returncode != 0:
                 if result.stderr:
                     print(f"❌ Fehler: {result.stderr.strip()}")
-                return "" # Leerer String bei Fehler
-            
-            return result.stdout.strip() # Gibt nur den Text zurück
+                return ""  # Leerer String bei Fehler
+
+            return result.stdout.strip()  # Gibt nur den Text zurück
         except Exception as e:
             print(f"❌ Systemfehler: {str(e)}")
             return ""
@@ -3240,17 +3260,17 @@ class PatchManagerGUI(QWidget):
 
     def commit_value_changed(self, value):
         # 1. Im Dict speichern (hast du bereits)
-        self.cfg["commit_count"] = value  
-    
+        self.cfg["commit_count"] = value
+
         # 2. In die Datei schreiben (WICHTIG!)
         if hasattr(self, "save_config"):
             self.save_config()
-    
+
         # 3. Rückmeldung geben
         self.append_info(
-            self.info_text, 
-            f"Commit-Anzahl auf {value} gesetzt (gespeichert)", 
-            "success"
+            self.info_text,
+            f"Commit-Anzahl auf {value} gesetzt (gespeichert)",
+            "success",
         )
 
     def change_old_patch_dir(self, info_widget=None, progress_callback=None):
@@ -4152,33 +4172,37 @@ class PatchManagerGUI(QWidget):
         controls_group_layout.setContentsMargins(10, 8, 10, 10)
         controls_group_layout.setSpacing(6)
 
-        # Der Text wird hier aus deinem TEXTS-Dict geladen
         translated_text = self.get_t("settings_header", "Einstellungen")
         controls_header = QLabel(translated_text)
-        
+
         controls_header.setFixedHeight(28)
-        
-        # TIPP: Wenn du die Breite auf 200 fixierst, 
-        # rücke den Text in das Zentrum:
-        controls_header.setFixedWidth(200) 
-        controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        controls_header.setStyleSheet(
-            f"""
-            QLabel {{
-                background-color: #3a6ea5;
-                color: white;
-                font-size: 15px;
-                font-weight: bold;
-                /* Padding-left auf 0, da wir mit AlignCenter arbeiten */
-                padding: 0; 
-                border-radius: 6px;
-            }}
-            """
+
+        # 1. WICHTIG: Sagt dem Label, es soll nur so breit wie der Text sein
+        controls_header.setSizePolicy(
+            QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
         )
-        
-        # Damit der 200px-Balken mittig in der Spalte sitzt:
-        controls_group_layout.addWidget(controls_header, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # 2. Textausrichtung innerhalb des Labels
+        controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        controls_header.setStyleSheet(
+            """
+        QLabel {
+            background-color: #3a6ea5;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+            padding-left: 15px;   /* Sorgt für Puffer links vom Text */
+            padding-right: 15px;  /* Sorgt für Puffer rechts vom Text */
+            border-radius: 6px;
+        }
+        """
+        )
+
+        # 3. WICHTIG: Linksbündig zum Layout hinzufügen, damit der kurze Balken nicht wandert
+        controls_group_layout.addWidget(
+            controls_header, alignment=Qt.AlignmentFlag.AlignLeft
+        )
 
         controls_row = QWidget()
         controls_layout = QHBoxLayout(controls_row)
@@ -4205,14 +4229,33 @@ class PatchManagerGUI(QWidget):
 
         self.lang_label = make_label(self.get_t("language_label", "Language:"))
         self.language_box = QComboBox()
-        self.language_box.addItems(["EN", "DE"])
+        self.language_box.addItems(["EN", "DE"])  # Index 0=EN, 1=DE
         self.language_box.setFixedSize(80, CONTROL_HEIGHT)
         self.language_box.setStyleSheet(control_style)
+
+        # Den Wert aus der Config laden
+        saved_lang = self.cfg.get("language", "de").lower()
+
+        # 4. Den passenden Index RICHTIG auswählen:
+        if saved_lang == "en":
+            self.language_box.setCurrentIndex(0)  # 0 ist EN
+        else:
+            self.language_box.setCurrentIndex(1)  # 1 ist DE
+
+        # WICHTIG: Den Connect erst NACH setCurrentIndex machen,
+        # damit beim Starten nicht sofort change_language ausgelöst wird!
         self.language_box.currentIndexChanged.connect(self.change_language)
 
         self.color_label = make_label(self.get_t("color_label", "Farbe:"))
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
+        saved_color = self.cfg.get("theme_color", "Classics") # oder "color", je nachdem was du jetzt nutzt
+        index = self.color_box.findText(saved_color)
+        if index >= 0:
+            self.color_box.setCurrentIndex(index)
+        else:
+            # Falls er nichts findet, nimm den ersten Eintrag
+            self.color_box.setCurrentIndex(0)
         self.color_box.setFixedSize(150, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
         self.color_box.currentIndexChanged.connect(self.change_colors)
@@ -4363,13 +4406,14 @@ class PatchManagerGUI(QWidget):
     def change_colors(self):
         global current_diff_colors, current_color_name
 
-        # Aktuelle Farbe aus ComboBox laden oder aus Config
-        current_color_name = (
-            self.color_box.currentText()
-            if hasattr(self, "color_box")
-            else self.cfg.get("color", "Classic")
-        )
-        base_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS["Classic"])
+        # 1. Aktuelle Farbe aus GUI ermitteln
+        if hasattr(self, "color_box"):
+            current_color_name = self.color_box.currentText()
+        else:
+            # Hier den gleichen Key nutzen wie beim Laden!
+            current_color_name = self.cfg.get("theme_color", "Classics")
+
+        base_colors = DIFF_COLORS.get(current_color_name, DIFF_COLORS.get("Classics"))
 
         # Hover / Active Farben ableiten
         bg = base_colors["bg"]
@@ -4382,8 +4426,15 @@ class PatchManagerGUI(QWidget):
         # UI-Farben anwenden
         self.repaint_ui_colors()
 
-        # Config aktualisieren (nur im Speicher, nicht neu laden)
-        self.cfg["color"] = current_color_name
+        # 2. Config aktualisieren (Nutze den Key "theme_color"!)
+        self.cfg["theme_color"] = current_color_name
+    
+        # 3. WICHTIG: Die Datei wirklich speichern!
+        if hasattr(self, "save_config"):
+            self.save_config()
+        elif "save_config" in globals():
+            save_config(self.cfg)
+
 
     def repaint_ui_colors(self):
         """Aktualisiert alle UI-Elemente basierend auf current_diff_colors."""
@@ -4584,37 +4635,40 @@ class PatchManagerGUI(QWidget):
 
     def change_language(self):
         """Wird aufgerufen, wenn die Dropdown-Box geändert wird."""
+        # Sicherheitscheck: Existiert die Box schon?
         if not hasattr(self, "language_box"):
             return
 
-        # 1. Sprache aus GUI ermitteln & setzen
-        selected = self.language_box.currentText().lower()
-        # Setzt self.LANG auf "de" oder "en"
-        self.LANG = "de" if "de" in selected else "en"
+        # 1. Sprache aus GUI ermitteln (Box enthält "EN" oder "DE")
+        selected = self.language_box.currentText().upper()
 
-        # 2. In Konfiguration speichern (für Neustart)
+        # self.LANG auf den internen Standard "en" oder "de" setzen
+        self.LANG = "en" if "EN" in selected else "de"
+
+        # 2. In Konfiguration speichern
         self.cfg["language"] = self.LANG
-        # Nutzt die globale save_config Funktion
-        if "save_config" in globals():
-            save_config(self.cfg)
-        elif hasattr(self, "save_config"):
-            self.save_config()
 
-        # 3. UI-Elemente und Anleitung (info_text) sofort übersetzen
-        # Hinweis: update_language überschreibt info_text mit der Anleitung
+        # Datei schreiben (beide Varianten abdecken)
+        if hasattr(self, "save_config"):
+            self.save_config()
+        elif "save_config" in globals():
+            save_config(self.cfg)
+
+        # 3. UI-Elemente und Anleitung übersetzen
+        # Da update_language() den info_text leert, ist Schritt 4 wichtig
         self.update_language()
 
-        # 4. Status-Meldungen in der neuen Sprache neu generieren
-        # Wir nutzen QTimer, damit die Meldungen sauber UNTER die Anleitung
-        # im info_text angehängt werden, nachdem update_language fertig ist.
+        # 4. Status-Meldungen verzögert neu generieren
+        # Wir nutzen QTimer, damit diese Meldungen IM Infoscreen
+        # ERSCHEINEN, nachdem die Anleitung (update_language) fertig ist.
 
-        # Plugin-Status prüfen (Version etc.)
+        # Plugin-Status (Nutzt deine neue run_command Logik ohne Terminal!)
         if hasattr(self, "check_for_plugin_update"):
-            QTimer.singleShot(500, self.check_for_plugin_update)
+            QTimer.singleShot(600, self.check_for_plugin_update)
 
-        # System-Tools prüfen (git, patch etc.)
+        # System-Tools (Logik landet jetzt auch im Infoscreen)
         if hasattr(self, "manual_tool_check"):
-            QTimer.singleShot(200, self.manual_tool_check)
+            QTimer.singleShot(300, self.manual_tool_check)
 
     # =====================
     # GITHUB EMU CREDENTIALS
@@ -4749,23 +4803,29 @@ class PatchManagerGUI(QWidget):
                 return  # Kein Ziel-Widget vorhanden
 
         lang = getattr(self, "LANG", "en").lower()
-    
+
         # Texte aus dem Translation-Dictionary (mit Fallback)
         txt_loading = TEXTS.get(lang, {}).get("loading_commits", "Lade Commits...")
-        txt_success = TEXTS.get(lang, {}).get("commits_loaded", "Commits erfolgreich geladen")
+        txt_success = TEXTS.get(lang, {}).get(
+            "commits_loaded", "Commits erfolgreich geladen"
+        )
 
         # --- Startmeldung ---
-        self.append_info(info_widget, txt_loading, "warning") # Orange/Gelb
+        self.append_info(info_widget, txt_loading, "warning")  # Orange/Gelb
 
         try:
             # Pfad-Check
             if not os.path.exists(TEMP_REPO):
-                self.append_info(info_widget, f"❌ Ordner nicht gefunden: {TEMP_REPO}", "error")
+                self.append_info(
+                    info_widget, f"❌ Ordner nicht gefunden: {TEMP_REPO}", "error"
+                )
                 return
 
             # Anzahl der Commits bestimmen
-            num_commits = self.commit_spin.value() if hasattr(self, "commit_spin") else 10
-        
+            num_commits = (
+                self.commit_spin.value() if hasattr(self, "commit_spin") else 10
+            )
+
             # Git-Befehl (vereinfacht, da wir cwd nutzen)
             cmd = f"git log -n {num_commits} --oneline"
 
@@ -4776,15 +4836,21 @@ class PatchManagerGUI(QWidget):
                 # Zeilen einzeln zum Widget hinzufügen
                 lines = output.splitlines()
                 for line in lines:
-                   self.append_info(info_widget, f"• {line}", "info")
-            
+                    self.append_info(info_widget, f"• {line}", "info")
+
                 # --- Erfolgsmeldung ---
-                self.append_info(info_widget, f"✅ {txt_success} ({len(lines)})", "success")
+                self.append_info(
+                    info_widget, f"✅ {txt_success} ({len(lines)})", "success"
+                )
             else:
-                self.append_info(info_widget, "⚠ Keine Commits gefunden oder Git-Fehler.", "warning")
+                self.append_info(
+                    info_widget, "⚠ Keine Commits gefunden oder Git-Fehler.", "warning"
+                )
 
         except Exception as e:
-            self.append_info(info_widget, f"❌ Schwerer Fehler beim Commit-Abruf: {str(e)}", "error")
+            self.append_info(
+                info_widget, f"❌ Schwerer Fehler beim Commit-Abruf: {str(e)}", "error"
+            )
 
         # Fortschrittsbalken aktualisieren (optional)
         if progress_callback:
@@ -4792,7 +4858,6 @@ class PatchManagerGUI(QWidget):
                 progress_callback(100)
             except:
                 pass
-
 
     # ===================== OSCam-EMU BUTTON WRAPPERS =====================
     def oscam_emu_git_patch(self, info_widget=None, progress_callback=None):
