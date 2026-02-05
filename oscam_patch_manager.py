@@ -79,7 +79,6 @@ except (ImportError, ModuleNotFoundError):
     class InvalidVersion(Exception):
         pass
 
-
 # ===================== ENV SETUP =====================
 # Git Fehler unterdrücken
 if platform.system() == "Windows":
@@ -90,7 +89,6 @@ else:
 # ===================== SCRIPT DIR =====================
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
 def ensure_executable_self():
     """Setzt Ausführungsrechte für das eigene Skript (Linux/Unix)."""
     try:
@@ -100,15 +98,12 @@ def ensure_executable_self():
     except Exception as e:
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
-
 # ===================== ZEIT =====================
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.4.5"
-
-
+APP_VERSION = "2.4.6"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -121,7 +116,6 @@ def get_best_patch_dir():
 
     os.makedirs(local_path, exist_ok=True)
     return local_path
-
 
 def get_initial_patch_dir():
     """Wählt den sichersten Backup-Ordner je nach OS."""
@@ -137,7 +131,6 @@ def get_initial_patch_dir():
 
     os.makedirs(path, exist_ok=True)
     return path
-
 
 OLD_PATCH_DIR = get_initial_patch_dir()
 OLD_PATCH_DIR_PLUGIN_DEFAULT = OLD_PATCH_DIR
@@ -172,7 +165,6 @@ for d in [TEMP_REPO, PATCH_EMU_GIT_DIR, OLD_PATCH_DIR]:
 
 from PyQt6.QtWidgets import QLayout, QSizePolicy, QWidgetItem
 from PyQt6.QtCore import QRect, QSize, Qt, QPoint
-
 
 class FlowLayout(QLayout):
     def __init__(self, parent=None, margin=0, spacing=5):
@@ -247,7 +239,6 @@ class FlowLayout(QLayout):
 
         return y + line_height - rect.y()
 
-
 def ensure_dir(directory):
     """Erstellt das Verzeichnis, falls es noch nicht existiert."""
     if not os.path.exists(directory):
@@ -255,7 +246,6 @@ def ensure_dir(directory):
             os.makedirs(directory, exist_ok=True)
         except Exception as e:
             print(f"[ERROR] Konnte Verzeichnis {directory} nicht erstellen: {e}")
-
 
 class StreamToGui:
     """Leitet stdout/stderr an einen Slot (Funktion) weiter."""
@@ -269,7 +259,6 @@ class StreamToGui:
 
     def flush(self):
         pass  # Notwendig für die Kompatibilität
-
 
 # ===================== NEVER_DELETE =====================
 NEVER_DELETE = [
@@ -652,7 +641,6 @@ DIFF_COLORS = {
 current_diff_colors = DIFF_COLORS["Classics"]
 current_color_name = "Classics"
 
-
 def fill_missing_keys(texts):
     """
     Prüft, ob alle Keys aus 'en' auch in 'de' existieren.
@@ -666,7 +654,6 @@ def fill_missing_keys(texts):
             de_keys[key] = value  # Englische Version als Platzhalter
 
     texts["de"] = de_keys
-
 
 # ===================== LANGUAGE =====================
 LANG = "de"
@@ -1095,7 +1082,6 @@ for key, value in TEXTS["en"].items():
 # 4️⃣ **Unbedingt einmalig vor GUI-Start aufrufen**
 fill_missing_keys(TEXTS)
 
-
 def save_config(cfg):
     """
     Speichert die übergebene Config in CONFIG_FILE.
@@ -1114,7 +1100,6 @@ def save_config(cfg):
 
     except Exception as e:
         print(f"❌ Fehler beim Speichern der Config: {e}")
-
 
 # ===================== CONFIG =====================
 def load_config():
@@ -1154,7 +1139,6 @@ def load_config():
         # Fehler beim Laden, Standard zurückgeben
         print(f"⚠️ Config konnte nicht geladen werden: {e}")
         return default_cfg.copy()
-
 
 # ===================== INFOSCREEN =====================
 def github_upload_patch_file(
@@ -1313,12 +1297,10 @@ def github_upload_patch_file(
     # 7. Cleanup
     shutil.rmtree(temp_repo, ignore_errors=True)
 
-
 from datetime import datetime, timezone
 import subprocess
 import os
 import shutil  # wird unten benötigt
-
 
 def get_patch_header(repo_dir=None, lang=LANG):
     """
@@ -1378,11 +1360,9 @@ def get_patch_header(repo_dir=None, lang=LANG):
 
     return header
 
-
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 import os, subprocess, shutil
-
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1523,7 +1503,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
     set_progress(100)
 
-
 def log(text, level="info"):
     colors = {
         "success": "green",
@@ -1540,12 +1519,10 @@ def log(text, level="info"):
     else:
         print(f"[{level.upper()}] {text}")
 
-
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os, re
-
 
 def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback=None):
     """
@@ -1652,12 +1629,10 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     # Fertig
     set_progress(100)
 
-
 # ===================== CLEAN PATCH FOLDER =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1769,10 +1744,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     log("clean_done", "success")
     set_progress(100)
 
-
 # ===================== ICONS =====================
 ICON_SIZE = 64
-
 
 def create_icons():
     """
@@ -1809,12 +1782,10 @@ def create_icons():
         file_name = os.path.join(ICON_DIR, f"{key}.png")
         img.save(file_name)
 
-
 def get_icon_for(name):
     safe_name = name.replace(" ", "_").replace("/", "_").replace("\\", "_")
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
-
 
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
@@ -1915,7 +1886,6 @@ def clean_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
 
     set_progress(100)
     log("clean_done", "success")
-
 
 # ===================== patch_oscam_emu_git=====================
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
@@ -2079,7 +2049,6 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     QTimer.singleShot(100, final_logs)
     set_progress(100)
 
-
 def load_github_config():
     if os.path.exists(GITHUB_CONF_FILE):
         try:
@@ -2103,7 +2072,6 @@ def save_github_config(cfg):
         json.dump(cfg, open(GITHUB_CONF_FILE, "w"))
     except:
         pass
-
 
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
@@ -2182,7 +2150,6 @@ def _github_upload(
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
-
 
 def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     """
@@ -2274,7 +2241,6 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     except Exception as e:
         log(f"run_bash error: {e}", "error")
         return -1
-
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -2462,7 +2428,6 @@ def github_upload_oscam_emu_folder(
         log(f"Kritischer Fehler: {str(e)}", "error")
         set_progress(0)
 
-
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -2559,7 +2524,6 @@ class GithubConfigDialog(QDialog):
 
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QThread, pyqtSignal
 
-
 class TaskWorker(QThread):
     progress = pyqtSignal(int)
     info = pyqtSignal(str, str)
@@ -2582,12 +2546,10 @@ class TaskWorker(QThread):
             self.info.emit(f"Fehler: {str(e)}", "error")
             self.progress.emit(100)
 
-
 # =====================
 # PATCH MANAGER GUI
 # =====================
 from PyQt6.QtGui import QColor
-
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
@@ -2725,7 +2687,7 @@ class PatchManagerGUI(QWidget):
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
 
     def show_info(self):
-        """Zeigt das Info-Fenster mit Credits."""
+        """Zeigt das Info-Fenster mit spezifischen Farben für Status-Texte."""
         lang = str(getattr(self, "LANG", "de")).lower()
         t = TEXTS.get(lang, TEXTS.get("en", {}))
 
@@ -2733,22 +2695,32 @@ class PatchManagerGUI(QWidget):
         info_dialog.setWindowTitle(t.get("info_title", "About OSCam Emu Toolkit"))
         info_dialog.setFixedSize(450, 320)
 
+        # Farben aus dem aktuellen Theme laden
+        global current_diff_colors
+        bg_color = current_diff_colors.get("bg", "#FFFFFF")
+        text_color = current_diff_colors.get("text", "#000000")
+        border_col = current_diff_colors.get("border", "#888888")
+
+        info_dialog.setStyleSheet(f"background-color: {bg_color};")
+
         layout = QVBoxLayout(info_dialog)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
 
+        # Header
         header_layout = QHBoxLayout()
         icon_label = QLabel()
-        icon = self.style().standardIcon(
-            QApplication.style().StandardPixmap.SP_MessageBoxInformation
-        )
+        icon = self.style().standardIcon(QApplication.style().StandardPixmap.SP_MessageBoxInformation)
         icon_label.setPixmap(icon.pixmap(64, 64))
 
         title_vbox = QVBoxLayout()
+        # TITEL in BLAU (Information)
         title_label = QLabel("OSCam Emu Patch Manager")
         title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title_label.setStyleSheet("color: #0000FF;") # Blau
+
         version_label = QLabel(f"Version {APP_VERSION}")
-        version_label.setStyleSheet("color: #666;")
+        version_label.setStyleSheet("color: #666666;") 
 
         title_vbox.addWidget(title_label)
         title_vbox.addWidget(version_label)
@@ -2757,23 +2729,48 @@ class PatchManagerGUI(QWidget):
         header_layout.addStretch()
         layout.addLayout(header_layout)
 
+        # Credits GroupBox
         credits_group = QGroupBox(t.get("credits_label", "Credits / Authors"))
+        credits_group.setStyleSheet(f"QGroupBox {{ color: {text_color}; border: 1px solid {border_col}; margin-top: 10px; font-weight: bold; }}")
         credits_layout = QFormLayout(credits_group)
-        credits_layout.addRow("Main Author:", QLabel("<b>speedy005</b>"))
-        credits_layout.addRow("Emu Patch:", QLabel("OSCam-Emu Team"))
-        credits_layout.addRow("License:", QLabel("MIT License"))
+
+        # AUTOR in GRÜN (Erfolg/Ersteller)
+        author_val = QLabel("<b>speedy005</b>")
+        author_val.setStyleSheet("color: #008000;") # Grün
+        
+        # PATCH in BLAU
+        emu_val = QLabel("OSCam-Emu Team")
+        emu_val.setStyleSheet("color: #0000FF;") # Blau
+
+        # LIZENZ in ROT (Wichtige Einschränkung)
+        lic_val = QLabel("MIT License")
+        lic_val.setStyleSheet("color: #FF0000;") # Rot
+
+        credits_layout.addRow(QLabel("Main Author:"), author_val)
+        credits_layout.addRow(QLabel("Emu Patch:"), emu_val)
+        credits_layout.addRow(QLabel("License:"), lic_val)
         layout.addWidget(credits_group)
 
+        # Copyright
         copy_label = QLabel(f"© 2026 speedy005 - All rights reserved.")
         copy_label.setFont(QFont("Arial", 8))
         copy_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        copy_label.setStyleSheet(f"color: {text_color};")
         layout.addWidget(copy_label)
 
+        # Schließen Button
         close_btn = QPushButton(t.get("close", "Close"))
         close_btn.setFixedHeight(35)
-        close_btn.setStyleSheet(
-            f"border-radius: {self.BUTTON_RADIUS}px; background-color: #f0f0f0; font-weight: bold;"
-        )
+        # Button Text in BLAU
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                border-radius: {self.BUTTON_RADIUS}px;
+                background-color: {current_diff_colors.get('active', '#e0e0e0')};
+                color: #0000FF; 
+                font-weight: bold;
+                border: 1px solid {border_col};
+            }}
+        """)
         close_btn.clicked.connect(info_dialog.accept)
         layout.addWidget(close_btn)
 
@@ -5573,7 +5570,6 @@ class PatchManagerGUI(QWidget):
                     print(f"[WARN] Config save failed: {e}")
 
             QApplication.quit()
-
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
