@@ -106,7 +106,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.4.7"
+APP_VERSION = "2.4.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -2802,38 +2802,51 @@ class PatchManagerGUI(QWidget):
 
         # Aktuellen Wert holen
         current_repo = getattr(self, "EMUREPO", "https://github.com")
+        lang = getattr(self, "LANG", "de")
 
-        title = "Repo URL" if getattr(self, "LANG", "de") == "en" else "Repo URL ändern"
-        label = (
-            "Neue Emu-Repository URL:"
-            if getattr(self, "LANG", "de") == "de"
-            else "New Emu-Repository URL:"
-        )
+        # Texte festlegen
+        title = "Repo URL ändern" if lang == "de" else "Change Repo URL"
+        label = "Neue Emu-Repository URL:" if lang == "de" else "New Emu-Repository URL:"
 
-        new_url, ok = QInputDialog.getText(
-            self, title, label, QLineEdit.EchoMode.Normal, current_repo
-        )
+        # --- FIX: Dialog-Objekt erstellen für deutsche Buttons ---
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.setLabelText(label)
+        dialog.setTextValue(current_repo)
+        dialog.setTextEchoMode(QLineEdit.EchoMode.Normal)
+        
+        # Buttons je nach Sprache erzwingen
+        if lang == "de":
+            dialog.setOkButtonText("OK")
+            dialog.setCancelButtonText("Abbrechen")
+        else:
+            dialog.setOkButtonText("OK")
+            dialog.setCancelButtonText("Cancel")
 
-        if ok and new_url:
-            self.EMUREPO = new_url.strip()
+        if dialog.exec():
+            new_url = dialog.textValue().strip()
+            if new_url:
+                self.EMUREPO = new_url
 
-            # --- Speichern in der Config ---
-            config_path = "config.json"  # Passe den Pfad an deine Struktur an
-            config_data = {}
+                # --- Speichern in der Config ---
+                config_path = "config.json"
+                config_data = {}
 
-            if os.path.exists(config_path):
-                with open(config_path, "r", encoding="utf-8") as f:
-                    try:
-                        config_data = json.load(f)
-                    except:
-                        pass
+                if os.path.exists(config_path):
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        try:
+                            config_data = json.load(f)
+                        except:
+                            pass
 
-            config_data["EMUREPO"] = self.EMUREPO
+                config_data["EMUREPO"] = self.EMUREPO
 
-            with open(config_path, "w", encoding="utf-8") as f:
-                json.dump(config_data, f, indent=4)
+                with open(config_path, "w", encoding="utf-8") as f:
+                    json.dump(config_data, f, indent=4)
 
-            self.info_text.append(f"💾 Repo gespeichert: {self.EMUREPO}")
+                # Rückmeldung im Info-Text
+                success_msg = f"💾 Repo gespeichert: {self.EMUREPO}" if lang == "de" else f"💾 Repo saved: {self.EMUREPO}"
+                self.append_info(self.info_text, success_msg, "success")
 
     def change_modifier_name(self):
         """Öffnet Dialog, speichert den Namen permanent und aktualisiert das UI."""
