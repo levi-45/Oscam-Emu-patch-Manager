@@ -4958,39 +4958,16 @@ class PatchManagerGUI(QWidget):
                 )
 
     def repaint_ui_colors(self):
-        """Aktualisiert ALLE GUI-Elemente basierend auf current_diff_colors."""
+        """Aktualisiert ALLE GUI-Elemente basierend auf dem gewählten Farbschema."""
         global current_diff_colors
 
-        # Farben und Schriftgröße zentral definieren
+        # Farben zentral definieren
         text_color = current_diff_colors.get("fg", "#FFFFFF")
         bg_color = current_diff_colors["bg"]
         hover_color = current_diff_colors.get("hover", bg_color)
         active_color = current_diff_colors.get("active", bg_color)
 
-        # 1. Gemeinsames Design für Labels, Boxen und Pfadanzeige
-        common_style = f"""
-            background-color: {bg_color}; 
-            color: {text_color}; 
-            border-radius: 4px;
-            padding: 2px;
-            font-weight: bold;
-        """
-
-        widgets_to_paint = [
-            getattr(self, "lang_label", None),
-            getattr(self, "color_label", None),
-            getattr(self, "language_box", None),
-            getattr(self, "color_box", None),
-            getattr(self, "commit_label", None),
-            getattr(self, "commit_spin", None),
-            getattr(self, "label_patch_path", None),
-        ]
-
-        for w in widgets_to_paint:
-            if w:
-                w.setStyleSheet(common_style)
-
-        # 2. MEGA BUTTON STYLE (Für ALLE Buttons im Tool)
+        # 1. Standard Button Style (identisch für alle)
         button_style = f"""
             QPushButton {{
                 background-color: {bg_color};
@@ -4999,6 +4976,7 @@ class PatchManagerGUI(QWidget):
                 font-weight: bold;
                 padding: 6px;
                 font-size: 13px;
+                border: None;
             }}
             QPushButton:hover {{
                 background-color: {hover_color};
@@ -5009,7 +4987,7 @@ class PatchManagerGUI(QWidget):
             }}
         """
 
-        # A) Manuelle Liste der Funktions-Buttons
+        # A) Liste der Funktions-Buttons (JETZT MIT MODIFIER & REPO URL)
         main_buttons = [
             "edit_header_button",
             "commits_button",
@@ -5019,62 +4997,49 @@ class PatchManagerGUI(QWidget):
             "plugin_update_button",
             "restart_tool_button",
             "btn_check_tools",
+            "btn_modifier",    # Hinzugefügt
+            "btn_repo_url"     # Hinzugefügt
         ]
 
         for btn_name in main_buttons:
             btn = getattr(self, btn_name, None)
             if btn:
+                # Eventuelle Neon-Effekte entfernen, falls vorhanden
+                btn.setGraphicsEffect(None) 
                 btn.setStyleSheet(button_style)
 
-        # B) ALLE dynamischen Buttons aus dem Grid (self.buttons)
+        # B) Grid Buttons & Options Leiste ebenfalls aktualisieren
         if hasattr(self, "buttons"):
             for btn in self.buttons.values():
                 btn.setStyleSheet(button_style)
 
-        # C) ALLE Buttons aus der Options-Leiste
         if hasattr(self, "option_buttons"):
             for val in self.option_buttons.values():
                 if isinstance(val, (list, tuple)):
                     val[0].setStyleSheet(button_style)
 
-        # 3. INFOSCREEN (Immer Schwarz, Schrift GROSS)
-        if hasattr(self, "info_text") and self.info_text:
-            self.info_text.setStyleSheet(
-                f"""
-                QTextEdit {{
-                    background-color: #000000;
-                    color: {text_color};
-                    border: 1px solid {hover_color};
-                    border-radius: 8px;
-                    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-                    font-size: 26px;  /* Vergrößerte Schrift */
-                    padding: 10px;
-                    line-height: 1.2;
+        # 2. Progressbar ebenfalls ans Farbschema anpassen (ohne Neon)
+        if hasattr(self, "progress_bar"):
+            self.progress_bar.setGraphicsEffect(None)
+            self.progress_bar.setStyleSheet(f"""
+                QProgressBar {{
+                    border: 1px solid {bg_color};
+                    border-radius: 7px;
+                    background-color: #1a1a1a;
+                    text-align: center;
+                    color: white;
                 }}
-            """
-            )
+                QProgressBar::chunk {{
+                    background-color: {bg_color};
+                }}
+            """)
 
-            # Scrollbar passend dazu
-            scrollbar_style = f"""
-                QScrollBar:vertical {{ border: none; background: #000000; width: 12px; }}
-                QScrollBar::handle:vertical {{ background: {hover_color}; border-radius: 6px; }}
-            """
-            self.info_text.verticalScrollBar().setStyleSheet(scrollbar_style)
-
-        # 4. Header-Balken (Einstellungen)
+        # 3. Header & Hauptfenster (wie im Original)
         if hasattr(self, "controls_header") and self.controls_header:
             self.controls_header.setStyleSheet(
-                f"""
-                background-color: {bg_color};
-                color: {text_color};
-                font-weight: bold;
-                border-radius: 6px;
-                padding-left: 10px;
-                border-bottom: 2px solid {hover_color};
-            """
+                f"background-color: {bg_color}; color: {text_color}; font-weight: bold; border-radius: 6px; padding-left: 10px;"
             )
-
-        # 5. HAUPTFENSTER (Immer Schwarz)
+        
         self.setStyleSheet("background-color: #000000;")
         self.repaint()
 
