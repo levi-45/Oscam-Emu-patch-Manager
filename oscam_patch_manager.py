@@ -4358,20 +4358,20 @@ class PatchManagerGUI(QWidget):
         # 1. Label erstellen und an self binden (WICHTIG für Übersetzung!)
         translated_text = self.get_t("settings_header", "Einstellungen")
         self.controls_header = QLabel(translated_text)
-
-        # 2. Dimensionen und Verhalten
+        
+        # 2. Dimensionen und Layout-Verhalten
+        self.controls_header.setMinimumWidth(180) 
         self.controls_header.setFixedHeight(28)
-
-        # Sagt dem Label, es soll nur so breit wie der Text sein
-        self.controls_header.setSizePolicy(
-            QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
-        )
-
-        # Textausrichtung innerhalb des blauen/farbigen Balkens
+        
+        # Text innerhalb des farbigen Balkens zentrieren
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # 3. Stylesheet (Hier nutzen wir bg_color und text_color aus deinem Theme)
-        # Falls repaint_ui_colors noch nicht gelaufen ist, nutzen wir Fallbacks
+        # Sorgt dafür, dass die Mindestbreite von 180px respektiert wird
+        self.controls_header.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
+
+        # 3. Stylesheet (Nutzt bg_color und text_color aus dem Theme)
         bg = current_diff_colors.get("bg", "#3a6ea5")
         fg = current_diff_colors.get("fg", "#FFFFFF")
 
@@ -4386,14 +4386,15 @@ class PatchManagerGUI(QWidget):
                 padding-right: 15px;
                 border-radius: 6px;
             }}
-        """
+            """
         )
 
-        # 4. Linksbündig zum Layout hinzufügen (der Balken ist kurz, sitzt aber links)
+        # 4. Zum Layout hinzufügen (Balken sitzt links in der Gruppe)
         controls_group_layout.addWidget(
             self.controls_header, alignment=Qt.AlignmentFlag.AlignLeft
         )
 
+        # --- Nachfolgende Controls ---
         controls_row = QWidget()
         controls_layout = QHBoxLayout(controls_row)
         controls_layout.setContentsMargins(5, 5, 5, 5)
@@ -4406,8 +4407,11 @@ class PatchManagerGUI(QWidget):
             border-radius: {self.BUTTON_RADIUS}px;
             border: 1px solid #ccc;
             padding: 4px 8px;
+            height: {CONTROL_HEIGHT}px;
         }}
         """
+
+
 
         def make_label(text):
             lbl = QLabel(text)
@@ -4448,7 +4452,7 @@ class PatchManagerGUI(QWidget):
         else:
             # Falls er nichts findet, nimm den ersten Eintrag
             self.color_box.setCurrentIndex(0)
-        self.color_box.setFixedSize(150, CONTROL_HEIGHT)
+        self.color_box.setFixedSize(160, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
         self.color_box.currentIndexChanged.connect(self.change_colors)
 
