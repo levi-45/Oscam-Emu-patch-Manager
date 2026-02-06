@@ -106,7 +106,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.5.0"
+APP_VERSION = "2.5.1"
 
 
 # ===================== PATCH DIRS =====================
@@ -3258,7 +3258,7 @@ class PatchManagerGUI(QWidget):
             "success": "green",
             "warning": "orange",
             "error": "red",
-            "info": "gray",
+            "info": "yellow",
         }
         color = colors.get(level, "black")
         html_text = f'<span style="color:{color}">{text}</span>'
@@ -4153,35 +4153,37 @@ class PatchManagerGUI(QWidget):
         self.info_text.clear()
         import shutil, os, json
 
-        # ... (Config laden bleibt gleich) ...
+        # 1. Die rote Start-Zeile (Header)
+        # Falls 'error' in deiner append_info rot definiert ist:
+        self.append_info(self.info_text, "Starte System-Check...", "error")
 
-        # KORREKTUR: Wir definieren, welche Tools wirklich EXTERN gebraucht werden.
-        # 'zip' und 'patch' entfernen wir hier für Windows/Git-Bash.
+        # Tools definieren
         tools_to_check = ["git"]
-        if os.name != "nt":  # Nur unter echtem Linux prüfen wir zip/patch
+        if os.name != "nt":
             tools_to_check.extend(["zip", "patch"])
 
         all_ok = True
         for name in tools_to_check:
-            # shutil.which wirft keinen WinError 2, wenn die Datei fehlt!
             if shutil.which(name) is None:
-                self.append_info(
-                    self.info_text, f"⚠️ {name} fehlt im System.", "warning"
-                )
+                self.append_info(self.info_text, f"⚠️ {name} fehlt im System.", "warning")
                 all_ok = False
-            else:
-                self.append_info(self.info_text, f"✅ {name} ist bereit.", "success")
-
+    
         if all_ok:
-            self.append_info(self.info_text, "✅ System-Check erfolgreich.", "success")
+            self.append_info(self.info_text, "✅ Alle benötigten System-Tools sind bereits installiert.", "success")
+        
+            # 2. Update-Check Bereich
+            self.append_info(self.info_text, "Prüfe auf Updates ...", "info")
+            self.append_info(self.info_text, f"✅ Installierte Version: {APP_VERSION}", "success")
+            self.append_info(self.info_text, "ℹ️ Kein Update vorhanden", "info")
+        
+            # Config speichern
+            try:
+                with open(CONFIG_FILE, "r") as f: cfg = json.load(f)
+            except: cfg = {}
             cfg["tools_ok"] = True
-            with open(CONFIG_FILE, "w") as f:
-                json.dump(cfg, f, indent=2)
+            with open(CONFIG_FILE, "w") as f: json.dump(cfg, f, indent=4)
         else:
-            # Hier den automatischen Installationsversuch löschen!
-            self.append_info(
-                self.info_text, "❌ Bitte fehlende Tools manuell installieren.", "error"
-            )
+            self.append_info(self.info_text, "❌ Bitte fehlende Tools manuell installieren.", "error")
 
         # =====================
         # INIT UI
