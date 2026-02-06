@@ -106,7 +106,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.4.9"
+APP_VERSION = "2.5.0"
 
 
 # ===================== PATCH DIRS =====================
@@ -689,6 +689,8 @@ TEXTS = {
         "log_update_declined": "Update übersprungen",
         "log_update_failed": "❌ Update-Prüfung fehlgeschlagen: {error}",
         "msg_update_available_title": "Update verfügbar",
+        "update_done": "✅ Update auf Version {version} erfolgreich abgeschlossen.",
+        "update_backup_done": "✅ Backup der alten Plugin-Dateien erstellt.",
         "msg_update_available_text": "Eine neue Version ({latest}) ist verfügbar.\nAktuell installiert: {current}.\nJetzt updaten?",
         # Option Buttons
         "git_status": "Commits anzeigen",
