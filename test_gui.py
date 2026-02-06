@@ -1028,7 +1028,7 @@ TEXTS = {
         "temp_patch_git_already_deleted": "Patch-Git-Ordner war bereits gelöscht oder nicht vorhanden.",
         "patch_file_deleted": "Patch-Datei wurde erfolgreich entfernt: {path}",
         "patch_file_already_deleted": "Keine Patch-Datei zum Löschen gefunden: {path}",
-        "clean_done": "Bereinigung des Arbeitsverzeichnisses erfolgreich abgeschlossen! ✨",
+        "clean_done": "Bereinigung des Patch Temp Ordners erfolgreich abgeschlossen! ✨",
         "oscam_emu_git_missing": "⚠️ Ordner nicht gefunden: {path}",
         "temp_repo_deleted": "Temporäres Repository erfolgreich gelöscht: {path}",
         "oscam_emu_git_patch_start": "🔹 OSCam-Emu Git Patch wird erstellt...",
@@ -1093,17 +1093,16 @@ def save_config(cfg):
     """
     Speichert die übergebene Config in CONFIG_FILE.
     """
-
     try:
-        # Falls CONFIG_FILE in einem Unterordner liegt → sicherstellen, dass er existiert
         config_dir = os.path.dirname(CONFIG_FILE)
-        if config_dir:
+        if config_dir and not os.path.exists(config_dir):
             os.makedirs(config_dir, exist_ok=True)
 
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2, ensure_ascii=False)
+            # indent=4 macht die JSON Datei für Menschen lesbarer
+            json.dump(cfg, f, indent=4, ensure_ascii=False)
 
-        print("✅ Config erfolgreich gespeichert.")
+        print(f"✅ Config erfolgreich gespeichert: {cfg.get('patch_modifier', 'default')}")
 
     except Exception as e:
         print(f"❌ Fehler beim Speichern der Config: {e}")
@@ -1309,65 +1308,61 @@ import subprocess
 import os
 import shutil  # wird unten benötigt
 
-def get_patch_header(repo_dir=None, lang=None, modifier=None):
+def get_patch_header(repo_dir=None, lang="de", modifier=None):
     """
-    Erzeugt den Patch-Header mit Versions-Info aus globals.h,
-    Git-Commit und dem dynamischen Modifier-Namen.
+    Erzeugt den Patch-Header im exakten Format untereinander:
+    1. patch version: ...
+    2. patch date: ...
+    3. patch modified by: ...
     """
+    import os, subprocess, re
+    from datetime import datetime, timezone
+
     if repo_dir is None:
         repo_dir = TEMP_REPO
-    
-    # Sprache und Modifier sicherstellen (Fallbacks)
-    lang = lang or "de"
-    # Priorität: 1. Argument, 2. Globale Konstante
+
+    # 1. Namen und Sprache sicherstellen
     active_modifier = modifier or PATCH_MODIFIER
+    lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
 
     # Standardwerte
-    version = "2.26.01"
-    build = "0"
-    commit = "N/A"
+    version, build, emu_rev, commit = "2.26.01", "11938", "802", "N/A"
 
-    # 1. globals.h auslesen für Version und Build
+    # 2. Daten extrahieren
     globals_path = os.path.join(repo_dir, "globals.h")
     if os.path.exists(globals_path):
         try:
             with open(globals_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("#define CS_VERSION"):
-                        parts = line.strip().split('"')
-                        if len(parts) >= 2:
-                            version_build = parts[1].split("-")
-                            version = version_build[0]
-                            build = version_build[1] if len(version_build) > 1 else "0"
-        except Exception:
-            pass
+                content = f.read()
+                v_match = re.search(r'#define CS_VERSION\s+"([^"]+)"', content)
+                if v_match:
+                    v_parts = v_match.group(1).split('-')
+                    version = v_parts[0]
+                    build = v_parts[1] if len(v_parts) > 1 else build
+        except: pass
 
-    # 2. Aktuellen Git-Commit ermitteln
-    git_dir = os.path.join(repo_dir, ".git")
-    if os.path.exists(git_dir):
-        try:
-            commit = subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=repo_dir, text=True
-            ).strip()
-        except Exception:
-            commit = "N/A"
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=repo_dir, text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except: pass
 
-    # 3. Zeitstempel generieren
-    modified_date = datetime.now().strftime("%d/%m/%Y")
+    # 3. Zeitstempel
+    mod_date_str = datetime.now().strftime("%d/%m/%Y")
     patch_date_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC (+00:00)")
 
-    # 4. Header zusammenbauen (mit Sprachanpassung aus TEXTS)
-    lang_dict = TEXTS.get(lang, TEXTS.get("de", {}))
-    
+    # 4. Labels übersetzen
     label_version = lang_dict.get('patch_version_header', 'patch version')
-    label_modified = lang_dict.get('patch_modified_by', 'patch modified by')
     label_date = lang_dict.get('patch_date', 'patch date')
+    label_modified = lang_dict.get('patch_modified_by', 'patch modified by')
 
+    # 5. Finaler String-Zusammenbau in DREI Zeilen (mit \n)
+    # WICHTIG: Das \n nach dem Datum erzwingt die neue Zeile für den Modifier
     header = (
-        f"{label_version}: oscam-emu-patch {version}-{build}-({commit})\n"
-        f"{label_modified} {active_modifier} ({modified_date})\n"
-        f"{label_date}: {patch_date_utc}"
+        f"{label_version}: {version}-{build}-{emu_rev} ({commit})\n"
+        f"{label_date}: {patch_date_utc}\n"
+        f"{label_modified} {active_modifier} ({mod_date_str})"
     )
 
     return header
@@ -1378,12 +1373,14 @@ import os, subprocess, shutil
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
-    Erstellt den Patch im TEMP_REPO mit dynamischem Modifier und Fortschrittsanzeige.
+    Erstellt den Patch im TEMP_REPO mit dem exakten 3-Zeilen-Header:
+    1. patch version
+    2. patch date
+    3. patch modified by
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
     import subprocess, os, shutil
-    from datetime import datetime
 
     # 1. Widget & Sprache & Modifier sicherstellen
     widget = info_widget
@@ -1391,14 +1388,12 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         widget = getattr(gui_instance, "info_text", None)
 
     lang = str(getattr(gui_instance, "LANG", "de")).lower()[:2]
-    # Holt den Namen vom neuen Button-Dialog, Fallback auf globale Konstante
+    # Dynamischer Name vom Button (errich, speedy005, etc.)
     active_modifier = getattr(gui_instance, "patch_modifier", PATCH_MODIFIER)
 
     def log(text_key, level="info", **kwargs):
-        # Zweistufiger Fallback für TEXTS: Sprache -> Englisch -> Key-Name
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
         text_template = lang_dict.get(text_key, TEXTS.get("en", {}).get(text_key, text_key))
-        
         try:
             text = text_template.format(**kwargs)
         except:
@@ -1426,7 +1421,7 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
     git_dir = os.path.join(TEMP_REPO, ".git")
 
-    # Validierung Repo
+    # Repository Validierung
     if os.path.exists(TEMP_REPO) and not os.path.exists(git_dir):
         log("patch_create_clone_start", "warning")
         try:
@@ -1436,30 +1431,30 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             log("delete_failed", "error", path=TEMP_REPO)
 
     try:
-        # 3. Git Clone & Remotes
+        # 2. Git Synchronisierung
         if not os.path.exists(git_dir):
             set_progress(20)
             subprocess.run(f"git clone {STREAMREPO} .", shell=True, cwd=TEMP_REPO, capture_output=True)
 
+        # Remotes für Emu hinzufügen
         subprocess.run(["git", "remote", "add", "emu-repo", EMUREPO], cwd=TEMP_REPO, capture_output=True)
 
         set_progress(40)
-        # Git Sync
+        # Repository auf aktuellen Stand bringen
         for cmd in ["git fetch --all", "git checkout -B master origin/master", "git reset --hard origin/master"]:
             subprocess.run(cmd, shell=True, cwd=TEMP_REPO, capture_output=True)
 
         set_progress(70)
 
-        # 4. Dynamischen Header erstellen
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        header = (
-            f"### OSCam-Emu Patch ###\n"
-            f"### Created: {timestamp} ###\n"
-            f"### Modified by: {active_modifier} ###\n"
-            f"### Version: {APP_VERSION} ###\n"
+        # 3. HEADER GENERIEREN (3 Zeilen untereinander)
+        # WICHTIG: Ruft die Funktion auf, die die Zeilenumbrüche (\n) setzt
+        header = get_patch_header(
+            repo_dir=TEMP_REPO, 
+            lang=lang, 
+            modifier=active_modifier
         )
 
-        # 5. Diff generieren
+        # 4. DIFF GENERIEREN
         diff = subprocess.check_output(
             ["git", "diff", "origin/master..emu-repo/master", "--", ".", ":!.github"],
             cwd=TEMP_REPO, text=True
@@ -1469,13 +1464,13 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             log("patch_create_no_changes", "warning")
             diff = "# No changes detected"
 
-        # Patch-Datei schreiben
+        # 5. DATEI SCHREIBEN
+        # Wir schreiben den Header (der bereits \n enthält) und den Diff
         with open(PATCH_FILE, "w", encoding="utf-8") as f:
             f.write(header + "\n" + diff + "\n")
 
         set_progress(90)
         log("patch_create_success", "success", patch_file=PATCH_FILE)
-        log("patch_version_from_header", "success", patch_version=f"Modifier: {active_modifier}")
 
     except Exception as e:
         log("patch_create_failed", "error", error=str(e))
@@ -1483,22 +1478,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         return
 
     set_progress(100)
-
-def log(text, level="info"):
-    colors = {
-        "success": "green",
-        "warning": "orange",
-        "error": "red",
-        "info": "gray",
-    }
-    color = colors.get(level, "gray")
-
-    if widget is not None and isinstance(widget, QTextEdit):
-        widget.append(f'<span style="color:{color}">{text}</span>')
-        widget.moveCursor(QTextCursor.End)
-        QApplication.processEvents()
-    else:
-        print(f"[{level.upper()}] {text}")
 
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -2534,16 +2513,18 @@ from PyQt6.QtGui import QColor
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
-        self.is_loading = True
+        # 1. STATUS INITIALISIEREN
+        self.is_loading = True  # Verhindert ungewollte Event-Trigger während des Setups
         super().__init__()
 
-        # --- 1. INFOSCREEN & REDIRECTOR ---
+        # --- 2. INFOSCREEN & REDIRECTOR ---
+        # Das Widget muss existieren, bevor sys.stdout umgeleitet wird
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
 
         import sys
-
         try:
+            # Versuche Terminal-Output in das GUI-Textfeld umzuleiten
             sys.stdout = TerminalRedirector(
                 lambda msg: self.append_info(self.info_text, msg, "info")
             )
@@ -2551,6 +2532,7 @@ class PatchManagerGUI(QWidget):
                 lambda msg: self.append_info(self.info_text, msg, "error")
             )
         except NameError:
+            # Fallback auf StreamToGui falls TerminalRedirector nicht definiert ist
             sys.stdout = StreamToGui(
                 lambda msg: self.append_info(self.info_text, msg, "info")
             )
@@ -2558,37 +2540,42 @@ class PatchManagerGUI(QWidget):
                 lambda msg: self.append_info(self.info_text, msg, "error")
             )
 
-        # --- 2. DATEN LADEN & BASIS-LOGIK ---
+        # --- 3. KONFIGURATION LADEN ---
         self.cfg = load_config()
 
-        # Sprache setzen
+        # Sprache setzen (de/en)
         stored_lang = str(self.cfg.get("language", "de")).lower()
         self.LANG = stored_lang if stored_lang in ["en", "de"] else "de"
 
-        # Pfade & Variablen (Wichtig für init_ui)
+        # NEU: Patch-Modifier (Signatur) aus Config laden
+        # Priorität: 1. config.json, 2. Globale Variable PATCH_MODIFIER
+        self.patch_modifier = self.cfg.get("patch_modifier", PATCH_MODIFIER)
+
+        # Pfad-Logik
         current_path = self.cfg.get("s3_patch_path", OLD_PATCH_DIR)
         self.OLD_PATCH_DIR = os.path.normpath(current_path)
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
+        # Basis-Variablen für die GUI
         self.all_buttons = []
         self.option_buttons = {}
         self.buttons = {}
         self.active_button_key = ""
         self.main_grid_layout = None
         self.latest_version = APP_VERSION.replace("v", "").strip()
-        self.BUTTON_RADIUS = 5  # Falls in Styles verwendet
+        self.BUTTON_RADIUS = 5
 
-        # --- 3. HAUPT-UI AUFBAUEN ---
-        # MUSS vor der Farbauswahl stehen, damit self.color_box existiert!
+        # --- 4. HAUPT-UI AUFBAUEN ---
+        # Hier werden Buttons (inkl. btn_modifier) und Layouts erstellt
         self.init_ui()
-        self.is_loading = False
-        # --- 4. FARBSCHEMA INITIALISIEREN ---
+
+        # --- 5. FARBSCHEMA INITIALISIEREN ---
         saved_color = self.cfg.get("color", "Classics")
         global current_color_name
 
         if hasattr(self, "color_box"):
-            # Verhindert, dass change_colors sofort beim Laden speichert
+            # Signal blockieren, damit change_colors nicht sofort speichert
             self.color_box.blockSignals(True)
 
             index = self.color_box.findText(saved_color)
@@ -2602,26 +2589,33 @@ class PatchManagerGUI(QWidget):
                 current_color_name = "Classics"
 
             self.color_box.blockSignals(False)
-
-            # JETZT erst das Event verbinden für manuelle Änderungen durch den User
+            # Jetzt erst Event verbinden
             self.color_box.currentIndexChanged.connect(self.change_colors)
 
-        # --- 5. NACH-INITIALISIERUNG ---
+        # --- 6. FINALE INITIALISIERUNG ---
         if not hasattr(self, "label_patch_path"):
             self.label_patch_path = QLabel()
 
-        # Sprache setzen (füllt die Anleitung)
+        # GUI-Texte gemäß Sprache befüllen (setzt auch Tooltips für btn_modifier)
         self.update_language()
-        self.is_loading = False
-        # Farben setzen (Wendet das geladene Schema an)
+        
+        # Farben anwenden
         self.change_colors()
 
-        # Plugin-Button Zustand
+        # Zustand des Update-Buttons prüfen
         if hasattr(self, "update_plugin_button_state"):
             self.update_plugin_button_state()
 
-        # --- 6. VERZÖGERTE AUTOMATIK-CHECKS ---
+        # Laden beendet - Events sind nun frei
+        self.is_loading = False
+
+        # --- 7. AUTOMATISCHE CHECKS (Verzögert für flüssigen Start) ---
+        from PyQt6.QtCore import QTimer
+        
+        # Tool-Check nach 1 Sekunde
         QTimer.singleShot(1000, self.manual_tool_check)
+        
+        # Update-Check nach 2 Sekunden
         if hasattr(self, "check_for_update_on_start"):
             QTimer.singleShot(2000, self.check_for_update_on_start)
 
@@ -2817,34 +2811,33 @@ class PatchManagerGUI(QWidget):
                 self.info_text.append(f"⚠️ Fehler beim Laden: {e}")
 
     def change_modifier_name(self):
-        """Öffnet einen Eingabedialog, um den Namen des Erstellers zu ändern."""
+        """Öffnet Dialog und speichert den Namen permanent."""
         from PyQt6.QtWidgets import QInputDialog, QLineEdit
         
-        # Sprache und aktuellen Wert ermitteln
-        lang = getattr(self, "LANG", "de")
         current = getattr(self, "patch_modifier", PATCH_MODIFIER)
+        lang = getattr(self, "LANG", "de")
         
-        # Texte aus TEXTS holen (mit Fallbacks)
+        # Texte aus TEXTS (wie vorhin besprochen)
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
         title = lang_dict.get("mod_dialog_title", "Modifier")
         label = lang_dict.get("mod_dialog_label", "Name:")
 
-        new_name, ok = QInputDialog.getText(
-            self, title, label, QLineEdit.EchoMode.Normal, current
-        )
+        new_name, ok = QInputDialog.getText(self, title, label, QLineEdit.EchoMode.Normal, current)
         
         if ok and new_name.strip():
+            # 1. Instanz-Variable aktualisieren
             self.patch_modifier = new_name.strip()
             
-            # Erfolgsmeldung übersetzen
+            # 2. In das Config-Dictionary schreiben
+            if hasattr(self, "cfg"):
+                self.cfg["patch_modifier"] = self.patch_modifier
+                
+                # 3. Die externe save_config Funktion aufrufen
+                save_config(self.cfg)
+            
+            # 4. Feedback im Log
             success_tpl = lang_dict.get("mod_changed_success", "✅ Modifier: {name}")
-            success_msg = success_tpl.format(name=self.patch_modifier)
-            
-            self.append_info(self.info_text, success_msg, "success")
-            
-            # Speichern in config.json
-            if hasattr(self, "save_config"):
-                self.save_config()
+            self.append_info(self.info_text, success_tpl.format(name=self.patch_modifier), "success")
     
     def collect_and_save(self):
         """Speichert leise und aktualisiert die Farben sofort."""
