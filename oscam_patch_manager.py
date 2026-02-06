@@ -4561,31 +4561,63 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     def check_for_update_on_start(self):
         """
-        Prüft GitHub-Version im Hintergrund.
-        Schreibt NUR bei Fehlern ins Log und spielt einen Sound bei verfügbarem Update.
+        Prüft beim Start die GitHub-Version, aktualisiert den Update-Button
+        und fragt den Nutzer, ob er direkt updaten möchte.
+        Inklusive akustischer Benachrichtigung bei Erfolg.
         """
-        from PyQt6.QtWidgets import QApplication, QMessageBox
+        from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
+        from PyQt6.QtGui import QTextCursor
         import time, requests, os, subprocess, platform
         from packaging.version import Version
 
+        widget = getattr(self, "info_text", None)
         progress = getattr(self, "progress_bar", None)
         lang = getattr(self, "LANG", "de").lower()
 
-        def log_err(msg):
-            if hasattr(self, "append_info") and hasattr(self, "info_text"):
-                self.append_info(self.info_text, msg, "error")
+        if progress:
+            progress.setValue(0)
+            progress.show()
 
         def play_update_sound():
-            """Spielt einen Benachrichtigungssound bei gefundenem Update."""
+            """Spielt einen Benachrichtigungssound ab."""
             if platform.system() == "Linux":
-                # 'message-new-instant' oder 'service-login' sind gute Signale
+                # 'message-new-instant' ist ideal für Updates
                 s_path = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
                 if os.path.exists(s_path):
                     subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
                 else:
                     QApplication.beep()
             else:
+                # Windows Standard-Beep
                 QApplication.beep()
+
+        def log(text_key, level="info", **kwargs):
+            colors = {
+                "success": "green",
+                "warning": "orange",
+                "error": "red",
+                "info": "blue",
+            }
+            color = colors.get(level, "gray")
+            text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
+            try:
+                safe_params = {
+                    "current": APP_VERSION,
+                    "version": APP_VERSION,
+                    "latest": getattr(self, "latest_version", "???"),
+                    "error": kwargs.get("error", "Unknown Error"),
+                }
+                safe_params.update(kwargs)
+                text = text_template.format(**safe_params)
+            except Exception:
+                text = text_template
+
+            if isinstance(widget, QTextEdit):
+                widget.append(f'<span style="color:{color}">{text}</span>')
+                widget.moveCursor(QTextCursor.MoveOperation.End)
+                QApplication.processEvents()
+
+        log("update_check_start", "info")
 
         try:
             version_url = (
@@ -4594,7 +4626,7 @@ class PatchManagerGUI(QWidget):
                 f"?t={int(time.time())}"
             )
 
-            resp = requests.get(version_url, timeout=5)
+            resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
 
             latest_version = resp.text.strip().lstrip("v")
@@ -4605,8 +4637,10 @@ class PatchManagerGUI(QWidget):
 
             current_version = APP_VERSION.strip().lstrip("v")
 
-            # FALL: KEIN Update nötig
+            # Kein Update nötig
             if not Version(latest_version) > Version(current_version):
+                log("update_current_version", "success", version=current_version)
+                log("update_no_update", "info")
                 if progress:
                     progress.setValue(100)
                 return
@@ -4614,7 +4648,10 @@ class PatchManagerGUI(QWidget):
             # --- UPDATE GEFUNDEN: SOUND ABSPIELEN ---
             play_update_sound()
 
-            # FALL: Update verfügbar -> Dialog anzeigen
+            if progress:
+                progress.setValue(80)
+
+            # MessageBox Setup
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Question)
             msg_box.setWindowTitle(
@@ -4625,12 +4662,15 @@ class PatchManagerGUI(QWidget):
                 "update_available_msg",
                 "Neue Version {latest} verfügbar. Jetzt updaten?",
             )
-            msg_box.setText(raw_dialog_text.format(latest=latest_version))
+            msg_box.setText(
+                raw_dialog_text.format(current=current_version, latest=latest_version)
+            )
+
             msg_box.setStandardButtons(
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
 
-            # Button Texte übersetzen
+            # Button-Texte übersetzen
             btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
             if btn_yes:
                 btn_yes.setText(TEXTS.get(lang, {}).get("yes", "Ja"))
@@ -4638,12 +4678,30 @@ class PatchManagerGUI(QWidget):
             if btn_no:
                 btn_no.setText(TEXTS.get(lang, {}).get("no", "Nein"))
 
-            if msg_box.exec() == QMessageBox.StandardButton.Yes:
+            msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
+
+            # Ergebnis abfangen
+            result = msg_box.exec()
+
+            if result == QMessageBox.StandardButton.Yes:
                 if hasattr(self, "plugin_update_action"):
-                    self.plugin_update_action(latest_version=latest_version)
+                    self.plugin_update_action(
+                        latest_version=latest_version,
+                        progress_callback=progress.setValue if progress else None,
+                    )
+            else:
+                log("update_declined", "info")
+                log("update_current_version", "success", version=current_version)
+                if progress:
+                    progress.setValue(100)
 
         except Exception as e:
-            log_err(f"Update-Check Failed: {e}")
+            log("update_fail", "error", error=str(e))
+            if progress:
+                progress.setValue(0)
+
+
+
 
     # ---------------------
     # TOOLS CHECK
