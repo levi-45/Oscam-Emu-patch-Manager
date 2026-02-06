@@ -106,7 +106,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.5.1"
+APP_VERSION = "2.5.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -288,75 +288,489 @@ NEVER_DELETE = [
 
 # ===================== COLORS =====================
 DIFF_COLORS = {
-    "Acid": {"bg": "#1D1D1D", "fg": "#DFFF00", "hover": "#BFFF00", "active": "#000000", "window_bg": "#000000"},
-    "Aero": {"bg": "#00B8D4", "fg": "#FFFFFF", "hover": "#00E5FF", "active": "#0091EA", "window_bg": "#000000"},
-    "Afterglow": {"bg": "#2C2C2C", "fg": "#E57373", "hover": "#FF8A65", "active": "#D32F2F", "window_bg": "#000000"},
-    "Alien": {"bg": "#00FF41", "fg": "#000000", "hover": "#008F11", "active": "#003B00", "window_bg": "#000000"},
-    "Amethyst": {"bg": "#9C27B0", "fg": "#E1BEE7", "hover": "#BA68C8", "active": "#7B1FA2", "window_bg": "#000000"},
-    "Anthrazit": {"bg": "#2F2F2F", "fg": "#FFFFFF", "hover": "#3D3D3D", "active": "#242424", "window_bg": "#000000"},
-    "Arctic": {"bg": "#000000", "fg": "#00D2FF", "hover": "#0081FF", "active": "#00458B", "window_bg": "#000000"},
-    "Asphalt": {"bg": "#263238", "fg": "#ECEFF1", "hover": "#37474F", "active": "#102027", "window_bg": "#000000"},
-    "Atomic": {"bg": "#1A1A1A", "fg": "#7FFF00", "hover": "#32CD32", "active": "#006400", "window_bg": "#000000"},
-    "Aurora": {"bg": "#004D40", "fg": "#80CBC4", "hover": "#00897B", "active": "#002420", "window_bg": "#000000"},
-    "Blackout": {"bg": "#000000", "fg": "#444444", "hover": "#222222", "active": "#111111", "window_bg": "#000000"},
-    "Blaze": {"bg": "#E65100", "fg": "#FFCC80", "hover": "#EF6C00", "active": "#BF360C", "window_bg": "#000000"},
-    "BloodMoon": {"bg": "#330000", "fg": "#FF0000", "hover": "#660000", "active": "#000000", "window_bg": "#000000"},
-    "Bordeaux": {"bg": "#800000", "fg": "#FFFFFF", "hover": "#A52A2A", "active": "#5D0000", "window_bg": "#000000"},
-    "Bubblegum": {"bg": "#F06292", "fg": "#F8BBD0", "hover": "#F48FB1", "active": "#C2185B", "window_bg": "#000000"},
-    "Bumblebee": {"bg": "#FFCC00", "fg": "#000000", "hover": "#000000", "active": "#333300", "window_bg": "#000000"},
-    "Candy": {"bg": "#FF80AB", "fg": "#FCE4EC", "hover": "#F06292", "active": "#C2185B", "window_bg": "#000000"},
-    "Carbon": {"bg": "#232323", "fg": "#E0E0E0", "hover": "#111111", "active": "#000000", "window_bg": "#000000"},
-    "Classics": {"bg": "#3a6ea5", "fg": "#FFFFFF", "hover": "#4a7eb5", "active": "#2a5e95", "window_bg": "#000000"},
-    "Coffee": {"bg": "#4E342E", "fg": "#D7CCC8", "hover": "#5D4037", "active": "#3E2723", "window_bg": "#000000"},
-    "Copper": {"bg": "#3E2723", "fg": "#D84315", "hover": "#BF360C", "active": "#260E04", "window_bg": "#000000"},
-    "Cosmos": {"bg": "#130f40", "fg": "#f093fb", "hover": "#30336b", "active": "#130f40", "window_bg": "#000000"},
-    "Crimson": {"bg": "#000000", "fg": "#DC143C", "hover": "#800000", "active": "#000000", "window_bg": "#000000"},
-    "Cyberpunk": {"bg": "#000000", "fg": "#00FFFF", "hover": "#F305FF", "active": "#FF0055", "window_bg": "#000000"},
-    "DeepBlack": {"bg": "#1A1A1A", "fg": "#FFD700", "hover": "#333333", "active": "#000000", "window_bg": "#000000"},
-    "DeepSea": {"bg": "#001219", "fg": "#94D2BD", "hover": "#0A9396", "active": "#005F73", "window_bg": "#000000"},
-    "Dracula": {"bg": "#282A36", "fg": "#BD93F9", "hover": "#44475A", "active": "#191A21", "window_bg": "#000000"},
-    "Electric": {"bg": "#0000FF", "fg": "#FFFF00", "hover": "#00FFFF", "active": "#00008B", "window_bg": "#000000"},
-    "Emerald": {"bg": "#2E7D32", "fg": "#FFFFFF", "hover": "#388E3C", "active": "#1B5E20", "window_bg": "#000000"},
-    "Forest": {"bg": "#1B5E20", "fg": "#E8F5E9", "hover": "#2E7D32", "active": "#0D5302", "window_bg": "#000000"},
-    "Frost": {"bg": "#000000", "fg": "#A5F2F3", "hover": "#FFFFFF", "active": "#000000", "window_bg": "#000000"},
-    "Galaxy": {"bg": "#0D001A", "fg": "#9D50BB", "hover": "#6E48AA", "active": "#300055", "window_bg": "#000000"},
-    "Ghost": {"bg": "#F5F5F5", "fg": "#212121", "hover": "#E0E0E0", "active": "#BDBDBD", "window_bg": "#000000"},
-    "Gold": {"bg": "#FFD700", "fg": "#000000", "hover": "#FFEA70", "active": "#DAA520", "window_bg": "#000000"},
-    "Graphite": {"bg": "#424242", "fg": "#B0BEC5", "hover": "#616161", "active": "#212121", "window_bg": "#000000"},
-    "Hazard": {"bg": "#000000", "fg": "#FFFF00", "hover": "#444400", "active": "#000000", "window_bg": "#000000"},
-    "HotPink": {"bg": "#FF69B4", "fg": "#FFFFFF", "hover": "#FF1493", "active": "#C71585", "window_bg": "#000000"},
-    "HyperSpace": {"bg": "#000000", "fg": "#FFFFFF", "hover": "#1A1A1A", "active": "#FFFFFF", "window_bg": "#000000"},
-    "Iceberg": {"bg": "#E1F5FE", "fg": "#01579B", "hover": "#FFFFFF", "active": "#B3E5FC", "window_bg": "#000000"},
-    "Inferno": {"bg": "#212121", "fg": "#FF4500", "hover": "#FF8C00", "active": "#8B0000", "window_bg": "#000000"},
-    "Jungle": {"bg": "#1B5E20", "fg": "#C8E6C9", "hover": "#2E7D32", "active": "#003300", "window_bg": "#000000"},
-    "Lava": {"bg": "#4E0000", "fg": "#FF3300", "hover": "#FF6600", "active": "#220000", "window_bg": "#000000"},
-    "Magma": {"bg": "#000000", "fg": "#FF0000", "hover": "#660000", "active": "#000000", "window_bg": "#000000"},
-    "Matrix_Pro": {"bg": "#000000", "fg": "#00FF41", "hover": "#003B00", "active": "#000000", "window_bg": "#000000"},
-    "Midnight": {"bg": "#1A1A1A", "fg": "#F7F7F7", "hover": "#333333", "active": "#000000", "window_bg": "#000000"},
-    "MidnightBlue": {"bg": "#1A237E", "fg": "#C5CAE9", "hover": "#283593", "active": "#0D1137", "window_bg": "#000000"},
-    "Misty": {"bg": "#90A4AE", "fg": "#ECEFF1", "hover": "#B0BEC5", "active": "#546E7A", "window_bg": "#000000"},
-    "Neon": {"bg": "#000000", "fg": "#00FF00", "hover": "#003300", "active": "#000000", "window_bg": "#000000"},
-    "Nordic": {"bg": "#2E3440", "fg": "#D8DEE9", "hover": "#3B4252", "active": "#242933", "window_bg": "#000000"},
-    "Nuclear": {"bg": "#1A1A1A", "fg": "#CCFF00", "hover": "#333333", "active": "#000000", "window_bg": "#000000"},
-    "Obsidian": {"bg": "#1B1B1B", "fg": "#E0E0E0", "hover": "#444444", "active": "#000000", "window_bg": "#000000"},
-    "Ocean": {"bg": "#006064", "fg": "#FFFFFF", "hover": "#00838F", "active": "#004D40", "window_bg": "#000000"},
-    "Olive": {"bg": "#556B2F", "fg": "#FFFFFF", "hover": "#6B8E23", "active": "#3E4E21", "window_bg": "#000000"},
-    "Orange": {"bg": "#EF6C00", "fg": "#FFFFFF", "hover": "#F57C00", "active": "#E65100", "window_bg": "#000000"},
-    "Phoenix": {"bg": "#000000", "fg": "#FF4E00", "hover": "#FFD700", "active": "#8B0000", "window_bg": "#000000"},
-    "Plasma": {"bg": "#000000", "fg": "#7F00FF", "hover": "#3F007F", "active": "#000000", "window_bg": "#000000"},
-    "Purple": {"bg": "#6A1B9A", "fg": "#FFFFFF", "hover": "#7B1FA2", "active": "#4A148C", "window_bg": "#000000"},
-    "RoyalBlue": {"bg": "#002366", "fg": "#FFFFFF", "hover": "#003399", "active": "#001a4d", "window_bg": "#000000"},
-    "Ruby": {"bg": "#C62828", "fg": "#FFFFFF", "hover": "#D32F2F", "active": "#B71C1C", "window_bg": "#000000"},
-    "Silver": {"bg": "#B0B0B0", "fg": "#000000", "hover": "#C0C0C0", "active": "#A0A0A0", "window_bg": "#000000"},
-    "SkyBlue": {"bg": "#0288D1", "fg": "#FFFFFF", "hover": "#039BE5", "active": "#01579B", "window_bg": "#000000"},
-    "Solar": {"bg": "#FBC02D", "fg": "#3E2723", "hover": "#FDD835", "active": "#F57F17", "window_bg": "#000000"},
-    "Standard": {"bg": "#444444", "fg": "#FFFFFF", "hover": "#555555", "active": "#333333", "window_bg": "#000000"},
-    "Steel": {"bg": "#455A64", "fg": "#FFFFFF", "hover": "#546E7A", "active": "#37474F", "window_bg": "#000000"},
-    "Titan": {"bg": "#263238", "fg": "#CFD8DC", "hover": "#546E7A", "active": "#102027", "window_bg": "#000000"},
-    "Toxic_Glow": {"bg": "#0D0D0D", "fg": "#ADFF2F", "hover": "#32CD32", "active": "#006400", "window_bg": "#000000"},
-    "Turquoise": {"bg": "#00CED1", "fg": "#FFFFFF", "hover": "#40E0D0", "active": "#008B8B", "window_bg": "#000000"},
-    "Ultraviolet": {"bg": "#120021", "fg": "#BF00FF", "hover": "#FF00FF", "active": "#000000", "window_bg": "#000000"},
-    "Vaporwave": {"bg": "#2D004B", "fg": "#FF71CE", "hover": "#01CDFE", "active": "#05FFA1", "window_bg": "#000000"},
+    "Acid": {
+        "bg": "#1D1D1D",
+        "fg": "#DFFF00",
+        "hover": "#BFFF00",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Aero": {
+        "bg": "#00B8D4",
+        "fg": "#FFFFFF",
+        "hover": "#00E5FF",
+        "active": "#0091EA",
+        "window_bg": "#000000",
+    },
+    "Afterglow": {
+        "bg": "#2C2C2C",
+        "fg": "#E57373",
+        "hover": "#FF8A65",
+        "active": "#D32F2F",
+        "window_bg": "#000000",
+    },
+    "Alien": {
+        "bg": "#00FF41",
+        "fg": "#000000",
+        "hover": "#008F11",
+        "active": "#003B00",
+        "window_bg": "#000000",
+    },
+    "Amethyst": {
+        "bg": "#9C27B0",
+        "fg": "#E1BEE7",
+        "hover": "#BA68C8",
+        "active": "#7B1FA2",
+        "window_bg": "#000000",
+    },
+    "Anthrazit": {
+        "bg": "#2F2F2F",
+        "fg": "#FFFFFF",
+        "hover": "#3D3D3D",
+        "active": "#242424",
+        "window_bg": "#000000",
+    },
+    "Arctic": {
+        "bg": "#000000",
+        "fg": "#00D2FF",
+        "hover": "#0081FF",
+        "active": "#00458B",
+        "window_bg": "#000000",
+    },
+    "Asphalt": {
+        "bg": "#263238",
+        "fg": "#ECEFF1",
+        "hover": "#37474F",
+        "active": "#102027",
+        "window_bg": "#000000",
+    },
+    "Atomic": {
+        "bg": "#1A1A1A",
+        "fg": "#7FFF00",
+        "hover": "#32CD32",
+        "active": "#006400",
+        "window_bg": "#000000",
+    },
+    "Aurora": {
+        "bg": "#004D40",
+        "fg": "#80CBC4",
+        "hover": "#00897B",
+        "active": "#002420",
+        "window_bg": "#000000",
+    },
+    "Blackout": {
+        "bg": "#000000",
+        "fg": "#444444",
+        "hover": "#222222",
+        "active": "#111111",
+        "window_bg": "#000000",
+    },
+    "Blaze": {
+        "bg": "#E65100",
+        "fg": "#FFCC80",
+        "hover": "#EF6C00",
+        "active": "#BF360C",
+        "window_bg": "#000000",
+    },
+    "BloodMoon": {
+        "bg": "#330000",
+        "fg": "#FF0000",
+        "hover": "#660000",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Bordeaux": {
+        "bg": "#800000",
+        "fg": "#FFFFFF",
+        "hover": "#A52A2A",
+        "active": "#5D0000",
+        "window_bg": "#000000",
+    },
+    "Bubblegum": {
+        "bg": "#F06292",
+        "fg": "#F8BBD0",
+        "hover": "#F48FB1",
+        "active": "#C2185B",
+        "window_bg": "#000000",
+    },
+    "Bumblebee": {
+        "bg": "#FFCC00",
+        "fg": "#000000",
+        "hover": "#000000",
+        "active": "#333300",
+        "window_bg": "#000000",
+    },
+    "Candy": {
+        "bg": "#FF80AB",
+        "fg": "#FCE4EC",
+        "hover": "#F06292",
+        "active": "#C2185B",
+        "window_bg": "#000000",
+    },
+    "Carbon": {
+        "bg": "#232323",
+        "fg": "#E0E0E0",
+        "hover": "#111111",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Classics": {
+        "bg": "#3a6ea5",
+        "fg": "#FFFFFF",
+        "hover": "#4a7eb5",
+        "active": "#2a5e95",
+        "window_bg": "#000000",
+    },
+    "Coffee": {
+        "bg": "#4E342E",
+        "fg": "#D7CCC8",
+        "hover": "#5D4037",
+        "active": "#3E2723",
+        "window_bg": "#000000",
+    },
+    "Copper": {
+        "bg": "#3E2723",
+        "fg": "#D84315",
+        "hover": "#BF360C",
+        "active": "#260E04",
+        "window_bg": "#000000",
+    },
+    "Cosmos": {
+        "bg": "#130f40",
+        "fg": "#f093fb",
+        "hover": "#30336b",
+        "active": "#130f40",
+        "window_bg": "#000000",
+    },
+    "Crimson": {
+        "bg": "#000000",
+        "fg": "#DC143C",
+        "hover": "#800000",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Cyberpunk": {
+        "bg": "#000000",
+        "fg": "#00FFFF",
+        "hover": "#F305FF",
+        "active": "#FF0055",
+        "window_bg": "#000000",
+    },
+    "DeepBlack": {
+        "bg": "#1A1A1A",
+        "fg": "#FFD700",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "DeepSea": {
+        "bg": "#001219",
+        "fg": "#94D2BD",
+        "hover": "#0A9396",
+        "active": "#005F73",
+        "window_bg": "#000000",
+    },
+    "Dracula": {
+        "bg": "#282A36",
+        "fg": "#BD93F9",
+        "hover": "#44475A",
+        "active": "#191A21",
+        "window_bg": "#000000",
+    },
+    "Electric": {
+        "bg": "#0000FF",
+        "fg": "#FFFF00",
+        "hover": "#00FFFF",
+        "active": "#00008B",
+        "window_bg": "#000000",
+    },
+    "Emerald": {
+        "bg": "#2E7D32",
+        "fg": "#FFFFFF",
+        "hover": "#388E3C",
+        "active": "#1B5E20",
+        "window_bg": "#000000",
+    },
+    "Forest": {
+        "bg": "#1B5E20",
+        "fg": "#E8F5E9",
+        "hover": "#2E7D32",
+        "active": "#0D5302",
+        "window_bg": "#000000",
+    },
+    "Frost": {
+        "bg": "#000000",
+        "fg": "#A5F2F3",
+        "hover": "#FFFFFF",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Galaxy": {
+        "bg": "#0D001A",
+        "fg": "#9D50BB",
+        "hover": "#6E48AA",
+        "active": "#300055",
+        "window_bg": "#000000",
+    },
+    "Ghost": {
+        "bg": "#F5F5F5",
+        "fg": "#212121",
+        "hover": "#E0E0E0",
+        "active": "#BDBDBD",
+        "window_bg": "#000000",
+    },
+    "Gold": {
+        "bg": "#FFD700",
+        "fg": "#000000",
+        "hover": "#FFEA70",
+        "active": "#DAA520",
+        "window_bg": "#000000",
+    },
+    "Graphite": {
+        "bg": "#424242",
+        "fg": "#B0BEC5",
+        "hover": "#616161",
+        "active": "#212121",
+        "window_bg": "#000000",
+    },
+    "Hazard": {
+        "bg": "#000000",
+        "fg": "#FFFF00",
+        "hover": "#444400",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "HotPink": {
+        "bg": "#FF69B4",
+        "fg": "#FFFFFF",
+        "hover": "#FF1493",
+        "active": "#C71585",
+        "window_bg": "#000000",
+    },
+    "HyperSpace": {
+        "bg": "#000000",
+        "fg": "#FFFFFF",
+        "hover": "#1A1A1A",
+        "active": "#FFFFFF",
+        "window_bg": "#000000",
+    },
+    "Iceberg": {
+        "bg": "#E1F5FE",
+        "fg": "#01579B",
+        "hover": "#FFFFFF",
+        "active": "#B3E5FC",
+        "window_bg": "#000000",
+    },
+    "Inferno": {
+        "bg": "#212121",
+        "fg": "#FF4500",
+        "hover": "#FF8C00",
+        "active": "#8B0000",
+        "window_bg": "#000000",
+    },
+    "Jungle": {
+        "bg": "#1B5E20",
+        "fg": "#C8E6C9",
+        "hover": "#2E7D32",
+        "active": "#003300",
+        "window_bg": "#000000",
+    },
+    "Lava": {
+        "bg": "#4E0000",
+        "fg": "#FF3300",
+        "hover": "#FF6600",
+        "active": "#220000",
+        "window_bg": "#000000",
+    },
+    "Magma": {
+        "bg": "#000000",
+        "fg": "#FF0000",
+        "hover": "#660000",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Matrix_Pro": {
+        "bg": "#000000",
+        "fg": "#00FF41",
+        "hover": "#003B00",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Midnight": {
+        "bg": "#1A1A1A",
+        "fg": "#F7F7F7",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "MidnightBlue": {
+        "bg": "#1A237E",
+        "fg": "#C5CAE9",
+        "hover": "#283593",
+        "active": "#0D1137",
+        "window_bg": "#000000",
+    },
+    "Misty": {
+        "bg": "#90A4AE",
+        "fg": "#ECEFF1",
+        "hover": "#B0BEC5",
+        "active": "#546E7A",
+        "window_bg": "#000000",
+    },
+    "Neon": {
+        "bg": "#000000",
+        "fg": "#00FF00",
+        "hover": "#003300",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Nordic": {
+        "bg": "#2E3440",
+        "fg": "#D8DEE9",
+        "hover": "#3B4252",
+        "active": "#242933",
+        "window_bg": "#000000",
+    },
+    "Nuclear": {
+        "bg": "#1A1A1A",
+        "fg": "#CCFF00",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Obsidian": {
+        "bg": "#1B1B1B",
+        "fg": "#E0E0E0",
+        "hover": "#444444",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Ocean": {
+        "bg": "#006064",
+        "fg": "#FFFFFF",
+        "hover": "#00838F",
+        "active": "#004D40",
+        "window_bg": "#000000",
+    },
+    "Olive": {
+        "bg": "#556B2F",
+        "fg": "#FFFFFF",
+        "hover": "#6B8E23",
+        "active": "#3E4E21",
+        "window_bg": "#000000",
+    },
+    "Orange": {
+        "bg": "#EF6C00",
+        "fg": "#FFFFFF",
+        "hover": "#F57C00",
+        "active": "#E65100",
+        "window_bg": "#000000",
+    },
+    "Phoenix": {
+        "bg": "#000000",
+        "fg": "#FF4E00",
+        "hover": "#FFD700",
+        "active": "#8B0000",
+        "window_bg": "#000000",
+    },
+    "Plasma": {
+        "bg": "#000000",
+        "fg": "#7F00FF",
+        "hover": "#3F007F",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Purple": {
+        "bg": "#6A1B9A",
+        "fg": "#FFFFFF",
+        "hover": "#7B1FA2",
+        "active": "#4A148C",
+        "window_bg": "#000000",
+    },
+    "RoyalBlue": {
+        "bg": "#002366",
+        "fg": "#FFFFFF",
+        "hover": "#003399",
+        "active": "#001a4d",
+        "window_bg": "#000000",
+    },
+    "Ruby": {
+        "bg": "#C62828",
+        "fg": "#FFFFFF",
+        "hover": "#D32F2F",
+        "active": "#B71C1C",
+        "window_bg": "#000000",
+    },
+    "Silver": {
+        "bg": "#B0B0B0",
+        "fg": "#000000",
+        "hover": "#C0C0C0",
+        "active": "#A0A0A0",
+        "window_bg": "#000000",
+    },
+    "SkyBlue": {
+        "bg": "#0288D1",
+        "fg": "#FFFFFF",
+        "hover": "#039BE5",
+        "active": "#01579B",
+        "window_bg": "#000000",
+    },
+    "Solar": {
+        "bg": "#FBC02D",
+        "fg": "#3E2723",
+        "hover": "#FDD835",
+        "active": "#F57F17",
+        "window_bg": "#000000",
+    },
+    "Standard": {
+        "bg": "#444444",
+        "fg": "#FFFFFF",
+        "hover": "#555555",
+        "active": "#333333",
+        "window_bg": "#000000",
+    },
+    "Steel": {
+        "bg": "#455A64",
+        "fg": "#FFFFFF",
+        "hover": "#546E7A",
+        "active": "#37474F",
+        "window_bg": "#000000",
+    },
+    "Titan": {
+        "bg": "#263238",
+        "fg": "#CFD8DC",
+        "hover": "#546E7A",
+        "active": "#102027",
+        "window_bg": "#000000",
+    },
+    "Toxic_Glow": {
+        "bg": "#0D0D0D",
+        "fg": "#ADFF2F",
+        "hover": "#32CD32",
+        "active": "#006400",
+        "window_bg": "#000000",
+    },
+    "Turquoise": {
+        "bg": "#00CED1",
+        "fg": "#FFFFFF",
+        "hover": "#40E0D0",
+        "active": "#008B8B",
+        "window_bg": "#000000",
+    },
+    "Ultraviolet": {
+        "bg": "#120021",
+        "fg": "#BF00FF",
+        "hover": "#FF00FF",
+        "active": "#000000",
+        "window_bg": "#000000",
+    },
+    "Vaporwave": {
+        "bg": "#2D004B",
+        "fg": "#FF71CE",
+        "hover": "#01CDFE",
+        "active": "#05FFA1",
+        "window_bg": "#000000",
+    },
 }
 
 current_diff_colors = DIFF_COLORS["Classics"]
@@ -904,9 +1318,10 @@ def github_upload_patch_file(
 ):
     """
     Lädt die Patch-Datei auf GitHub hoch und zeigt die Version aus dem Header im Infoscreen an.
+    Inklusive akustischem Feedback bei Abschluss.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
-    import shutil, os, datetime
+    import shutil, os, datetime, subprocess, platform
 
     # 1. Widget und Sprache sicherstellen
     widget = (
@@ -914,7 +1329,6 @@ def github_upload_patch_file(
         if isinstance(info_widget, QTextEdit)
         else getattr(gui_instance, "info_text", None)
     )
-    # Sprache vereinheitlichen (kleingeschrieben für Dictionary-Match)
     lang = getattr(gui_instance, "LANG", "de").lower()
 
     # Hilfsfunktion für Fortschritt
@@ -926,7 +1340,19 @@ def github_upload_patch_file(
             except:
                 pass
 
-    # 2. Lokale Logger-Funktion mit Kwargs-Unterstützung
+    def play_sound(success=True):
+        """Spielt Sound-Effekte für den GitHub Upload-Status."""
+        if platform.system() == "Linux":
+            sound = "complete.oga" if success else "dialog-error.oga"
+            s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+            if os.path.exists(s_path):
+                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+            else:
+                QApplication.beep()
+        else:
+            QApplication.beep()
+
+    # 2. Lokale Logger-Funktion
     def log(text_key, level="info", **kwargs):
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
         text_template = lang_dict.get(text_key, text_key)
@@ -938,7 +1364,6 @@ def github_upload_patch_file(
         if isinstance(widget, QTextEdit) and gui_instance:
             gui_instance.append_info(widget, text, level)
         elif isinstance(widget, QTextEdit):
-            # Fallback falls gui_instance fehlt
             color = {"success": "green", "warning": "orange", "error": "red"}.get(
                 level, "gray"
             )
@@ -949,7 +1374,6 @@ def github_upload_patch_file(
     # --- Start der Ausführung ---
     set_progress(5)
 
-    # GitHub-Konfig laden
     cfg = load_github_config()
     repo_url = cfg.get("repo_url")
     branch = cfg.get("branch", "master")
@@ -960,17 +1384,18 @@ def github_upload_patch_file(
 
     if not all([repo_url, username, token, user_name, user_email]):
         log("github_patch_credentials_missing", "error")
+        play_sound(False)
         set_progress(0)
         return
 
     if not os.path.exists(PATCH_FILE):
         log("patch_file_missing", "error")
+        play_sound(False)
         set_progress(0)
         return
 
     set_progress(15)
 
-    # Temporäres Verzeichnis vorbereiten
     temp_repo = os.path.join(PLUGIN_DIR, "temp_patch_git")
     if os.path.exists(temp_repo):
         shutil.rmtree(temp_repo, ignore_errors=True)
@@ -988,6 +1413,7 @@ def github_upload_patch_file(
 
     if code != 0:
         log("github_clone_failed", "error")
+        play_sound(False)
         set_progress(0)
         return
 
@@ -999,6 +1425,7 @@ def github_upload_patch_file(
         shutil.copy2(PATCH_FILE, patch_path)
     except Exception as e:
         log("patch_failed", "error", path=str(e))
+        play_sound(False)
         return
 
     run_bash(
@@ -1014,9 +1441,8 @@ def github_upload_patch_file(
         lang=lang,
     )
 
-    # 5. Patch-Version für Anzeige und Commit ermitteln
+    # 5. Patch-Version ermitteln
     try:
-        # Liest die erste Zeile der lokalen Patch-Datei
         with open(PATCH_FILE, "r", encoding="utf-8") as f:
             first_line = f.readline().strip()
         patch_version = first_line if first_line else "Unknown Version"
@@ -1045,11 +1471,12 @@ def github_upload_patch_file(
     )
 
     if push_code == 0:
-        # Hier wird die Version aus der ersten Zeile des Patches im Infoscreen ausgegeben
         log("github_patch_uploaded", "success", patch_version=patch_version)
+        play_sound(True)
         set_progress(100)
     else:
         log("github_upload_failed", "error")
+        play_sound(False)
         set_progress(0)
 
     # 7. Cleanup
@@ -1135,14 +1562,12 @@ import os, subprocess, shutil
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
-    Erstellt den Patch im TEMP_REPO mit dem exakten 3-Zeilen-Header:
-    1. patch version
-    2. patch date
-    3. patch modified by
+    Erstellt den Patch im TEMP_REPO mit dem exakten 3-Zeilen-Header.
+    Inklusive akustischem Feedback bei Abschluss.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
-    import subprocess, os, shutil
+    import subprocess, os, shutil, platform
 
     # 1. Widget & Sprache & Modifier sicherstellen
     widget = info_widget
@@ -1150,10 +1575,7 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         widget = getattr(gui_instance, "info_text", None)
 
     lang = str(getattr(gui_instance, "LANG", "de")).lower()[:2]
-    # Dynamischer Name vom Button (errich, speedy005, etc.)
     active_modifier = getattr(gui_instance, "patch_modifier", PATCH_MODIFIER)
-
-    # EMUREPO dynamisch von der GUI Instanz oder Global beziehen
     active_emu_repo = getattr(gui_instance, "EMUREPO", EMUREPO)
 
     def log(text_key, level="info", **kwargs):
@@ -1173,6 +1595,18 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             widget.append(f'<span style="color:{color}">{text}</span>')
             widget.moveCursor(QTextCursor.MoveOperation.End)
             QApplication.processEvents()
+
+    def play_sound(success=True):
+        """Spielt den passenden Sound für Linux ab."""
+        if platform.system() == "Linux":
+            sound = "complete.oga" if success else "dialog-error.oga"
+            s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+            if os.path.exists(s_path):
+                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+            else:
+                QApplication.beep()
+        else:
+            QApplication.beep()
 
     def set_progress(val):
         if progress_callback:
@@ -1204,7 +1638,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         # 2. Git Synchronisierung
         if not os.path.exists(git_dir):
             set_progress(20)
-            # Nutzt STREAMREPO für das Grundgerüst
             subprocess.run(
                 f"git clone {STREAMREPO} .",
                 shell=True,
@@ -1212,7 +1645,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
                 capture_output=True,
             )
 
-        # Remote für Emu hinzufügen/aktualisieren (Nutzt die EMUREPO Variable)
         subprocess.run(
             ["git", "remote", "remove", "emu-repo"], cwd=TEMP_REPO, capture_output=True
         )
@@ -1223,7 +1655,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         )
 
         set_progress(40)
-        # Repository auf aktuellen Stand bringen
         for cmd in [
             "git fetch --all",
             "git checkout -B master origin/master",
@@ -1233,12 +1664,10 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
         set_progress(70)
 
-        # 3. HEADER GENERIEREN
+        # 3. HEADER & DIFF GENERIEREN
         header = get_patch_header(
             repo_dir=TEMP_REPO, lang=lang, modifier=active_modifier
         )
-
-        # 4. DIFF GENERIEREN
         diff = subprocess.check_output(
             ["git", "diff", "origin/master..emu-repo/master", "--", ".", ":!.github"],
             cwd=TEMP_REPO,
@@ -1249,25 +1678,32 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             log("patch_create_no_changes", "warning")
             diff = "# No changes detected"
 
-        # 5. DATEI SCHREIBEN
+        # 4. DATEI SCHREIBEN
         with open(PATCH_FILE, "w", encoding="utf-8") as f:
             f.write(header + "\n" + diff + "\n")
 
         set_progress(90)
 
-        # --- ERFOLGSMELDUNGEN ---
+        # --- ERFOLG ---
         log("patch_create_success", "success", patch_file=PATCH_FILE)
 
+        # Patch-Version aus Header loggen
         if header.strip():
             header_lines = header.splitlines()
             if header_lines:
-                first_line = header_lines[0].strip()
-                log("patch_version_from_header", "success", patch_version=first_line)
+                log(
+                    "patch_version_from_header",
+                    "success",
+                    patch_version=header_lines[0].strip(),
+                )
+
+        # Sound abspielen
+        play_sound(success=True)
 
     except Exception as e:
-        # Hier wird der Fehler abgefangen und rot ausgegeben
         log("patch_create_failed", "error", error=str(e))
         set_progress(0)
+        play_sound(success=False)
         return
 
     set_progress(100)
@@ -1394,10 +1830,10 @@ import shutil, os
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Löscht temporäre Repos und Dateien (TEMP_REPO, TEMP_PATCH_GIT, PATCH_FILE, ZIP_FILE).
-    Einmaliges Logging, Windows-Fix inklusive.
+    Inklusive akustischem Feedback bei Erfolg.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
-    import os, shutil, stat
+    import os, shutil, stat, subprocess, platform
 
     # ---------- 1) WIDGET & SPRACHE ----------
     widget = (
@@ -1416,6 +1852,23 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
                 QApplication.processEvents()
             except:
                 pass
+
+    def play_sound(sound_type="success"):
+        """Spielt Sound-Effekte für den Cleanup-Prozess ab."""
+        if platform.system() == "Linux":
+            # dialog-information klingt oft wie ein "Swoosh" oder dezenter Ping
+            sound = (
+                "dialog-information.oga"
+                if sound_type == "success"
+                else "dialog-error.oga"
+            )
+            s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+            if os.path.exists(s_path):
+                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+            else:
+                QApplication.beep()
+        else:
+            QApplication.beep()
 
     def log(text_key, level="info", **kwargs):
         lang_data = TEXTS.get(lang, TEXTS.get("en", {}))
@@ -1446,7 +1899,6 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     set_progress(5)
     log("cleanup_start", "info")
 
-    # Ziele dynamisch sammeln (verhindert NameError)
     targets = []
     for var_name in ["TEMP_REPO", "TEMP_PATCH_GIT", "PATCH_EMU_GIT_DIR"]:
         path = globals().get(var_name)
@@ -1461,9 +1913,10 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     if not targets:
         set_progress(100)
         log("cleanup_success", "success")
+        play_sound("success")  # Auch wenn nichts zu tun war, Bestätigung senden
         return
 
-    # Abarbeiten der Liste
+    all_cleaned = True
     for i, (path, p_type) in enumerate(targets):
         try:
             if p_type == "folder":
@@ -1474,13 +1927,17 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
                     os.remove(path)
         except Exception as e:
             log("delete_failed", "error", path=os.path.basename(path), error=str(e))
+            all_cleaned = False
 
-        # Fortschrittsberechnung
         set_progress(10 + (i + 1) * (90 // len(targets)))
 
     # ---------- 4) ABSCHLUSS ----------
     set_progress(100)
     log("cleanup_success", "success")
+
+    # Sound abspielen (Erfolg oder Fehler)
+    play_sound("success" if all_cleaned else "error")
+
     QApplication.processEvents()
 
 
@@ -1532,8 +1989,8 @@ def get_icon_for(name):
 
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 def clean_oscam_emu_git(progress_callback=None):
-    """Löscht den Emu-Git Ordner absolut stumm ohne eigene Log-Einträge."""
-    import os, shutil, stat
+    """Löscht den Emu-Git Ordner stumm im Log, aber mit Sound-Feedback."""
+    import os, shutil, stat, platform, subprocess
 
     path = globals().get("PATCH_EMU_GIT_DIR") or globals().get("TEMP_PATCH_GIT")
 
@@ -1544,14 +2001,31 @@ def clean_oscam_emu_git(progress_callback=None):
         try:
 
             def on_error(func, p, exc):
-                os.chmod(p, stat.S_IWRITE)
-                func(p)
+                try:
+                    os.chmod(p, stat.S_IWRITE)
+                    func(p)
+                except:
+                    pass
 
             shutil.rmtree(path, onerror=on_error)
+
+            # --- SOUND BEI ERFOLG ---
+            if platform.system() == "Linux":
+                # trash-empty klingt passend zum Löschen
+                s_ok = "/usr/share/sounds/freedesktop/stereo/trash-empty.oga"
+                if os.path.exists(s_ok):
+                    subprocess.Popen(["paplay", s_ok], stderr=subprocess.DEVNULL)
+
             if progress_callback:
                 progress_callback(100)
             return "success"
-        except:
+
+        except Exception:
+            # --- SOUND BEI FEHLER ---
+            if platform.system() == "Linux":
+                s_err = "/usr/share/sounds/freedesktop/stereo/dialog-error.oga"
+                if os.path.exists(s_err):
+                    subprocess.Popen(["paplay", s_err], stderr=subprocess.DEVNULL)
             return "error"
 
     if progress_callback:
@@ -1563,11 +2037,11 @@ def clean_oscam_emu_git(progress_callback=None):
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Klont das Streamboard Git, wendet oscam-emu.patch an und commitet.
-    Optimiert für Windows 11: Keine Terminal-Ausgaben, SSL-Fix inklusive.
+    Inklusive Sound-Feedback bei Erfolg oder Fehlern.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtCore import QTimer
-    import os, shutil, subprocess
+    import os, shutil, subprocess, platform
 
     widget = (
         info_widget
@@ -1583,6 +2057,19 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
                 QApplication.processEvents()
             except:
                 pass
+
+    def play_sound(success=True):
+        """Spielt Sound-Effekte für Patch-Ergebnisse ab."""
+        if platform.system() == "Linux":
+            sound = "complete.oga" if success else "dialog-error.oga"
+            s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+            if os.path.exists(s_path):
+                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+            else:
+                QApplication.beep()
+        else:
+            # Windows Standard-Beep
+            QApplication.beep()
 
     def log(text_key, level="info", **kwargs):
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
@@ -1602,7 +2089,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     set_progress(5)
     log("patch_emu_git_start", "info", path=PATCH_EMU_GIT_DIR)
 
-    # Ordner bereinigen (mit Retry für Windows-Dateisperren)
+    # Ordner bereinigen
     if os.path.exists(PATCH_EMU_GIT_DIR):
         try:
             shutil.rmtree(PATCH_EMU_GIT_DIR, ignore_errors=True)
@@ -1613,9 +2100,8 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     os.makedirs(PATCH_EMU_GIT_DIR, exist_ok=True)
     set_progress(15)
 
-    # --- Git Clone (Informativ & Silent) ---
+    # --- Git Clone ---
     set_progress(20)
-    # -c http.sslVerify=false behebt Klon-Fehler auf vielen Windows-Systemen
     clone = subprocess.run(
         ["git", "clone", "-c", "http.sslVerify=false", STREAMREPO, "."],
         cwd=PATCH_EMU_GIT_DIR,
@@ -1625,17 +2111,14 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
 
     if clone.returncode != 0:
         log("patch_emu_git_clone_failed", "error")
-        # Fehlermeldung nur in die GUI schreiben
-        if isinstance(widget, QTextEdit):
-            widget.append(
-                f'<span style="color:red">Git Error: {clone.stderr.strip()}</span>'
-            )
+        play_sound(False)
         return
 
     # --- Patch anwenden ---
     set_progress(50)
     if not os.path.exists(PATCH_FILE):
         log("patch_file_missing", "error")
+        play_sound(False)
         return
 
     abs_patch_path = os.path.abspath(PATCH_FILE)
@@ -1648,13 +2131,10 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
 
     if apply_patch.returncode != 0:
         log("patch_emu_git_apply_failed", "error")
-        if isinstance(widget, QTextEdit):
-            widget.append(
-                f'<span style="color:red">Patch Error: {apply_patch.stderr.strip()}</span>'
-            )
+        play_sound(False)
         return
 
-    # --- Git Config ---
+    # --- Git Config & Commit ---
     set_progress(70)
     cfg = load_github_config()
     user = cfg.get("user_name", "speedy005")
@@ -1669,7 +2149,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
         capture_output=True,
     )
 
-    # --- Header Context Fix (Keine Terminal fatal Meldungen) ---
+    # Header auslesen
     old_cwd = os.getcwd()
     try:
         os.chdir(PATCH_EMU_GIT_DIR)
@@ -1681,8 +2161,6 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
         os.chdir(old_cwd)
 
     commit_msg = f"Sync patch {header}"
-
-    # --- Commit ---
     subprocess.run(["git", "add", "."], cwd=PATCH_EMU_GIT_DIR, capture_output=True)
     subprocess.run(
         ["git", "commit", "-am", commit_msg, "--allow-empty"],
@@ -1691,7 +2169,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     )
     log("patch_emu_git_applied", "success", commit_msg=commit_msg)
 
-    # --- Revision auslesen (Silent) ---
+    # Revision auslesen
     rev = None
     try:
         rev_res = subprocess.run(
@@ -1699,14 +2177,13 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
             cwd=PATCH_EMU_GIT_DIR,
             capture_output=True,
             text=True,
-            stderr=subprocess.DEVNULL,
         )
         if rev_res.returncode == 0:
             rev = rev_res.stdout.strip()
     except:
         pass
 
-    # --- Finale Meldungen ---
+    # --- Finale Meldungen & Sound ---
     def final_logs():
         if gui_instance:
             log("patch_emu_git_done", "success")
@@ -1717,6 +2194,8 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
                     .format(sha=rev)
                 )
                 gui_instance.append_info(widget, rev_text, "success")
+            # Erfolgssound abspielen
+            play_sound(True)
 
     QTimer.singleShot(100, final_logs)
     set_progress(100)
@@ -1924,12 +2403,13 @@ def github_upload_oscam_emu_folder(
 ):
     """
     Lädt den gesamten Inhalt des OSCam-EMU-Git-Ordners auf GitHub hoch.
+    Inklusive Sound-Feedback bei Erfolg oder Fehlern.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
-    import os, subprocess, shutil
+    import os, subprocess, shutil, platform
 
     # 1. Sicherstellen, dass wir Instanzen haben
-    gui = gui_instance if gui_instance else self
+    gui = gui_instance
     widget = (
         info_widget
         if isinstance(info_widget, QTextEdit)
@@ -1947,8 +2427,20 @@ def github_upload_oscam_emu_folder(
             gui.progress_bar.setValue(val)
         QApplication.processEvents()
 
+    def play_sound(success=True):
+        """Spielt Sound-Effekte für den GitHub Upload."""
+        if platform.system() == "Linux":
+            # notify-success klingt oft moderner als complete
+            sound = "complete.oga" if success else "dialog-error.oga"
+            s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+            if os.path.exists(s_path):
+                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+            else:
+                QApplication.beep()
+        else:
+            QApplication.beep()
+
     def log(text_key, level="info", **kwargs):
-        # Greift auf das globale TEXTS dictionary zu
         lang_dict = (
             globals()
             .get("TEXTS", {})
@@ -1963,20 +2455,18 @@ def github_upload_oscam_emu_folder(
 
         if widget and hasattr(gui, "append_info"):
             gui.append_info(widget, text, level)
-        else:
-            print(f"[{level.upper()}] {text}")
         QApplication.processEvents()
 
     # --- Start der Logik ---
     set_progress(5)
     log("github_config_load", "info")
 
-    # Sicherer Aufruf der Ladefunktion (muss global oder in self existieren)
     load_func = globals().get("load_github_config") or getattr(
-        self, "load_github_config", None
+        gui, "load_github_config", None
     )
     if not load_func:
         log("Konfigurations-Ladefunktion fehlt!", "error")
+        play_sound(False)
         return
 
     cfg = load_func()
@@ -1985,15 +2475,15 @@ def github_upload_oscam_emu_folder(
     username, token = cfg.get("username"), cfg.get("token")
     user_name, user_email = cfg.get("user_name"), cfg.get("user_email")
 
-    # Check ob Config vollständig
     if not all([repo_url, branch, username, token, user_name, user_email]):
         log("github_emu_git_missing", "error")
+        play_sound(False)
         return
 
-    # Globaler Pfad-Check
     target_dir = globals().get("PATCH_EMU_GIT_DIR")
     if not target_dir or not os.path.exists(target_dir):
         log("patch_emu_git_missing", "error", path=str(target_dir))
+        play_sound(False)
         return
 
     set_progress(15)
@@ -2002,7 +2492,6 @@ def github_upload_oscam_emu_folder(
     silent_env = os.environ.copy()
     silent_env["GIT_TERMINAL_PROMPT"] = "0"
 
-    # --- Git Operationen ---
     try:
         if not os.path.exists(git_dir):
             log("git_repo_init", "warning")
@@ -2051,7 +2540,6 @@ def github_upload_oscam_emu_folder(
         log("git_adding_files", "info")
         subprocess.run(["git", "add", "."], cwd=target_dir, capture_output=True)
 
-        # Commit Message
         commit_msg = "Sync OSCam-Emu folder"
         header_func = globals().get("get_patch_header")
         if header_func:
@@ -2090,6 +2578,7 @@ def github_upload_oscam_emu_folder(
             log("github_emu_git_uploaded", "success")
             log("github_emu_git_revision", "success", sha=sha, commit_msg=commit_msg)
             set_progress(100)
+            play_sound(True)  # ERFOLG
         else:
             log("github_upload_failed", "error")
             err = (
@@ -2099,10 +2588,12 @@ def github_upload_oscam_emu_folder(
             )
             log(err.strip(), "error")
             set_progress(0)
+            play_sound(False)  # FEHLER
 
     except Exception as e:
         log(f"Kritischer Fehler: {str(e)}", "error")
         set_progress(0)
+        play_sound(False)  # FEHLER
 
 
 # =====================
@@ -2199,7 +2690,7 @@ class GithubConfigDialog(QDialog):
             self.reject()
 
 
-from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QThread, pyqtSignal, QUrl
 
 
 class TaskWorker(QThread):
@@ -2229,10 +2720,24 @@ class TaskWorker(QThread):
 # PATCH MANAGER GUI
 # =====================
 from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
 
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
+        from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
+        import subprocess, platform
+
+        # 1. Welcome Sound (sofort beim Start)
+        if platform.system() == "Linux":
+            subprocess.Popen(
+                ["paplay", "/usr/share/sounds/freedesktop/stereo/service-login.oga"],
+                stderr=subprocess.DEVNULL,
+            )
+
+        # 2. System-Check (etwas später, damit die Sounds sich nicht "beißen")
+        # Erhöhe die Zeit von 500 auf 1500 (1.5 Sekunden)
+        QTimer.singleShot(1500, self.run_full_system_check)
         # 1. STATUS INITIALISIEREN
         self.is_loading = True  # Verhindert ungewollte Event-Trigger während des Setups
         super().__init__()
@@ -2519,7 +3024,9 @@ class PatchManagerGUI(QWidget):
 
         # Texte festlegen
         title = "Repo URL ändern" if lang == "de" else "Change Repo URL"
-        label = "Neue Emu-Repository URL:" if lang == "de" else "New Emu-Repository URL:"
+        label = (
+            "Neue Emu-Repository URL:" if lang == "de" else "New Emu-Repository URL:"
+        )
 
         # --- FIX: Dialog-Objekt erstellen für deutsche Buttons ---
         dialog = QInputDialog(self)
@@ -2527,7 +3034,7 @@ class PatchManagerGUI(QWidget):
         dialog.setLabelText(label)
         dialog.setTextValue(current_repo)
         dialog.setTextEchoMode(QLineEdit.EchoMode.Normal)
-        
+
         # Buttons je nach Sprache erzwingen
         if lang == "de":
             dialog.setOkButtonText("OK")
@@ -2558,21 +3065,46 @@ class PatchManagerGUI(QWidget):
                     json.dump(config_data, f, indent=4)
 
                 # Rückmeldung im Info-Text
-                success_msg = f"💾 Repo gespeichert: {self.EMUREPO}" if lang == "de" else f"💾 Repo saved: {self.EMUREPO}"
+                success_msg = (
+                    f"💾 Repo gespeichert: {self.EMUREPO}"
+                    if lang == "de"
+                    else f"💾 Repo saved: {self.EMUREPO}"
+                )
                 self.append_info(self.info_text, success_msg, "success")
 
     def change_modifier_name(self):
         """Öffnet Dialog, speichert den Namen permanent und aktualisiert das UI."""
-        from PyQt6.QtWidgets import QInputDialog, QLineEdit
+        from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
+        import os, subprocess, platform
 
-        # Aktuellen Namen abrufen
         current = getattr(self, "patch_modifier", PATCH_MODIFIER)
         lang = getattr(self, "LANG", "de")
-
-        # Texte aus TEXTS laden
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
-        
-        # Titel und Label auf "Patch Autor" angepasst
+
+        # VERBESSERTE SOUND-FUNKTION
+        def play_mod_sound(success=True):
+            if platform.system() == "Linux":
+                # Verschiedene mögliche Pfade für Linux-Sounds
+                sound_name = "complete.oga" if success else "dialog-warning.oga"
+                paths = [
+                    f"/usr/share/sounds/freedesktop/stereo/{sound_name}",
+                    f"/usr/share/sounds/ubuntu/stereo/{sound_name.replace('.oga', '.ogg')}",
+                ]
+
+                played = False
+                for s_path in paths:
+                    if os.path.exists(s_path):
+                        # Versuche paplay (Pulse), dann aplay (ALSA)
+                        cmd = "paplay" if shutil.which("paplay") else "aplay"
+                        subprocess.Popen([cmd, s_path], stderr=subprocess.DEVNULL)
+                        played = True
+                        break
+
+                if not played:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
+
         title = lang_dict.get("mod_dialog_title", "Patch Autor")
         label = lang_dict.get("mod_dialog_label", "Neuer Name des Autors:")
 
@@ -2581,29 +3113,31 @@ class PatchManagerGUI(QWidget):
         )
 
         if ok and new_name.strip():
-            # 1. Instanz-Variable aktualisieren
             self.patch_modifier = new_name.strip()
 
-            # 2. In das Config-Dictionary schreiben (falls vorhanden)
             if hasattr(self, "cfg"):
                 self.cfg["patch_modifier"] = self.patch_modifier
-                # 3. Die externe save_config Funktion aufrufen
                 try:
-                    save_config(self.cfg)
+                    # Nutze die globale save_config
+                    if "save_config" in globals():
+                        globals()["save_config"](self.cfg)
                 except Exception as e:
-                    self.append_info(self.info_text, f"❌ Config Save Error: {e}", "error")
+                    self.append_info(
+                        self.info_text, f"❌ Config Save Error: {e}", "error"
+                    )
 
-            # 4. LIVE-UPDATE: Button-Text sofort aktualisieren
             if hasattr(self, "btn_modifier"):
                 self.btn_modifier.setText(f"👤 {self.patch_modifier}")
 
-            # 5. Feedback im Log ausgeben
-            success_tpl = lang_dict.get("mod_changed_success", "✅ Patch Autor geändert: {name}")
-            self.append_info(
-                self.info_text, 
-                success_tpl.format(name=self.patch_modifier), 
-                "success"
+            success_tpl = lang_dict.get(
+                "mod_changed_success", "✅ Patch Autor geändert: {name}"
             )
+            self.append_info(
+                self.info_text, success_tpl.format(name=self.patch_modifier), "success"
+            )
+
+            # Sound jetzt auslösen
+            play_mod_sound(True)
 
     def collect_and_save(self):
         """Speichert leise und aktualisiert die Farben sofort."""
@@ -2637,77 +3171,109 @@ class PatchManagerGUI(QWidget):
             self.info_text.append(f"❌ Fehler beim Speichern: {e}")
 
     def manual_tool_check(self):
-        """Prüft installierte Tools und nutzt strikt die gewählte Sprache."""
+        """Prüft installierte Tools und zeigt Status sowie Updates im Info-Fenster an."""
         import shutil
         import subprocess
+        import os
 
-        # 1. Sprache & Texte laden
+        # 1. Sprache & Texte laden (Fallback auf Englisch)
         lang = str(getattr(self, "LANG", "de")).lower()
         t = TEXTS.get(lang, TEXTS.get("en", {}))
 
-        # 2. Start-Meldung (Nur im Infoscreen)
-        self.append_info(
-            self.info_text,
-            t.get("checking_tools", "Starting system tool check..."),
-            "info",
-        )
+        # Fenster leeren für sauberen Start
+        self.info_text.clear()
 
-        # 3. System-Tools prüfen
-        required_tools = ["git", "patch", "zip", "python3"]
+        # 2. Start-Meldung in ROT (Nutzt den 'error' Typ für die rote Farbe)
+        start_msg = (
+            "Starte System-Check..." if lang == "de" else "Starting system check..."
+        )
+        self.append_info(self.info_text, start_msg, "error")
+
+        # 3. System-Tools prüfen (Plattform-abhängig)
+        required_tools = ["git"]
+        if os.name == "nt":  # Windows
+            required_tools.append("python")
+        else:  # Linux / Mac
+            required_tools.extend(["patch", "zip", "python3"])
+
         missing = [tool for tool in required_tools if shutil.which(tool) is None]
 
+        # 4. Fall: Alle Tools vorhanden
         if not missing:
-            # 4. Erfolgs-Meldung (Alles ok -> kein Terminal!)
-            msg = t.get(
-                "tools_ok", "✅ All required system tools are already installed."
+            # Tools OK
+            tools_ok_msg = t.get(
+                "tools_ok", "✅ Alle benötigten System-Tools sind bereits installiert."
             )
-            self.append_info(self.info_text, msg, "success")
+            self.append_info(self.info_text, tools_ok_msg, "success")
+
+            # Update-Check Sektion (wie gewünscht)
+            check_update_msg = (
+                "Prüfe auf Updates ..." if lang == "de" else "Checking for updates ..."
+            )
+            self.append_info(self.info_text, check_update_msg, "info")
+
+            self.append_info(
+                self.info_text, f"✅ Installierte Version: {APP_VERSION}", "success"
+            )
+
+            no_update_msg = (
+                "ℹ️ Kein Update vorhanden" if lang == "de" else "ℹ️ No update available"
+            )
+            self.append_info(self.info_text, no_update_msg, "info")
             return
 
-        # 5. Falls Tools fehlen -> Information im Infoscreen
-        missing_str = " ".join(missing)
-        template = t.get(
-            "tools_missing", "⚠️ Missing tools: {tools}. Starting installation..."
+        # 5. Fall: Tools fehlen
+        missing_str = ", ".join(missing)
+        missing_template = (
+            "⚠️ Fehlende Tools: {tools}" if lang == "de" else "⚠️ Missing tools: {tools}"
         )
-        self.append_info(self.info_text, template.format(tools=missing_str), "warning")
-
-        # Installations-Befehl vorbereiten
-        install_cmd = f"sudo apt-get update && sudo apt-get install -y {missing_str}"
-        full_cmd = (
-            f"bash -c '{install_cmd}; echo; echo Done. Press Enter to close...; read'"
+        self.append_info(
+            self.info_text, missing_template.format(tools=missing_str), "warning"
         )
 
-        term = (
-            shutil.which("x-terminal-emulator")
-            or shutil.which("xterm")
-            or "gnome-terminal"
-        )
+        # 6. Automatischer Installationsversuch (Nur Linux)
+        if os.name != "nt":
+            install_cmd = (
+                f"sudo apt-get update && sudo apt-get install -y {missing_str}"
+            )
+            full_cmd = f"bash -c '{install_cmd}; echo; echo Fertig. Enter zum Schließen...; read'"
 
-        # 6. Terminal NUR für die Installation starten
-        if term:
-            try:
-                # Wir leiten stdout/stderr von Popen selbst nach DEVNULL,
-                # damit keine GTK/System-Warnungen im Hauptterminal erscheinen.
-                if "gnome" in term:
-                    subprocess.Popen(
-                        [term, "--", "bash", "-c", full_cmd],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
+            term = (
+                shutil.which("x-terminal-emulator")
+                or shutil.which("gnome-terminal")
+                or shutil.which("xterm")
+            )
+
+            if term:
+                try:
+                    # Terminal-spezifische Argumente
+                    cmd_list = (
+                        [term, "--", "bash", "-c", full_cmd]
+                        if "gnome" in term
+                        else [term, "-e", full_cmd]
                     )
-                else:
                     subprocess.Popen(
-                        [term, "-e", full_cmd],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
+                        cmd_list, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                     )
-            except Exception as e:
-                err_msg = (
-                    f"Terminal Error: {e}" if lang == "en" else f"Terminal-Fehler: {e}"
+                    self.append_info(
+                        self.info_text, "🚀 Installations-Terminal gestartet.", "info"
+                    )
+                except Exception as e:
+                    self.append_info(
+                        self.info_text, f"❌ Terminal-Fehler: {e}", "error"
+                    )
+            else:
+                self.append_info(
+                    self.info_text, "❌ Kein Terminal-Emulator gefunden!", "error"
                 )
-                self.append_info(self.info_text, err_msg, "error")
         else:
-            # Fallback falls gar kein Terminal gefunden wurde
-            self.append_info(self.info_text, "❌ No terminal emulator found!", "error")
+            # Windows Fallback
+            win_msg = (
+                "❌ Bitte installiere die fehlenden Tools manuell."
+                if lang == "de"
+                else "❌ Please install missing tools manually."
+            )
+            self.append_info(self.info_text, win_msg, "error")
 
     def resizeEvent(self, event):
         """
@@ -3298,7 +3864,6 @@ class PatchManagerGUI(QWidget):
 
         # 1. Widget & Sprache sicherstellen
         widget = info_widget or getattr(self, "info_text", None)
-        # Wir nehmen die aktuell gesetzte Sprache der Instanz
         lang_key = str(getattr(self, "LANG", "de")).lower()
 
         try:
@@ -3308,26 +3873,36 @@ class PatchManagerGUI(QWidget):
 
         # 2. Dialog aufbauen
         msg = QMessageBox(self)
-        msg.setWindowTitle(lang_pack.get("restart_tool", "Restart tool"))
+        msg.setWindowTitle(lang_pack.get("restart_tool", "Neustart"))
         msg.setText(
-            lang_pack.get("restart_tool_question", "Do you want to restart now?")
+            lang_pack.get(
+                "restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"
+            )
         )
 
-        yes_text = lang_pack.get("yes", "Yes")
-        no_text = lang_pack.get("no", "No")
+        yes_text = lang_pack.get("yes", "Ja")
+        no_text = lang_pack.get("no", "Nein")
         yes_button = msg.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
         no_button = msg.addButton(no_text, QMessageBox.ButtonRole.NoRole)
 
         msg.exec()
 
         if msg.clickedButton() == yes_button:
+            # --- NEU: SOUND VOR DEM NEUSTART ---
+            import platform
+
+            if platform.system() == "Linux":
+                s_path = "/usr/share/sounds/freedesktop/stereo/service-logout.oga"
+                if os.path.exists(s_path):
+                    # Wir nutzen Popen, damit der Sound startet und der Prozess
+                    # sofort mit dem Neustart fortfahren kann.
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+
             # --- SPEICHERN DER AKTUELLEN EINSTELLUNGEN ---
             try:
-                # Nutze deine zentrale Sammel-Methode, um konsistente Keys zu haben
                 if hasattr(self, "get_gui_settings"):
                     current_config = self.get_gui_settings()
                 else:
-                    # Fallback: Manuelles Sammeln mit den Namen aus deiner __init__
                     current_config = {
                         "commit_count": getattr(self, "commit_count", 5),
                         "color": getattr(self, "current_color", "s"),
@@ -3335,42 +3910,36 @@ class PatchManagerGUI(QWidget):
                         "s3_patch_path": getattr(self, "OLD_PATCH_DIR", OLD_PATCH_DIR),
                     }
 
-                # Datei physisch schreiben mit deiner globalen Funktion
                 if "save_config" in globals():
                     save_config(current_config)
-                    print(f"✅ Config vor Neustart gesichert: {current_config}")
                 else:
-                    # Falls save_config nicht global ist, direkt schreiben
                     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                         json.dump(current_config, f, indent=2, ensure_ascii=False)
-
             except Exception as e:
-                print(f"⚠️ Fehler beim Speichern vor Neustart: {e}")
+                print(f"⚠️ Fehler beim Speichern: {e}")
 
-            # Info im GUI-Log ausgeben
-            info_msg = lang_pack.get("restart_tool_info", "Restarting...")
+            # Info im GUI-Log
+            info_msg = lang_pack.get("restart_tool_info", "Neustart läuft...")
             if isinstance(widget, QTextEdit):
                 widget.append(f'<br><span style="color:gray">{info_msg}</span>')
 
-            # 3. Plattformübergreifende Neustart-Logik
+            # 3. Plattformübergreifend Neustarten
             try:
                 executable = sys.executable
                 args = sys.argv[:]
 
                 if os.name != "nt":
-                    # Linux/Unix: Prozess ersetzen (sauberster Weg)
+                    # Linux: Prozess ersetzen
                     os.execl(executable, executable, *args)
                 else:
-                    # Windows: Neuen Prozess starten und aktuellen beenden
+                    # Windows
                     subprocess.Popen([executable] + args)
                     QApplication.instance().quit()
             except Exception as e:
                 print(f"Kritischer Fehler beim Neustart: {e}")
-                # Letzter Rettungsanker
                 os.system(f"{sys.executable} {' '.join(sys.argv)}")
                 QApplication.instance().quit()
         else:
-            # Falls "Nein" geklickt wurde, Balken auf 100% setzen
             if progress_callback:
                 progress_callback(100)
 
@@ -3378,37 +3947,48 @@ class PatchManagerGUI(QWidget):
         import subprocess
         import sys
         import os
+        import platform
         from PyQt6.QtWidgets import QApplication
 
         # --- SPEICHER-FIX VOR NEUSTART ---
         try:
-            # Falls die globale Variable existiert, in das Dictionary schreiben
             if "current_color_name" in globals():
                 self.cfg["color"] = globals()["current_color_name"]
 
-            # Sicherstellen, dass auch andere Werte aktuell sind
             self.cfg["language"] = getattr(self, "LANG", "DE").upper()
 
-            # Jetzt die Datei physisch schreiben
             if "save_config" in globals():
                 save_config(self.cfg)
                 print(f"✅ Restart-Save: {self.cfg['color']} wurde gesichert.")
         except Exception as e:
             print(f"⚠️ Fehler beim Sichern vor Restart: {e}")
-        # ---------------------------------
 
+        # --- NEU: SOUND BEIM NEUSTART (Linux) ---
+        if platform.system() == "Linux":
+            s_path = "/usr/share/sounds/freedesktop/stereo/service-logout.oga"
+            if os.path.exists(s_path):
+                # Wir nutzen Popen, damit der Sound startet, bevor das Tool schließt
+                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+
+        # ---------------------------------
         python = sys.executable
         script = os.path.abspath(__file__)
         args_list = sys.argv
 
+        # Neuen Prozess starten
         subprocess.Popen([python, script] + args_list[1:])
+
+        # Aktuelle Instanz beenden
         QApplication.quit()
 
     # ===================== ZIP PATCH =====================
     def zip_patch(self, info_widget=None, progress_callback=None):
         """Erstellt ein ZIP des Patches und zeigt den Status im Infoscreen an."""
-        from PyQt6.QtWidgets import QTextEdit
+        from PyQt6.QtWidgets import QTextEdit, QApplication
         import zipfile
+        import os
+        import platform
+        import subprocess
 
         # SICHERHEITS-CHECK: Widget erzwingen
         widget = info_widget
@@ -3416,7 +3996,7 @@ class PatchManagerGUI(QWidget):
             widget = getattr(self, "info_text", None)
 
         # Sprache sicherstellen
-        lang = getattr(self, "LANG", "DE")
+        lang = getattr(self, "LANG", "DE").lower()
 
         # Hilfsfunktion für die Texte (vermeidet Abstürze bei fehlenden Keys)
         def get_msg(key, default, **kwargs):
@@ -3425,6 +4005,18 @@ class PatchManagerGUI(QWidget):
                 return template.format(**kwargs)
             except:
                 return template
+
+        def play_zip_sound(success=True):
+            """Spielt Sound für das Zippen ab."""
+            if platform.system() == "Linux":
+                sound = "complete.oga" if success else "dialog-error.oga"
+                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+                if os.path.exists(s_path):
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
 
         try:
             # 1. Existenzprüfung
@@ -3435,6 +4027,7 @@ class PatchManagerGUI(QWidget):
                     path=PATCH_FILE,
                 )
                 self.append_info(widget, msg, "error")
+                play_zip_sound(False)
                 return
 
             # 2. Zippen
@@ -3450,13 +4043,17 @@ class PatchManagerGUI(QWidget):
                 zip_file=ZIP_FILE,
             )
             self.append_info(widget, msg, "success")
+            play_zip_sound(True)
 
         except Exception as e:
             msg = get_msg("zip_failed", "❌ Fehler beim Zippen: {error}", error=str(e))
             self.append_info(widget, msg, "error")
+            play_zip_sound(False)
 
         if progress_callback:
             progress_callback(100)
+
+        QApplication.processEvents()
 
     def run_command(self, cmd, cwd=None):
         """Führt Befehle aus und gibt das Ergebnis als String zurück."""
@@ -3617,23 +4214,49 @@ class PatchManagerGUI(QWidget):
     def edit_patch_header(self, info_widget=None, progress_callback=None):
         """
         Opens the patch file in a dialog to edit its header.
-        Messages are written to the info widget or printed to the console.
+        Inklusive Sound-Feedback beim Öffnen und Speichern.
         """
+        import os, subprocess, platform
+        from PyQt6.QtWidgets import (
+            QDialog,
+            QVBoxLayout,
+            QTextEdit,
+            QDialogButtonBox,
+            QApplication,
+        )
+        from PyQt6.QtGui import QFont
+
         widget = info_widget or getattr(self, "info_text", None)
 
-        # Logger like in clean_patch_folder
         def log(text, level="info"):
             if hasattr(self, "append_info") and widget:
                 self.append_info(widget, text, level)
             else:
                 print(f"[{level.upper()}] {text}")
 
+        def play_header_sound(sound_type="open"):
+            """Spielt Sounds für den Editor-Dialog ab."""
+            if platform.system() == "Linux":
+                # 'dialog-information' für Öffnen, 'complete' für Speichern
+                sound = (
+                    "dialog-information.oga" if sound_type == "open" else "complete.oga"
+                )
+                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+                if os.path.exists(s_path):
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
+
         # Get language texts
-        lang_dict = TEXTS.get(getattr(self, "LANG", "en"), TEXTS.get("en", {}))
+        lang_dict = TEXTS.get(getattr(self, "LANG", "en").lower(), TEXTS.get("en", {}))
 
         # Load patch file
         patch_content = ""
         try:
+            if not os.path.exists(PATCH_FILE):
+                raise FileNotFoundError(PATCH_FILE)
             with open(PATCH_FILE, "r", encoding="utf-8") as f:
                 patch_content = f.read()
         except Exception as e:
@@ -3645,7 +4268,8 @@ class PatchManagerGUI(QWidget):
                 progress_callback(100)
             return
 
-        # Create dialog
+        # --- EDITOR DIALOG ---
+        play_header_sound("open")  # Sound beim Öffnen
         editor = QDialog(self)
         editor.setWindowTitle(
             lang_dict.get("edit_patch_header_title", "Edit Patch Header")
@@ -3654,24 +4278,21 @@ class PatchManagerGUI(QWidget):
         layout = QVBoxLayout(editor)
 
         text_edit = QTextEdit()
-        text_edit.setFont(QFont("Courier", 12))
+        text_edit.setFont(QFont("Courier", 11))
         text_edit.setText(patch_content)
         layout.addWidget(text_edit)
 
-        # Buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save
             | QDialogButtonBox.StandardButton.Cancel
         )
         layout.addWidget(buttons)
 
-        # Set button texts with translation fallback
         save_btn = buttons.button(QDialogButtonBox.StandardButton.Save)
         cancel_btn = buttons.button(QDialogButtonBox.StandardButton.Cancel)
         save_btn.setText(lang_dict.get("save", "Save"))
         cancel_btn.setText(lang_dict.get("cancel", "Cancel"))
 
-        # Button events
         def save_and_close():
             try:
                 with open(PATCH_FILE, "w", encoding="utf-8") as f:
@@ -3680,6 +4301,7 @@ class PatchManagerGUI(QWidget):
                     "patch_saved_successfully", "✅ Patch file saved successfully"
                 )
                 log(success_msg, "success")
+                play_header_sound("save")  # Sound beim erfolgreichen Speichern
             except Exception as e:
                 error_msg = lang_dict.get(
                     "error_saving_patch_file", "❌ Error saving patch file:"
@@ -3939,60 +4561,40 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     def check_for_update_on_start(self):
         """
-        Prüft beim Start die GitHub-Version, aktualisiert den Update-Button
-        und fragt den Nutzer, ob er direkt updaten möchte.
+        Prüft GitHub-Version im Hintergrund.
+        Schreibt NUR bei Fehlern ins Log und spielt einen Sound bei verfügbarem Update.
         """
-        from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
-        from PyQt6.QtGui import QTextCursor
-        import time, requests
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+        import time, requests, os, subprocess, platform
         from packaging.version import Version
 
-        widget = getattr(self, "info_text", None)
         progress = getattr(self, "progress_bar", None)
         lang = getattr(self, "LANG", "de").lower()
 
-        if progress:
-            progress.setValue(0)
-            progress.show()
+        def log_err(msg):
+            if hasattr(self, "append_info") and hasattr(self, "info_text"):
+                self.append_info(self.info_text, msg, "error")
 
-        def log(text_key, level="info", **kwargs):
-            colors = {
-                "success": "green",
-                "warning": "orange",
-                "error": "red",
-                "info": "blue",
-            }
-            color = colors.get(level, "gray")
-            text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
-            try:
-                safe_params = {
-                    "current": APP_VERSION,
-                    "version": APP_VERSION,
-                    "latest": getattr(self, "latest_version", "???"),
-                    "error": kwargs.get("error", "Unknown Error"),
-                }
-                safe_params.update(kwargs)
-                text = text_template.format(**safe_params)
-            except Exception:
-                text = text_template
-
-            if isinstance(widget, QTextEdit):
-                widget.append(f'<span style="color:{color}">{text}</span>')
-                widget.moveCursor(QTextCursor.MoveOperation.End)
-                QApplication.processEvents()
-
-        log("update_check_start", "info")
+        def play_update_sound():
+            """Spielt einen Benachrichtigungssound bei gefundenem Update."""
+            if platform.system() == "Linux":
+                # 'message-new-instant' oder 'service-login' sind gute Signale
+                s_path = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
+                if os.path.exists(s_path):
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
 
         try:
-            # FIX: URL-Format und Zeitstempel
             version_url = (
                 "https://raw.githubusercontent.com/"
                 "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
                 f"?t={int(time.time())}"
             )
 
-            # FIX: Den Request auch wirklich absenden!
-            resp = requests.get(version_url, timeout=10)
+            resp = requests.get(version_url, timeout=5)
             resp.raise_for_status()
 
             latest_version = resp.text.strip().lstrip("v")
@@ -4003,19 +4605,16 @@ class PatchManagerGUI(QWidget):
 
             current_version = APP_VERSION.strip().lstrip("v")
 
-            # Kein Update nötig
+            # FALL: KEIN Update nötig
             if not Version(latest_version) > Version(current_version):
-                log("update_current_version", "success", version=current_version)
-                log("update_no_update", "info")
                 if progress:
                     progress.setValue(100)
                 return
 
-            # Update verfügbar
-            if progress:
-                progress.setValue(80)
+            # --- UPDATE GEFUNDEN: SOUND ABSPIELEN ---
+            play_update_sound()
 
-            # MessageBox Setup
+            # FALL: Update verfügbar -> Dialog anzeigen
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Question)
             msg_box.setWindowTitle(
@@ -4026,15 +4625,12 @@ class PatchManagerGUI(QWidget):
                 "update_available_msg",
                 "Neue Version {latest} verfügbar. Jetzt updaten?",
             )
-            msg_box.setText(
-                raw_dialog_text.format(current=current_version, latest=latest_version)
-            )
-
+            msg_box.setText(raw_dialog_text.format(latest=latest_version))
             msg_box.setStandardButtons(
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
 
-            # Button-Texte übersetzen
+            # Button Texte übersetzen
             btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
             if btn_yes:
                 btn_yes.setText(TEXTS.get(lang, {}).get("yes", "Ja"))
@@ -4042,27 +4638,12 @@ class PatchManagerGUI(QWidget):
             if btn_no:
                 btn_no.setText(TEXTS.get(lang, {}).get("no", "Nein"))
 
-            msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
-
-            # Ergebnis abfangen
-            result = msg_box.exec()
-
-            if result == QMessageBox.StandardButton.Yes:
+            if msg_box.exec() == QMessageBox.StandardButton.Yes:
                 if hasattr(self, "plugin_update_action"):
-                    self.plugin_update_action(
-                        latest_version=latest_version,
-                        progress_callback=progress.setValue if progress else None,
-                    )
-            else:
-                log("update_declined", "info")
-                log("update_current_version", "success", version=current_version)
-                if progress:
-                    progress.setValue(100)
+                    self.plugin_update_action(latest_version=latest_version)
 
         except Exception as e:
-            log("update_fail", "error", error=str(e))
-            if progress:
-                progress.setValue(0)
+            log_err(f"Update-Check Failed: {e}")
 
     # ---------------------
     # TOOLS CHECK
@@ -4070,19 +4651,31 @@ class PatchManagerGUI(QWidget):
 
     def check_for_plugin_update(self):
         """Prüft auf Updates und hängt den Status an den bestehenden Infoscreen an."""
-        import requests
-        from PyQt6.QtWidgets import QTextEdit
+        import requests, os, subprocess, platform
+        from PyQt6.QtWidgets import QTextEdit, QApplication
 
         # 1. Sprache sicher abrufen
         lang = str(getattr(self, "LANG", "de")).lower()
-
-        # Sicherer Zugriff: Wenn 'de', dann Fallback auf 'de', sonst 'en'
         fallback_dict = TEXTS.get("de", {}) if lang == "de" else TEXTS.get("en", {})
         t = TEXTS.get(lang, fallback_dict)
 
         widget = getattr(self, "info_text", None)
 
+        def play_update_sound(is_new=False):
+            """Spielt Sound bei gefundenem Update oder Erfolg ab."""
+            if platform.system() == "Linux":
+                # 'message-new-instant' für neues Update, 'complete' für aktuell
+                sound = "message-new-instant.oga" if is_new else "complete.oga"
+                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+                if os.path.exists(s_path):
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
+
         if hasattr(self, "append_info") and widget:
+            # Trennlinie für bessere Lesbarkeit im Log
             self.append_info(widget, "\n" + "-" * 30 + "\n", "info")
 
         try:
@@ -4101,12 +4694,11 @@ class PatchManagerGUI(QWidget):
             elif hasattr(self, "update_plugin_button_state"):
                 self.update_plugin_button_state()
 
-            # 3. Versions-Vergleich (Nutzt globales Version-Objekt)
+            # 3. Versions-Vergleich
             lv = Version(latest_version_str)
             cv = Version(current_version_str)
 
             if lv > cv:
-                # Nutzt Key aus Dictionary, Fallback-Text ist Englisch
                 template = t.get(
                     "update_available",
                     "Update available: {latest} (current: {current})",
@@ -4115,13 +4707,14 @@ class PatchManagerGUI(QWidget):
                     latest=latest_version_str, current=current_version_str
                 )
                 tag = "warning"
+                play_update_sound(is_new=True)  # Akustisches Signal für Update
             else:
-                # Nutzt Key aus Dictionary, Fallback-Text ist Englisch
                 template = t.get(
                     "plugin_uptodate", "✅ Plugin is up to date (Version: {current})"
                 )
                 msg = template.format(current=current_version_str)
                 tag = "success"
+                # Optional: play_update_sound(is_new=False) hier entfernen, falls zu nervig
 
             if hasattr(self, "append_info") and widget:
                 self.append_info(widget, msg, tag)
@@ -4133,57 +4726,146 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "append_info") and widget:
                 self.append_info(widget, error_msg, "error")
 
-    def check_tool(self, name, cmd):
+    def run_full_system_check(self):
+        """Einzige Funktion für den Check – Mit verbessertem Linux-Sound."""
+        if hasattr(self, "_checking_active") and self._checking_active:
+            return
+
+        self._checking_active = True
+
+        # Button-Status ändern (Sperren)
+        if hasattr(self, "btn_check_tools"):
+            self.old_btn_text = self.btn_check_tools.text()
+            loading_text = "⏳ Prüfe..." if self.LANG == "de" else "⏳ Checking..."
+            self.btn_check_tools.setText(loading_text)
+            self.btn_check_tools.setEnabled(False)
+
         try:
-            result = subprocess.getoutput(cmd).splitlines()[0]
-            if "not found" in result.lower() or "error" in result.lower():
-                self.info_text.append(
-                    TEXTS[LANG]["tool_missing"].format(name=name, error=result)
-                )
-            else:
-                self.info_text.append(
-                    TEXTS[LANG]["tool_ok"].format(name=name, version=result)
-                )
-        except Exception:
-            self.info_text.append(
-                TEXTS[LANG]["tool_missing"].format(name=name, error="Fehler")
+            import shutil, os, platform, subprocess, time
+            from datetime import datetime
+            from PyQt6.QtWidgets import QApplication
+
+            # Falls das Tool gerade erst gestartet wurde (is_loading),
+            # kurz warten, damit der Welcome-Sound fertig ist.
+            if getattr(self, "is_loading", False):
+                time.sleep(1.2)
+
+            self.info_text.clear()
+            lang = getattr(self, "LANG", "de")
+            timestamp = datetime.now().strftime("%H:%M:%S")
+
+            # 1. Start-Meldung (Header)
+            h_def = (
+                f"Starte System-Check... [{timestamp}]"
+                if lang == "de"
+                else f"Starting system tool check... [{timestamp}]"
+            )
+            self.append_info(
+                self.info_text, self.get_t("checking_tools_ts", h_def), "error"
             )
 
-    def check_tools_on_start(self):
-        self.info_text.clear()
-        import shutil, os, json
+            # 2. Einzel-Tools prüfen
+            tools = ["git"]
+            if platform.system() != "Windows":
+                tools.extend(["patch", "zip"])
 
-        # 1. Die rote Start-Zeile (Header)
-        # Falls 'error' in deiner append_info rot definiert ist:
-        self.append_info(self.info_text, "Starte System-Check...", "error")
+            all_ok = True
+            for name in tools:
+                if shutil.which(name):
+                    def_ok = (
+                        f"✅ {name} ist bereit."
+                        if lang == "de"
+                        else f"✅ {name} is ready."
+                    )
+                    self.append_info(
+                        self.info_text,
+                        self.get_t("tool_ok", def_ok).format(name=name),
+                        "success",
+                    )
+                else:
+                    def_miss = (
+                        f"⚠️ {name} fehlt!" if lang == "de" else f"⚠️ {name} is missing!"
+                    )
+                    self.append_info(
+                        self.info_text,
+                        self.get_t("tool_missing", def_miss).format(name=name),
+                        "warning",
+                    )
+                    all_ok = False
 
-        # Tools definieren
-        tools_to_check = ["git"]
-        if os.name != "nt":
-            tools_to_check.extend(["zip", "patch"])
+            if all_ok:
+                # 3. Update-Check Texte
+                upd_def = (
+                    "Prüfe auf Updates ..."
+                    if lang == "de"
+                    else "Checking for updates ..."
+                )
+                self.append_info(
+                    self.info_text, self.get_t("checking_updates", upd_def), "info"
+                )
 
-        all_ok = True
-        for name in tools_to_check:
-            if shutil.which(name) is None:
-                self.append_info(self.info_text, f"⚠️ {name} fehlt im System.", "warning")
-                all_ok = False
-    
-        if all_ok:
-            self.append_info(self.info_text, "✅ Alle benötigten System-Tools sind bereits installiert.", "success")
-        
-            # 2. Update-Check Bereich
-            self.append_info(self.info_text, "Prüfe auf Updates ...", "info")
-            self.append_info(self.info_text, f"✅ Installierte Version: {APP_VERSION}", "success")
-            self.append_info(self.info_text, "ℹ️ Kein Update vorhanden", "info")
-        
-            # Config speichern
-            try:
-                with open(CONFIG_FILE, "r") as f: cfg = json.load(f)
-            except: cfg = {}
-            cfg["tools_ok"] = True
-            with open(CONFIG_FILE, "w") as f: json.dump(cfg, f, indent=4)
-        else:
-            self.append_info(self.info_text, "❌ Bitte fehlende Tools manuell installieren.", "error")
+                v_def = (
+                    "✅ Installierte Version: {version}"
+                    if lang == "de"
+                    else "✅ Installed version: {version}"
+                )
+                self.append_info(
+                    self.info_text,
+                    self.get_t("installed_version", v_def).format(version=APP_VERSION),
+                    "success",
+                )
+
+                no_upd = (
+                    "ℹ️ Kein Update vorhanden"
+                    if lang == "de"
+                    else "ℹ️ No update available"
+                )
+                self.append_info(
+                    self.info_text, self.get_t("no_update_found", no_upd), "info"
+                )
+
+                # --- VERBESSERTER SOUND ---
+                if platform.system() == "Linux":
+                    s_path = "/usr/share/sounds/freedesktop/stereo/complete.oga"
+                    if os.path.exists(s_path):
+                        # paplay für PulseAudio (Standard)
+                        subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                    else:
+                        QApplication.beep()
+                else:
+                    QApplication.beep()  # Fallback für Windows
+            else:
+                err_def = (
+                    "❌ Bitte Tools manuell installieren."
+                    if lang == "de"
+                    else "❌ Please install tools manually."
+                )
+                self.append_info(
+                    self.info_text, self.get_t("install_manual", err_def), "error"
+                )
+                QApplication.beep()
+
+        except Exception as e:
+            print(f"Fehler im Check: {e}")
+        finally:
+            self._checking_active = False
+            # Am Ende des Starts is_loading auf False setzen
+            if getattr(self, "is_loading", False):
+                self.is_loading = False
+            if hasattr(self, "btn_check_tools"):
+                self.btn_check_tools.setText(self.old_btn_text)
+                self.btn_check_tools.setEnabled(True)
+
+    def closeEvent(self, event):
+        """Wird ausgelöst, wenn das Fenster geschlossen wird."""
+        import subprocess, platform, os
+
+        if platform.system() == "Linux":
+            # Logout/Shutdown Sound
+            s_path = "/usr/share/sounds/freedesktop/stereo/service-logout.oga"
+            if os.path.exists(s_path):
+                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+        event.accept()  # Fenster wirklich schließen
 
         # =====================
         # INIT UI
@@ -4358,11 +5040,11 @@ class PatchManagerGUI(QWidget):
         # 1. Label erstellen und an self binden (WICHTIG für Übersetzung!)
         translated_text = self.get_t("settings_header", "Einstellungen")
         self.controls_header = QLabel(translated_text)
-        
+
         # 2. Dimensionen und Layout-Verhalten
-        self.controls_header.setMinimumWidth(180) 
+        self.controls_header.setMinimumWidth(180)
         self.controls_header.setFixedHeight(28)
-        
+
         # Text innerhalb des farbigen Balkens zentrieren
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -4410,8 +5092,6 @@ class PatchManagerGUI(QWidget):
             height: {CONTROL_HEIGHT}px;
         }}
         """
-
-
 
         def make_label(text):
             lbl = QLabel(text)
@@ -4476,30 +5156,39 @@ class PatchManagerGUI(QWidget):
                 color: white;
                 font-weight: bold;
                 border-radius: 6px;
+                border: 1px solid #555555;
             }
             QPushButton:hover { 
                 background-color: #333333; 
                 color: #FFD700;
+                border: 1px solid #FFD700;
+            }
+            /* Wenn der Check läuft */
+            QPushButton:disabled {
+                background-color: #222222;
+                color: #888888;
+                border: 1px solid #333333;
             }
         """
         self.btn_check_tools.setStyleSheet(button_style)
-        self.btn_check_tools.clicked.connect(self.manual_tool_check)
+        self.btn_check_tools.clicked.connect(self.run_full_system_check)
 
         # --- 2. Modifier Button ---
         button_text = self.get_t("modifier_button_text", "👤 Patch Autor")
-        
+
         # Erstellen
         self.btn_modifier = QPushButton(button_text)
         self.btn_modifier.setFixedSize(160, CONTROL_HEIGHT)
         self.btn_modifier.setStyleSheet(button_style)
-        
+
         # Tooltip je nach Sprache
         lang = getattr(self, "LANG", "de")
         self.btn_modifier.setToolTip(
-            "Namen des Patch-Autors ändern (Signatur)" if lang == "de" 
+            "Namen des Patch-Autors ändern (Signatur)"
+            if lang == "de"
             else "Change Patch Author Name (Signature)"
         )
-        
+
         # NUR EINMAL VERBINDEN (Damit nur ein Fenster öffnet!)
         self.btn_modifier.clicked.connect(self.change_modifier_name)
 
@@ -4716,15 +5405,15 @@ class PatchManagerGUI(QWidget):
             "plugin_update_button",
             "restart_tool_button",
             "btn_check_tools",
-            "btn_modifier",    # Hinzugefügt
-            "btn_repo_url"     # Hinzugefügt
+            "btn_modifier",  # Hinzugefügt
+            "btn_repo_url",  # Hinzugefügt
         ]
 
         for btn_name in main_buttons:
             btn = getattr(self, btn_name, None)
             if btn:
                 # Eventuelle Neon-Effekte entfernen, falls vorhanden
-                btn.setGraphicsEffect(None) 
+                btn.setGraphicsEffect(None)
                 btn.setStyleSheet(button_style)
 
         # B) Grid Buttons & Options Leiste ebenfalls aktualisieren
@@ -4740,7 +5429,8 @@ class PatchManagerGUI(QWidget):
         # 2. Progressbar ebenfalls ans Farbschema anpassen (ohne Neon)
         if hasattr(self, "progress_bar"):
             self.progress_bar.setGraphicsEffect(None)
-            self.progress_bar.setStyleSheet(f"""
+            self.progress_bar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     border: 1px solid {bg_color};
                     border-radius: 7px;
@@ -4751,14 +5441,15 @@ class PatchManagerGUI(QWidget):
                 QProgressBar::chunk {{
                     background-color: {bg_color};
                 }}
-            """)
+            """
+            )
 
         # 3. Header & Hauptfenster (wie im Original)
         if hasattr(self, "controls_header") and self.controls_header:
             self.controls_header.setStyleSheet(
                 f"background-color: {bg_color}; color: {text_color}; font-weight: bold; border-radius: 6px; padding-left: 10px;"
             )
-        
+
         self.setStyleSheet("background-color: #000000;")
         self.repaint()
 
@@ -4863,14 +5554,20 @@ class PatchManagerGUI(QWidget):
                 if isinstance(val, (list, tuple)) and len(val) >= 2:
                     btn = val[0]
                     text_key = val[1]
-                    btn.setText(f"💻 {get_t(text_key)}" if "terminal" in str(key).lower() else get_t(text_key))
+                    btn.setText(
+                        f"💻 {get_t(text_key)}"
+                        if "terminal" in str(key).lower()
+                        else get_t(text_key)
+                    )
 
         # C) HEADER
         if hasattr(self, "controls_header") and self.controls_header:
             self.controls_header.setText(get_t("settings_header", "Einstellungen"))
 
         if hasattr(self, "github_header") and self.github_header:
-            self.github_header.setText(get_t("github_config_header", "GitHub Konfiguration"))
+            self.github_header.setText(
+                get_t("github_config_header", "GitHub Konfiguration")
+            )
 
         # D) LABELS & FUNKTIONS-BUTTONS
         if hasattr(self, "btn_check_tools") and self.btn_check_tools:
@@ -4881,11 +5578,12 @@ class PatchManagerGUI(QWidget):
             # FESTE Beschriftung statt Variablennamen
             btn_label = "👤 Patch Autor" if lang == "de" else "👤 Patch Author"
             self.btn_modifier.setText(btn_label)
-            
+
             # Der Name (speedy005) wandert in den Tooltip
             current_name = getattr(self, "patch_modifier", "speedy005")
             self.btn_modifier.setToolTip(
-                f"Aktueller Autor: {current_name}\n(Klicken zum Ändern)" if lang == "de"
+                f"Aktueller Autor: {current_name}\n(Klicken zum Ändern)"
+                if lang == "de"
                 else f"Current Author: {current_name}\n(Click to change)"
             )
 
@@ -4893,7 +5591,9 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "btn_repo_url") and self.btn_repo_url:
             self.btn_repo_url.setText(get_t("repo_url_button", "🌐 Repo URL"))
             self.btn_repo_url.setToolTip(
-                "Emu-Repository URL ändern" if lang == "de" else "Change Emu-Repository URL"
+                "Emu-Repository URL ändern"
+                if lang == "de"
+                else "Change Emu-Repository URL"
             )
 
         if hasattr(self, "lang_label") and self.lang_label:
@@ -4907,10 +5607,17 @@ class PatchManagerGUI(QWidget):
 
         # E) GITHUB & EMU SPEZIFISCHE BUTTONS
         if hasattr(self, "patch_emu_git_button") and self.patch_emu_git_button:
-            self.patch_emu_git_button.setText(get_t("patch_emu_git_button", "Patch OSCam Emu"))
+            self.patch_emu_git_button.setText(
+                get_t("patch_emu_git_button", "Patch OSCam Emu")
+            )
 
-        if hasattr(self, "github_upload_patch_button") and self.github_upload_patch_button:
-            self.github_upload_patch_button.setText(get_t("github_upload_button", "GitHub Upload"))
+        if (
+            hasattr(self, "github_upload_patch_button")
+            and self.github_upload_patch_button
+        ):
+            self.github_upload_patch_button.setText(
+                get_t("github_upload_button", "GitHub Upload")
+            )
 
         if hasattr(self, "clean_emu_button") and self.clean_emu_button:
             self.clean_emu_button.setText(get_t("clean_emu_button", "Bereinigen"))
@@ -4930,6 +5637,15 @@ class PatchManagerGUI(QWidget):
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if "EN" in selected else "de"
 
+        # --- NEU: Sound beim Sprachwechsel / Neustart der Logik ---
+        import subprocess, platform, os
+
+        if platform.system() == "Linux":
+            # Ein kürzerer Sound für die Bestätigung der Änderung
+            s_path = "/usr/share/sounds/freedesktop/stereo/dialog-information.oga"
+            if os.path.exists(s_path):
+                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+
         # 2. In Konfiguration speichern
         if hasattr(self, "cfg"):
             self.cfg["language"] = self.LANG
@@ -4939,52 +5655,53 @@ class PatchManagerGUI(QWidget):
         # 3. UI-Texte aktualisieren (Zentrale Übersetzung aufrufen)
         self.update_language()
 
-        # --- NEU: Patch-Autor & Repo-URL Button sofort anpassen ---
+        # --- Patch-Autor & Repo-URL Button sofort anpassen ---
         if hasattr(self, "btn_modifier"):
-            # Festgelegter Text je nach Sprache
             btn_label = "👤 Patch Autor" if self.LANG == "de" else "👤 Patch Author"
             self.btn_modifier.setText(btn_label)
-            
-            # Der tatsächliche Name (z.B. speedy005) kommt in den Tooltip
+
             current_author = getattr(self, "patch_modifier", "speedy005")
-            self.btn_modifier.setToolTip(
-                f"Aktueller Autor: {current_author}\n(Klicken zum Ändern)" if self.LANG == "de"
+            tooltip = (
+                f"Aktueller Autor: {current_author}\n(Klicken zum Ändern)"
+                if self.LANG == "de"
                 else f"Current Author: {current_author}\n(Click to change)"
             )
+            self.btn_modifier.setToolTip(tooltip)
 
         if hasattr(self, "btn_repo_url"):
-            # Repo Button Übersetzung
             self.btn_repo_url.setText("🌐 Repo URL")
-            self.btn_repo_url.setToolTip(
+            tooltip = (
                 "Emu-Repository URL ändern"
                 if self.LANG == "de"
                 else "Change Emu-Repository URL"
             )
+            self.btn_repo_url.setToolTip(tooltip)
 
         # 4. Bestätigung im Log ausgeben
         lang_dict = TEXTS.get(self.LANG, TEXTS.get("en", {}))
         lang_display = "English" if self.LANG == "en" else "Deutsch"
 
-        # Text aus TEXTS holen, sonst Fallback
         success_msg = lang_dict.get(
             "language_changed",
-            "Sprache eingestellt auf" if self.LANG == "de" else "Language set to"
+            "Sprache eingestellt auf" if self.LANG == "de" else "Language set to",
         )
 
         if hasattr(self, "append_info") and hasattr(self, "info_text"):
+            self.info_text.clear()
             self.append_info(
                 self.info_text, f"🌐 {success_msg}: {lang_display}", "success"
             )
 
-        # 5. Status-Meldungen verzögert neu generieren (GUI-Aktualisierung)
+        # 5. Status-Meldungen neu generieren
         from PyQt6.QtCore import QTimer
-        
-        if hasattr(self, "check_for_plugin_update"):
-            QTimer.singleShot(600, self.check_for_plugin_update)
 
-        if hasattr(self, "manual_tool_check"):
-            QTimer.singleShot(300, self.manual_tool_check)
+        # System-Check (500ms Delay reicht völlig aus)
+        if hasattr(self, "run_full_system_check"):
+            QTimer.singleShot(500, self.run_full_system_check)
 
+        # GitHub-Check (Still im Hintergrund nach 1,5 Sekunden)
+        if hasattr(self, "check_for_update_on_start"):
+            QTimer.singleShot(1500, self.check_for_update_on_start)
 
     # =====================
     # GITHUB EMU CREDENTIALS
@@ -5002,12 +5719,33 @@ class PatchManagerGUI(QWidget):
             )
 
     def edit_emu_github_config(self, info_widget=None, progress_callback=None):
-        """Öffnet den GitHub-Konfigurationsdialog mit Sicherheits-Fallbacks für TEXTS"""
-        # 1. Sprache sicher abrufen (kleingeschrieben für Dictionary)
+        """Öffnet den GitHub-Konfigurationsdialog mit Sound-Feedback und Sicherheits-Fallbacks."""
+        import os, subprocess, platform
+        from PyQt6.QtWidgets import QFormLayout, QLabel, QDialogButtonBox, QApplication
+
+        # 1. Sprache sicher abrufen
         current_lang = str(getattr(self, "LANG", "de")).lower()
+
+        def play_config_sound(sound_type="open"):
+            """Spielt Sounds für den Konfigurations-Dialog ab."""
+            if platform.system() == "Linux":
+                # 'dialog-information' für Öffnen, 'complete' für Speichern
+                sound = (
+                    "dialog-information.oga" if sound_type == "open" else "complete.oga"
+                )
+                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+                if os.path.exists(s_path):
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
+
+        # Dialog-Sound beim Öffnen
+        play_config_sound("open")
         dialog = GithubConfigDialog(self)
 
-        # 2. Hilfsfunktion für Texte (muss get_txt heißen, damit es unten passt)
+        # 2. Hilfsfunktion für Texte
         def get_txt(key, default=""):
             try:
                 lang_pkg = TEXTS.get(current_lang, TEXTS.get("de", {}))
@@ -5036,7 +5774,7 @@ class PatchManagerGUI(QWidget):
                 if label and isinstance(label, QLabel):
                     label.setText(get_txt(key, default_text))
 
-        # 5. Save/Cancel Buttons übersetzen (Nutzt jetzt einheitlich get_txt)
+        # 5. Save/Cancel Buttons übersetzen
         button_box = dialog.findChild(QDialogButtonBox)
         if button_box:
             save_btn = button_box.button(QDialogButtonBox.StandardButton.Save)
@@ -5050,6 +5788,7 @@ class PatchManagerGUI(QWidget):
         if dialog.exec():
             msg = get_txt("github_config_saved", "GitHub Konfiguration gespeichert.")
             self.append_info(info_widget or self.info_text, msg, "success")
+            play_config_sound("save")  # Sound beim erfolgreichen Speichern
 
         # 7. Progress-Bar Abschluss
         if progress_callback:
@@ -5096,67 +5835,78 @@ class PatchManagerGUI(QWidget):
     def show_commits(self, info_widget=None, progress_callback=None):
         """
         Zeigt die letzten Commits an.
-        Nutzt run_command für sauberes Logging ohne Terminal-Ausgaben.
+        Nutzt run_command für sauberes Logging und spielt einen Sound bei Erfolg.
         """
-        from PyQt6.QtWidgets import QTextEdit
+        from PyQt6.QtWidgets import QTextEdit, QApplication
+        import os, subprocess, platform
 
-        # Widget absichern (Fallback auf self.info_text falls info_widget nicht übergeben)
+        # Widget absichern
         if not isinstance(info_widget, QTextEdit):
             info_widget = getattr(self, "info_text", None)
             if info_widget is None:
-                return  # Kein Ziel-Widget vorhanden
+                return
 
         lang = getattr(self, "LANG", "en").lower()
 
-        # Texte aus dem Translation-Dictionary (mit Fallback)
+        # Hilfsfunktion für den Sound
+        def play_commit_sound(success=True):
+            if platform.system() == "Linux":
+                # Ein kürzerer 'Information' Sound für Listen
+                sound = "message-new-instant.oga" if success else "dialog-error.oga"
+                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+                if os.path.exists(s_path):
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
+
+        # Texte aus dem Translation-Dictionary
         txt_loading = TEXTS.get(lang, {}).get("loading_commits", "Lade Commits...")
         txt_success = TEXTS.get(lang, {}).get(
             "commits_loaded", "Commits erfolgreich geladen"
         )
 
         # --- Startmeldung ---
-        self.append_info(info_widget, txt_loading, "warning")  # Orange/Gelb
+        self.append_info(info_widget, txt_loading, "warning")
 
         try:
-            # Pfad-Check
             if not os.path.exists(TEMP_REPO):
                 self.append_info(
                     info_widget, f"❌ Ordner nicht gefunden: {TEMP_REPO}", "error"
                 )
+                play_commit_sound(False)
                 return
 
-            # Anzahl der Commits bestimmen
             num_commits = (
                 self.commit_spin.value() if hasattr(self, "commit_spin") else 10
             )
-
-            # Git-Befehl (vereinfacht, da wir cwd nutzen)
             cmd = f"git log -n {num_commits} --oneline"
 
-            # Befehl ausführen (run_command liefert jetzt direkt den String)
             output = self.run_command(cmd, cwd=TEMP_REPO)
 
             if output:
-                # Zeilen einzeln zum Widget hinzufügen
                 lines = output.splitlines()
                 for line in lines:
                     self.append_info(info_widget, f"• {line}", "info")
 
-                # --- Erfolgsmeldung ---
+                # --- Erfolgsmeldung & Sound ---
                 self.append_info(
                     info_widget, f"✅ {txt_success} ({len(lines)})", "success"
                 )
+                play_commit_sound(True)
             else:
                 self.append_info(
                     info_widget, "⚠ Keine Commits gefunden oder Git-Fehler.", "warning"
                 )
+                play_commit_sound(False)
 
         except Exception as e:
             self.append_info(
                 info_widget, f"❌ Schwerer Fehler beim Commit-Abruf: {str(e)}", "error"
             )
+            play_commit_sound(False)
 
-        # Fortschrittsbalken aktualisieren (optional)
         if progress_callback:
             try:
                 progress_callback(100)
@@ -5223,10 +5973,26 @@ class PatchManagerGUI(QWidget):
     def check_patch(self, info_widget=None, progress_callback=None):
         """
         Prüft den Patch-Status sauber und einmalig.
-        Verhindert Doppler-Logs und nutzt das zentrale TEXTS-System.
+        Inklusive akustischem Feedback bei Erfolg oder Fehler.
         """
+        import os, subprocess, platform
+        from PyQt6.QtWidgets import QApplication
+
         info_widget = info_widget or self.info_text
         lang = getattr(self, "LANG", "de")
+
+        def play_check_sound(success=True):
+            """Spielt den passenden Sound für den Patch-Check."""
+            if platform.system() == "Linux":
+                # complete für Erfolg, dialog-error für Fehler
+                sound = "complete.oga" if success else "dialog-error.oga"
+                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+                if os.path.exists(s_path):
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
 
         # 1. Existenzprüfung der Datei
         if not os.path.exists(PATCH_FILE):
@@ -5236,6 +6002,7 @@ class PatchManagerGUI(QWidget):
             self.append_info(info_widget, err_msg, "error")
             if progress_callback:
                 progress_callback(0)
+            play_check_sound(False)
             return
 
         # 2. Ausführung des Git-Checks
@@ -5251,23 +6018,37 @@ class PatchManagerGUI(QWidget):
         if code == 0:
             ok_msg = TEXTS[lang].get("patch_check_ok", "✅ Patch-Check erfolgreich!")
             self.append_info(info_widget, ok_msg, "success")
+            play_check_sound(True)
         else:
             fail_msg = TEXTS[lang].get(
                 "patch_check_fail", "❌ Patch-Check fehlgeschlagen!"
             )
             self.append_info(info_widget, fail_msg, "error")
+            play_check_sound(False)
 
         # 4. Abschluss
         if progress_callback:
             progress_callback(100)
-
-        from PyQt6.QtWidgets import QApplication
 
         QApplication.processEvents()
 
     def apply_patch(self, info_widget=None, progress_callback=None):
         info_widget = info_widget or self.info_text
         lang = getattr(self, "LANG", "de").lower()
+        import os, subprocess, platform
+        from PyQt6.QtWidgets import QApplication
+
+        # Hilfsfunktion für den Sound
+        def play_apply_sound(success=True):
+            if platform.system() == "Linux":
+                sound = "complete.oga" if success else "dialog-error.oga"
+                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+                if os.path.exists(s_path):
+                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
 
         # 1. Check ob Datei existiert
         if not os.path.exists(PATCH_FILE):
@@ -5275,19 +6056,19 @@ class PatchManagerGUI(QWidget):
                 path=PATCH_FILE
             )
             self.append_info(info_widget, msg, "error")
+            play_apply_sound(False)
             return
 
         # Logger definieren
         logger = lambda text, level="info": self.append_info(info_widget, text, level)
 
-        # 2. Eigene Start-Meldung auf Deutsch (bevor run_bash loslegt)
+        # 2. Eigene Start-Meldung (Warnung-Farbe für "Aktion läuft")
         start_msg = self.get_t("executing_git_apply", "🚀 Wende Patch an...").format(
             patch="oscam-emu.patch"
         )
         self.append_info(info_widget, start_msg, "warning")
 
-        # Patch ausführen
-        # Hinweis: Falls run_bash selbst "Executing..." printet, musst du run_bash anpassen!
+        # 3. Patch ausführen
         code = run_bash(f"git apply {PATCH_FILE}", cwd=TEMP_REPO, logger=logger)
 
         if code == 0:
@@ -5296,15 +6077,19 @@ class PatchManagerGUI(QWidget):
                 self.get_t("patch_emu_git_done", "✅ Patch erfolgreich angewendet"),
                 "success",
             )
+            play_apply_sound(True)
         else:
             self.append_info(
                 info_widget,
                 self.get_t("patch_emu_git_apply_failed", "❌ Patch fehlgeschlagen"),
                 "error",
             )
+            play_apply_sound(False)
 
         if progress_callback:
             progress_callback(100)
+
+        QApplication.processEvents()
 
     def change_old_(self, info_widget=None, progress_callback=None):
         global OLD_, OLD_PATCH_FILE, ALT_PATCH_FILE
