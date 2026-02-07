@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.5.5"
+APP_VERSION = "2.5.6"
 
 
 # ===================== PATCH DIRS =====================
@@ -3169,20 +3169,28 @@ class PatchManagerGUI(QWidget):
         import subprocess
         import os
         import platform
+        from PyQt6.QtWidgets import QApplication
 
         # 1. Sprache & Texte laden (Fallback auf Englisch)
         lang = str(getattr(self, "LANG", "de")).lower()
-        t = TEXTS.get(lang, TEXTS.get("en", {}))
+        # Sicherstellen, dass TEXTS existiert
+        t_dict = globals().get("TEXTS", {})
+        t = t_dict.get(lang, t_dict.get("en", {}))
 
         # Fenster leeren für sauberen Start
-        if hasattr(self, "info_text"):
+        if hasattr(self, "info_text") and self.info_text:
             self.info_text.clear()
+            QApplication.processEvents()  # GUI aktualisieren
+        else:
+            print("❌ Fehler: info_text Widget nicht gefunden!")
+            return
 
         # 2. Start-Meldung
         start_msg = (
             "Starte System-Check..." if lang == "de" else "Starting system check..."
         )
         self.append_info(self.info_text, start_msg, "error")
+        QApplication.processEvents()  # Sofort anzeigen
 
         # 3. System-Tools prüfen (Plattform-abhängig)
         required_tools = ["git", "python3"]
@@ -3195,7 +3203,6 @@ class PatchManagerGUI(QWidget):
 
         # 4. Fall: Alle Tools vorhanden
         if not missing:
-            # Tools OK
             tools_ok_msg = t.get(
                 "tools_ok", "✅ Alle benötigten System-Tools sind bereits installiert."
             )
@@ -3208,7 +3215,9 @@ class PatchManagerGUI(QWidget):
             self.append_info(self.info_text, check_update_msg, "info")
 
             self.append_info(
-                self.info_text, f"✅ Installierte Version: {APP_VERSION}", "success"
+                self.info_text,
+                f"✅ Installierte Version: {globals().get('APP_VERSION', '?.?.?')}",
+                "success",
             )
 
             no_update_msg = (
@@ -3217,7 +3226,8 @@ class PatchManagerGUI(QWidget):
             self.append_info(self.info_text, no_update_msg, "info")
 
             # --- ERFOLGS-SOUND ---
-            safe_play("complete.oga")
+            if "safe_play" in globals():
+                globals()["safe_play"]("complete.oga")
             return
 
         # 5. Fall: Tools fehlen
@@ -3230,11 +3240,11 @@ class PatchManagerGUI(QWidget):
         )
 
         # --- FEHLER-SOUND ---
-        safe_play("dialog-error.oga")
+        if "safe_play" in globals():
+            globals()["safe_play"]("dialog-error.oga")
 
         # 6. Automatischer Installationsversuch (Nur Linux)
         if os.name != "nt":
-            # Falls paplay fehlt, fügen wir pulseaudio-utils zur Liste hinzu
             install_list = missing.copy()
             if not shutil.which("paplay"):
                 install_list.append("pulseaudio-utils")
@@ -3254,7 +3264,6 @@ class PatchManagerGUI(QWidget):
 
             if term:
                 try:
-                    # Terminal-spezifische Argumente
                     if "gnome" in term or "konsole" in term:
                         cmd_list = [term, "--", "bash", "-c", full_cmd]
                     else:
@@ -3277,13 +3286,14 @@ class PatchManagerGUI(QWidget):
                     "error",
                 )
         else:
-            # Windows Fallback
             win_msg = (
                 "❌ Bitte installiere die fehlenden Tools manuell."
                 if lang == "de"
                 else "❌ Please install missing tools manually."
             )
             self.append_info(self.info_text, win_msg, "error")
+
+        self.info_text.viewport().update()
 
     def resizeEvent(self, event):
         """
