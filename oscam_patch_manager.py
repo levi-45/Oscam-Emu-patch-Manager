@@ -129,7 +129,6 @@ date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
 APP_VERSION = "2.6.0"
 
-
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -916,6 +915,14 @@ TEXTS = {
         "btn_plugin_update": "Plugin Update",
         "state_plugin_uptodate": "Up to date",
         "check_tools_button": "🛠️ Check Tools",
+        "new_version_label": "New",
+        "old_version_label": "Installed",
+        "upd_ok": "Plugin is up to date",
+        "update_title": "Update Available",
+        "update_msg": "A new version has been found. Do you want to update now?",
+        "new_version_label": "New",
+        "old_version_label": "Installed",
+        "upd_ok": "Plugin is up to date",
         # "checking_tools": "Starting system check...",
         "state_plugin_update_available": "Update available: {current} → {latest}",
         "log_update_check_start": "Checking for updates …",
@@ -1161,6 +1168,11 @@ TEXTS = {
         "new_version_available": "Neue Version verfügbar",
         "update_title": "Update verfügbar",
         "update_msg": "Eine neue Version wurde gefunden. Möchtest du jetzt aktualisieren?",
+        "update_title": "Update verfügbar",
+        "update_msg": "Eine neue Version wurde gefunden. Möchtest du jetzt aktualisieren?",
+        "new_version_label": "Neu",
+        "old_version_label": "Installiert",
+        "upd_ok": "Plugin ist aktuell",
         # Updates
         "restart_required_msg": "Das Update wurde erfolgreich installiert. Das Tool muss neu gestartet werden.\nJetzt neu starten?",
         "restart_required_title": "Neustart erforderlich",
@@ -1180,6 +1192,9 @@ TEXTS = {
         "log_update_declined": "Update übersprungen",
         "log_update_failed": "❌ Update-Prüfung fehlgeschlagen: {error}",
         "msg_update_available_title": "Update verfügbar",
+        "new_version_label": "Neu",
+        "old_version_label": "Installiert",
+        "upd_ok": "Plugin ist aktuell",
         "update_done": "✅ Update auf Version {version} erfolgreich abgeschlossen.",
         "update_backup_done": "✅ Backup der alten Plugin-Dateien erstellt.",
         "msg_update_available_text": "Eine neue Version ({latest}) ist verfügbar.\nAktuell installiert: {current}.\nJetzt updaten?",
@@ -4693,7 +4708,7 @@ class PatchManagerGUI(QWidget):
     # UPDATE CHECK
     # ---------------------
     def check_for_update_on_start(self):
-        """Prüft auf Updates und loggt das Ergebnis in die GUI."""
+        """Prüft auf Updates und übersetzt den Dialog komplett."""
         if hasattr(self, "_update_dialog_active") and self._update_dialog_active:
             return
 
@@ -4702,48 +4717,57 @@ class PatchManagerGUI(QWidget):
 
         self._update_dialog_active = True
         lang = getattr(self, "LANG", "de").lower()
+        # Hole das aktuelle Sprachpaket
         txt = getattr(self, "TEXT", {})
 
         try:
-            # 1. URL mit Cache-Buster
             version_url = (
                 "https://raw.githubusercontent.com/"
                 "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
                 f"?t={int(time.time())}"
             )
 
-            # 2. Abfrage
             resp = requests.get(version_url, timeout=5)
             resp.raise_for_status()
 
             latest_version = resp.text.strip().lstrip("v")
             current_version = APP_VERSION.strip().lstrip("v")
 
-            # 3. Vergleich & Log-Ausgabe
             if Version(latest_version) > Version(current_version):
-                # Meldung im Log ausgeben (Gelb/Warnung)
-                update_msg = f"➔ {txt.get('new_version_available', 'Neue Version verfügbar')}: v{latest_version}"
-                self.append_info(self.info_text, update_msg, "warning")
+                # 1. Texte für den Dialog vorbereiten
+                title = txt.get("update_title", "Update verfügbar")
+                # Begriffe für Neu/Alt übersetzen
+                label_new = "Neu" if lang == "de" else "New"
+                label_old = "Installiert" if lang == "de" else "Installed"
 
-                # Pop-Up Dialog
                 msg_box = QMessageBox(self)
                 msg_box.setIcon(QMessageBox.Icon.Information)
-                msg_box.setWindowTitle(txt.get("update_title", "Update"))
+                msg_box.setWindowTitle(title)
 
+                # 2. Den Text-Body zusammenbauen
                 msg_text = (
-                    f"{txt.get('update_msg', 'Update verfügbar')}\n\n"
-                    f"New: v{latest_version}\nOld: v{current_version}"
+                    f"{txt.get('update_msg', 'Eine neue Version wurde gefunden.')}\n\n"
+                    f"{label_new}: v{latest_version}\n"
+                    f"{label_old}: v{current_version}"
                 )
                 msg_box.setText(msg_text)
 
+                # 3. Buttons übersetzen
                 msg_box.setStandardButtons(
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
+                btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
+                if btn_yes:
+                    btn_yes.setText("Ja" if lang == "de" else "Yes")
+                btn_no = msg_box.button(QMessageBox.StandardButton.No)
+                if btn_no:
+                    btn_no.setText("Nein" if lang == "de" else "No")
+
                 if msg_box.exec() == QMessageBox.StandardButton.Yes:
                     if hasattr(self, "plugin_update_action"):
                         self.plugin_update_action(latest_version=latest_version)
             else:
-                # Alles aktuell (Grün im Log)
+                # Still im Log vermerken, wenn aktuell
                 self.append_info(
                     self.info_text,
                     f"✅ {txt.get('upd_ok', 'Plugin ist aktuell')}",
@@ -4751,11 +4775,9 @@ class PatchManagerGUI(QWidget):
                 )
 
         except Exception as e:
-            self.append_info(self.info_text, f"⚠️ Update-Check failed: {e}", "error")
+            self.append_info(self.info_text, f"⚠️ Update-Check Error: {e}", "error")
         finally:
             self._update_dialog_active = False
-            if hasattr(self, "progress_bar") and self.progress_bar:
-                self.progress_bar.setValue(100)
 
     # ---------------------
     # TOOLS CHECK
