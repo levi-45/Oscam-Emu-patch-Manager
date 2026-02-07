@@ -106,7 +106,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.5.2"
+APP_VERSION = "2.5.3"
 
 
 # ===================== PATCH DIRS =====================
@@ -1345,11 +1345,22 @@ def github_upload_patch_file(
         if platform.system() == "Linux":
             sound = "complete.oga" if success else "dialog-error.oga"
             s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+
             if os.path.exists(s_path):
-                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                try:
+                    # Prüfen, ob paplay überhaupt existiert, bevor es gerufen wird
+                    subprocess.Popen(
+                        ["paplay", s_path],
+                        stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                    )
+                except FileNotFoundError:
+                    # Falls paplay fehlt, nutzen wir den Standard-Beep
+                    QApplication.beep()
             else:
                 QApplication.beep()
         else:
+            # Windows/macOS nutzen Standard-Beep
             QApplication.beep()
 
     # 2. Lokale Logger-Funktion
@@ -1597,12 +1608,20 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             QApplication.processEvents()
 
     def play_sound(success=True):
-        """Spielt den passenden Sound für Linux ab."""
+        """Spielt den passenden Sound für Linux ab (abgesichert)."""
         if platform.system() == "Linux":
             sound = "complete.oga" if success else "dialog-error.oga"
             s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+
             if os.path.exists(s_path):
-                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                try:
+                    subprocess.Popen(
+                        ["paplay", s_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except (FileNotFoundError, PermissionError):
+                    QApplication.beep()
             else:
                 QApplication.beep()
         else:
@@ -1723,6 +1742,8 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     import os
     import shutil
     import re
+    import subprocess
+    import platform
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
 
@@ -1734,35 +1755,51 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     )
     lang = getattr(self, "LANG", "de")
 
-    # Hilfsfunktion für Fortschritt
+    # --- HILFSFUNKTIONEN ---
+
+    def play_backup_sound(success=True):
+        """Spielt Sound für Backup/Update ab (Absturzsicher)."""
+        if platform.system() == "Linux":
+            sound = "complete.oga" if success else "dialog-error.oga"
+            s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+            if os.path.exists(s_path):
+                try:
+                    subprocess.Popen(
+                        ["paplay", s_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except (FileNotFoundError, Exception):
+                    QApplication.beep()
+            else:
+                QApplication.beep()
+        else:
+            QApplication.beep()
+
     def set_progress(val):
         if progress_callback:
             try:
                 progress_callback(val)
-                QApplication.processEvents()  # Sorgt für live Update der GUI
+                QApplication.processEvents()
             except:
                 pass
 
-    # Lokaler Logger ohne Terminal-Print
     def log(text_key, level="info", **kwargs):
         text_template = TEXTS.get(lang, {}).get(text_key, text_key)
         try:
             text = text_template.format(**kwargs)
         except:
             text = text_key
-
         if isinstance(widget, QTextEdit):
-            # Nutze die zentrale append_info für einheitliche Farben
             self.append_info(widget, text, level)
 
-    # --- Start ---
+    # --- ABLAUF START ---
     set_progress(10)
     log("backup_old_start", "info")
 
-    # Pfade ermitteln (Nutze die globalen Konstanten falls vorhanden)
     old_patch = getattr(self, "OLD_PATCH_FILE", OLD_PATCH_FILE)
     alt_patch = getattr(self, "ALT_PATCH_FILE", ALT_PATCH_FILE)
-    new_patch = PATCH_FILE  # Nutze die globale Konstante aus deiner Config
+    new_patch = PATCH_FILE
 
     # Zielordner sicherstellen
     dir_path = os.path.dirname(old_patch)
@@ -1771,6 +1808,7 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
             os.makedirs(dir_path, exist_ok=True)
         except Exception as e:
             log("patch_failed", "error", path=str(e))
+            play_backup_sound(False)  # Sound bei Fehler
             set_progress(0)
             return
 
@@ -1783,6 +1821,7 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
             log("backup_done", "success", path=alt_patch)
         except Exception as e:
             log("patch_failed", "error", path=str(e))
+            play_backup_sound(False)  # Sound bei Fehler
             set_progress(0)
             return
     else:
@@ -1793,6 +1832,7 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     # Neue Patch-Datei kopieren
     if not os.path.exists(new_patch):
         log("patch_file_missing", "error", path=new_patch)
+        play_backup_sound(False)  # Sound bei Fehler
         set_progress(0)
         return
 
@@ -1811,9 +1851,11 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
                     break
 
         log("new_patch_installed", "success", path=f"{old_patch} (v: {patch_version})")
+        play_backup_sound(True)  # ERFOLGS-SOUND
 
     except Exception as e:
         log("patch_failed", "error", path=str(e))
+        play_backup_sound(False)  # Sound bei Fehler
         set_progress(0)
         return
 
@@ -2059,16 +2101,27 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
                 pass
 
     def play_sound(success=True):
-        """Spielt Sound-Effekte für Patch-Ergebnisse ab."""
+        """Spielt Sound-Effekte für Patch-Ergebnisse ab (Absturzsicher)."""
+        # ALLES ab hier muss um 4 Leerzeichen eingerückt sein!
         if platform.system() == "Linux":
             sound = "complete.oga" if success else "dialog-error.oga"
             s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+
             if os.path.exists(s_path):
-                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                try:
+                    # Der try-Block verhindert den Absturz, falls 'paplay' fehlt
+                    subprocess.Popen(
+                        ["paplay", s_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except (FileNotFoundError, Exception):
+                    # Falls paplay fehlt oder ein Fehler auftritt -> nur Piepsen
+                    QApplication.beep()
             else:
                 QApplication.beep()
         else:
-            # Windows Standard-Beep
+            # Windows & Andere: Standard-Beep
             QApplication.beep()
 
     def log(text_key, level="info", **kwargs):
@@ -3014,13 +3067,16 @@ class PatchManagerGUI(QWidget):
         }
 
     def change_emu_repo(self):
-        from PyQt6.QtWidgets import QInputDialog, QLineEdit
+        """Öffnet einen Dialog zum Ändern der Repository-URL und speichert diese."""
+        from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
         import json
         import os
+        import subprocess
+        import platform
 
         # Aktuellen Wert holen
         current_repo = getattr(self, "EMUREPO", "https://github.com")
-        lang = getattr(self, "LANG", "de")
+        lang = getattr(self, "LANG", "de").lower()
 
         # Texte festlegen
         title = "Repo URL ändern" if lang == "de" else "Change Repo URL"
@@ -3028,7 +3084,26 @@ class PatchManagerGUI(QWidget):
             "Neue Emu-Repository URL:" if lang == "de" else "New Emu-Repository URL:"
         )
 
-        # --- FIX: Dialog-Objekt erstellen für deutsche Buttons ---
+        # Hilfsfunktion für den Sound (Absturzsicher gegen fehlendes paplay)
+        def play_repo_sound(success=True):
+            if platform.system() == "Linux":
+                sound = "complete.oga" if success else "dialog-error.oga"
+                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+                if os.path.exists(s_path):
+                    try:
+                        subprocess.Popen(
+                            ["paplay", s_path],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    except (FileNotFoundError, Exception):
+                        QApplication.beep()
+                else:
+                    QApplication.beep()
+            else:
+                QApplication.beep()
+
+        # --- Dialog-Objekt erstellen für deutsche Buttons ---
         dialog = QInputDialog(self)
         dialog.setWindowTitle(title)
         dialog.setLabelText(label)
@@ -3049,42 +3124,50 @@ class PatchManagerGUI(QWidget):
                 self.EMUREPO = new_url
 
                 # --- Speichern in der Config ---
-                config_path = "config.json"
+                # Pfad zur config.json im Skript-Verzeichnis sicherstellen
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                config_path = os.path.join(script_dir, "config.json")
                 config_data = {}
 
-                if os.path.exists(config_path):
-                    with open(config_path, "r", encoding="utf-8") as f:
-                        try:
-                            config_data = json.load(f)
-                        except:
-                            pass
+                try:
+                    if os.path.exists(config_path):
+                        with open(config_path, "r", encoding="utf-8") as f:
+                            try:
+                                config_data = json.load(f)
+                            except:
+                                config_data = {}
 
-                config_data["EMUREPO"] = self.EMUREPO
+                    config_data["EMUREPO"] = self.EMUREPO
 
-                with open(config_path, "w", encoding="utf-8") as f:
-                    json.dump(config_data, f, indent=4)
+                    with open(config_path, "w", encoding="utf-8") as f:
+                        json.dump(config_data, f, indent=4)
 
-                # Rückmeldung im Info-Text
-                success_msg = (
-                    f"💾 Repo gespeichert: {self.EMUREPO}"
-                    if lang == "de"
-                    else f"💾 Repo saved: {self.EMUREPO}"
-                )
-                self.append_info(self.info_text, success_msg, "success")
+                    # Rückmeldung im Info-Text
+                    success_msg = (
+                        f"✅ Repo gespeichert: {self.EMUREPO}"
+                        if lang == "de"
+                        else f"✅ Repo saved: {self.EMUREPO}"
+                    )
+                    self.append_info(self.info_text, success_msg, "success")
+                    play_repo_sound(True)
+
+                except Exception as e:
+                    error_msg = f"❌ Fehler beim Speichern: {e}"
+                    self.append_info(self.info_text, error_msg, "error")
+                    play_repo_sound(False)
 
     def change_modifier_name(self):
         """Öffnet Dialog, speichert den Namen permanent und aktualisiert das UI."""
         from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
-        import os, subprocess, platform
+        import os, subprocess, platform, shutil
 
         current = getattr(self, "patch_modifier", PATCH_MODIFIER)
         lang = getattr(self, "LANG", "de")
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
 
-        # VERBESSERTE SOUND-FUNKTION
+        # VERBESSERTE SOUND-FUNKTION (Absturzsicher)
         def play_mod_sound(success=True):
             if platform.system() == "Linux":
-                # Verschiedene mögliche Pfade für Linux-Sounds
                 sound_name = "complete.oga" if success else "dialog-warning.oga"
                 paths = [
                     f"/usr/share/sounds/freedesktop/stereo/{sound_name}",
@@ -3094,10 +3177,22 @@ class PatchManagerGUI(QWidget):
                 played = False
                 for s_path in paths:
                     if os.path.exists(s_path):
-                        # Versuche paplay (Pulse), dann aplay (ALSA)
-                        cmd = "paplay" if shutil.which("paplay") else "aplay"
-                        subprocess.Popen([cmd, s_path], stderr=subprocess.DEVNULL)
-                        played = True
+                        # Prüft erst, ob paplay existiert, nutzt sonst aplay oder überspringt
+                        cmd = (
+                            "paplay"
+                            if shutil.which("paplay")
+                            else "aplay" if shutil.which("aplay") else None
+                        )
+                        if cmd:
+                            try:
+                                subprocess.Popen(
+                                    [cmd, s_path],
+                                    stderr=subprocess.DEVNULL,
+                                    stdout=subprocess.DEVNULL,
+                                )
+                                played = True
+                            except:
+                                pass
                         break
 
                 if not played:
@@ -3122,9 +3217,10 @@ class PatchManagerGUI(QWidget):
                     if "save_config" in globals():
                         globals()["save_config"](self.cfg)
                 except Exception as e:
-                    self.append_info(
-                        self.info_text, f"❌ Config Save Error: {e}", "error"
-                    )
+                    if hasattr(self, "info_text"):
+                        self.append_info(
+                            self.info_text, f"❌ Config Save Error: {e}", "error"
+                        )
 
             if hasattr(self, "btn_modifier"):
                 self.btn_modifier.setText(f"👤 {self.patch_modifier}")
@@ -3132,11 +3228,14 @@ class PatchManagerGUI(QWidget):
             success_tpl = lang_dict.get(
                 "mod_changed_success", "✅ Patch Autor geändert: {name}"
             )
-            self.append_info(
-                self.info_text, success_tpl.format(name=self.patch_modifier), "success"
-            )
+            if hasattr(self, "info_text"):
+                self.append_info(
+                    self.info_text,
+                    success_tpl.format(name=self.patch_modifier),
+                    "success",
+                )
 
-            # Sound jetzt auslösen
+            # Sound jetzt sicher auslösen
             play_mod_sound(True)
 
     def collect_and_save(self):
@@ -3998,7 +4097,7 @@ class PatchManagerGUI(QWidget):
         # Sprache sicherstellen
         lang = getattr(self, "LANG", "DE").lower()
 
-        # Hilfsfunktion für die Texte (vermeidet Abstürze bei fehlenden Keys)
+        # Hilfsfunktion für die Texte
         def get_msg(key, default, **kwargs):
             template = TEXTS.get(lang, {}).get(key, default)
             try:
@@ -4006,18 +4105,28 @@ class PatchManagerGUI(QWidget):
             except:
                 return template
 
+        # Hilfsfunktion für den Sound (JETZT KORREKT EINGERÜCKT)
         def play_zip_sound(success=True):
-            """Spielt Sound für das Zippen ab."""
+            """Spielt Sound für das Zippen ab (abgesichert)."""
             if platform.system() == "Linux":
                 sound = "complete.oga" if success else "dialog-error.oga"
                 s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+
                 if os.path.exists(s_path):
-                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                    try:
+                        subprocess.Popen(
+                            ["paplay", s_path],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    except (FileNotFoundError, Exception):
+                        QApplication.beep()
                 else:
                     QApplication.beep()
             else:
                 QApplication.beep()
 
+        # --- Eigentliche ZIP-Logik ---
         try:
             # 1. Existenzprüfung
             if not os.path.exists(PATCH_FILE):
@@ -4051,7 +4160,10 @@ class PatchManagerGUI(QWidget):
             play_zip_sound(False)
 
         if progress_callback:
-            progress_callback(100)
+            try:
+                progress_callback(100)
+            except:
+                pass
 
         QApplication.processEvents()
 
@@ -4235,18 +4347,31 @@ class PatchManagerGUI(QWidget):
                 print(f"[{level.upper()}] {text}")
 
         def play_header_sound(sound_type="open"):
-            """Spielt Sounds für den Editor-Dialog ab."""
+            """Spielt Sounds für den Editor-Dialog ab (Absturzsicher)."""
+
             if platform.system() == "Linux":
                 # 'dialog-information' für Öffnen, 'complete' für Speichern
                 sound = (
                     "dialog-information.oga" if sound_type == "open" else "complete.oga"
                 )
                 s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+
                 if os.path.exists(s_path):
-                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                    try:
+                        # Der try-Block verhindert den Absturz bei fehlendem 'paplay'
+                        subprocess.Popen(
+                            ["paplay", s_path],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    except (FileNotFoundError, Exception):
+                        # Falls paplay fehlt, nutzen wir den Standard-Beep
+                        QApplication.beep()
                 else:
+                    # Sound-Datei nicht gefunden
                     QApplication.beep()
             else:
+                # Für Windows/macOS
                 QApplication.beep()
 
         # Get language texts
@@ -4579,17 +4704,27 @@ class PatchManagerGUI(QWidget):
             progress.show()
 
         def play_update_sound():
-            """Spielt einen Benachrichtigungssound ab."""
-            if platform.system() == "Linux":
-                # 'message-new-instant' ist ideal für Updates
-                s_path = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
-                if os.path.exists(s_path):
-                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
-                else:
+            """Spielt einen Benachrichtigungssound ab (Absturzsicher)."""
+
+        if platform.system() == "Linux":
+            # 'message-new-instant' ist ideal für Updates
+            s_path = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
+            if os.path.exists(s_path):
+                try:
+                    # Der try-Block verhindert den Absturz, falls paplay nicht installiert ist
+                    subprocess.Popen(
+                        ["paplay", s_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except (FileNotFoundError, Exception):
+                    # Fallback: Wenn paplay fehlt, wird nur ein System-Beep ausgegeben
                     QApplication.beep()
             else:
-                # Windows Standard-Beep
                 QApplication.beep()
+        else:
+            # Windows Standard-Beep
+            QApplication.beep()
 
         def log(text_key, level="info", **kwargs):
             colors = {
@@ -4700,9 +4835,6 @@ class PatchManagerGUI(QWidget):
             if progress:
                 progress.setValue(0)
 
-
-
-
     # ---------------------
     # TOOLS CHECK
     # ---------------------
@@ -4720,17 +4852,30 @@ class PatchManagerGUI(QWidget):
         widget = getattr(self, "info_text", None)
 
         def play_update_sound(is_new=False):
-            """Spielt Sound bei gefundenem Update oder Erfolg ab."""
-            if platform.system() == "Linux":
-                # 'message-new-instant' für neues Update, 'complete' für aktuell
-                sound = "message-new-instant.oga" if is_new else "complete.oga"
-                s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
-                if os.path.exists(s_path):
-                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
-                else:
+            """Spielt Sound bei gefundenem Update oder Erfolg ab (Absturzsicher)."""
+
+        if platform.system() == "Linux":
+            # 'message-new-instant' für neues Update, 'complete' für aktuell/Erfolg
+            sound = "message-new-instant.oga" if is_new else "complete.oga"
+            s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+
+            if os.path.exists(s_path):
+                try:
+                    # Startet paplay nur, wenn es installiert ist
+                    subprocess.Popen(
+                        ["paplay", s_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except (FileNotFoundError, Exception):
+                    # Wenn paplay fehlt (z.B. auf minimalen Systemen), nur piepsen
                     QApplication.beep()
             else:
+                # Datei existiert nicht im System-Pfad
                 QApplication.beep()
+        else:
+            # Windows/macOS Fallback
+            QApplication.beep()
 
         if hasattr(self, "append_info") and widget:
             # Trennlinie für bessere Lesbarkeit im Log
@@ -4922,7 +5067,16 @@ class PatchManagerGUI(QWidget):
             # Logout/Shutdown Sound
             s_path = "/usr/share/sounds/freedesktop/stereo/service-logout.oga"
             if os.path.exists(s_path):
-                subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                try:
+                    # Korrektur: subprocess.Popen wurde hinzugefügt und abgesichert
+                    subprocess.Popen(
+                        ["paplay", s_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except (FileNotFoundError, Exception):
+                    # Falls paplay fehlt, einfach ohne Sound schließen
+                    pass
         event.accept()  # Fenster wirklich schließen
 
         # =====================
@@ -5906,20 +6060,28 @@ class PatchManagerGUI(QWidget):
 
         lang = getattr(self, "LANG", "en").lower()
 
-        # Hilfsfunktion für den Sound
+        # Hilfsfunktion für den Sound (innerhalb der Methode definiert)
         def play_commit_sound(success=True):
+            """Spielt Sound für Commits ab (Absturzsicher gegen fehlendes paplay)."""
             if platform.system() == "Linux":
-                # Ein kürzerer 'Information' Sound für Listen
                 sound = "message-new-instant.oga" if success else "dialog-error.oga"
                 s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+
                 if os.path.exists(s_path):
-                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                    try:
+                        subprocess.Popen(
+                            ["paplay", s_path],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    except (FileNotFoundError, Exception):
+                        QApplication.beep()
                 else:
                     QApplication.beep()
             else:
                 QApplication.beep()
 
-        # Texte aus dem Translation-Dictionary
+        # Texte aus dem Translation-Dictionary laden
         txt_loading = TEXTS.get(lang, {}).get("loading_commits", "Lade Commits...")
         txt_success = TEXTS.get(lang, {}).get(
             "commits_loaded", "Commits erfolgreich geladen"
@@ -5936,11 +6098,13 @@ class PatchManagerGUI(QWidget):
                 play_commit_sound(False)
                 return
 
+            # Anzahl der Commits aus dem Spinbox-Widget lesen (falls vorhanden)
             num_commits = (
                 self.commit_spin.value() if hasattr(self, "commit_spin") else 10
             )
             cmd = f"git log -n {num_commits} --oneline"
 
+            # Befehl ausführen
             output = self.run_command(cmd, cwd=TEMP_REPO)
 
             if output:
@@ -5948,7 +6112,7 @@ class PatchManagerGUI(QWidget):
                 for line in lines:
                     self.append_info(info_widget, f"• {line}", "info")
 
-                # --- Erfolgsmeldung & Sound ---
+                # Erfolgsmeldung & Sound
                 self.append_info(
                     info_widget, f"✅ {txt_success} ({len(lines)})", "success"
                 )
@@ -5965,6 +6129,7 @@ class PatchManagerGUI(QWidget):
             )
             play_commit_sound(False)
 
+        # Fortschrittsbalken auf 100% setzen
         if progress_callback:
             try:
                 progress_callback(100)
@@ -6096,19 +6261,33 @@ class PatchManagerGUI(QWidget):
         import os, subprocess, platform
         from PyQt6.QtWidgets import QApplication
 
-        # Hilfsfunktion für den Sound
+        # Hilfsfunktion für den Sound (Absturzsicher)
         def play_apply_sound(success=True):
+            """Spielt Sound nach dem Anwenden eines Patches ab (Absturzsicher)."""
             if platform.system() == "Linux":
                 sound = "complete.oga" if success else "dialog-error.oga"
                 s_path = f"/usr/share/sounds/freedesktop/stereo/{sound}"
+
                 if os.path.exists(s_path):
-                    subprocess.Popen(["paplay", s_path], stderr=subprocess.DEVNULL)
+                    try:
+                        # Verhindert den Absturz, falls 'paplay' fehlt
+                        subprocess.Popen(
+                            ["paplay", s_path],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    except (FileNotFoundError, Exception):
+                        # Fallback auf Piepton, falls der Player nicht installiert ist
+                        QApplication.beep()
                 else:
                     QApplication.beep()
             else:
+                # Standard-Beep für Windows/macOS
                 QApplication.beep()
 
-        # 1. Check ob Datei existiert
+        # --- Eigentliche Patch-Logik ---
+
+        # 1. Check ob Patch-Datei existiert
         if not os.path.exists(PATCH_FILE):
             msg = self.get_t("patch_file_missing", "❌ Patch-Datei fehlt!").format(
                 path=PATCH_FILE
@@ -6117,35 +6296,45 @@ class PatchManagerGUI(QWidget):
             play_apply_sound(False)
             return
 
-        # Logger definieren
+        # Logger definieren für run_bash
         logger = lambda text, level="info": self.append_info(info_widget, text, level)
 
-        # 2. Eigene Start-Meldung (Warnung-Farbe für "Aktion läuft")
+        # 2. Start-Meldung
         start_msg = self.get_t("executing_git_apply", "🚀 Wende Patch an...").format(
             patch="oscam-emu.patch"
         )
         self.append_info(info_widget, start_msg, "warning")
 
         # 3. Patch ausführen
-        code = run_bash(f"git apply {PATCH_FILE}", cwd=TEMP_REPO, logger=logger)
+        try:
+            # Code führt den Befehl aus und gibt den Exit-Status zurück
+            code = run_bash(f"git apply {PATCH_FILE}", cwd=TEMP_REPO, logger=logger)
 
-        if code == 0:
+            if code == 0:
+                self.append_info(
+                    info_widget,
+                    self.get_t("patch_emu_git_done", "✅ Patch erfolgreich angewendet"),
+                    "success",
+                )
+                play_apply_sound(True)
+            else:
+                self.append_info(
+                    info_widget,
+                    self.get_t("patch_emu_git_apply_failed", "❌ Patch fehlgeschlagen"),
+                    "error",
+                )
+                play_apply_sound(False)
+        except Exception as e:
             self.append_info(
-                info_widget,
-                self.get_t("patch_emu_git_done", "✅ Patch erfolgreich angewendet"),
-                "success",
-            )
-            play_apply_sound(True)
-        else:
-            self.append_info(
-                info_widget,
-                self.get_t("patch_emu_git_apply_failed", "❌ Patch fehlgeschlagen"),
-                "error",
+                info_widget, f"❌ Schwerer Fehler beim Patchen: {str(e)}", "error"
             )
             play_apply_sound(False)
 
         if progress_callback:
-            progress_callback(100)
+            try:
+                progress_callback(100)
+            except:
+                pass
 
         QApplication.processEvents()
 
