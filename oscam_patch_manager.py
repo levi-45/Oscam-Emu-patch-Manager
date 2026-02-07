@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.5.6"
+APP_VERSION = "2.5.7"
 
 
 # ===================== PATCH DIRS =====================
@@ -3165,43 +3165,45 @@ class PatchManagerGUI(QWidget):
 
     def manual_tool_check(self):
         """
-        Prüft installierte Tools und verhindert durch Zeitstempel-Sperre
-        garantiert doppelte Textausgaben im Infoscreen.
+        Prüft installierte Tools und verhindert durch radikale Zeitstempel-
+        und Info-Screen-Sperren jegliche doppelten Textausgaben.
         """
         import time
         from datetime import datetime
         import shutil
         import subprocess
         import os
-        import platform
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
 
-        # 1. RADIKALER DOPPEL-STOPP (Zeitstempel-Sperre)
+        # 1. RADIKALER DOPPEL-STOPP (Verhindert mehrfaches Auslösen der Funktion)
         now_ts = time.time()
-        if hasattr(self, "_last_check_run") and (now_ts - self._last_check_run) < 2.0:
+        if hasattr(self, "_last_check_run") and (now_ts - self._last_check_run) < 2.5:
             return
         self._last_check_run = now_ts
 
-        # 2. Button-Sperre (falls vorhanden)
+        # 2. INFO-SCREEN SPERRE (Versiegelt append_info für andere Quellen)
+        self._lock_info_screen = now_ts + 3.0
+
+        # 3. Button-Sperre
         btn = getattr(self, "btn_check_tools", None)
         if btn:
             btn.setEnabled(False)
-            QTimer.singleShot(2000, lambda: btn.setEnabled(True))
+            QTimer.singleShot(3000, lambda: btn.setEnabled(True))
 
         try:
-            # 3. Fenster leeren (Muss als Erstes passieren!)
+            # 4. Fenster leeren
             if hasattr(self, "info_text") and self.info_text:
                 self.info_text.clear()
                 QApplication.processEvents()
             else:
                 return
 
-            # 4. Variablen & Sprache
+            # 5. Variablen & Sprache
             lang = str(getattr(self, "LANG", "de")).lower()
             timestamp = datetime.now().strftime("%H:%M:%S")
 
-            # 5. Start-Meldung
+            # 6. Start-Meldung
             start_msg = (
                 f"Starte System-Check... [{timestamp}]"
                 if lang == "de"
@@ -3210,16 +3212,15 @@ class PatchManagerGUI(QWidget):
             self.append_info(self.info_text, start_msg, "error")
             QApplication.processEvents()
 
-            # 6. Tools prüfen
+            # 7. Tools prüfen
             required_tools = ["git", "python3"]
             if os.name != "nt":
                 required_tools.extend(["patch", "zip"])
 
             missing = [tool for tool in required_tools if shutil.which(tool) is None]
 
-            # 7. ERGEBNIS-LOGIK
+            # 8. ERGEBNIS-LOGIK
             if not missing:
-                # Tools OK
                 self.append_info(
                     self.info_text,
                     "✅ Alle benötigten System-Tools sind bereit.",
@@ -3236,10 +3237,10 @@ class PatchManagerGUI(QWidget):
                 if "safe_play" in globals():
                     globals()["safe_play"]("complete.oga")
 
-                # FUNKTION HIER BEENDEN (Verhindert Weiterlaufen in Fehler-Code)
+                # FUNKTION HIER BEENDEN
                 return
 
-            # 8. FALL: Tools fehlen
+            # 9. FALL: Tools fehlen
             missing_str = ", ".join(missing)
             self.append_info(
                 self.info_text, f"⚠️ Fehlende Tools: {missing_str}", "warning"
