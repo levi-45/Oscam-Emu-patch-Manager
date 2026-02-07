@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.5.9"
+APP_VERSION = "2.6.0"
 
 
 # ===================== PATCH DIRS =====================
@@ -884,6 +884,29 @@ TEXTS = {
         "patch_file_missing": "❌ Patch file missing: {path}",
         "patch_emu_git_done": "✅ Patch applied successfully!",
         "patch_emu_git_apply_failed": "❌ Failed to apply patch!",
+        # Tool Start
+        "start": "Starting System-Check...",
+        "found": "found",
+        "missing": "MISSING!",
+        "ready": "All required system tools are ready.",
+        "upd_check": "🔍 Tooltest Update Check...",
+        "up_to_date": "Plugin is up to date",
+        "config": "🛠️ Active Configuration:",
+        "author": "Patch Author",
+        "repo": "Repository",
+        "start_check": "Starting System-Check...",
+        "found": "found",
+        "missing": "MISSING!",
+        "tools_ready": "All required system tools are ready.",
+        "upd_check": "🔍 Tooltest Update Check...",
+        "upd_ok": "Plugin is up to date",
+        "active_conf": "🛠️ Active Configuration:",
+        "patch_author": "Patch Author",
+        "repository": "Repository",
+        # For the update check
+        "new_version_available": "New version available",
+        "update_title": "Update Available",
+        "update_msg": "A new version was found. Do you want to update now?",
         # Exit / Confirmation
         "exit": "Exit",
         "yes": "Yes",
@@ -1115,6 +1138,29 @@ TEXTS = {
         "info_title": "Über dieses Tool",
         "credits_label": "Mitwirkende / Autoren",
         "close": "Schließen",
+        # Tool Start
+        "start": "Starte System-Check...",
+        "found": "gefunden",
+        "missing": "FEHLT!",
+        "ready": "Alle benötigten System-Tools sind bereit.",
+        "upd_check": "🔍 Tooltest Update Check...",
+        "up_to_date": "Plugin ist aktuell",
+        "config": "🛠️ Aktive Konfiguration:",
+        "author": "Patch Autor",
+        "repo": "Repository",
+        "start_check": "Starte System-Check...",
+        "found": "gefunden",
+        "missing": "FEHLT!",
+        "tools_ready": "Alle benötigten System-Tools sind bereit.",
+        "upd_check": "🔍 Tooltest Update Check...",
+        "upd_ok": "Plugin ist aktuell",
+        "active_conf": "🛠️ Aktive Konfiguration:",
+        "patch_author": "Patch Autor",
+        "repository": "Repository",
+        # Für den Update-Check
+        "new_version_available": "Neue Version verfügbar",
+        "update_title": "Update verfügbar",
+        "update_msg": "Eine neue Version wurde gefunden. Möchtest du jetzt aktualisieren?",
         # Updates
         "restart_required_msg": "Das Update wurde erfolgreich installiert. Das Tool muss neu gestartet werden.\nJetzt neu starten?",
         "restart_required_title": "Neustart erforderlich",
@@ -2222,7 +2268,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
             # Erfolgssound abspielen
             play_sound(True)
 
-    QTimer.singleShot(100, final_logs)
+    # QTimer.singleShot(100, final_logs)
     set_progress(100)
 
 
@@ -2749,7 +2795,7 @@ class PatchManagerGUI(QWidget):
 
         # 2. System-Check (etwas später, damit die Sounds sich nicht "beißen")
         # Erhöhe die Zeit von 500 auf 1500 (1.5 Sekunden)
-        QTimer.singleShot(1500, self.run_full_system_check)
+        # QTimer.singleShot(1500, self.display_startup_info)
         # 1. STATUS INITIALISIEREN
         self.is_loading = True  # Verhindert ungewollte Event-Trigger während des Setups
         super().__init__()
@@ -2845,11 +2891,49 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtCore import QTimer
 
         # Tool-Check nach 1 Sekunde
-        QTimer.singleShot(1000, self.manual_tool_check)
+        # QTimer.singleShot(1000, self.manual_tool_check)
 
         # Update-Check nach 2 Sekunden
-        if hasattr(self, "check_for_update_on_start"):
-            QTimer.singleShot(2000, self.check_for_update_on_start)
+        # if hasattr(self, "check_for_update_on_start"):
+        # QTimer.singleShot(2000, self.check_for_update_on_start)
+
+    def display_startup_info(self):
+        """Bündelt alle Startinfos in der gewünschten Reihenfolge."""
+        import shutil
+
+        now_t = QDateTime.currentDateTime().toString("HH:mm:ss")
+
+        output = []
+
+        # 1. Block: System-Check
+        output.append(f"Starte System-Check... [{now_t}]")
+        all_ok = True
+        for t in ["git", "patch", "zip"]:
+            if shutil.which(t):
+                output.append(f"  ✅ {t} : gefunden")
+            else:
+                output.append(f"  ❌ {t} : FEHLT")
+                all_ok = False
+
+        if all_ok:
+            output.append("✅ Alle benötigten System-Tools sind bereit.")
+
+        output.append("-" * 45)  # Trenner
+
+        # 2. Block: Update Check
+        output.append("🔍 Tooltest Update Check...")
+        output.append(f"✅ Plugin ist aktuell (Version: {APP_VERSION})")
+
+        output.append("-" * 45)  # Trenner
+
+        # 3. Block: Konfiguration
+        output.append("🛠️ Aktive Konfiguration:")
+        output.append(f"  👤 Patch Autor: {self.patch_modifier}")
+        output.append(f"  🌐 Repository: {EMUREPO}")
+        output.append("-" * 45)
+
+        # Den gesamten Block auf einmal senden
+        self.append_info(self.info_text, "\n".join(output), "info")
 
     def change_colors(self):
         global current_diff_colors, current_color_name
@@ -3099,14 +3183,12 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
         import os, subprocess, platform, shutil
 
-        # Lokale Konstante für das richtige Repo
         CORRECT_REPO = "https://github.com/oscam-mirror/oscam-emu.git"
 
         current = getattr(self, "patch_modifier", PATCH_MODIFIER)
         lang = getattr(self, "LANG", "de").lower()
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
 
-        # Hilfsfunktion für den Sound
         def play_mod_sound(success=True):
             sound = "complete.oga" if success else "dialog-warning.oga"
             if "safe_play" in globals():
@@ -3125,46 +3207,40 @@ class PatchManagerGUI(QWidget):
             new_author = new_name.strip()
             self.patch_modifier = new_author
 
-            # 1. Config-Dictionary vorbereiten
             if hasattr(self, "cfg"):
-                # Bestehenden Wert in self.EMUREPO prüfen
                 current_val = getattr(self, "EMUREPO", "")
-
-                # Wenn der Wert leer oder falsch (kurz) ist, korrigieren wir ihn
                 if not current_val or current_val == "https://github.com":
                     self.EMUREPO = CORRECT_REPO
 
-                # Werte für das Speichern synchronisieren
                 self.cfg["patch_modifier"] = self.patch_modifier
                 self.cfg["EMUREPO"] = self.EMUREPO
 
                 try:
-                    # 2. Speichern via globaler Funktion
                     if "save_config" in globals():
                         globals()["save_config"](self.cfg)
 
-                    # Log-Ausgabe
-                    success_tpl = lang_dict.get(
-                        "mod_changed_success", "✅ Patch Autor geändert: {name}"
-                    )
-                    if hasattr(self, "info_text") and self.info_text:
-                        self.append_info(
-                            self.info_text,
-                            success_tpl.format(name=self.patch_modifier),
-                            "success",
-                        )
+                    # 1. UI UPDATE (Der Fix für den Button-Text)
+                    # Wir rufen update_language auf, damit der Button-Text
+                    # "👤 Patch Autor" bleibt und nur der Tooltip den Namen bekommt.
+                    if hasattr(self, "update_language"):
+                        self.update_language()
 
-                    # UI Update
-                    if hasattr(self, "btn_modifier"):
-                        self.btn_modifier.setText(f"👤 {self.patch_modifier}")
+                    # 2. LOG-FENSTER AKTUALISIEREN
+                    # Wir leeren das Fenster und starten den System-Check neu,
+                    # damit der neue Name sofort im bunten Log-Block erscheint.
+                    if hasattr(self, "info_text") and self.info_text:
+                        self._checking_active = False  # Sperre kurz lösen
+                        self.info_text.clear()
+                        QApplication.processEvents()
+
+                        if hasattr(self, "run_full_system_check"):
+                            self.run_full_system_check()
 
                     play_mod_sound(True)
 
                 except Exception as e:
                     if hasattr(self, "info_text") and self.info_text:
-                        self.append_info(
-                            self.info_text, f"❌ Fehler beim Speichern: {e}", "error"
-                        )
+                        self.append_info(self.info_text, f"❌ Fehler: {e}", "error")
                     play_mod_sound(False)
 
     def collect_and_save(self):
@@ -3828,7 +3904,7 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtGui import QTextCursor
         from PyQt6.QtWidgets import QApplication, QTextEdit
 
-        # 1. Argumente sicher entpacken (Fix für 'tuple' Error)
+        # 1. Argumente sicher entpacken
         try:
             if len(args) == 3:
                 widget, text, level = args[0], args[1], args[2]
@@ -3840,37 +3916,54 @@ class PatchManagerGUI(QWidget):
         except Exception:
             return
 
-        if not isinstance(widget, QTextEdit):
+        if not isinstance(widget, QTextEdit) or widget is None:
             return
 
-        # 2. Farben & newline
+        # 2. Variablen sicher initialisieren
         colors = {
             "success": "#00FF00",
             "warning": "orange",
             "error": "red",
             "info": "yellow",
             "white": "white",
+            "raw": "transparent",
         }
-        color = colors.get(level, "white")
-        newline = kwargs.get("newline", True)
 
-        # 3. CURSOR-FIX: Immer ans Ende setzen (verhindert das Verschwinden)
+        # Level-Check (verhindert String-Probleme)
+        lvl_str = str(level).lower()
+        current_color = colors.get(lvl_str, "white")
+        do_newline = kwargs.get("newline", True)
+
+        # 3. Cursor ans Ende bewegen
         cursor = widget.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         widget.setTextCursor(cursor)
 
-        # 4. HTML vorbereiten
-        html = ""
-        if newline and not widget.toPlainText().strip() == "":
-            html += "<br>"
-        html += f'<span style="color:{color}">{text}</span>'
+        # 4. HTML-Formatierung vorbereiten
+        # Verwandelt Newlines in HTML-Breaks
+        safe_text = str(text).replace("\n", "<br>")
 
-        # 5. Einfügen und sofort zeichnen
-        cursor.insertHtml(html)
+        html_output = ""
+        # Zeilenumbruch nur hinzufügen, wenn das Feld nicht leer ist
+        if do_newline and widget.toPlainText().strip() != "":
+            html_output += "<br>"
+
+        # 5. Farben anwenden (Bypass für 'raw')
+        if lvl_str == "raw":
+            # Absolut kein umschließendes Farbattribut, damit interne Spans gewinnen
+            html_output += f'<div style="display:inline;">{safe_text}</div>'
+        else:
+            # Standard-Farbhülle für normale Meldungen
+            html_output += (
+                f'<div style="color:{current_color}; display:inline;">{safe_text}</div>'
+            )
+
+        # 6. HTML einfügen und Scrollen
+        cursor.insertHtml(html_output)
         widget.ensureCursorVisible()
-        from PyQt6.QtWidgets import QApplication
 
-        QApplication.processEvents()  #
+        # UI-Update erzwingen
+        QApplication.processEvents()
 
     def run_background_task(self, fn, *args, **kwargs):
         """Startet eine Funktion im Hintergrund und steuert die Progressbar"""
@@ -4600,79 +4693,65 @@ class PatchManagerGUI(QWidget):
     # UPDATE CHECK
     # ---------------------
     def check_for_update_on_start(self):
-        """Prüft im Hintergrund auf Updates und verhindert doppelte Dialoge."""
+        """Prüft auf Updates und loggt das Ergebnis in die GUI."""
         if hasattr(self, "_update_dialog_active") and self._update_dialog_active:
             return
 
-        from PyQt6.QtWidgets import QApplication, QMessageBox
-        import time, requests
+        import requests, time
+        from PyQt6.QtWidgets import QMessageBox
 
         self._update_dialog_active = True
-        progress = getattr(self, "progress_bar", None)
         lang = getattr(self, "LANG", "de").lower()
+        txt = getattr(self, "TEXT", {})
 
         try:
-            # 1. URL mit Cache-Buster generieren
-            version_url = (
-                "https://raw.githubusercontent.com/"
-                "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
-                f"?t={int(time.time())}"
-            )
+            # 1. URL mit Cache-Buster
+            version_url = f"https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt{int(time.time())}"
 
-            # 2. DATEN TATSÄCHLICH ABFRAGEN (Das hat gefehlt!)
-            resp = requests.get(version_url, timeout=10)
+            # 2. Abfrage
+            resp = requests.get(version_url, timeout=5)
             resp.raise_for_status()
 
-            # 3. Versionen extrahieren
             latest_version = resp.text.strip().lstrip("v")
             current_version = APP_VERSION.strip().lstrip("v")
 
-            # 4. Vergleich (Nutzt deine Version-Klasse)
-            if not Version(latest_version) > Version(current_version):
-                if progress:
-                    progress.setValue(100)
-                self._update_dialog_active = False
-                return
+            # 3. Vergleich & Log-Ausgabe
+            if Version(latest_version) > Version(current_version):
+                # Meldung im Log ausgeben (Gelb/Warnung)
+                update_msg = f"➔ {txt.get('new_version_available', 'Neue Version verfügbar')}: v{latest_version}"
+                self.append_info(self.info_text, update_msg, "warning")
 
-            # --- UPDATE GEFUNDEN: DIALOG ANZEIGEN ---
-            msg_box = QMessageBox(self)
-            msg_box.setIcon(QMessageBox.Icon.Question)
+                # Pop-Up Dialog
+                msg_box = QMessageBox(self)
+                msg_box.setIcon(QMessageBox.Icon.Information)
+                msg_box.setWindowTitle(txt.get("update_title", "Update"))
 
-            title = "Update verfügbar" if lang == "de" else "Update available"
-            msg_box.setWindowTitle(title)
+                msg_text = (
+                    f"{txt.get('update_msg', 'Update verfügbar')}\n\n"
+                    f"New: v{latest_version}\nOld: v{current_version}"
+                )
+                msg_box.setText(msg_text)
 
-            text = (
-                f"Neue Version {latest_version} verfügbar. Jetzt updaten?\n\n"
-                f"Aktuell installiert: {current_version}"
-                if lang == "de"
-                else f"New version {latest_version} available. Update now?\n\n"
-                f"Currently installed: {current_version}"
-            )
-            msg_box.setText(text)
-
-            msg_box.setStandardButtons(
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-
-            btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
-            if btn_yes:
-                btn_yes.setText("Ja" if lang == "de" else "Yes")
-            btn_no = msg_box.button(QMessageBox.StandardButton.No)
-            if btn_no:
-                btn_no.setText("Nein" if lang == "de" else "No")
-
-            result = msg_box.exec()
-
-            if result == QMessageBox.StandardButton.Yes:
-                if hasattr(self, "plugin_update_action"):
-                    self.plugin_update_action(latest_version=latest_version)
+                msg_box.setStandardButtons(
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if msg_box.exec() == QMessageBox.StandardButton.Yes:
+                    if hasattr(self, "plugin_update_action"):
+                        self.plugin_update_action(latest_version=latest_version)
+            else:
+                # Alles aktuell (Grün im Log)
+                self.append_info(
+                    self.info_text,
+                    f"✅ {txt.get('upd_ok', 'Plugin ist aktuell')}",
+                    "success",
+                )
 
         except Exception as e:
-            print(f"Update-Check Fehler: {e}")
+            self.append_info(self.info_text, f"⚠️ Update-Check failed: {e}", "error")
         finally:
             self._update_dialog_active = False
-            if progress:
-                progress.setValue(100)
+            if hasattr(self, "progress_bar") and self.progress_bar:
+                self.progress_bar.setValue(100)
 
     # ---------------------
     # TOOLS CHECK
@@ -4711,58 +4790,114 @@ class PatchManagerGUI(QWidget):
             self.append_info(widget, f"Update-Fehler: {str(e)}", "error")
 
     def run_full_system_check(self):
-        if hasattr(self, "_checking_active") and self._checking_active:
+        """
+        Führt den System-Check aus mit exaktem Farbmuster:
+        Orange -> 3x Grün -> Blau -> Orange -> Grün -> Orange -> 2x Grün
+        """
+        # 1. SOFORTIGE SPERRE GEGEN DOPPLUNG
+        if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
 
         try:
             import shutil, platform
+            from datetime import datetime
             from PyQt6.QtWidgets import QApplication
 
-            # 1. Einziges Clear
-            self.info_text.clear()
-            QApplication.processEvents()
+            # FARB-DEFINITIONEN
+            C_ORANGE = "#F37804"  # Orange
+            C_GREEN = "#00FF00"  # Grün
+            C_BLUE = "#0000FF"  # Blau
+            C_LINE = "#808080"  # Grau (Trennlinien)
+            C_ERR = "#FF0000"  # Rot
 
-            lang = getattr(self, "LANG", "de").lower()
+            # 2. LOG-FENSTER LEEREN
+            if hasattr(self, "info_text") and self.info_text:
+                self.info_text.clear()
+                QApplication.processEvents()
+
             timestamp = datetime.now().strftime("%H:%M:%S")
+            output = []
 
-            # 2. Header & Tools
-            h_text = (
-                "Starte System-Check..." if lang == "de" else "Starting System-Check..."
+            # 3. SPRACH-CHECK
+            if not hasattr(self, "TEXT") or not self.TEXT:
+                if hasattr(self, "update_language"):
+                    self.update_language()
+            txt = getattr(self, "TEXT", {})
+
+            # --- BLOCK AUFBAU ---
+
+            # 1. EINTRAG: ORANGE (Header)
+            start_msg = txt.get("start_check", "Starte System-Check...")
+            output.append(
+                f'<span style="color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>'
             )
-            self.append_info(f"<b>{h_text} [{timestamp}]</b>", "info", newline=False)
 
+            # 2.-4. EINTRAG: GRÜN (Tools)
             tools = ["git"] + (
                 ["patch", "zip"] if platform.system() != "Windows" else []
             )
             for name in tools:
-                if shutil.which(name):
-                    self.append_info(
-                        f"&nbsp;&nbsp;✅ {name.ljust(6)} : gefunden", "success"
-                    )
-                else:
-                    self.append_info(
-                        f"&nbsp;&nbsp;❌ {name.ljust(6)} : FEHLT!", "error"
-                    )
+                found = shutil.which(name)
+                color = C_GREEN if found else C_ERR
+                status = (
+                    txt.get("found", "gefunden")
+                    if found
+                    else txt.get("missing", "FEHLT!")
+                )
+                output.append(
+                    f'<span style="color:{color}">  ✅ {name.ljust(6)} : {status}</span>'
+                )
 
-            self.append_info("-" * 45, "white")
-            QApplication.processEvents()
+            # 5. EINTRAG: BLAU (Tools bereit)
+            ready_msg = txt.get(
+                "tools_ready", "Alle benötigten System-Tools sind bereit."
+            )
+            output.append(f'<span style="color:{C_BLUE}">✅ {ready_msg}</span>')
 
-            # 3. Update-Check (Text-Ausgabe im Log)
-            if hasattr(self, "check_for_plugin_update"):
-                self.check_for_plugin_update()
+            output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
-            # 4. Konfiguration (DER ABSCHLUSS - NUR HIER!)
-            if hasattr(self, "show_start_config"):
-                self.show_start_config()
+            # 6. EINTRAG: ORANGE (Update Check Titel)
+            upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
+            output.append(f'<span style="color:{C_ORANGE}">{upd_title}</span>')
 
-            # 5. Stiller Hintergrund-Check (MessageBox nur bei Bedarf)
-            # Wir rufen dies ganz am Ende auf, damit das Log bereits fertig gezeichnet ist.
-            if hasattr(self, "check_for_update_on_start"):
-                QTimer.singleShot(1000, self.check_for_update_on_start)
+            # 7. EINTRAG: GRÜN (Plugin Status)
+            upd_status = txt.get("upd_ok", "Plugin ist aktuell")
+            output.append(
+                f'<span style="color:{C_GREEN}">✅ {upd_status} (Version: {APP_VERSION})</span>'
+            )
 
+            output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
+
+            # 8. EINTRAG: ORANGE (Konfiguration Titel)
+            conf_title = txt.get("active_conf", "🛠️ Aktive Konfiguration:")
+            output.append(f'<span style="color:{C_ORANGE}"><b>{conf_title}</b></span>')
+
+            # 9.-10. EINTRAG: GRÜN (Details)
+            auth_label = txt.get("patch_author", "Patch Autor")
+            repo_label = txt.get("repository", "Repository")
+            output.append(
+                f'<span style="color:{C_GREEN}">  👤 {auth_label}: {getattr(self, "patch_modifier", "speedy005")}</span>'
+            )
+            output.append(
+                f'<span style="color:{C_GREEN}">  🌐 {repo_label}: {EMUREPO}</span>'
+            )
+
+            output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
+
+            # 4. FINALE AUSGABE (Nutzt Level raw)
+            self.append_info(self.info_text, "\n".join(output), "raw")
+
+        except Exception as e:
+            if hasattr(self, "append_info"):
+                self.append_info(
+                    getattr(self, "info_text", None), f"❌ Error: {e}", "error"
+                )
         finally:
-            self._checking_active = False
+            # 5. SPERRE VERZÖGERT FREIGEBEN (Verhindert Dopplung beim Start)
+            from PyQt6.QtCore import QTimer
+
+            QTimer.singleShot(500, lambda: setattr(self, "_checking_active", False))
 
     def closeEvent(self, event):
         """Wird ausgelöst, wenn das Fenster geschlossen wird (Absturzsicher)."""
@@ -5203,6 +5338,7 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         self.change_colors()
         self.update_language()
+        QTimer.singleShot(1000, self.run_full_system_check)
         self.setMinimumSize(1200, 850)
         self.showMaximized()
         # Automatisch speichern bei Änderung
@@ -5489,7 +5625,12 @@ class PatchManagerGUI(QWidget):
 
         # 1. Aktuelle Sprache ermitteln (de/en)
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
+
+        # Globales Dictionary TEXTS abrufen
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
+
+        # WICHTIG: Das aktuelle Sprach-Dictionary für run_full_system_check speichern
+        self.TEXT = lang_dict
 
         # Helferfunktion für Übersetzungen
         def get_t(key, default=None):
@@ -5526,14 +5667,14 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "btn_check_tools") and self.btn_check_tools:
             self.btn_check_tools.setText(get_t("check_tools_button", "🛠️ Check Tools"))
 
-        # --- Patch Autor Button & Tooltip ---
+        # --- Patch Autor Button & Tooltip (Fix: Button-Text bleibt statisch) ---
         if hasattr(self, "btn_modifier") and self.btn_modifier:
-            # Beschriftung festlegen (Sprachabhängig)
+            # Setzt den Button-Text IMMER auf die Bezeichnung
             self.btn_modifier.setText(
                 "👤 Patch Autor" if lang == "de" else "👤 Patch Author"
             )
 
-            # Tooltip mit aktuellem Namen aktualisieren
+            # Der Name landet NUR im Tooltip
             current_name = getattr(self, "patch_modifier", "speedy005")
             tip = (
                 f"Aktueller Autor: {current_name}\n(Klicken zum Ändern)"
@@ -5545,8 +5686,6 @@ class PatchManagerGUI(QWidget):
         # --- Repo URL Button & Tooltip ---
         if hasattr(self, "btn_repo_url") and self.btn_repo_url:
             self.btn_repo_url.setText(get_t("repo_url_button", "🌐 Repo URL"))
-
-            # Repo Tooltip (Direkt aus Dictionary oder Fallback)
             repo_tip = (
                 "Emu-Repository URL ändern"
                 if lang == "de"
@@ -5585,39 +5724,39 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
-        # Erzwingt die sofortige visuelle Aktualisierung der PyQt6-GUI
+        # Erzwingt die sofortige visuelle Aktualisierung
         QApplication.processEvents()
 
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Verhindert das Verschwinden von Meldungen und startet den Check synchron.
+        Verhindert Dopplungen durch einen minimalen Delay beim Neustart des Checks.
         """
         if not hasattr(self, "language_box"):
             return
 
         from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QTimer
 
-        # 1. Sprache ermitteln (DE/EN)
+        # 1. Sprache ermitteln
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if "EN" in selected else "de"
 
         # 2. In Konfiguration speichern
         if hasattr(self, "cfg"):
             self.cfg["language"] = self.LANG.upper()
-            # Falls eine globale Speicherfunktion existiert:
             if "save_config" in globals():
                 globals()["save_config"](self.cfg)
 
-        # 3. UI-Texte & Buttons aktualisieren
+        # 3. UI-Texte & Buttons aktualisieren (lädt self.TEXT neu)
         if hasattr(self, "update_language"):
             self.update_language()
 
+        # Spezielle Button-Texte
         if hasattr(self, "btn_modifier"):
             self.btn_modifier.setText(
                 "👤 Patch Autor" if self.LANG == "de" else "👤 Patch Author"
             )
-
         if hasattr(self, "btn_repo_url"):
             self.btn_repo_url.setText("🌐 Repo URL")
 
@@ -5625,22 +5764,18 @@ class PatchManagerGUI(QWidget):
         if "safe_play" in globals():
             safe_play("dialog-information.oga")
 
-        # 5. Log-Fenster stabil neu starten
+        # 5. Log-Fenster stabil zurücksetzen
         if hasattr(self, "info_text") and self.info_text:
-            # Falls der Check noch gesperrt ist, entsperren für den Neustart
+            # WICHTIG: Sperre zurücksetzen
             self._checking_active = False
-
-            # Fenster leeren
             self.info_text.clear()
-
-            # WICHTIG: Sofortiges Zeichnen erzwingen, bevor der Check startet
             QApplication.processEvents()
 
-            # 6. System-Check DIREKT starten (ohne QTimer, um Verschwinden zu vermeiden)
-            # if hasattr(self, "run_full_system_check"):
-            # Wir rufen es direkt auf. Das sorgt dafür, dass die Meldungen
-            # von oben nach unten dauerhaft stehen bleiben.
-            # self.run_full_system_check()
+            # 6. System-Check mit minimaler Verzögerung starten
+            # Ein direkter Aufruf führt oft zu Dopplungen, wenn Events noch in der Queue hängen.
+            # 100ms reichen aus, um die Queue zu bereinigen.
+            if hasattr(self, "run_full_system_check"):
+                QTimer.singleShot(100, self.run_full_system_check)
 
     # =====================
     # GITHUB EMU CREDENTIALS
