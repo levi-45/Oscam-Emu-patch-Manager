@@ -4600,99 +4600,79 @@ class PatchManagerGUI(QWidget):
     # UPDATE CHECK
     # ---------------------
     def check_for_update_on_start(self):
-        """
-        Prüft beim Start still im Hintergrund auf Updates.
-        Zeigt NUR bei verfügbarem Update einen Dialog, ansonsten bleibt das Log sauber.
-        """
+        """Prüft im Hintergrund auf Updates und verhindert doppelte Dialoge."""
+        if hasattr(self, "_update_dialog_active") and self._update_dialog_active:
+            return
+
         from PyQt6.QtWidgets import QApplication, QMessageBox
         import time, requests
-        from packaging.version import Version
 
+        self._update_dialog_active = True
         progress = getattr(self, "progress_bar", None)
         lang = getattr(self, "LANG", "de").lower()
 
         try:
-            # 1. Version von GitHub abrufen (Cache-Busting mit Zeitstempel)
+            # 1. URL mit Cache-Buster generieren
             version_url = (
                 "https://raw.githubusercontent.com/"
                 "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
                 f"?t={int(time.time())}"
             )
 
+            # 2. DATEN TATSÄCHLICH ABFRAGEN (Das hat gefehlt!)
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
 
+            # 3. Versionen extrahieren
             latest_version = resp.text.strip().lstrip("v")
-            self.latest_version = latest_version
-
-            # Button-Status im GUI aktualisieren (z.B. Farbe ändern)
-            if hasattr(self, "update_plugin_button_state"):
-                self.update_plugin_button_state()
-
             current_version = APP_VERSION.strip().lstrip("v")
 
-            # --- CHECK: IST EIN UPDATE VERFÜGBAR? ---
+            # 4. Vergleich (Nutzt deine Version-Klasse)
             if not Version(latest_version) > Version(current_version):
-                # KEIN Update: Wir beenden hier einfach still.
-                # Das verhindert die doppelten Zeilen im Log!
                 if progress:
                     progress.setValue(100)
+                self._update_dialog_active = False
                 return
 
-            # --- UPDATE GEFUNDEN ---
-            if "safe_play" in globals():
-                globals()["safe_play"]("message-new-instant.oga")
-
-            if progress:
-                progress.setValue(80)
-
-            # MessageBox Setup (Übersetzt)
+            # --- UPDATE GEFUNDEN: DIALOG ANZEIGEN ---
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Question)
 
-            t_title = TEXTS.get(lang, {}).get(
-                "update_available_title", "Update verfügbar"
-            )
-            msg_box.setWindowTitle(t_title)
+            title = "Update verfügbar" if lang == "de" else "Update available"
+            msg_box.setWindowTitle(title)
 
-            raw_dialog_text = TEXTS.get(lang, {}).get(
-                "update_available_msg",
-                "Neue Version {latest} verfügbar. Jetzt updaten?",
+            text = (
+                f"Neue Version {latest_version} verfügbar. Jetzt updaten?\n\n"
+                f"Aktuell installiert: {current_version}"
+                if lang == "de"
+                else f"New version {latest_version} available. Update now?\n\n"
+                f"Currently installed: {current_version}"
             )
-            msg_box.setText(
-                raw_dialog_text.format(current=current_version, latest=latest_version)
-            )
+            msg_box.setText(text)
 
             msg_box.setStandardButtons(
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
 
-            # Buttons übersetzen
             btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
             if btn_yes:
-                btn_yes.setText(TEXTS.get(lang, {}).get("yes", "Ja"))
+                btn_yes.setText("Ja" if lang == "de" else "Yes")
             btn_no = msg_box.button(QMessageBox.StandardButton.No)
             if btn_no:
-                btn_no.setText(TEXTS.get(lang, {}).get("no", "Nein"))
+                btn_no.setText("Nein" if lang == "de" else "No")
 
-            msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
             result = msg_box.exec()
 
             if result == QMessageBox.StandardButton.Yes:
                 if hasattr(self, "plugin_update_action"):
-                    self.plugin_update_action(
-                        latest_version=latest_version,
-                        progress_callback=progress.setValue if progress else None,
-                    )
-            else:
-                if progress:
-                    progress.setValue(100)
+                    self.plugin_update_action(latest_version=latest_version)
 
         except Exception as e:
-            # Fehler nur in die Konsole, nicht ins Log (verhindert Unruhe beim Start)
-            print(f"Update-Check fehlgeschlagen: {e}")
+            print(f"Update-Check Fehler: {e}")
+        finally:
+            self._update_dialog_active = False
             if progress:
-                progress.setValue(0)
+                progress.setValue(100)
 
     # ---------------------
     # TOOLS CHECK
