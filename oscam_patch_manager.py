@@ -2895,7 +2895,7 @@ class PatchManagerGUI(QWidget):
 
         # Update-Check nach 2 Sekunden
         # if hasattr(self, "check_for_update_on_start"):
-        # QTimer.singleShot(2000, self.check_for_update_on_start)
+        QTimer.singleShot(2000, self.check_for_update_on_start)
 
     def display_startup_info(self):
         """Bündelt alle Startinfos in der gewünschten Reihenfolge."""
@@ -4706,7 +4706,11 @@ class PatchManagerGUI(QWidget):
 
         try:
             # 1. URL mit Cache-Buster
-            version_url = f"https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt{int(time.time())}"
+            version_url = (
+                "https://raw.githubusercontent.com/"
+                "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+                f"?t={int(time.time())}"
+            )
 
             # 2. Abfrage
             resp = requests.get(version_url, timeout=5)
