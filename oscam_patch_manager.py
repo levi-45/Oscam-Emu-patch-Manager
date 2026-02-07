@@ -3129,6 +3129,40 @@ class PatchManagerGUI(QWidget):
             "s3_patch_path": getattr(self, "OLD_PATCH_DIR", OLD_PATCH_DIR),
         }
 
+    def show_update_dialog(self, latest_version, current_version):
+        """Öffnet das Pop-up Fenster für das verfügbare Update."""
+        from PyQt6.QtWidgets import QMessageBox
+
+        txt = getattr(self, "TEXT", {})
+        lang = getattr(self, "LANG", "de").lower()
+
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Information)
+        msg_box.setWindowTitle(txt.get("update_title", "Update"))
+
+        # Text-Inhalt
+        msg_text = (
+            f"{txt.get('update_msg', 'Update verfügbar')}\n\n"
+            f"{txt.get('new_version_label', 'Neu')}: v{latest_version}\n"
+            f"{txt.get('old_version_label', 'Installiert')}: v{current_version}"
+        )
+        msg_box.setText(msg_text)
+
+        # Buttons übersetzen
+        msg_box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        btn_yes = msg_box.button(QMessageBox.StandardButton.Yes)
+        if btn_yes:
+            btn_yes.setText(txt.get("yes", "Ja"))
+        btn_no = msg_box.button(QMessageBox.StandardButton.No)
+        if btn_no:
+            btn_no.setText(txt.get("no", "Nein"))
+
+        if msg_box.exec() == QMessageBox.StandardButton.Yes:
+            if hasattr(self, "plugin_update_action"):
+                self.plugin_update_action(latest_version=latest_version)
+
     def change_emu_repo(self):
         """Öffnet einen Dialog zum Ändern der Repository-URL und speichert diese."""
         from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
