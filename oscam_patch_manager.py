@@ -3164,136 +3164,129 @@ class PatchManagerGUI(QWidget):
             self.info_text.append(f"❌ Fehler beim Speichern: {e}")
 
     def manual_tool_check(self):
-        """Prüft installierte Tools und zeigt Status sowie Updates im Info-Fenster an."""
+        """
+        Prüft installierte Tools und verhindert durch Zeitstempel-Sperre
+        garantiert doppelte Textausgaben im Infoscreen.
+        """
+        import time
+        from datetime import datetime
         import shutil
         import subprocess
         import os
         import platform
         from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QTimer
 
-        # 1. Sprache & Texte laden (Fallback auf Englisch)
-        lang = str(getattr(self, "LANG", "de")).lower()
-        # Sicherstellen, dass TEXTS existiert
-        t_dict = globals().get("TEXTS", {})
-        t = t_dict.get(lang, t_dict.get("en", {}))
-
-        # Fenster leeren für sauberen Start
-        if hasattr(self, "info_text") and self.info_text:
-            self.info_text.clear()
-            QApplication.processEvents()  # GUI aktualisieren
-        else:
-            print("❌ Fehler: info_text Widget nicht gefunden!")
+        # 1. RADIKALER DOPPEL-STOPP (Zeitstempel-Sperre)
+        now_ts = time.time()
+        if hasattr(self, "_last_check_run") and (now_ts - self._last_check_run) < 2.0:
             return
+        self._last_check_run = now_ts
 
-        # 2. Start-Meldung
-        start_msg = (
-            "Starte System-Check..." if lang == "de" else "Starting system check..."
-        )
-        self.append_info(self.info_text, start_msg, "error")
-        QApplication.processEvents()  # Sofort anzeigen
+        # 2. Button-Sperre (falls vorhanden)
+        btn = getattr(self, "btn_check_tools", None)
+        if btn:
+            btn.setEnabled(False)
+            QTimer.singleShot(2000, lambda: btn.setEnabled(True))
 
-        # 3. System-Tools prüfen (Plattform-abhängig)
-        required_tools = ["git", "python3"]
-        if os.name == "nt":  # Windows
-            required_tools.append("python")
-        else:  # Linux / Mac
-            required_tools.extend(["patch", "zip"])
-
-        missing = [tool for tool in required_tools if shutil.which(tool) is None]
-
-        # 4. Fall: Alle Tools vorhanden
-        if not missing:
-            tools_ok_msg = t.get(
-                "tools_ok", "✅ Alle benötigten System-Tools sind bereits installiert."
-            )
-            self.append_info(self.info_text, tools_ok_msg, "success")
-
-            # Update-Check Sektion
-            check_update_msg = (
-                "Prüfe auf Updates ..." if lang == "de" else "Checking for updates ..."
-            )
-            self.append_info(self.info_text, check_update_msg, "info")
-
-            self.append_info(
-                self.info_text,
-                f"✅ Installierte Version: {globals().get('APP_VERSION', '?.?.?')}",
-                "success",
-            )
-
-            no_update_msg = (
-                "ℹ️ Kein Update vorhanden" if lang == "de" else "ℹ️ No update available"
-            )
-            self.append_info(self.info_text, no_update_msg, "info")
-
-            # --- ERFOLGS-SOUND ---
-            if "safe_play" in globals():
-                globals()["safe_play"]("complete.oga")
-            return
-
-        # 5. Fall: Tools fehlen
-        missing_str = ", ".join(missing)
-        missing_template = (
-            "⚠️ Fehlende Tools: {tools}" if lang == "de" else "⚠️ Missing tools: {tools}"
-        )
-        self.append_info(
-            self.info_text, missing_template.format(tools=missing_str), "warning"
-        )
-
-        # --- FEHLER-SOUND ---
-        if "safe_play" in globals():
-            globals()["safe_play"]("dialog-error.oga")
-
-        # 6. Automatischer Installationsversuch (Nur Linux)
-        if os.name != "nt":
-            install_list = missing.copy()
-            if not shutil.which("paplay"):
-                install_list.append("pulseaudio-utils")
-
-            install_items = " ".join(install_list)
-            install_cmd = (
-                f"sudo apt-get update && sudo apt-get install -y {install_items}"
-            )
-            full_cmd = f"bash -c '{install_cmd}; echo; echo Fertig. Enter zum Schließen...; read'"
-
-            term = (
-                shutil.which("x-terminal-emulator")
-                or shutil.which("gnome-terminal")
-                or shutil.which("xterm")
-                or shutil.which("konsole")
-            )
-
-            if term:
-                try:
-                    if "gnome" in term or "konsole" in term:
-                        cmd_list = [term, "--", "bash", "-c", full_cmd]
-                    else:
-                        cmd_list = [term, "-e", full_cmd]
-
-                    subprocess.Popen(
-                        cmd_list, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                    )
-                    self.append_info(
-                        self.info_text, "🚀 Installations-Terminal gestartet.", "info"
-                    )
-                except Exception as e:
-                    self.append_info(
-                        self.info_text, f"❌ Terminal-Fehler: {e}", "error"
-                    )
+        try:
+            # 3. Fenster leeren (Muss als Erstes passieren!)
+            if hasattr(self, "info_text") and self.info_text:
+                self.info_text.clear()
+                QApplication.processEvents()
             else:
+                return
+
+            # 4. Variablen & Sprache
+            lang = str(getattr(self, "LANG", "de")).lower()
+            timestamp = datetime.now().strftime("%H:%M:%S")
+
+            # 5. Start-Meldung
+            start_msg = (
+                f"Starte System-Check... [{timestamp}]"
+                if lang == "de"
+                else f"Starting system check... [{timestamp}]"
+            )
+            self.append_info(self.info_text, start_msg, "error")
+            QApplication.processEvents()
+
+            # 6. Tools prüfen
+            required_tools = ["git", "python3"]
+            if os.name != "nt":
+                required_tools.extend(["patch", "zip"])
+
+            missing = [tool for tool in required_tools if shutil.which(tool) is None]
+
+            # 7. ERGEBNIS-LOGIK
+            if not missing:
+                # Tools OK
                 self.append_info(
                     self.info_text,
-                    f"❌ Kein Terminal gefunden! Befehl: {install_cmd}",
-                    "error",
+                    "✅ Alle benötigten System-Tools sind bereit.",
+                    "success",
                 )
-        else:
-            win_msg = (
-                "❌ Bitte installiere die fehlenden Tools manuell."
-                if lang == "de"
-                else "❌ Please install missing tools manually."
-            )
-            self.append_info(self.info_text, win_msg, "error")
 
-        self.info_text.viewport().update()
+                # Update-Sektion (Wird durch das return am Ende nur 1x ausgeführt)
+                self.append_info(self.info_text, "Prüfe auf Updates ...", "info")
+                self.append_info(
+                    self.info_text, f"✅ Installierte Version: {APP_VERSION}", "success"
+                )
+                self.append_info(self.info_text, "ℹ️ Kein Update vorhanden", "info")
+
+                if "safe_play" in globals():
+                    globals()["safe_play"]("complete.oga")
+
+                # FUNKTION HIER BEENDEN (Verhindert Weiterlaufen in Fehler-Code)
+                return
+
+            # 8. FALL: Tools fehlen
+            missing_str = ", ".join(missing)
+            self.append_info(
+                self.info_text, f"⚠️ Fehlende Tools: {missing_str}", "warning"
+            )
+
+            if "safe_play" in globals():
+                globals()["safe_play"]("dialog-error.oga")
+
+            # Automatischer Installer (nur Linux)
+            if os.name != "nt":
+                install_list = missing.copy()
+                if not shutil.which("paplay"):
+                    install_list.append("pulseaudio-utils")
+
+                install_cmd = f"sudo apt-get update && sudo apt-get install -y {' '.join(install_list)}"
+                full_cmd = f"bash -c '{install_cmd}; echo; echo Fertig. Enter zum Schließen...; read'"
+
+                term = (
+                    shutil.which("x-terminal-emulator")
+                    or shutil.which("gnome-terminal")
+                    or shutil.which("xterm")
+                    or shutil.which("konsole")
+                )
+
+                if term:
+                    try:
+                        args = (
+                            [term, "--", "bash", "-c", full_cmd]
+                            if "gnome" in term or "konsole" in term
+                            else [term, "-e", full_cmd]
+                        )
+                        subprocess.Popen(
+                            args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                        )
+                        self.append_info(
+                            self.info_text,
+                            "🚀 Installations-Terminal gestartet.",
+                            "info",
+                        )
+                    except Exception as e:
+                        self.append_info(
+                            self.info_text, f"❌ Terminal-Fehler: {e}", "error"
+                        )
+
+        except Exception as e:
+            if hasattr(self, "info_text"):
+                self.append_info(self.info_text, f"❌ Check-Fehler: {str(e)}", "error")
 
     def resizeEvent(self, event):
         """
@@ -3832,38 +3825,48 @@ class PatchManagerGUI(QWidget):
 
     def append_info(self, info_widget, text, level="info"):
         """
-        Schreibt eine Nachricht in ein QTextEdit.
-        Terminal-Ausgabe ist komplett deaktiviert.
-        Verhindert doppelte Meldungen.
+        Schreibt eine Nachricht in ein QTextEdit (Absturz- und Dubletten-sicher).
+        Verhindert doppelte Meldungen und unterdrückt Kaskaden-Effekte.
         """
+        import time
         from PyQt6.QtWidgets import QTextEdit
-        from PyQt6.QtGui import QTextCursor  # Wichtig für automatisches Scrollen
+        from PyQt6.QtGui import QTextCursor
 
         # 1. Widget-Validierung
         if not isinstance(info_widget, QTextEdit):
             if hasattr(self, "info_text") and isinstance(self.info_text, QTextEdit):
                 info_widget = self.info_text
             else:
-                return  # Kein gültiges Widget vorhanden
+                return
 
-        # 2. Prüfen, ob Text schon existiert
-        if text in info_widget.toPlainText():
-            return  # Nachricht bereits vorhanden, nichts tun
+        # 2. ANTI-DOPPEL-SPERRE (Kaskadenschutz)
+        # Wenn ein manueller Check läuft, werden automatische "Check"-Texte 2 Sek. lang ignoriert
+        current_time = time.time()
+        if hasattr(self, "_lock_info_screen") and current_time < self._lock_info_screen:
+            # Nur Fehlermeldungen oder der Start-Header selbst dürfen durch
+            if level not in ["error", "warning"] and "Prüfe" in text:
+                return
 
-        # 3. Farben & Formatierung
+        # 3. Prüfen, ob exakt dieser Text bereits im Fenster steht
+        # (Verhindert, dass identische Zeilen untereinander stehen)
+        current_content = info_widget.toPlainText()
+        if text in current_content.splitlines()[-3:]:  # Prüft nur die letzten 3 Zeilen
+            return
+
+        # 4. Farben & Formatierung
         colors = {
-            "success": "green",
+            "success": "#00FF00",  # Kräftiges Grün
             "warning": "orange",
             "error": "red",
             "info": "yellow",
         }
-        color = colors.get(level, "black")
+        color = colors.get(level, "white")
         html_text = f'<span style="color:{color}">{text}</span>'
 
-        # 4. GUI-Ausgabe
+        # 5. GUI-Ausgabe
         info_widget.append(html_text)
 
-        # 5. Automatisches Scrollen
+        # 6. Automatisches Scrollen & Fokus
         info_widget.moveCursor(QTextCursor.MoveOperation.End)
         scroll_bar = info_widget.verticalScrollBar()
         if scroll_bar:
