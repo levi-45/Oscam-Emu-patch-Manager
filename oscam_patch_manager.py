@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.5.4"
+APP_VERSION = "2.5.5"
 
 
 # ===================== PATCH DIRS =====================
@@ -314,483 +314,483 @@ DIFF_COLORS = {
         "fg": "#DFFF00",
         "hover": "#BFFF00",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Aero": {
         "bg": "#00B8D4",
         "fg": "#FFFFFF",
         "hover": "#00E5FF",
         "active": "#0091EA",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Afterglow": {
         "bg": "#2C2C2C",
         "fg": "#E57373",
         "hover": "#FF8A65",
         "active": "#D32F2F",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Alien": {
         "bg": "#00FF41",
         "fg": "#000000",
         "hover": "#008F11",
         "active": "#003B00",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Amethyst": {
         "bg": "#9C27B0",
         "fg": "#E1BEE7",
         "hover": "#BA68C8",
         "active": "#7B1FA2",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Anthrazit": {
         "bg": "#2F2F2F",
         "fg": "#FFFFFF",
         "hover": "#3D3D3D",
         "active": "#242424",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Arctic": {
         "bg": "#000000",
         "fg": "#00D2FF",
         "hover": "#0081FF",
         "active": "#00458B",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Asphalt": {
         "bg": "#263238",
         "fg": "#ECEFF1",
         "hover": "#37474F",
         "active": "#102027",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Atomic": {
         "bg": "#1A1A1A",
         "fg": "#7FFF00",
         "hover": "#32CD32",
         "active": "#006400",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Aurora": {
         "bg": "#004D40",
         "fg": "#80CBC4",
         "hover": "#00897B",
         "active": "#002420",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Blackout": {
         "bg": "#000000",
         "fg": "#444444",
         "hover": "#222222",
         "active": "#111111",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Blaze": {
         "bg": "#E65100",
         "fg": "#FFCC80",
         "hover": "#EF6C00",
         "active": "#BF360C",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "BloodMoon": {
         "bg": "#330000",
         "fg": "#FF0000",
         "hover": "#660000",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Bordeaux": {
         "bg": "#800000",
         "fg": "#FFFFFF",
         "hover": "#A52A2A",
         "active": "#5D0000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Bubblegum": {
         "bg": "#F06292",
         "fg": "#F8BBD0",
         "hover": "#F48FB1",
         "active": "#C2185B",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Bumblebee": {
         "bg": "#FFCC00",
         "fg": "#000000",
         "hover": "#000000",
         "active": "#333300",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Candy": {
         "bg": "#FF80AB",
         "fg": "#FCE4EC",
         "hover": "#F06292",
         "active": "#C2185B",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Carbon": {
         "bg": "#232323",
         "fg": "#E0E0E0",
         "hover": "#111111",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Classics": {
         "bg": "#3a6ea5",
         "fg": "#FFFFFF",
         "hover": "#4a7eb5",
         "active": "#2a5e95",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Coffee": {
         "bg": "#4E342E",
         "fg": "#D7CCC8",
         "hover": "#5D4037",
         "active": "#3E2723",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Copper": {
         "bg": "#3E2723",
         "fg": "#D84315",
         "hover": "#BF360C",
         "active": "#260E04",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Cosmos": {
         "bg": "#130f40",
         "fg": "#f093fb",
         "hover": "#30336b",
         "active": "#130f40",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Crimson": {
         "bg": "#000000",
         "fg": "#DC143C",
         "hover": "#800000",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Cyberpunk": {
         "bg": "#000000",
         "fg": "#00FFFF",
         "hover": "#F305FF",
         "active": "#FF0055",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "DeepBlack": {
         "bg": "#1A1A1A",
         "fg": "#FFD700",
         "hover": "#333333",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "DeepSea": {
         "bg": "#001219",
         "fg": "#94D2BD",
         "hover": "#0A9396",
         "active": "#005F73",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Dracula": {
         "bg": "#282A36",
         "fg": "#BD93F9",
         "hover": "#44475A",
         "active": "#191A21",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Electric": {
         "bg": "#0000FF",
         "fg": "#FFFF00",
         "hover": "#00FFFF",
         "active": "#00008B",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Emerald": {
         "bg": "#2E7D32",
         "fg": "#FFFFFF",
         "hover": "#388E3C",
         "active": "#1B5E20",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Forest": {
         "bg": "#1B5E20",
         "fg": "#E8F5E9",
         "hover": "#2E7D32",
         "active": "#0D5302",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Frost": {
         "bg": "#000000",
         "fg": "#A5F2F3",
         "hover": "#FFFFFF",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Galaxy": {
         "bg": "#0D001A",
         "fg": "#9D50BB",
         "hover": "#6E48AA",
         "active": "#300055",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Ghost": {
         "bg": "#F5F5F5",
         "fg": "#212121",
         "hover": "#E0E0E0",
         "active": "#BDBDBD",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Gold": {
         "bg": "#FFD700",
         "fg": "#000000",
         "hover": "#FFEA70",
         "active": "#DAA520",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Graphite": {
         "bg": "#424242",
         "fg": "#B0BEC5",
         "hover": "#616161",
         "active": "#212121",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Hazard": {
         "bg": "#000000",
         "fg": "#FFFF00",
         "hover": "#444400",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "HotPink": {
         "bg": "#FF69B4",
         "fg": "#FFFFFF",
         "hover": "#FF1493",
         "active": "#C71585",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "HyperSpace": {
         "bg": "#000000",
         "fg": "#FFFFFF",
         "hover": "#1A1A1A",
         "active": "#FFFFFF",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Iceberg": {
         "bg": "#E1F5FE",
         "fg": "#01579B",
         "hover": "#FFFFFF",
         "active": "#B3E5FC",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Inferno": {
         "bg": "#212121",
         "fg": "#FF4500",
         "hover": "#FF8C00",
         "active": "#8B0000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Jungle": {
         "bg": "#1B5E20",
         "fg": "#C8E6C9",
         "hover": "#2E7D32",
         "active": "#003300",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Lava": {
         "bg": "#4E0000",
         "fg": "#FF3300",
         "hover": "#FF6600",
         "active": "#220000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Magma": {
         "bg": "#000000",
         "fg": "#FF0000",
         "hover": "#660000",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Matrix_Pro": {
         "bg": "#000000",
         "fg": "#00FF41",
         "hover": "#003B00",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Midnight": {
         "bg": "#1A1A1A",
         "fg": "#F7F7F7",
         "hover": "#333333",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "MidnightBlue": {
         "bg": "#1A237E",
         "fg": "#C5CAE9",
         "hover": "#283593",
         "active": "#0D1137",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Misty": {
         "bg": "#90A4AE",
         "fg": "#ECEFF1",
         "hover": "#B0BEC5",
         "active": "#546E7A",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Neon": {
         "bg": "#000000",
         "fg": "#00FF00",
         "hover": "#003300",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Nordic": {
         "bg": "#2E3440",
         "fg": "#D8DEE9",
         "hover": "#3B4252",
         "active": "#242933",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Nuclear": {
         "bg": "#1A1A1A",
         "fg": "#CCFF00",
         "hover": "#333333",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Obsidian": {
         "bg": "#1B1B1B",
         "fg": "#E0E0E0",
         "hover": "#444444",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Ocean": {
         "bg": "#006064",
         "fg": "#FFFFFF",
         "hover": "#00838F",
         "active": "#004D40",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Olive": {
         "bg": "#556B2F",
         "fg": "#FFFFFF",
         "hover": "#6B8E23",
         "active": "#3E4E21",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Orange": {
         "bg": "#EF6C00",
         "fg": "#FFFFFF",
         "hover": "#F57C00",
         "active": "#E65100",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Phoenix": {
         "bg": "#000000",
         "fg": "#FF4E00",
         "hover": "#FFD700",
         "active": "#8B0000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Plasma": {
         "bg": "#000000",
         "fg": "#7F00FF",
         "hover": "#3F007F",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Purple": {
         "bg": "#6A1B9A",
         "fg": "#FFFFFF",
         "hover": "#7B1FA2",
         "active": "#4A148C",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "RoyalBlue": {
         "bg": "#002366",
         "fg": "#FFFFFF",
         "hover": "#003399",
         "active": "#001a4d",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Ruby": {
         "bg": "#C62828",
         "fg": "#FFFFFF",
         "hover": "#D32F2F",
         "active": "#B71C1C",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Silver": {
         "bg": "#B0B0B0",
         "fg": "#000000",
         "hover": "#C0C0C0",
         "active": "#A0A0A0",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "SkyBlue": {
         "bg": "#0288D1",
         "fg": "#FFFFFF",
         "hover": "#039BE5",
         "active": "#01579B",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Solar": {
         "bg": "#FBC02D",
         "fg": "#3E2723",
         "hover": "#FDD835",
         "active": "#F57F17",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Standard": {
         "bg": "#444444",
         "fg": "#FFFFFF",
         "hover": "#555555",
         "active": "#333333",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Steel": {
         "bg": "#455A64",
         "fg": "#FFFFFF",
         "hover": "#546E7A",
         "active": "#37474F",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Titan": {
         "bg": "#263238",
         "fg": "#CFD8DC",
         "hover": "#546E7A",
         "active": "#102027",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Toxic_Glow": {
         "bg": "#0D0D0D",
         "fg": "#ADFF2F",
         "hover": "#32CD32",
         "active": "#006400",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Turquoise": {
         "bg": "#00CED1",
         "fg": "#FFFFFF",
         "hover": "#40E0D0",
         "active": "#008B8B",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Ultraviolet": {
         "bg": "#120021",
         "fg": "#BF00FF",
         "hover": "#FF00FF",
         "active": "#000000",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
     "Vaporwave": {
         "bg": "#2D004B",
         "fg": "#FF71CE",
         "hover": "#01CDFE",
         "active": "#05FFA1",
-        "window_bg": "#000000",
+        "window_bg": "#2F2F2F",
     },
 }
 
@@ -4956,11 +4956,27 @@ class PatchManagerGUI(QWidget):
         main_layout.setSpacing(8)
         main_layout.setContentsMargins(20, 0, 20, 10)
 
-        # ---------------------------------------------------------
-        # HEADER-SECTION (BANNER)
-        # ---------------------------------------------------------
+        # Setzt das gesamte Fenster auf Dunkelgrau
+        self.setStyleSheet("background-color: #2F2F2F;")
+
         header_widget = QFrame()
         header_widget.setFixedHeight(90)
+
+        # --- HIER DAS STYLESHEET FÜR DEN HEADER ---
+        header_widget.setStyleSheet(
+            """
+            QFrame {
+                background-color: #2F2F2F;
+                border: 1px solid #444;
+                border-radius: 10px;
+            }
+            QLabel {
+                background-color: transparent;
+                border: none;
+            }
+        """
+        )
+
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(15, 0, 15, 0)
         header_layout.setSpacing(10)
@@ -5065,10 +5081,40 @@ class PatchManagerGUI(QWidget):
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
         self.info_text.setFont(QFont("Courier", 12))
+
+        # --- INFOSCREEN WIEDER SCHWARZ SETZEN ---
+        self.info_text.setStyleSheet(
+            """
+            QTextEdit {
+                background-color: #000000;
+                color: #FFFFFF;
+                border: 1px solid #444;
+                border-radius: 5px;
+            }
+        """
+        )
+
         main_layout.addWidget(self.info_text, 10)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(15)
+
+        # --- PROGRESSBAR OPTIK ANPASSEN ---
+        self.progress_bar.setStyleSheet(
+            """
+            QProgressBar {
+                border: 1px solid #444;
+                border-radius: 7px;
+                text-align: center;
+                background-color: #1A1A1A;
+                color: white;
+            }
+            QProgressBar::chunk {
+                background-color: #3a6ea5;
+                border-radius: 6px;
+            }
+        """
+        )
         main_layout.addWidget(self.progress_bar)
 
         # ---------------------------------------------------------
@@ -5502,7 +5548,7 @@ class PatchManagerGUI(QWidget):
                 f"background-color: {bg_color}; color: {text_color}; font-weight: bold; border-radius: 6px; padding-left: 10px;"
             )
 
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet("background-color: #2F2F2F;")
         self.repaint()
 
     def setup_grid_buttons(self):
