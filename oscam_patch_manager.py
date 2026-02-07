@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.5.7"
+APP_VERSION = "2.5.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -1273,21 +1273,22 @@ fill_missing_keys(TEXTS)
 
 
 def save_config(cfg):
-    """
-    Speichert die übergebene Config in CONFIG_FILE.
-    """
+    """Speichert die gesamte Config inklusive Repo-URL und Autor."""
     try:
-        config_dir = os.path.dirname(CONFIG_FILE)
+        # Absoluten Pfad sicherstellen
+        abs_config_path = os.path.abspath(CONFIG_FILE)
+        config_dir = os.path.dirname(abs_config_path)
+
         if config_dir and not os.path.exists(config_dir):
             os.makedirs(config_dir, exist_ok=True)
 
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            # indent=4 macht die JSON Datei für Menschen lesbarer
+        with open(abs_config_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=4, ensure_ascii=False)
 
-        print(
-            f"✅ Config erfolgreich gespeichert: {cfg.get('patch_modifier', 'default')}"
-        )
+        # Debug-Ausgabe für beide wichtigen Werte
+        autor = cfg.get("patch_modifier", "N/A")
+        repo = cfg.get("EMUREPO", "N/A")
+        print(f"✅ Config gespeichert | Autor: {autor} | Repo: {repo}")
 
     except Exception as e:
         print(f"❌ Fehler beim Speichern der Config: {e}")
@@ -1297,16 +1298,18 @@ def save_config(cfg):
 def load_config():
     """
     Lädt die Konfigurationsdatei und gibt ein Dictionary zurück.
-    Fehlende Keys werden mit Standardwerten ergänzt.
+    Inklusive Repo-URL und Patch-Autor.
     """
     import os, json
 
-    # 🔹 Standardwerte
+    # 🔹 Standardwerte (Erweitert um Autor und Repo)
     default_cfg = {
         "commit_count": 5,
-        "color": "Classics",  # Standardfarbe
-        "language": "DE",  # Standardsprache
+        "color": "Classics",
+        "language": "DE",
         "s3_patch_path": OLD_PATCH_DIR,
+        "patch_modifier": "speedy005",  # Standard-Autor
+        "EMUREPO": "https://github.com",  # Standard-Repo
     }
 
     # 🔹 Wenn Config-Datei nicht existiert → Standard zurückgeben
@@ -1321,9 +1324,10 @@ def load_config():
         if not isinstance(cfg, dict):
             return default_cfg.copy()
 
-        # 🔹 Fehlende Keys ergänzen
+        # 🔹 Fehlende Keys ergänzen (WICHTIG: Damit neue Keys in alte Configs kommen)
         for key, value in default_cfg.items():
-            cfg.setdefault(key, value)
+            if key not in cfg:
+                cfg[key] = value
 
         return cfg
 
@@ -3043,31 +3047,20 @@ class PatchManagerGUI(QWidget):
             if new_url:
                 self.EMUREPO = new_url
 
-                # --- Speichern in der Config ---
-                # Pfad zur config.json im Skript-Verzeichnis sicherstellen
-                script_dir = os.path.dirname(os.path.abspath(__file__))
-                config_path = os.path.join(script_dir, "config.json")
-                config_data = {}
+                # WICHTIG: Das interne Config-Objekt aktualisieren
+                if hasattr(self, "cfg"):
+                    self.cfg["EMUREPO"] = self.EMUREPO
 
                 try:
-                    if os.path.exists(config_path):
-                        with open(config_path, "r", encoding="utf-8") as f:
-                            try:
-                                config_data = json.load(f)
-                            except:
-                                config_data = {}
+                    # Nutze deine zentrale save_config Funktion, falls vorhanden
+                    if "save_config" in globals():
+                        globals()["save_config"](self.cfg)
+                    else:
+                        # Fallback: Manuelles Speichern
+                        with open(config_path, "w", encoding="utf-8") as f:
+                            json.dump(self.cfg, f, indent=4, ensure_ascii=False)
 
-                    config_data["EMUREPO"] = self.EMUREPO
-
-                    with open(config_path, "w", encoding="utf-8") as f:
-                        json.dump(config_data, f, indent=4)
-
-                    # Rückmeldung im Info-Text
-                    success_msg = (
-                        f"✅ Repo gespeichert: {self.EMUREPO}"
-                        if lang == "de"
-                        else f"✅ Repo saved: {self.EMUREPO}"
-                    )
+                    success_msg = f"✅ Repo gespeichert: {self.EMUREPO}"
                     self.append_info(self.info_text, success_msg, "success")
                     play_repo_sound(True)
 
@@ -3082,17 +3075,18 @@ class PatchManagerGUI(QWidget):
         import os, subprocess, platform, shutil
 
         current = getattr(self, "patch_modifier", PATCH_MODIFIER)
-        lang = getattr(self, "LANG", "de")
+        lang = getattr(self, "LANG", "de").lower()
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
 
-        # VERBESSERTE SOUND-FUNKTION (Absturzsicher)
+        # Hilfsfunktion für den Sound (Absturzsicher via safe_play)
         def play_mod_sound(success=True):
-            """Spielt Sound für Autor-Änderungen (Absturzsicher via safe_play)."""
-            # Wähle den Sound-Namen basierend auf dem Erfolg
+            """Spielt Sound für Autor-Änderungen (Absturzsicher)."""
             sound = "complete.oga" if success else "dialog-warning.oga"
-
-            # Nutze die globale Master-Funktion, die bereits paplay/aplay prüft
-            safe_play(sound)
+            # safe_play muss global definiert sein
+            if "safe_play" in globals():
+                globals()["safe_play"](sound)
+            else:
+                QApplication.beep()
 
         title = lang_dict.get("mod_dialog_title", "Patch Autor")
         label = lang_dict.get("mod_dialog_label", "Neuer Name des Autors:")
@@ -3102,35 +3096,45 @@ class PatchManagerGUI(QWidget):
         )
 
         if ok and new_name.strip():
-            self.patch_modifier = new_name.strip()
+            new_author = new_name.strip()
+            self.patch_modifier = new_author
 
+            # 1. Lokales Config-Dictionary aktualisieren
             if hasattr(self, "cfg"):
                 self.cfg["patch_modifier"] = self.patch_modifier
+                # WICHTIG: Auch Repo-URL aktuell halten, damit save_config nichts Altes schreibt
+                self.cfg["EMUREPO"] = getattr(self, "EMUREPO", "https://github.com")
+
                 try:
-                    # Nutze die globale save_config
+                    # 2. Globales Speichern auslösen
                     if "save_config" in globals():
                         globals()["save_config"](self.cfg)
-                except Exception as e:
-                    if hasattr(self, "info_text"):
+
+                    # Rückmeldung im Log
+                    success_tpl = lang_dict.get(
+                        "mod_changed_success", "✅ Patch Autor geändert: {name}"
+                    )
+                    if hasattr(self, "info_text") and self.info_text:
                         self.append_info(
-                            self.info_text, f"❌ Config Save Error: {e}", "error"
+                            self.info_text,
+                            success_tpl.format(name=self.patch_modifier),
+                            "success",
                         )
 
-            if hasattr(self, "btn_modifier"):
-                self.btn_modifier.setText(f"👤 {self.patch_modifier}")
+                    # Button-Text aktualisieren
+                    if hasattr(self, "btn_modifier"):
+                        self.btn_modifier.setText(f"👤 {self.patch_modifier}")
 
-            success_tpl = lang_dict.get(
-                "mod_changed_success", "✅ Patch Autor geändert: {name}"
-            )
-            if hasattr(self, "info_text"):
-                self.append_info(
-                    self.info_text,
-                    success_tpl.format(name=self.patch_modifier),
-                    "success",
-                )
+                    play_mod_sound(True)
 
-            # Sound jetzt sicher auslösen
-            play_mod_sound(True)
+                except Exception as e:
+                    if hasattr(self, "info_text") and self.info_text:
+                        self.append_info(
+                            self.info_text,
+                            f"❌ Fehler beim Speichern des Autors: {e}",
+                            "error",
+                        )
+                    play_mod_sound(False)
 
     def collect_and_save(self):
         """Speichert leise und aktualisiert die Farben sofort."""
