@@ -4926,7 +4926,7 @@ class PatchManagerGUI(QWidget):
             from PyQt6.QtWidgets import QApplication
 
             # --- KONFIGURATION SCHRIFT & FARBEN ---
-            SZ_BIG = "25px"  # Größe für orangefarbene Titel
+            SZ_BIG = "26px"  # Größe für orangefarbene Titel
             SZ_NORM = "21px"  # Größe für Standard-Inhalte
 
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
