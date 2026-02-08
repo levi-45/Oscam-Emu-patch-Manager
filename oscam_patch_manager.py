@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.6.4"
+APP_VERSION = "2.6.5"
 
 
 # ===================== PATCH DIRS =====================
@@ -4771,14 +4771,16 @@ class PatchManagerGUI(QWidget):
     def check_for_update_on_start(self):
         """
         Vervollständigt den Log voll übersetzbar.
-        Orange = 26px + Fett | Grün/Blau = 21px + Fett.
-        Status & Repo in BLAU.
+        Finalisiert den System-Check mit der korrekten Konfiguration aus der JSON.
         """
         if getattr(self, "_update_dialog_active", False):
             return
         self._update_dialog_active = True
 
         import requests, time
+        from packaging.version import (
+            Version,
+        )  # Sicherstellen, dass Version verfügbar ist
 
         txt = getattr(self, "TEXT", {})
 
@@ -4789,7 +4791,7 @@ class PatchManagerGUI(QWidget):
 
         C_ORANGE = "#F37804"
         C_GREEN = "#00FF00"
-        C_BLUE = "#00ADFF"  # Dein gewünschtes Blau
+        C_BLUE = "#00ADFF"
         C_LINE = "#808080"
 
         v_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
@@ -4811,46 +4813,51 @@ class PatchManagerGUI(QWidget):
                 )
 
                 if hasattr(self, "btn_update"):
-                    btn_txt = txt.get("upd_btn_new", "Update verfügbar: v{v}").format(
-                        v=latest_v
-                    )
+                    # Verhindert Fehler 'v', falls Key im Dictionary v nutzt
+                    btn_tpl = txt.get("upd_btn_new", "Update verfügbar: v{v}")
+                    btn_txt = btn_tpl.format(v=latest_v, latest=latest_v)
                     self.btn_update.setText(btn_txt)
                     self.btn_update.setStyleSheet(
                         f"color: {C_ORANGE}; font-weight: bold;"
                     )
             else:
                 # --- FALL: KEIN UPDATE ---
-                # "Kein Update vorhanden...." in GRÜN
                 output.append(
                     f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>{txt.get("no_update_found", "Kein Update vorhanden....")}</b></span>'
                 )
 
-                # "Plugin ist aktuell" Zeile in BLAU
                 upd_ok_msg = txt.get("upd_ok", "Plugin ist aktuell")
                 output.append(
                     f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>✅ {upd_ok_msg} (Version: {current_v})</b></span>'
                 )
 
                 if hasattr(self, "btn_update"):
-                    btn_curr_txt = txt.get("upd_btn_current", "v{v} (Aktuell)").format(
-                        v=current_v
+                    btn_curr_tpl = txt.get("upd_btn_current", "v{v} (Aktuell)")
+                    btn_curr_txt = btn_curr_tpl.format(
+                        v=current_version, current=current_version
                     )
                     self.btn_update.setText(btn_curr_txt)
-                    self.btn_update.setStyleSheet("")
+                    self.btn_update.setStyleSheet("color: #00FF00; font-weight: bold;")
 
-            # --- KONFIGURATIONS-BLOCK ---
+            # --- KONFIGURATIONS-BLOCK (DER FINALE ABSCHLUSS) ---
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{txt.get("active_conf", "🛠️ Aktive Konfiguration:")}</b></span>'
             )
 
-            author = getattr(self, "patch_modifier", "speedy005")
+            # WERTE KORREKT AUS CONFIG (self.cfg) LADEN
+            author = self.cfg.get(
+                "patch_modifier", getattr(self, "patch_modifier", "speedy005")
+            )
+            repo_url = self.cfg.get(
+                "EMUREPO", getattr(self, "EMUREPO", "https://github.com")
+            )
+
             # Autor in GRÜN
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>  👤 {txt.get("patch_author", "Patch Autor")}: {author}</b></span>'
             )
             # Repository in BLAU
-            repo_url = getattr(self, "EMUREPO", "https://github.com")
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>  🌐 {txt.get("repository", "Repository")}: {repo_url}</b></span>'
             )
@@ -4920,14 +4927,12 @@ class PatchManagerGUI(QWidget):
     def run_full_system_check(self):
         """
         Teil 1 des System-Checks: Tools prüfen und Update-Check einleiten.
-        Inklusive Sound-Start-Signal.
+        Konfigurations-Anzeige wurde in den Abschluss von Teil 2 verschoben.
         """
         # 1. SOFORTIGE SPERRE GEGEN DOPPLUNG
         if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
-
-        # Sperre für den zweiten Teil (Update) vorsorglich lösen
         self._update_dialog_active = False
 
         try:
@@ -4936,9 +4941,8 @@ class PatchManagerGUI(QWidget):
             from PyQt6.QtWidgets import QApplication
 
             # --- KONFIGURATION SCHRIFT & FARBEN ---
-            SZ_BIG = "26px"  # Größe für orangefarbene Titel
-            SZ_NORM = "21px"  # Größe für Standard-Inhalte
-
+            SZ_BIG = "26px"
+            SZ_NORM = "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
 
@@ -4948,38 +4952,25 @@ class PatchManagerGUI(QWidget):
             C_LINE = "#808080"
             C_ERR = "#FF0000"
 
-            # 2. LOG-FENSTER LEEREN & SOUND ABSPIELEN
+            # 2. LOG-FENSTER LEEREN & SOUND
             if hasattr(self, "info_text") and self.info_text:
                 self.info_text.clear()
                 QApplication.processEvents()
 
-            # --- NEU: SOUND BEIM START ---
             if "safe_play" in globals():
                 safe_play("dialog-information.oga")
 
-            # 3. BUTTON-TEXT INITIALISIEREN
-            if hasattr(self, "btn_update"):
-                txt_data = getattr(self, "TEXT", {})
-                btn_wait = txt_data.get("de", {}).get(
-                    "upd_checking", "Prüfe Version..."
-                )
-                self.btn_update.setText(btn_wait)
-
+            # 3. SPRACHE & TEXTE
+            txt = getattr(self, "TEXT", {})
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
-            # 4. SPRACH-CHECK
-            txt = getattr(self, "TEXT", {})
-
-            # --- BLOCK AUFBAU ---
-
-            # Header (ORANGE -> 22px + FETT)
+            # --- BLOCK 1: START & TOOLS ---
             start_msg = txt.get("start_check", "Starte System-Check...")
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>'
             )
 
-            # Tools prüfen (GRÜN -> 18px + FETT, Monospace)
             tools = ["git"]
             if platform.system() != "Windows":
                 tools += ["patch", "zip"]
@@ -4997,16 +4988,9 @@ class PatchManagerGUI(QWidget):
                     f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>'
                 )
 
-            # Bestätigung (BLAU -> 18px + FETT)
-            ready_msg = txt.get(
-                "tools_ready", "Alle benötigten System-Tools sind bereit."
-            )
-            output.append(
-                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>✅ {ready_msg}</b></span>'
-            )
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
-            # Update Check Titel (ORANGE -> 22px + FETT)
+            # --- BLOCK 2: UPDATE TITEL ---
             upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>'
@@ -5015,7 +4999,7 @@ class PatchManagerGUI(QWidget):
             # Erste Teil-Ausgabe senden
             self.append_info(self.info_text, "\n".join(output), "raw")
 
-            # --- ÜBERGABE AN UPDATE-CHECK ---
+            # --- ÜBERGABE AN UPDATE-CHECK (TEIL 2) ---
             from PyQt6.QtCore import QTimer
 
             if hasattr(self, "check_for_update_on_start"):
