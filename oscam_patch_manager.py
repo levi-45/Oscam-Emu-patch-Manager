@@ -3180,84 +3180,96 @@ class PatchManagerGUI(QWidget):
                 self.plugin_update_action(latest_version=latest_version)
 
     def change_emu_repo(self):
-        """Öffnet einen Dialog zum Ändern der Repository-URL und speichert diese."""
-        from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
-        import json
-        import os
-        import subprocess
-        import platform
+        """
+        Öffnet einen Dialog zur Auswahl der Repository-URL.
+        Repo 1: https://github.com/oscam-mirror/oscam-emu.git
+        Repo 2: https://github.com/speedy005/Oscam-emu.git
+        """
+        from PyQt6.QtWidgets import QInputDialog, QApplication
+
+        # --- DEINE DEFINIERTEN REPOS ---
+        REPO_1 = "https://github.com/oscam-mirror/oscam-emu.git"
+        REPO_2 = "https://github.com/speedy005/Oscam-emu.git"
+        REPO_OPTIONS = [REPO_1, REPO_2]
 
         # Aktuellen Wert holen
-        current_repo = getattr(self, "EMUREPO", "https://github.com")
+        current_repo = getattr(self, "EMUREPO", REPO_1)
         lang = getattr(self, "LANG", "de").lower()
 
         # Texte festlegen
-        title = "Repo URL ändern" if lang == "de" else "Change Repo URL"
+        title = "Repository Auswahl" if lang == "de" else "Repository Selection"
         label = (
-            "Neue Emu-Repository URL:" if lang == "de" else "New Emu-Repository URL:"
+            "Wähle die gewünschte Repo-URL:"
+            if lang == "de"
+            else "Select the desired Repo URL:"
         )
 
-        # Hilfsfunktion für den Sound (Absturzsicher gegen fehlendes paplay)
-        def play_repo_sound(success=True):
-            """Spielt Sound für Repository-Änderungen (Absturzsicher via safe_play)."""
-            # Bestimme die Datei und nutze die globale Sicherheits-Funktion
-            safe_play("complete.oga" if success else "dialog-error.oga")
+        # Index für Vorselektion finden (0 für Repo 1, 1 für Repo 2)
+        start_index = 1 if current_repo == REPO_2 else 0
 
-        # --- Dialog-Objekt erstellen für deutsche Buttons ---
-        dialog = QInputDialog(self)
-        dialog.setWindowTitle(title)
-        dialog.setLabelText(label)
-        dialog.setTextValue(current_repo)
-        dialog.setTextEchoMode(QLineEdit.EchoMode.Normal)
+        # --- REPARIERTER DIALOG (Nutzt getItem statt setCurrentIndex) ---
+        new_url, ok = QInputDialog.getItem(
+            self,
+            title,
+            label,
+            REPO_OPTIONS,
+            start_index,
+            False,  # False = Liste ist nicht editierbar
+        )
 
-        # Buttons je nach Sprache erzwingen
-        if lang == "de":
-            dialog.setOkButtonText("OK")
-            dialog.setCancelButtonText("Abbrechen")
-        else:
-            dialog.setOkButtonText("OK")
-            dialog.setCancelButtonText("Cancel")
+        if ok and new_url:
+            # 1. WERTE SETZEN
+            self.EMUREPO = new_url
+            globals()["EMUREPO"] = new_url  # Global für den Patch-Prozess
 
-        if dialog.exec():
-            new_url = dialog.textValue().strip()
-            if new_url:
-                self.EMUREPO = new_url
-
-                # WICHTIG: Das interne Config-Objekt aktualisieren
-                if hasattr(self, "cfg"):
-                    self.cfg["EMUREPO"] = self.EMUREPO
-
+            # 2. CONFIG AKTUALISIEREN
+            if hasattr(self, "cfg"):
+                self.cfg["EMUREPO"] = self.EMUREPO
                 try:
-                    # Nutze deine zentrale save_config Funktion, falls vorhanden
                     if "save_config" in globals():
                         globals()["save_config"](self.cfg)
-                    else:
-                        # Fallback: Manuelles Speichern
-                        with open(config_path, "w", encoding="utf-8") as f:
-                            json.dump(self.cfg, f, indent=4, ensure_ascii=False)
 
-                    success_msg = f"✅ Repo gespeichert: {self.EMUREPO}"
-                    self.append_info(self.info_text, success_msg, "success")
-                    play_repo_sound(True)
+                    # 3. UI-REFRESH (Wichtig für das bunte Log!)
+                    if hasattr(self, "update_language"):
+                        self.update_language()
+
+                    if hasattr(self, "info_text") and self.info_text:
+                        # Sperren lösen für sauberen Refresh
+                        self._checking_active = False
+                        self._update_dialog_active = False
+                        self.info_text.clear()
+                        QApplication.processEvents()
+
+                        # Startet den neuen Log-Block mit der neuen URL in FETT & GRÜN
+                        if hasattr(self, "run_full_system_check"):
+                            self.run_full_system_check()
+
+                    if "safe_play" in globals():
+                        safe_play("complete.oga")
 
                 except Exception as e:
-                    error_msg = f"❌ Fehler beim Speichern: {e}"
-                    self.append_info(self.info_text, error_msg, "error")
-                    play_repo_sound(False)
+                    if hasattr(self, "info_text"):
+                        self.append_info(self.info_text, f"❌ Error: {e}", "error")
+                    if "safe_play" in globals():
+                        safe_play("dialog-error.oga")
 
     def change_modifier_name(self):
         """
-        Öffnet Dialog, speichert den Namen permanent und aktualisiert das UI.
-        Garantiert, dass die korrekte EMUREPO-URL beim Speichern erhalten bleibt.
+        Öffnet einen Dialog nur zur Eingabe des Autors.
+        Aktualisiert den Namen permanent in der Config und im Log.
         """
         from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
         import os, subprocess, platform, shutil
 
-        CORRECT_REPO = "https://github.com/oscam-mirror/oscam-emu.git"
+        current_author = getattr(self, "patch_modifier", "speedy005")
 
-        current = getattr(self, "patch_modifier", PATCH_MODIFIER)
         lang = getattr(self, "LANG", "de").lower()
-        lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
+        # TEXTS muss global verfügbar sein
+        lang_dict = (
+            globals()
+            .get("TEXTS", {})
+            .get(lang, globals().get("TEXTS", {}).get("en", {}))
+        )
 
         def play_mod_sound(success=True):
             sound = "complete.oga" if success else "dialog-warning.oga"
@@ -3266,11 +3278,13 @@ class PatchManagerGUI(QWidget):
             else:
                 QApplication.beep()
 
-        title = lang_dict.get("mod_dialog_title", "Patch Autor")
-        label = lang_dict.get("mod_dialog_label", "Neuer Name des Autors:")
+        # Titel und Label aus Sprachdatei laden
+        title_auth = lang_dict.get("mod_dialog_title", "Patch Autor")
+        label_auth = lang_dict.get("mod_dialog_label", "Name des Autors:")
 
+        # Nur Namensabfrage
         new_name, ok = QInputDialog.getText(
-            self, title, label, QLineEdit.EchoMode.Normal, current
+            self, title_auth, label_auth, QLineEdit.EchoMode.Normal, current_author
         )
 
         if ok and new_name.strip():
@@ -3278,28 +3292,20 @@ class PatchManagerGUI(QWidget):
             self.patch_modifier = new_author
 
             if hasattr(self, "cfg"):
-                current_val = getattr(self, "EMUREPO", "")
-                if not current_val or current_val == "https://github.com":
-                    self.EMUREPO = CORRECT_REPO
-
                 self.cfg["patch_modifier"] = self.patch_modifier
-                self.cfg["EMUREPO"] = self.EMUREPO
 
                 try:
+                    # Permanent in config.json speichern
                     if "save_config" in globals():
                         globals()["save_config"](self.cfg)
 
-                    # 1. UI UPDATE (Der Fix für den Button-Text)
-                    # Wir rufen update_language auf, damit der Button-Text
-                    # "👤 Patch Autor" bleibt und nur der Tooltip den Namen bekommt.
+                    # UI & Tooltips aktualisieren
                     if hasattr(self, "update_language"):
                         self.update_language()
 
-                    # 2. LOG-FENSTER AKTUALISIEREN
-                    # Wir leeren das Fenster und starten den System-Check neu,
-                    # damit der neue Name sofort im bunten Log-Block erscheint.
+                    # Sofortiger Refresh des Log-Fensters mit dem neuen Namen
                     if hasattr(self, "info_text") and self.info_text:
-                        self._checking_active = False  # Sperre kurz lösen
+                        self._checking_active = False
                         self.info_text.clear()
                         QApplication.processEvents()
 
@@ -5842,8 +5848,7 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Setzt die Sprache, aktualisiert die UI-Texte und startet den
-        System-Check-Prozess sauber neu.
+        Aktualisiert alle Buttons und Tooltips passend zur gewählten URL.
         """
         if not hasattr(self, "language_box"):
             return
@@ -5862,39 +5867,45 @@ class PatchManagerGUI(QWidget):
                 globals()["save_config"](self.cfg)
 
         # 3. UI-TEXTE & BUTTONS AKTUALISIEREN
-        # Dies lädt intern das neue self.TEXT Dictionary (wichtig für den Check!)
         if hasattr(self, "update_language"):
             self.update_language()
 
-        # Manuelle Korrektur für spezielle Button-Texte
+        # --- SPEZIELLE BUTTON-TEXTE & TOOLTIPS ---
+        # Patch Autor Button
         if hasattr(self, "btn_modifier"):
-            self.btn_modifier.setText(
-                "👤 Patch Autor" if self.LANG == "de" else "👤 Patch Author"
-            )
+            btn_mod_txt = "👤 Patch Autor" if self.LANG == "de" else "👤 Patch Author"
+            self.btn_modifier.setText(btn_mod_txt)
+            # Tooltip zeigt den Namen
+            auth_name = getattr(self, "patch_modifier", "speedy005")
+            self.btn_modifier.setToolTip(f"Author: {auth_name}")
+
+        # Repo URL Button (Neu hinzugefügt)
         if hasattr(self, "btn_repo_url"):
-            self.btn_repo_url.setText("🌐 Repo URL")
+            btn_repo_txt = "🌐 Repo URL" if self.LANG == "de" else "🌐 Repo URL"
+            self.btn_repo_url.setText(btn_repo_txt)
+            # Wichtig: Tooltip zeigt die aktuell gewählte URL an!
+            current_url = getattr(self, "EMUREPO", "https://github.com")
+            self.btn_repo_url.setToolTip(f"Active Repo: {current_url}")
+
+        # Update Button Fix
+        if hasattr(self, "btn_update"):
+            upd_wait = "Prüfe..." if self.LANG == "de" else "Checking..."
+            self.btn_update.setText(upd_wait)
 
         # 4. SOUND ABSPIELEN
         if "safe_play" in globals():
             safe_play("dialog-information.oga")
 
-        # 5. LOG-FENSTER STABIL BEREINIGEN
+        # 5. LOG-FENSTER BEREINIGEN
         if hasattr(self, "info_text") and self.info_text:
-            # Bestehende Check-Sperre lösen, um den Neustart zu erlauben
             self._checking_active = False
-
-            # Fenster leeren, damit der alte deutsche Text verschwindet
+            self._update_dialog_active = False
             self.info_text.clear()
-
-            # Zeichnen erzwingen (Wichtig gegen Dopplungen im Log!)
             QApplication.processEvents()
 
-            # 6. SYSTEM-CHECK-KETTE STARTEN
-            # Wir rufen nur run_full_system_check auf.
-            # Diese Methode triggert am Ende automatisch den Update-Check.
+            # 6. SYSTEM-CHECK NEU STARTEN
             if hasattr(self, "run_full_system_check"):
-                # 150ms Delay geben der GUI Zeit, alle Sprachänderungen zu verarbeiten
-                QTimer.singleShot(150, self.run_full_system_check)
+                QTimer.singleShot(200, self.run_full_system_check)
 
     # =====================
     # GITHUB EMU CREDENTIALS
