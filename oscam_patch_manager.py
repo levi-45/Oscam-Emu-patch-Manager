@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.6.1"
+APP_VERSION = "2.6.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -902,6 +902,14 @@ TEXTS = {
         "upd_ok": "Plugin is up to date",
         "active_conf": "🛠️ Active Configuration:",
         "patch_author": "Patch Author",
+        "no_update_found": "No update available....",
+        "upd_ok": "✅ Plugin is up to date",
+        "upd_btn_current": "v{v} (Latest)",
+        "upd_btn_new": "Update: v{v} available",
+        "active_conf": "🛠️ Active Configuration:",
+        "patch_author": "Patch Author",
+        "repository": "Repository",
+        "update_error": "Update check failed",
         "repository": "Repository",
         # For the update check
         "new_version_available": "New version available",
@@ -1174,6 +1182,14 @@ TEXTS = {
         "update_title": "Update verfügbar",
         "update_msg": "Eine neue Version wurde gefunden. Möchtest du jetzt aktualisieren?",
         "new_version_label": "Neu",
+        "no_update_found": "Kein Update vorhanden....",
+        "upd_ok": "✅ Plugin ist aktuell",
+        "upd_btn_current": "v{v} (Aktuell)",
+        "upd_btn_new": "Update: v{v} verfügbar",
+        "active_conf": "🛠️ Aktive Konfiguration:",
+        "patch_author": "Patch Autor",
+        "repository": "Repository",
+        "update_error": "Update-Check fehlgeschlagen",
         "old_version_label": "Installiert",
         "upd_ok": "Plugin ist aktuell",
         # Updates
@@ -4748,78 +4764,101 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     def check_for_update_on_start(self):
         """
-        Prüft auf Updates und schließt den Log-Block sauber ab.
-        Verhindert Dopplungen durch eine interne Sperre.
+        Vervollständigt den Log voll übersetzbar über das TEXT-Dictionary.
+        Orange = 16px + Fett | Grün = 14px + Fett.
         """
-        # 1. SPERRE GEGEN DOPPELTE AUSFÜHRUNG
         if getattr(self, "_update_dialog_active", False):
             return
         self._update_dialog_active = True
 
         import requests, time
-        from PyQt6.QtWidgets import QMessageBox
 
         txt = getattr(self, "TEXT", {})
-        C_ORANGE, C_GREEN, C_LINE = "#F37804", "#00FF00", "#808080"
+
+        # --- ZENTRALE FORMATIERUNG (Identisch zu Teil 1) ---
+        SZ_BIG = "22px"  # Für Orange
+        SZ_NORM = "18px"  # Für alles andere
+        F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
+
+        C_ORANGE = "#F37804"
+        C_GREEN = "#00FF00"
+        C_LINE = "#808080"
+
+        v_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
 
         try:
-            version_url = (
-                "https://raw.githubusercontent.com/"
-                "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
-                f"?t={int(time.time())}"
-            )
-            resp = requests.get(version_url, timeout=5)
+            resp = requests.get(f"{v_url}?t={int(time.time())}", timeout=5)
             resp.raise_for_status()
 
-            latest_version = resp.text.strip().lstrip("v")
-            current_version = APP_VERSION.strip().lstrip("v")
+            latest_v = resp.text.strip().lstrip("v")
+            current_v = APP_VERSION.strip().lstrip("v")
 
             output = []
 
-            # 2. STATUS ZEILEN
-            output.append(
-                f'<span style="color:{C_GREEN}">✅ {txt.get("upd_ok", "Plugin ist aktuell")} (Version: {current_version})</span>'
-            )
-
-            if Version(latest_version) > Version(current_version):
+            if Version(latest_v) > Version(current_v):
+                # --- FALL: UPDATE VERFÜGBAR (Orange -> 16px + Fett) ---
+                label = txt.get("new_version_available", "Update verfügbar")
                 output.append(
-                    f'<span style="color:{C_ORANGE}">➔ {txt.get("new_version_available", "Update verfügbar")}: v{latest_version}</span>'
+                    f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>➔ {label}: v{latest_v}</b></span>'
                 )
+
+                if hasattr(self, "btn_update"):
+                    btn_txt = txt.get("upd_btn_new", "Update verfügbar: v{v}").format(
+                        v=latest_v
+                    )
+                    self.btn_update.setText(btn_txt)
+                    self.btn_update.setStyleSheet(
+                        f"color: {C_ORANGE}; font-weight: bold;"
+                    )
             else:
+                # --- FALL: KEIN UPDATE (Grün -> 14px + Fett) ---
+                # "Kein Update vorhanden...."
                 output.append(
-                    f'<span style="color:{C_GREEN}">➔ {txt.get("no_update_found", "Kein Update gefunden.")}</span>'
+                    f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>{txt.get("no_update_found", "Kein Update vorhanden....")}</b></span>'
                 )
 
-            # 3. ABSCHLUSS DES BLOCKES (KONFIGURATION)
+                # "Plugin ist aktuell"
+                upd_ok_msg = txt.get("upd_ok", "Plugin ist aktuell")
+                output.append(
+                    f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>✅ {upd_ok_msg} (Version: {current_v})</b></span>'
+                )
+
+                if hasattr(self, "btn_update"):
+                    btn_curr_txt = txt.get("upd_btn_current", "v{v} (Aktuell)").format(
+                        v=current_v
+                    )
+                    self.btn_update.setText(btn_curr_txt)
+                    self.btn_update.setStyleSheet("")
+
+            # --- KONFIGURATIONS-BLOCK (Überschriften Orange -> 16px + Fett) ---
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
-
-            conf_title = txt.get("active_conf", "🛠️ Aktive Konfiguration:")
-            auth_label = txt.get("patch_author", "Patch Autor")
-            repo_label = txt.get("repository", "Repository")
-
-            output.append(f'<span style="color:{C_ORANGE}"><b>{conf_title}</b></span>')
             output.append(
-                f'<span style="color:{C_GREEN}">  👤 {auth_label}: {getattr(self, "patch_modifier", "speedy005")}</span>'
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{txt.get("active_conf", "🛠️ Aktive Konfiguration:")}</b></span>'
+            )
+
+            author = getattr(self, "patch_modifier", "speedy005")
+            # Details (Grün -> 14px + Fett)
+            output.append(
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>  👤 {txt.get("patch_author", "Patch Autor")}: {author}</b></span>'
             )
             output.append(
-                f'<span style="color:{C_GREEN}">  🌐 {repo_label}: {EMUREPO}</span>'
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>  🌐 {txt.get("repository", "Repository")}: {EMUREPO}</b></span>'
             )
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
-            # 4. EINMALIGE AUSGABE
             self.append_info(self.info_text, "\n".join(output), "raw")
 
-            # Dialog nur bei Update
-            if Version(latest_version) > Version(current_version):
-                self.show_update_dialog(latest_version, current_version)
+            if Version(latest_v) > Version(current_v):
+                self.show_update_dialog(latest_v, current_v)
 
         except Exception as e:
-            # Layout auch im Fehlerfall schließen
-            err_msg = f'<span style="color:red">➔ Update-Check Error: {e}</span>\n'
-            err_msg += f'<span style="color:{C_LINE}">{"-" * 45}</span>'
-            self.append_info(self.info_text, err_msg, "raw")
+            err_lbl = txt.get("update_error", "Update-Check fehlgeschlagen")
+            self.append_info(
+                self.info_text,
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:red"><b>➔ {err_lbl}: {str(e)}</b></span>',
+                "raw",
+            )
         finally:
-            # Sperre erst nach einer Sekunde wieder lösen
             from PyQt6.QtCore import QTimer
 
             QTimer.singleShot(
@@ -4865,51 +4904,66 @@ class PatchManagerGUI(QWidget):
     def run_full_system_check(self):
         """
         Teil 1 des System-Checks: Tools prüfen und Update-Check einleiten.
-        Der Block wird von check_for_update_on_start vervollständigt.
+        Orange = 16px + Fett | Blau/Grün = 14px + Fett.
         """
         # 1. SOFORTIGE SPERRE GEGEN DOPPLUNG
         if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
 
+        # Sperre für den zweiten Teil (Update) vorsorglich lösen
+        self._update_dialog_active = False
+
         try:
             import shutil, platform
             from datetime import datetime
             from PyQt6.QtWidgets import QApplication
 
-            # FARB-DEFINITIONEN
-            C_ORANGE = "#F37804"  # Orange
-            C_GREEN = "#00FF00"  # Grün
-            C_BLUE = "#0000FF"  # Blau
-            C_LINE = "#808080"  # Grau (Trennlinien)
-            C_ERR = "#FF0000"  # Rot
+            # --- KONFIGURATION SCHRIFT & FARBEN ---
+            SZ_BIG = "22px"  # Größe für orangefarbene Titel
+            SZ_NORM = "18px"  # Größe für Standard-Inhalte
+
+            F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
+            F_MONO = "'Consolas', 'Courier New', monospace"
+
+            C_ORANGE = "#F37804"
+            C_GREEN = "#00FF00"
+            C_BLUE = "#00ADFF"
+            C_LINE = "#808080"
+            C_ERR = "#FF0000"
 
             # 2. LOG-FENSTER LEEREN
             if hasattr(self, "info_text") and self.info_text:
                 self.info_text.clear()
                 QApplication.processEvents()
 
+            # 3. BUTTON-TEXT INITIALISIEREN
+            if hasattr(self, "btn_update"):
+                txt_data = getattr(self, "TEXT", {})
+                btn_wait = txt_data.get("de", {}).get(
+                    "upd_checking", "Prüfe Version..."
+                )
+                self.btn_update.setText(btn_wait)
+
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
-            # 3. SPRACH-CHECK
-            if not hasattr(self, "TEXT") or not self.TEXT:
-                if hasattr(self, "update_language"):
-                    self.update_language()
+            # 4. SPRACH-CHECK
             txt = getattr(self, "TEXT", {})
 
-            # --- BLOCK AUFBAU TEIL 1 ---
+            # --- BLOCK AUFBAU ---
 
-            # 1. Header (Orange)
+            # Header (ORANGE -> 16px + FETT)
             start_msg = txt.get("start_check", "Starte System-Check...")
             output.append(
-                f'<span style="color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>'
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>'
             )
 
-            # 2.-4. Tools (Grün)
-            tools = ["git"] + (
-                ["patch", "zip"] if platform.system() != "Windows" else []
-            )
+            # Tools prüfen (GRÜN -> 14px + FETT, Monospace)
+            tools = ["git"]
+            if platform.system() != "Windows":
+                tools += ["patch", "zip"]
+
             for name in tools:
                 found = shutil.which(name)
                 color = C_GREEN if found else C_ERR
@@ -4918,32 +4972,34 @@ class PatchManagerGUI(QWidget):
                     if found
                     else txt.get("missing", "FEHLT!")
                 )
+                icon = "✅" if found else "❌"
                 output.append(
-                    f'<span style="color:{color}">  ✅ {name.ljust(6)} : {status}</span>'
+                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>'
                 )
 
-            # 5. Bestätigung (Blau)
+            # Bestätigung (BLAU -> 14px + FETT)
             ready_msg = txt.get(
                 "tools_ready", "Alle benötigten System-Tools sind bereit."
             )
-            output.append(f'<span style="color:{C_BLUE}">✅ {ready_msg}</span>')
-
+            output.append(
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>✅ {ready_msg}</b></span>'
+            )
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
-            # 6. Update Check Titel (Orange)
-            # Hier stoppen wir vorerst, check_for_update_on_start schreibt den Rest
+            # Update Check Titel (ORANGE -> 16px + FETT)
             upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
-            output.append(f'<span style="color:{C_ORANGE}">{upd_title}</span>')
+            output.append(
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>'
+            )
 
             # Erste Teil-Ausgabe senden
             self.append_info(self.info_text, "\n".join(output), "raw")
 
             # --- ÜBERGABE AN UPDATE-CHECK ---
-            # Wir starten den Update-Check mit einem minimalen Delay
             from PyQt6.QtCore import QTimer
 
             if hasattr(self, "check_for_update_on_start"):
-                QTimer.singleShot(100, self.check_for_update_on_start)
+                QTimer.singleShot(200, self.check_for_update_on_start)
 
         except Exception as e:
             if hasattr(self, "append_info"):
@@ -4951,10 +5007,9 @@ class PatchManagerGUI(QWidget):
                     getattr(self, "info_text", None), f"❌ Error: {e}", "error"
                 )
         finally:
-            # Sperre verzögert freigeben
             from PyQt6.QtCore import QTimer
 
-            QTimer.singleShot(500, lambda: setattr(self, "_checking_active", False))
+            QTimer.singleShot(1000, lambda: setattr(self, "_checking_active", False))
 
     def closeEvent(self, event):
         """Wird ausgelöst, wenn das Fenster geschlossen wird (Absturzsicher)."""
