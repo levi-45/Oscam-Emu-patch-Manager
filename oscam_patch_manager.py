@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.6.3"
+APP_VERSION = "2.6.4"
 
 
 # ===================== PATCH DIRS =====================
@@ -4770,8 +4770,9 @@ class PatchManagerGUI(QWidget):
     # ---------------------
     def check_for_update_on_start(self):
         """
-        Vervollständigt den Log voll übersetzbar über das TEXT-Dictionary.
-        Orange = 16px + Fett | Grün = 14px + Fett.
+        Vervollständigt den Log voll übersetzbar.
+        Orange = 26px + Fett | Grün/Blau = 21px + Fett.
+        Status & Repo in BLAU.
         """
         if getattr(self, "_update_dialog_active", False):
             return
@@ -4781,13 +4782,14 @@ class PatchManagerGUI(QWidget):
 
         txt = getattr(self, "TEXT", {})
 
-        # --- ZENTRALE FORMATIERUNG (Identisch zu Teil 1) ---
-        SZ_BIG = "26px"  # Für Orange
-        SZ_NORM = "21px"  # Für alles andere
+        # --- ZENTRALE FORMATIERUNG ---
+        SZ_BIG = "26px"  # Orange Titel
+        SZ_NORM = "21px"  # Standard-Inhalte
         F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
 
         C_ORANGE = "#F37804"
         C_GREEN = "#00FF00"
+        C_BLUE = "#00ADFF"  # Dein gewünschtes Blau
         C_LINE = "#808080"
 
         v_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
@@ -4802,7 +4804,7 @@ class PatchManagerGUI(QWidget):
             output = []
 
             if Version(latest_v) > Version(current_v):
-                # --- FALL: UPDATE VERFÜGBAR (Orange -> 16px + Fett) ---
+                # --- FALL: UPDATE VERFÜGBAR ---
                 label = txt.get("new_version_available", "Update verfügbar")
                 output.append(
                     f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>➔ {label}: v{latest_v}</b></span>'
@@ -4817,16 +4819,16 @@ class PatchManagerGUI(QWidget):
                         f"color: {C_ORANGE}; font-weight: bold;"
                     )
             else:
-                # --- FALL: KEIN UPDATE (Grün -> 14px + Fett) ---
-                # "Kein Update vorhanden...."
+                # --- FALL: KEIN UPDATE ---
+                # "Kein Update vorhanden...." in GRÜN
                 output.append(
                     f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>{txt.get("no_update_found", "Kein Update vorhanden....")}</b></span>'
                 )
 
-                # "Plugin ist aktuell"
+                # "Plugin ist aktuell" Zeile in BLAU
                 upd_ok_msg = txt.get("upd_ok", "Plugin ist aktuell")
                 output.append(
-                    f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>✅ {upd_ok_msg} (Version: {current_v})</b></span>'
+                    f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>✅ {upd_ok_msg} (Version: {current_v})</b></span>'
                 )
 
                 if hasattr(self, "btn_update"):
@@ -4836,28 +4838,36 @@ class PatchManagerGUI(QWidget):
                     self.btn_update.setText(btn_curr_txt)
                     self.btn_update.setStyleSheet("")
 
-            # --- KONFIGURATIONS-BLOCK (Überschriften Orange -> 16px + Fett) ---
+            # --- KONFIGURATIONS-BLOCK ---
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{txt.get("active_conf", "🛠️ Aktive Konfiguration:")}</b></span>'
             )
 
             author = getattr(self, "patch_modifier", "speedy005")
-            # Details (Grün -> 14px + Fett)
+            # Autor in GRÜN
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>  👤 {txt.get("patch_author", "Patch Autor")}: {author}</b></span>'
             )
+            # Repository in BLAU
+            repo_url = getattr(self, "EMUREPO", "https://github.com")
             output.append(
-                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}"><b>  🌐 {txt.get("repository", "Repository")}: {EMUREPO}</b></span>'
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>  🌐 {txt.get("repository", "Repository")}: {repo_url}</b></span>'
             )
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
             self.append_info(self.info_text, "\n".join(output), "raw")
 
+            # Abschluss-Sound
+            if "safe_play" in globals():
+                safe_play("complete.oga")
+
             if Version(latest_v) > Version(current_v):
                 self.show_update_dialog(latest_v, current_v)
 
         except Exception as e:
+            if "safe_play" in globals():
+                safe_play("dialog-error.oga")
             err_lbl = txt.get("update_error", "Update-Check fehlgeschlagen")
             self.append_info(
                 self.info_text,
