@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.6.2"
+APP_VERSION = "2.6.3"
 
 
 # ===================== PATCH DIRS =====================
@@ -4910,7 +4910,7 @@ class PatchManagerGUI(QWidget):
     def run_full_system_check(self):
         """
         Teil 1 des System-Checks: Tools prüfen und Update-Check einleiten.
-        Orange = 16px + Fett | Blau/Grün = 14px + Fett.
+        Inklusive Sound-Start-Signal.
         """
         # 1. SOFORTIGE SPERRE GEGEN DOPPLUNG
         if getattr(self, "_checking_active", False):
@@ -4938,10 +4938,14 @@ class PatchManagerGUI(QWidget):
             C_LINE = "#808080"
             C_ERR = "#FF0000"
 
-            # 2. LOG-FENSTER LEEREN
+            # 2. LOG-FENSTER LEEREN & SOUND ABSPIELEN
             if hasattr(self, "info_text") and self.info_text:
                 self.info_text.clear()
                 QApplication.processEvents()
+
+            # --- NEU: SOUND BEIM START ---
+            if "safe_play" in globals():
+                safe_play("dialog-information.oga")
 
             # 3. BUTTON-TEXT INITIALISIEREN
             if hasattr(self, "btn_update"):
@@ -4959,13 +4963,13 @@ class PatchManagerGUI(QWidget):
 
             # --- BLOCK AUFBAU ---
 
-            # Header (ORANGE -> 16px + FETT)
+            # Header (ORANGE -> 22px + FETT)
             start_msg = txt.get("start_check", "Starte System-Check...")
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>'
             )
 
-            # Tools prüfen (GRÜN -> 14px + FETT, Monospace)
+            # Tools prüfen (GRÜN -> 18px + FETT, Monospace)
             tools = ["git"]
             if platform.system() != "Windows":
                 tools += ["patch", "zip"]
@@ -4983,7 +4987,7 @@ class PatchManagerGUI(QWidget):
                     f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>'
                 )
 
-            # Bestätigung (BLAU -> 14px + FETT)
+            # Bestätigung (BLAU -> 18px + FETT)
             ready_msg = txt.get(
                 "tools_ready", "Alle benötigten System-Tools sind bereit."
             )
@@ -4992,7 +4996,7 @@ class PatchManagerGUI(QWidget):
             )
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
-            # Update Check Titel (ORANGE -> 16px + FETT)
+            # Update Check Titel (ORANGE -> 22px + FETT)
             upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
             output.append(
                 f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>'
