@@ -4782,8 +4782,8 @@ class PatchManagerGUI(QWidget):
         txt = getattr(self, "TEXT", {})
 
         # --- ZENTRALE FORMATIERUNG (Identisch zu Teil 1) ---
-        SZ_BIG = "22px"  # Für Orange
-        SZ_NORM = "18px"  # Für alles andere
+        SZ_BIG = "26px"  # Für Orange
+        SZ_NORM = "21px"  # Für alles andere
         F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
 
         C_ORANGE = "#F37804"
@@ -4926,8 +4926,8 @@ class PatchManagerGUI(QWidget):
             from PyQt6.QtWidgets import QApplication
 
             # --- KONFIGURATION SCHRIFT & FARBEN ---
-            SZ_BIG = "22px"  # Größe für orangefarbene Titel
-            SZ_NORM = "18px"  # Größe für Standard-Inhalte
+            SZ_BIG = "25px"  # Größe für orangefarbene Titel
+            SZ_NORM = "21px"  # Größe für Standard-Inhalte
 
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
