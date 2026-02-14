@@ -3045,15 +3045,12 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(2000, self.check_for_update_on_start)
 
     def show_welcome_info(self):
-        """Zeigt die Tool-Übersicht mit optimierten Farben und großer Fett-Schrift im Footer."""
+        """Zeigt die Tool-Übersicht kompakt ohne große Leerstellen an."""
         lang = getattr(self, "LANG", "de").lower()
         version = globals().get("APP_VERSION", "2.7.6")
-    
-        # Farbcodes für das Design
-        color_title   = "color:#00ADFF;"   # Blau
-        color_features = "color:#F37804;" # Orange
-        color_items    = "color:#00FF00;" # Grün
-        color_footer   = "color:#FF0000;" # Rot
+
+        # Farbcodes
+        color_title, color_features, color_items, color_footer = "#00ADFF", "#F37804", "#00FF00", "#FF0000"
 
         if lang == "de":
             title = "OSCam Emu Patch Generator"
@@ -3072,36 +3069,35 @@ class PatchManagerGUI(QWidget):
             f4 = "➤ <b>Smart Logging:</b> Color-coded feedback system."
             footer = f"Author: speedy005 | Version: {version} | License: MIT"
 
+        # OPTIMIERUNG: margin:0 und line-height reduziert für Kompaktheit
         welcome_html = f"""
-        <div style="margin-bottom: 24px; font-family: 'Segoe UI', Tahoma, sans-serif;">
-            <h2 style="{color_title} margin-bottom:0;">🚀 {title}</h2>
-            <hr style="color: #808080;">
+        <div style="font-family: 'Segoe UI', Tahoma, sans-serif;">
+            <h2 style="color:{color_title}; margin-top:0px; margin-bottom:0px;">🚀 {title}</h2>
+            <hr style="color: #808080; margin: 2px 0px;">
         
-            <b style="{color_features} font-size: 24px;">{features_label}</b><br>
+            <b style="color:{color_features}; font-size: 24px;">{features_label}</b>
         
-            <div style="{color_items} font-size: 24px; line-height: 2.0; margin-top: 5px;">
+            <div style="color:{color_items}; font-size: 24px; line-height: 1.2; margin-top: 2px;">
                 {f1}<br>
                 {f2}<br>
                 {f3}<br>
                 {f4}
             </div>
         
-            <hr style="color: #808080;">
+            <hr style="color: #808080; margin: 2px 0px;">
         
-            <!-- FOOTER: Rot, Fett und Größer (24px statt 12px) -->
-            <div style="{color_footer} font-size: 24px; margin-top: 5px;">
+            <div style="color:{color_footer}; font-size: 24px; margin-top: 2px;">
                 <b>{footer}</b>
             </div>
         </div>
         """
-    
+
         if hasattr(self, "info_text"):
             from PyQt6.QtGui import QTextCursor
-            # Ans Ende springen und HTML einfügen
             self.info_text.moveCursor(QTextCursor.MoveOperation.End)
             self.info_text.insertHtml(welcome_html)
-            # Ein kleiner Puffer nach unten
-            self.info_text.insertHtml("<br>")
+            # Nur ein einfacher kleiner Umbruch statt großem Puffer
+            self.info_text.insertHtml("<div style='font-size:4px;'>&nbsp;</div>")
             self.info_text.moveCursor(QTextCursor.MoveOperation.End)
 
     def display_startup_info(self):
@@ -5136,10 +5132,8 @@ class PatchManagerGUI(QWidget):
 
     def run_full_system_check(self, clear_log=False):
         """
-        Teil 1 des System-Checks: Tools, Internet und Update-Check.
-        Optimiert: Löscht die Welcome-Info beim Start NICHT mehr automatisch.
+        Teil 1 des System-Checks: Kompakt-Version ohne große Abstände.
         """
-        # 1. DOPPEL-CHECK SPERRE
         if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
@@ -5149,51 +5143,39 @@ class PatchManagerGUI(QWidget):
             import shutil, platform, socket
             from datetime import datetime
             from PyQt6.QtWidgets import QApplication
+            from PyQt6.QtGui import QTextCursor
 
-            # --- CONFIG STYLE ---
+            # --- STYLE OPTIMIERUNG ---
             SZ_BIG, SZ_NORM = "26px", "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
             C_ORANGE, C_GREEN, C_BLUE, C_LINE, C_ERR = (
-                "#F37804",
-                "#00FF00",
-                "#00ADFF",
-                "#808080",
-                "#FF0000",
+                "#F37804", "#00FF00", "#00ADFF", "#808080", "#FF0000",
             )
 
             # 2. LOG-FENSTER VORBEREITEN
             if hasattr(self, "info_text") and self.info_text:
                 if clear_log:
-                    # Nur löschen, wenn explizit True übergeben wurde (z.B. durch manuellen Button)
                     self.info_text.clear()
                 else:
-                    # Fügt 2 Zeilenabstände ein, damit die Info oben stehen bleibt
-                    from PyQt6.QtGui import QTextCursor
+                    # FIX: Nur ein minimaler Abstand (4px) statt zwei großen <br>
                     self.info_text.moveCursor(QTextCursor.MoveOperation.End)
-                    self.info_text.insertHtml("<br><br>")
+                    self.info_text.insertHtml("<div style='font-size:4px;'>&nbsp;</div>")
             
                 QApplication.processEvents()
 
             if "safe_play" in globals():
                 safe_play("dialog-information.oga")
 
-            # Texte aus dem Dictionary laden
             lang = getattr(self, "LANG", "de").lower()
-            txt = (
-                globals()
-                .get("TEXTS", {})
-                .get(lang, globals().get("TEXTS", {}).get("en", {}))
-            )
+            txt = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
 
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
-            # --- BLOCK 1: START & TOOLS ---
+            # --- BLOCK 1: START & TOOLS (Kompakte line-height) ---
             start_msg = txt.get("start_check", "Starte System-Check...")
-            output.append(
-                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>'
-            )
+            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>')
 
             tools = ["git"]
             if platform.system() != "Windows":
@@ -5202,72 +5184,45 @@ class PatchManagerGUI(QWidget):
             for name in tools:
                 found = shutil.which(name)
                 color, icon = (C_GREEN, "✅") if found else (C_ERR, "❌")
-                status = (
-                    txt.get("found", "gefunden")
-                    if found
-                    else txt.get("missing", "FEHLT!")
-                )
-                output.append(
-                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>'
-                )
+                status = txt.get("found", "gefunden") if found else txt.get("missing", "FEHLT!")
+                output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span></div>')
 
-            # --- BLOCK 2: INTERNET-CHECK (ÜBERSETZT) ---
-            output.append(f'<span style="color:{C_LINE}">{"." * 45}</span>')
+            # --- BLOCK 2: INTERNET-CHECK ---
+            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>')
             net_msg = txt.get("net_check", "Prüfe Internetverbindung...")
-            output.append(
-                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>🔍 {net_msg}</b></span>'
-            )
+            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>🔍 {net_msg}</b></span></div>')
 
             try:
-                # Prüfe Verbindung
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
-                net_status_text = txt.get("net_online", "Online")
-                net_status_key = "Online"
-                net_col, net_icon = C_GREEN, "✅"
+                net_status_text, net_status_key, net_col, net_icon = txt.get("net_online", "Online"), "Online", C_GREEN, "✅"
             except:
-                net_status_text = txt.get("net_offline", "Offline")
-                net_status_key = "Offline"
-                net_col, net_icon = C_ERR, "❌"
+                net_status_text, net_status_key, net_col, net_icon = txt.get("net_offline", "Offline"), "Offline", C_ERR, "❌"
 
-            output.append(
-                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Status : {net_status_text}</b></span>'
-            )
-            output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
+            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Status : {net_status_text}</b></span></div>')
+            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>')
 
             # --- BLOCK 3: UPDATE TITEL ---
             upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
-            output.append(
-                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>'
-            )
+            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span></div>')
 
-            # Gesamte HTML-Ausgabe an den Infoscreen senden
-            self.append_info(self.info_text, "\n".join(output), "raw")
-  
+            # Gesamte HTML-Ausgabe senden
+            self.append_info(self.info_text, "".join(output), "raw")
+
             # --- ÜBERGABE AN UPDATE-CHECK ---
             from PyQt6.QtCore import QTimer
-
-            if (
-                hasattr(self, "check_for_update_on_start")
-                    and net_status_key == "Online"
-            ):
+            if hasattr(self, "check_for_update_on_start") and net_status_key == "Online":
                 QTimer.singleShot(200, self.check_for_update_on_start)
             elif net_status_key == "Offline":
-                skip_msg = (
-                    "⚠️ Update-Check übersprungen (Offline)"
-                    if lang == "de"
-                    else "⚠️ Update check skipped (Offline)"
-                )
+                skip_msg = "⚠️ Update-Check übersprungen (Offline)" if lang == "de" else "⚠️ Update check skipped (Offline)"
                 self.append_info(self.info_text, skip_msg, "warning")
 
         except Exception as e:
             if hasattr(self, "append_info"):
-                self.append_info(
-                    getattr(self, "info_text", None), f"❌ Error: {e}", "error"
-                )    
+                self.append_info(getattr(self, "info_text", None), f"❌ Error: {e}", "error")    
         finally:
             from PyQt6.QtCore import QTimer
-            # Reset Sperre
             QTimer.singleShot(1000, lambda: setattr(self, "_checking_active", False))
+
 
     def closeEvent(self, event):
         """Wird ausgelöst, wenn das Fenster geschlossen wird (Absturzsicher)."""
