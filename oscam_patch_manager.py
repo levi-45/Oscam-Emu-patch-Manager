@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.5"
+APP_VERSION = "2.7.6"
 
 
 # ===================== PATCH DIRS =====================
@@ -831,7 +831,7 @@ TEXTS = {
         "patch_apply": "Apply Patch",
         "patch_path_label": "Save Patch",
         "patch_zip": "Zip Patch",
-        "backup_old": "Backup/Renew Patch",
+        "backup_old": "S3-Backup/Renew Patch",
         "clean_folder": "Clean Patch Folder",
         "change_old_dir": "Select S3 Patch Folder",
         # Commits
@@ -1111,7 +1111,7 @@ TEXTS = {
         "patch_check": "Patch prüfen",
         "patch_apply": "Patch anwenden",
         "patch_zip": "Patch zippen",
-        "backup_old": "Patch sichern/erneuern",
+        "backup_old": "S3-Patch sichern/erneuern",
         "clean_folder": "Patch-Ordner leeren",
         "patch_path_label": "Patch speichern",
         "change_old_dir": "S3 Patch-Ordner auswählen",
