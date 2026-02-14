@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.0"
+APP_VERSION = "2.7.1"
 
 
 # ===================== PATCH DIRS =====================
@@ -278,18 +278,21 @@ def ensure_dir(directory):
             print(f"[ERROR] Konnte Verzeichnis {directory} nicht erstellen: {e}")
 
 
-class StreamToGui:
-    """Leitet stdout/stderr an einen Slot (Funktion) weiter."""
+from PyQt6.QtCore import QObject, pyqtSignal
 
-    def __init__(self, slot):
-        self.slot = slot
+class StreamToGui(QObject):
+    """Sichere Weiterleitung von stdout an die GUI mittels Signalen."""
+    new_text = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
 
     def write(self, text):
         if text.strip():
-            self.slot(text.strip())
+            self.new_text.emit(str(text))
 
     def flush(self):
-        pass  # Notwendig für die Kompatibilität
+        pass
 
 
 # ===================== NEVER_DELETE =====================
@@ -911,6 +914,17 @@ TEXTS = {
         "repository": "Repository",
         "update_error": "Update check failed",
         "repository": "Repository",
+        # change autor repo
+        "config_saved": "Settings updated",
+        "auth_label": "Author",
+        "repo_label": "Repository",
+        "start_check": "Starting system check...",
+        "found": "found",
+        "missing": "MISSING!",
+        "upd_check": "🔍 Tooltest Update Check...",
+        "info_title": "About OSCam Emu Toolkit",
+        "mod_dialog_title": "Change Patch Author",
+        "mod_dialog_label": "Author name:",
         # For the update check
         "new_version_available": "New version available",
         "update_title": "Update Available",
@@ -1116,6 +1130,17 @@ TEXTS = {
         "current_author": "👤 Patch Autor:",
         "current_repo": "🌐 Repository:",
         "settings_saved_info": "✅ Einstellungen wurden dauerhaft gespeichert.",
+        # change repo patch autor
+        "config_saved": "Einstellungen aktualisiert",
+        "auth_label": "Autor",
+        "repo_label": "Repository",
+        "start_check": "Starte System-Check...",
+        "found": "gefunden",
+        "missing": "FEHLT!",
+        "upd_check": "🔍 Tooltest Update Check...",
+        "info_title": "Über OSCam Emu Toolkit",
+        "mod_dialog_title": "Patch Autor ändern",
+        "mod_dialog_label": "Name des Autors:",
         # Exit / Confirmation
         "exit": "Beenden",
         "yes": "Ja",
@@ -1262,8 +1287,8 @@ TEXTS = {
         "mod_dialog_label": "Name des Patch-Erstellers:",
         "mod_changed_success": "✅ Modifier geändert zu: {name}",
         # "language_label": "Sprache:",
-        "language_label": "Sprache auswählen:",
-        "color_label": "Farbe auswählen",
+        "language_label": "Sprache:",
+        "color_label": "Hover",
         "commit_count_label": "Anzahl der Commits",
         "settings_header": "Einstellungen",
         "info_tooltip": "Info / Hilfe",
@@ -1372,49 +1397,67 @@ for key, value in TEXTS["en"].items():
 fill_missing_keys(TEXTS)
 
 
-def save_config(cfg):
-    """Speichert die gesamte Config inklusive Repo-URL und Autor."""
+def save_config(cfg, gui_instance=None):
+    """Speichert die Config und loggt übersetzte Meldungen in den Infoscreen."""
     try:
-        # Absoluten Pfad sicherstellen
+        # 1. Pfade und Speichern
         abs_config_path = os.path.abspath(CONFIG_FILE)
         config_dir = os.path.dirname(abs_config_path)
-
         if config_dir and not os.path.exists(config_dir):
             os.makedirs(config_dir, exist_ok=True)
 
         with open(abs_config_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=4, ensure_ascii=False)
 
-        # Debug-Ausgabe für beide wichtigen Werte
-        autor = cfg.get("patch_modifier", "N/A")
-        repo = cfg.get("EMUREPO", "N/A")
-        print(f"✅ Config gespeichert | Autor: {autor} | Repo: {repo}")
+        # 2. Globale Variablen synchronisieren
+        globals()["PATCH_MODIFIER"] = cfg.get("patch_modifier", "speedy005")
+        globals()["EMUREPO"] = cfg.get("EMUREPO", "")
+
+        # 3. Übersetztes Logging für den Infoscreen
+        if gui_instance and hasattr(gui_instance, "log_message"):
+            # Sprache ermitteln (Standard: de)
+            lang = str(cfg.get("language", "de")).lower()
+            
+            # Text-Dictionary für die aktuelle Sprache holen
+            # Nutzt globals() um auf deine TEXTS Variable zuzugreifen
+            t = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
+            
+            # Übersetzungen abrufen (mit Fallback)
+            msg_ok = t.get("config_saved", "Einstellungen aktualisiert")
+            msg_auth = t.get("auth_label", "Autor")
+            msg_repo = t.get("repo_label", "Repo")
+
+            gui_instance.log_message(f"✅ <b>{msg_ok}</b>")
+            gui_instance.log_message(f"   👤 {msg_auth}: {cfg.get('patch_modifier')}")
+            gui_instance.log_message(f"   🌐 {msg_repo}: {cfg.get('EMUREPO')}")
 
     except Exception as e:
-        print(f"❌ Fehler beim Speichern der Config: {e}")
+        if gui_instance and hasattr(gui_instance, "log_message"):
+            gui_instance.log_message(f"❌ Fehler beim Speichern: {e}")
 
 
 # ===================== CONFIG =====================
 def load_config():
-    """
-    Lädt die Konfigurationsdatei und erzwingt die korrekte lange Repo-URL.
-    """
+    """Lädt Config, erlaubt eigene URLs und repariert die Datei nur bei fehlenden Keys."""
     import os, json
 
-    # 1. Die einzig wahre Standard-URL definieren
     CORRECT_URL = "https://github.com/oscam-mirror/oscam-emu.git"
+    base_patch_dir = globals().get("OLD_PATCH_DIR", os.path.dirname(os.path.abspath(__file__)))
 
-    # 2. Standard-Dictionary
     default_cfg = {
         "commit_count": 5,
         "color": "Classics",
-        "language": "DE",
-        "s3_patch_path": globals().get("OLD_PATCH_DIR", ""),
+        "language": "de",
+        "s3_patch_path": base_patch_dir,
         "patch_modifier": "speedy005",
         "EMUREPO": CORRECT_URL,
     }
 
     if not os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(default_cfg, f, indent=4, ensure_ascii=False)
+        except: pass
         return default_cfg.copy()
 
     try:
@@ -1425,21 +1468,29 @@ def load_config():
             return default_cfg.copy()
 
         # 3. Fehlende Keys ergänzen
+        needs_save = False
         for key, value in default_cfg.items():
             if key not in cfg:
                 cfg[key] = value
+                needs_save = True
 
-        # 4. INTELLIGENTE KORREKTUR
-        current_val = str(cfg.get("EMUREPO", "")).strip()
-
-        # Wir korrigieren NUR, wenn es leer ist oder exakt der falsche Kurz-Link
-        if not current_val or current_val == "https://github.com":
+        # 4. KORREKTUR DER URL (GEÄNDERT)
+        # Wir prüfen nur noch, ob die URL viel zu kurz (kaputt) oder leer ist.
+        # "oscam-emu.git" wird NICHT mehr erzwungen, damit eigene URLs bleiben!
+        current_repo = str(cfg.get("EMUREPO", "")).strip()
+        if len(current_repo) < 8: 
             cfg["EMUREPO"] = CORRECT_URL
+            needs_save = True
 
-        # 5. Globale Variable im Skript aktualisieren
+        # Datei bei Änderungen aktualisieren
+        if needs_save:
+            try:
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, indent=4, ensure_ascii=False)
+            except: pass
+
+        # 5. Globale Variablen synchronisieren (WICHTIG für den Patch-Generator)
         globals()["EMUREPO"] = cfg["EMUREPO"]
-
-        # Den geladenen Autor ebenfalls global setzen (optional, falls benötigt)
         globals()["PATCH_MODIFIER"] = cfg["patch_modifier"]
 
         return cfg
@@ -3021,6 +3072,25 @@ class PatchManagerGUI(QWidget):
         self.info_text.append(f"<b>[{now}]</b> {message}")
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
 
+    def scroll_to_bottom_smooth(self):
+        """Scrollt das Info-Fenster sanft nach unten."""
+        from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
+    
+        if not hasattr(self, "info_text") or not self.info_text:
+            return
+
+        scrollbar = self.info_text.verticalScrollBar()
+    
+        # Animation für die Eigenschaft 'value' der Scrollbar
+        self.scroll_anim = QPropertyAnimation(scrollbar, b"value")
+        self.scroll_anim.setDuration(300)  # Dauer in ms
+        self.scroll_anim.setStartValue(scrollbar.value())
+        self.scroll_anim.setEndValue(scrollbar.maximum())
+    
+        # Eine sanfte Kurve (beschleunigt und bremst ab)
+        self.scroll_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.scroll_anim.start()
+    
     def show_info(self):
         """Zeigt das Info-Fenster mit spezifischen Farben für Status-Texte."""
         lang = str(getattr(self, "LANG", "de")).lower()
@@ -3190,67 +3260,52 @@ class PatchManagerGUI(QWidget):
     def change_emu_repo(self):
         """
         Öffnet einen Dialog zur Auswahl der Repository-URL.
-        Repo 1: https://github.com/oscam-mirror/oscam-emu.git
-        Repo 2: https://github.com/speedy005/Oscam-emu.git
+        Speichert die Wahl permanent, führt aber keinen erneuten System-Check aus.
         """
         from PyQt6.QtWidgets import QInputDialog, QApplication
+        from PyQt6.QtCore import QTimer
 
         # --- DEINE DEFINIERTEN REPOS ---
         REPO_1 = "https://github.com/oscam-mirror/oscam-emu.git"
         REPO_2 = "https://github.com/speedy005/Oscam-emu.git"
         REPO_OPTIONS = [REPO_1, REPO_2]
 
-        # Aktuellen Wert holen
         current_repo = getattr(self, "EMUREPO", REPO_1)
         lang = getattr(self, "LANG", "de").lower()
 
-        # Texte festlegen
         title = "Repository Auswahl" if lang == "de" else "Repository Selection"
-        label = (
-            "Wähle die gewünschte Repo-URL:"
-            if lang == "de"
-            else "Select the desired Repo URL:"
-        )
+        label = "Wähle die gewünschte Repo-URL:" if lang == "de" else "Select the desired Repo URL:"
 
-        # Index für Vorselektion finden (0 für Repo 1, 1 für Repo 2)
         start_index = 1 if current_repo == REPO_2 else 0
 
-        # --- REPARIERTER DIALOG (Nutzt getItem statt setCurrentIndex) ---
         new_url, ok = QInputDialog.getItem(
-            self,
-            title,
-            label,
-            REPO_OPTIONS,
-            start_index,
-            False,  # False = Liste ist nicht editierbar
+            self, title, label, REPO_OPTIONS, start_index, False
         )
 
         if ok and new_url:
             # 1. WERTE SETZEN
             self.EMUREPO = new_url
-            globals()["EMUREPO"] = new_url  # Global für den Patch-Prozess
+            globals()["EMUREPO"] = new_url 
 
             # 2. CONFIG AKTUALISIEREN
             if hasattr(self, "cfg"):
                 self.cfg["EMUREPO"] = self.EMUREPO
                 try:
+                    # Speichern und Bestätigung im Log ausgeben
                     if "save_config" in globals():
-                        globals()["save_config"](self.cfg)
+                        globals()["save_config"](self.cfg, gui_instance=self)
 
-                    # 3. UI-REFRESH (Wichtig für das bunte Log!)
+                    # 3. UI-REFRESH
                     if hasattr(self, "update_language"):
                         self.update_language()
 
+                    # 4. SCROLL-TRIGGER (Ohne neuen System-Check)
                     if hasattr(self, "info_text") and self.info_text:
-                        # Sperren lösen für sauberen Refresh
-                        self._checking_active = False
-                        self._update_dialog_active = False
-                        self.info_text.clear()
                         QApplication.processEvents()
-
-                        # Startet den neuen Log-Block mit der neuen URL in FETT & GRÜN
-                        if hasattr(self, "run_full_system_check"):
-                            self.run_full_system_check()
+                        
+                        # Wir triggern nur die Smooth-Scroll Animation aus append_info
+                        if hasattr(self, "_scroll_anim"):
+                            QTimer.singleShot(200, lambda: self.append_info("", "info", newline=False))
 
                     if "safe_play" in globals():
                         safe_play("complete.oga")
@@ -3263,21 +3318,17 @@ class PatchManagerGUI(QWidget):
 
     def change_modifier_name(self):
         """
-        Öffnet einen Dialog nur zur Eingabe des Autors.
-        Aktualisiert den Namen permanent in der Config und im Log.
+        Öffnet einen Dialog zur Eingabe des Autors.
+        Aktualisiert den Namen permanent in der Config, ohne neuen System-Check.
         """
         from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
-        import os, subprocess, platform, shutil
+        from PyQt6.QtCore import QTimer
 
         current_author = getattr(self, "patch_modifier", "speedy005")
-
         lang = getattr(self, "LANG", "de").lower()
-        # TEXTS muss global verfügbar sein
-        lang_dict = (
-            globals()
-            .get("TEXTS", {})
-            .get(lang, globals().get("TEXTS", {}).get("en", {}))
-        )
+        
+        # TEXTS laden
+        lang_dict = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
 
         def play_mod_sound(success=True):
             sound = "complete.oga" if success else "dialog-warning.oga"
@@ -3286,11 +3337,10 @@ class PatchManagerGUI(QWidget):
             else:
                 QApplication.beep()
 
-        # Titel und Label aus Sprachdatei laden
         title_auth = lang_dict.get("mod_dialog_title", "Patch Autor")
         label_auth = lang_dict.get("mod_dialog_label", "Name des Autors:")
 
-        # Nur Namensabfrage
+        # 1. Abfrage des neuen Namens
         new_name, ok = QInputDialog.getText(
             self, title_auth, label_auth, QLineEdit.EchoMode.Normal, current_author
         )
@@ -3303,22 +3353,19 @@ class PatchManagerGUI(QWidget):
                 self.cfg["patch_modifier"] = self.patch_modifier
 
                 try:
-                    # Permanent in config.json speichern
+                    # 2. Speichern mit GUI-Referenz (loggt Bestätigung in den Infoscreen)
                     if "save_config" in globals():
-                        globals()["save_config"](self.cfg)
+                        globals()["save_config"](self.cfg, gui_instance=self)
 
-                    # UI & Tooltips aktualisieren
+                    # 3. UI & Tooltips aktualisieren
                     if hasattr(self, "update_language"):
                         self.update_language()
 
-                    # Sofortiger Refresh des Log-Fensters mit dem neuen Namen
+                    # 4. Scroll-Trigger (Sorgt dafür, dass die Bestätigung sichtbar wird)
                     if hasattr(self, "info_text") and self.info_text:
-                        self._checking_active = False
-                        self.info_text.clear()
                         QApplication.processEvents()
-
-                        if hasattr(self, "run_full_system_check"):
-                            self.run_full_system_check()
+                        if hasattr(self, "_scroll_anim"):
+                            QTimer.singleShot(200, lambda: self.append_info("", "info", newline=False))
 
                     play_mod_sound(True)
 
@@ -3987,6 +4034,7 @@ class PatchManagerGUI(QWidget):
     def append_info(self, *args, **kwargs):
         from PyQt6.QtGui import QTextCursor
         from PyQt6.QtWidgets import QApplication, QTextEdit
+        from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QAbstractAnimation
 
         # 1. Argumente sicher entpacken
         try:
@@ -3997,57 +4045,66 @@ class PatchManagerGUI(QWidget):
                 text, level = args[0], args[1]
             else:
                 return
-        except Exception:
+        except:
             return
 
         if not isinstance(widget, QTextEdit) or widget is None:
             return
 
-        # 2. Variablen sicher initialisieren
+        # 2. Farben & Variablen
         colors = {
-            "success": "#00FF00",
-            "warning": "orange",
-            "error": "red",
-            "info": "yellow",
-            "white": "white",
-            "raw": "transparent",
+            "success": "#00FF00", "warning": "orange", "error": "red",
+            "info": "yellow", "white": "white", "raw": "transparent",
         }
-
-        # Level-Check (verhindert String-Probleme)
         lvl_str = str(level).lower()
         current_color = colors.get(lvl_str, "white")
         do_newline = kwargs.get("newline", True)
 
-        # 3. Cursor ans Ende bewegen
-        cursor = widget.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        widget.setTextCursor(cursor)
-
-        # 4. HTML-Formatierung vorbereiten
-        # Verwandelt Newlines in HTML-Breaks
+        # 3. HTML vorbereiten
         safe_text = str(text).replace("\n", "<br>")
-
         html_output = ""
-        # Zeilenumbruch nur hinzufügen, wenn das Feld nicht leer ist
         if do_newline and widget.toPlainText().strip() != "":
             html_output += "<br>"
 
-        # 5. Farben anwenden (Bypass für 'raw')
         if lvl_str == "raw":
-            # Absolut kein umschließendes Farbattribut, damit interne Spans gewinnen
             html_output += f'<div style="display:inline;">{safe_text}</div>'
         else:
-            # Standard-Farbhülle für normale Meldungen
-            html_output += (
-                f'<div style="color:{current_color}; display:inline;">{safe_text}</div>'
-            )
+            html_output += f'<div style="color:{current_color}; display:inline;">{safe_text}</div>'
 
-        # 6. HTML einfügen und Scrollen
+        # 4. Am Ende einfügen
+        cursor = widget.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        widget.setTextCursor(cursor)
         cursor.insertHtml(html_output)
-        widget.ensureCursorVisible()
 
-        # UI-Update erzwingen
-        QApplication.processEvents()
+        # 5. FIX FÜR DIE FEHLERMELDUNG (MINGW64)
+        QApplication.processEvents() 
+        scrollbar = widget.verticalScrollBar()
+        
+        if scrollbar:
+            # Animation instanziieren, falls nicht vorhanden
+            if not hasattr(self, "_scroll_anim") or self._scroll_anim is None:
+                self._scroll_anim = QPropertyAnimation()
+                self._scroll_anim.setPropertyName(b"value")
+
+            # WICHTIG: Erst STOPPEN, dann Ziel prüfen/setzen
+            # Das verhindert die Meldung "can't change the target of a running animation"
+            if self._scroll_anim.state() == QAbstractAnimation.State.Running:
+                self._scroll_anim.stop()
+
+            # Zielobjekt neu binden
+            if self._scroll_anim.targetObject() != scrollbar:
+                self._scroll_anim.setTargetObject(scrollbar)
+            
+            # Animation nur starten, wenn wir nicht schon am Ende sind
+            if scrollbar.value() < scrollbar.maximum():
+                self._scroll_anim.setDuration(300)
+                self._scroll_anim.setStartValue(scrollbar.value())
+                self._scroll_anim.setEndValue(scrollbar.maximum())
+                self._scroll_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+                self._scroll_anim.start()
+        
+        widget.ensureCursorVisible()
 
     def run_background_task(self, fn, *args, **kwargs):
         """Startet eine Funktion im Hintergrund und steuert die Progressbar"""
@@ -4887,52 +4944,47 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             self.append_info(widget, f"Update-Fehler: {str(e)}", "error")
 
-    def run_full_system_check(self):
+    def run_full_system_check(self, clear_log=True):
         """
-        Teil 1 des System-Checks: Tools prüfen und Update-Check einleiten.
-        Konfigurations-Anzeige wurde in den Abschluss von Teil 2 verschoben.
+        Teil 1 des System-Checks: Tools, Internet und Update-Check.
+        Nutzt stabilisierte Log-Funktionen zur Vermeidung von Animationsfehlern.
         """
-        # 1. SOFORTIGE SPERRE GEGEN DOPPLUNG
+        # 1. DOPPEL-CHECK SPERRE
         if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
         self._update_dialog_active = False
 
         try:
-            import shutil, platform
+            import shutil, platform, socket
             from datetime import datetime
             from PyQt6.QtWidgets import QApplication
 
-            # --- KONFIGURATION SCHRIFT & FARBEN ---
-            SZ_BIG = "26px"
-            SZ_NORM = "21px"
+            # --- CONFIG STYLE ---
+            SZ_BIG, SZ_NORM = "26px", "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
+            C_ORANGE, C_GREEN, C_BLUE, C_LINE, C_ERR = "#F37804", "#00FF00", "#00ADFF", "#808080", "#FF0000"
 
-            C_ORANGE = "#F37804"
-            C_GREEN = "#00FF00"
-            C_BLUE = "#00ADFF"
-            C_LINE = "#808080"
-            C_ERR = "#FF0000"
-
-            # 2. LOG-FENSTER LEEREN & SOUND
+            # 2. LOG-FENSTER VORBEREITEN
             if hasattr(self, "info_text") and self.info_text:
-                self.info_text.clear()
+                if clear_log:
+                    self.info_text.clear()
+                else:
+                    # KORREKTUR: Nutze append_info statt direktem append
+                    self.append_info(self.info_text, "", "raw")
                 QApplication.processEvents()
 
             if "safe_play" in globals():
                 safe_play("dialog-information.oga")
 
-            # 3. SPRACHE & TEXTE
             txt = getattr(self, "TEXT", {})
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
-            # --- BLOCK 1: START & TOOLS ---
+            # --- BLOCK 1: TOOLS ---
             start_msg = txt.get("start_check", "Starte System-Check...")
-            output.append(
-                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>'
-            )
+            output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>')
 
             tools = ["git"]
             if platform.system() != "Windows":
@@ -4940,42 +4992,44 @@ class PatchManagerGUI(QWidget):
 
             for name in tools:
                 found = shutil.which(name)
-                color = C_GREEN if found else C_ERR
-                status = (
-                    txt.get("found", "gefunden")
-                    if found
-                    else txt.get("missing", "FEHLT!")
-                )
-                icon = "✅" if found else "❌"
-                output.append(
-                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>'
-                )
+                color, icon = (C_GREEN, "✅") if found else (C_ERR, "❌")
+                status = txt.get("found", "gefunden") if found else txt.get("missing", "FEHLT!")
+                output.append(f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>')
 
+            # --- NEU: INTERNET-CHECK ---
+            output.append(f'<span style="color:{C_LINE}">{"." * 45}</span>')
+            net_msg = "Prüfe Internetverbindung..." if getattr(self, "LANG", "de") == "de" else "Checking connection..."
+            output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>🔍 {net_msg}</b></span>')
+            
+            try:
+                # Prüfe Google DNS oder GitHub
+                socket.create_connection(("8.8.8.8", 53), timeout=2)
+                net_status, net_col, net_icon = ("Online", C_GREEN, "✅")
+            except:
+                net_status, net_col, net_icon = ("Offline", C_ERR, "❌")
+
+            output.append(f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Status : {net_status}</b></span>')
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
             # --- BLOCK 2: UPDATE TITEL ---
             upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
-            output.append(
-                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>'
-            )
+            output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>')
 
-            # Erste Teil-Ausgabe senden
+            # Ausgabe senden
             self.append_info(self.info_text, "\n".join(output), "raw")
 
-            # --- ÜBERGABE AN UPDATE-CHECK (TEIL 2) ---
+            # --- ÜBERGABE AN UPDATE-CHECK ---
             from PyQt6.QtCore import QTimer
-
-            if hasattr(self, "check_for_update_on_start"):
+            if hasattr(self, "check_for_update_on_start") and net_status == "Online":
                 QTimer.singleShot(200, self.check_for_update_on_start)
+            elif net_status == "Offline":
+                self.append_info(self.info_text, "⚠️ Update-Check übersprungen (Offline)", "warning")
 
         except Exception as e:
             if hasattr(self, "append_info"):
-                self.append_info(
-                    getattr(self, "info_text", None), f"❌ Error: {e}", "error"
-                )
+                self.append_info(getattr(self, "info_text", None), f"❌ Error: {e}", "error")
         finally:
             from PyQt6.QtCore import QTimer
-
             QTimer.singleShot(1000, lambda: setattr(self, "_checking_active", False))
 
     def closeEvent(self, event):
