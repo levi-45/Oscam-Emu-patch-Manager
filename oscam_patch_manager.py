@@ -50,6 +50,31 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize
 
+import subprocess
+import sys
+import importlib.util
+from PyQt6.QtWidgets import QMessageBox
+
+def check_and_install_dependencies(required_packages):
+    missing_packages = []
+    for pkg in required_packages:
+        if importlib.util.find_spec(pkg) is None:
+            missing_packages.append(pkg)
+            
+    if missing_packages:
+        # Erstelle einen Dialog
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.setWindowTitle("Fehlende Komponenten")
+        msg.setText(f"Folgende Bibliotheken fehlen: {', '.join(missing_packages)}")
+        msg.setInformativeText("Möchten Sie diese jetzt installieren?")
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if msg.exec() == QMessageBox.StandardButton.Yes:
+            for pkg in missing_packages:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+            return True # Neustart empfohlen
+    return False
 # ===================== GLOBALE SOUND-SICHERHEIT =====================
 HAS_PAPLAY = shutil.which("paplay") is not None
 
@@ -270,12 +295,24 @@ class FlowLayout(QLayout):
 
 
 def ensure_dir(directory):
-    """Erstellt das Verzeichnis, falls es noch nicht existiert."""
+    """
+    Erstellt das Verzeichnis, falls es noch nicht existiert.
+    Optimiert für Pfadsicherheit und Fehlerhandling.
+    """
+    if not directory:
+        return
+
     if not os.path.exists(directory):
         try:
+            # exist_ok=True verhindert Fehler, falls ein anderer Prozess 
+            # das Verzeichnis im selben Moment erstellt
             os.makedirs(directory, exist_ok=True)
+            print(f"[INFO] Verzeichnis erstellt: {directory}")
+        except OSError as e:
+            # Spezielles Handling für Berechtigungsfehler (z.B. in /opt/s3)
+            print(f"[ERROR] Zugriff verweigert oder Pfad ungültig: {directory} ({e})")
         except Exception as e:
-            print(f"[ERROR] Konnte Verzeichnis {directory} nicht erstellen: {e}")
+            print(f"[ERROR] Unbekannter Fehler beim Erstellen von {directory}: {e}")
 
 
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -6645,42 +6682,49 @@ if __name__ == "__main__":
     # ⚡ Macht das Script ausführbar
     ensure_executable_self()
 
+    # 1️⃣ Python-Abhängigkeiten prüfen (BEVOR die GUI-Klasse geladen wird!)
+    REQUIRED_PY_PKGS = ["requests", "packaging", "PyQt6"]
+    # Falls installiert wurde, startet os.execv das Skript hier bereits neu
+    if check_and_install_dependencies(REQUIRED_PY_PKGS):
+        sys.exit(0)
+
     # Standard-Imports
     import sys
+    import os
     from PyQt6.QtWidgets import QApplication
+    
+    # ⚠️ Verhindert Accessibility-Warnungen unter Linux
+    os.environ["NO_AT_BRIDGE"] = "1"
+
+    # Jetzt erst die GUI-Komponenten laden
     from oscam_patch_manager import (
         PatchManagerGUI,
         TEXTS,
         fill_missing_keys,
-        # ensure_dir,
+        ensure_dir, # War in deinem Original auskommentiert, wird aber unten genutzt
         PLUGIN_DIR,
         ICON_DIR,
         TEMP_REPO,
         load_config,
     )
 
-    # ⚠️ Verhindert Accessibility-Warnungen unter Linux
-    import os
-
-    os.environ["NO_AT_BRIDGE"] = "1"
-
-    # 1️⃣ Wichtige Verzeichnisse sicherstellen
+    # 2️⃣ Wichtige Verzeichnisse sicherstellen
     ensure_dir(PLUGIN_DIR)
     ensure_dir(ICON_DIR)
     ensure_dir(TEMP_REPO)
 
-    # 2️⃣ Konfiguration laden
+    # 3️⃣ Konfiguration laden
     load_config()
 
-    # 3️⃣ Fehlende TEXTS automatisch auffüllen
-    fill_missing_keys(TEXTS)  # einmalig vor GUI-Start
+    # 4️⃣ Fehlende TEXTS automatisch auffüllen
+    fill_missing_keys(TEXTS)
 
-    # 4️⃣ QApplication erstellen
+    # 5️⃣ QApplication erstellen
     app = QApplication(sys.argv)
 
-    # 5️⃣ GUI starten
+    # 6️⃣ GUI starten
     window = PatchManagerGUI()
-    window.showMaximized()  # optional: .show() für normale Größe
+    window.showMaximized()
 
-    # 6️⃣ Event-Loop starten
+    # 7️⃣ Event-Loop starten
     sys.exit(app.exec())
