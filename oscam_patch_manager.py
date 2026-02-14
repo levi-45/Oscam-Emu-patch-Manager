@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.6.6"
+APP_VERSION = "2.6.7"
 
 
 # ===================== PATCH DIRS =====================
@@ -5904,25 +5904,27 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Aktualisiert alle Buttons und Tooltips passend zur gewählten URL.
+        Optimiert für Windows & Linux (Pfadsicherheit & UI-Repaint).
         """
         if not hasattr(self, "language_box"):
             return
 
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
+        import os
 
         # 1. SPRACHE ERMITTELN & SETZEN
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if "EN" in selected else "de"
 
-        # 2. KONFIGURATION SPEICHERN
+        # 2. KONFIGURATION SPEICHERN (Pfadsicher)
         if hasattr(self, "cfg"):
             self.cfg["language"] = self.LANG.upper()
             if "save_config" in globals():
+                # Hier werden interne Pfade cross-platform gespeichert
                 globals()["save_config"](self.cfg)
 
-        # 3. UI-TEXTE & BUTTONS AKTUALISIEREN
+        # 3. UI-TEXTE AKTUALISIEREN
         if hasattr(self, "update_language"):
             self.update_language()
 
@@ -5930,53 +5932,48 @@ class PatchManagerGUI(QWidget):
         
         # 1. Patch Autor Button
         if hasattr(self, "btn_modifier"):
-            btn_mod_txt = "👤 Autor" if self.LANG == "de" else "👤 Author"
-            self.btn_modifier.setText(btn_mod_txt)
+            self.btn_modifier.setText("👤 Autor" if self.LANG == "de" else "👤 Author")
             auth_name = getattr(self, "patch_modifier", "speedy005")
             self.btn_modifier.setToolTip(f"Author: {auth_name}")
 
         # 2. Repo URL Button
         if hasattr(self, "btn_repo_url"):
-            btn_repo_txt = "🌐 Repo URL"
-            self.btn_repo_url.setText(btn_repo_txt)
-            current_url = getattr(self, "EMUREPO", "https://github.com")
-            self.btn_repo_url.setToolTip(f"Active Repo: {current_url}")
+            self.btn_repo_url.setText("🌐 Repo URL")
+            curr_repo = getattr(self, "EMUREPO", "Repo")
+            self.btn_repo_url.setToolTip(f"URL: {curr_repo}")
 
-        # 3. Commit-Überprüfungsbutton (KÜRZER FÜR BESSERE LESBARKEIT)
+        # 3. Commit-Überprüfungsbutton (KURZ & ÜBERSETZT)
         if hasattr(self, "btn_check_commit"):
-            # Kurzer Text für den Button, damit er nicht abgeschnitten wird
-            commit_txt = "🔄 Check Commit" 
+            # Kurzer Text verhindert das Abschneiden unter Windows/Linux
+            self.btn_check_commit.setText("🔄 Check Commit")
             commit_tt = (
-                "Prüfe auf neue Commits im Streamboard-Repository"
-                if self.LANG == "de" else 
-                "Check for new commits in the Streamboard repository"
+                "Prüfe auf neue Commits im Streamboard" if self.LANG == "de" 
+                else "Check for new commits on Streamboard"
             )
-            self.btn_check_commit.setText(commit_txt)
             self.btn_check_commit.setToolTip(commit_tt)
 
-        # 4. Update Button Fix
+        # 4. Update Button
         if hasattr(self, "btn_update"):
-            upd_wait = "Prüfe..." if self.LANG == "de" else "Checking..."
-            self.btn_update.setText(upd_wait)
+            self.btn_update.setText("Prüfe..." if self.LANG == "de" else "Checking...")
 
-        # --- DER HOVER FIX: FARBSCHEMA ERZWINGEN ---
-        # Wir rufen repaint_ui_colors auf, damit alle Buttons (inkl. Commit-Check)
-        # dein ausgewähltes Hover-Farbschema erhalten.
+        # --- DER HOVER FIX (WICHTIG!) ---
+        # Dieser Aufruf erzwingt den gewählten Hover-Effekt für ALLE Buttons,
+        # auch für den neu hinzugefügten btn_check_commit.
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
-        # 4. SOUND ABSPIELEN
+        # 4. SOUND ABSPIELEN (Cross-platform safe)
         if "safe_play" in globals():
             safe_play("dialog-information.oga")
 
-        # 5. LOG-FENSTER BEREINIGEN
+        # 5. UI BEREINIGEN & RE-CHECK
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
             self._update_dialog_active = False
             self.info_text.clear()
             QApplication.processEvents()
 
-            # 6. SYSTEM-CHECK NEU STARTEN
+            # System-Check neu triggern
             if hasattr(self, "run_full_system_check"):
                 QTimer.singleShot(200, self.run_full_system_check)
 
