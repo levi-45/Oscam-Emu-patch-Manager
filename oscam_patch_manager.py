@@ -884,6 +884,10 @@ TEXTS = {
         "executing_git_apply": "🚀 Applying patch: {patch}",
         "executing_git_check": "🔍 Checking patch compatibility: {patch}",
         # --- Patch Status ---
+        # online check
+        "net_check": "Checking internet connection...",
+        "net_online": "Online",
+        "net_offline": "Offline",
         "patch_file_missing": "❌ Patch file missing: {path}",
         "patch_emu_git_done": "✅ Patch applied successfully!",
         "patch_emu_git_apply_failed": "❌ Failed to apply patch!",
@@ -1166,6 +1170,10 @@ TEXTS = {
         "github_emu_git_uploaded": "✅ OSCam-Emu Git erfolgreich hochgeladen!",
         "github_emu_git_revision": "📊 Aktueller Stand: Revision {sha} ({commit_msg})",
         "github_emu_git_revision_failed": "⚠️ Revision konnte nicht ausgelesen werden: {error}",
+        # online check
+        "net_check": "Prüfe Internetverbindung...",
+        "net_online": "Online",
+        "net_offline": "Offline",
         # Patch anwenden
         "executing_cmd": "Führe Befehl aus:",
         "cmd_failed": "Befehl fehlgeschlagen mit Code:",
@@ -4947,7 +4955,7 @@ class PatchManagerGUI(QWidget):
     def run_full_system_check(self, clear_log=True):
         """
         Teil 1 des System-Checks: Tools, Internet und Update-Check.
-        Nutzt stabilisierte Log-Funktionen zur Vermeidung von Animationsfehlern.
+        Nutzt das TEXTS-Dictionary für vollständige Lokalisierung (DE/EN).
         """
         # 1. DOPPEL-CHECK SPERRE
         if getattr(self, "_checking_active", False):
@@ -4971,18 +4979,20 @@ class PatchManagerGUI(QWidget):
                 if clear_log:
                     self.info_text.clear()
                 else:
-                    # KORREKTUR: Nutze append_info statt direktem append
                     self.append_info(self.info_text, "", "raw")
                 QApplication.processEvents()
 
             if "safe_play" in globals():
                 safe_play("dialog-information.oga")
 
-            txt = getattr(self, "TEXT", {})
+            # Texte aus dem Dictionary laden (txt wird hier definiert)
+            lang = getattr(self, "LANG", "de").lower()
+            txt = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
+            
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
-            # --- BLOCK 1: TOOLS ---
+            # --- BLOCK 1: START & TOOLS ---
             start_msg = txt.get("start_check", "Starte System-Check...")
             output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>')
 
@@ -4996,34 +5006,39 @@ class PatchManagerGUI(QWidget):
                 status = txt.get("found", "gefunden") if found else txt.get("missing", "FEHLT!")
                 output.append(f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>')
 
-            # --- NEU: INTERNET-CHECK ---
+            # --- BLOCK 2: INTERNET-CHECK (ÜBERSETZT) ---
             output.append(f'<span style="color:{C_LINE}">{"." * 45}</span>')
-            net_msg = "Prüfe Internetverbindung..." if getattr(self, "LANG", "de") == "de" else "Checking connection..."
+            net_msg = txt.get("net_check", "Prüfe Internetverbindung...")
             output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>🔍 {net_msg}</b></span>')
             
             try:
-                # Prüfe Google DNS oder GitHub
+                # Prüfe Verbindung
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
-                net_status, net_col, net_icon = ("Online", C_GREEN, "✅")
+                net_status_text = txt.get("net_online", "Online")
+                net_status_key = "Online" # Interner Status für Logik
+                net_col, net_icon = C_GREEN, "✅"
             except:
-                net_status, net_col, net_icon = ("Offline", C_ERR, "❌")
+                net_status_text = txt.get("net_offline", "Offline")
+                net_status_key = "Offline"
+                net_col, net_icon = C_ERR, "❌"
 
-            output.append(f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Status : {net_status}</b></span>')
+            output.append(f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Status : {net_status_text}</b></span>')
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
-            # --- BLOCK 2: UPDATE TITEL ---
+            # --- BLOCK 3: UPDATE TITEL ---
             upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
             output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>')
 
-            # Ausgabe senden
+            # Gesamte HTML-Ausgabe an den Infoscreen senden
             self.append_info(self.info_text, "\n".join(output), "raw")
 
             # --- ÜBERGABE AN UPDATE-CHECK ---
             from PyQt6.QtCore import QTimer
-            if hasattr(self, "check_for_update_on_start") and net_status == "Online":
+            if hasattr(self, "check_for_update_on_start") and net_status_key == "Online":
                 QTimer.singleShot(200, self.check_for_update_on_start)
-            elif net_status == "Offline":
-                self.append_info(self.info_text, "⚠️ Update-Check übersprungen (Offline)", "warning")
+            elif net_status_key == "Offline":
+                skip_msg = "⚠️ Update-Check übersprungen (Offline)" if lang == "de" else "⚠️ Update check skipped (Offline)"
+                self.append_info(self.info_text, skip_msg, "warning")
 
         except Exception as e:
             if hasattr(self, "append_info"):
