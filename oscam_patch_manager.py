@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.3"
+APP_VERSION = "2.7.4"
 
 
 # ===================== PATCH DIRS =====================
@@ -280,8 +280,10 @@ def ensure_dir(directory):
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
+
 class StreamToGui(QObject):
     """Sichere Weiterleitung von stdout an die GUI mittels Signalen."""
+
     new_text = pyqtSignal(str)
 
     def __init__(self):
@@ -1141,7 +1143,7 @@ TEXTS = {
         "github_user_email_label": "Git Email:",
         # Active autor repo
         "ok_button": "OK",
-         "repo_dialog_title": "Repository Auswahl",
+        "repo_dialog_title": "Repository Auswahl",
         "repo_dialog_label": "Wähle die gewünschte Repo-URL:",
         "cancel_button": "Abbrechen",
         "config_active_header": "🛠️ <b>Aktive Konfiguration:</b>",
@@ -1444,8 +1446,12 @@ def save_config(cfg, gui_instance=None, silent=False):
         # 3. Logging (NUR wenn NICHT silent)
         if not silent and gui_instance and hasattr(gui_instance, "log_message"):
             lang = str(cfg.get("language", "de")).lower()
-            t = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
-            
+            t = (
+                globals()
+                .get("TEXTS", {})
+                .get(lang, globals().get("TEXTS", {}).get("en", {}))
+            )
+
             cyan = "<span style='color:cyan;'>"
             end = "</span>"
 
@@ -1455,12 +1461,12 @@ def save_config(cfg, gui_instance=None, silent=False):
 
             # Blacklist für interne Werte
             skip_keys = ["color", "last_stream_commit", "s3_patch_path", "auto_update"]
-            
+
             display_map = {
                 "patch_modifier": t.get("auth_label", "Autor"),
                 "EMUREPO": t.get("repo_label", "Repository"),
                 "language": t.get("lang_label", "Sprache"),
-                "commit_count": "commit_count"
+                "commit_count": "commit_count",
             }
 
             for key, value in cfg.items():
@@ -1472,7 +1478,9 @@ def save_config(cfg, gui_instance=None, silent=False):
     except Exception as e:
         # Fehler sollten auch im silent-Mode gemeldet werden
         if gui_instance and hasattr(gui_instance, "log_message"):
-            gui_instance.log_message(f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>")
+            gui_instance.log_message(
+                f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>"
+            )
 
 
 # ===================== CONFIG =====================
@@ -1481,7 +1489,9 @@ def load_config():
     import os, json
 
     CORRECT_URL = "https://github.com/oscam-mirror/oscam-emu.git"
-    base_patch_dir = globals().get("OLD_PATCH_DIR", os.path.dirname(os.path.abspath(__file__)))
+    base_patch_dir = globals().get(
+        "OLD_PATCH_DIR", os.path.dirname(os.path.abspath(__file__))
+    )
 
     default_cfg = {
         "commit_count": 5,
@@ -1496,7 +1506,8 @@ def load_config():
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(default_cfg, f, indent=4, ensure_ascii=False)
-        except: pass
+        except:
+            pass
         return default_cfg.copy()
 
     try:
@@ -1517,7 +1528,7 @@ def load_config():
         # Wir prüfen nur noch, ob die URL viel zu kurz (kaputt) oder leer ist.
         # "oscam-emu.git" wird NICHT mehr erzwungen, damit eigene URLs bleiben!
         current_repo = str(cfg.get("EMUREPO", "")).strip()
-        if len(current_repo) < 8: 
+        if len(current_repo) < 8:
             cfg["EMUREPO"] = CORRECT_URL
             needs_save = True
 
@@ -1526,7 +1537,8 @@ def load_config():
             try:
                 with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                     json.dump(cfg, f, indent=4, ensure_ascii=False)
-            except: pass
+            except:
+                pass
 
         # 5. Globale Variablen synchronisieren (WICHTIG für den Patch-Generator)
         globals()["EMUREPO"] = cfg["EMUREPO"]
@@ -3107,41 +3119,41 @@ class PatchManagerGUI(QWidget):
     def log_message(self, message):
         """Zentrale Funktion: Zeit in ROT, Inhalt in CYAN - sauber untereinander."""
         from datetime import datetime
+
         now = datetime.now().strftime("%H:%M:%S")
-    
+
         # 1. Sicherstellen, dass wir eine neue Zeile haben
-        self.info_text.append("") 
-    
+        self.info_text.append("")
+
         # 2. HTML-Zeile bauen (Zeit ROT, Nachricht CYAN/Inhalt)
         full_html = f"<span style='color:red;'>[{now}]</span> {message}"
-     
+
         # 3. Cursor ans Ende und HTML einfügen
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
         self.info_text.insertHtml(full_html)
-    
+
         # 4. Scrollen
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
-
 
     def scroll_to_bottom_smooth(self):
         """Scrollt das Info-Fenster sanft nach unten."""
         from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
-    
+
         if not hasattr(self, "info_text") or not self.info_text:
             return
 
         scrollbar = self.info_text.verticalScrollBar()
-    
+
         # Animation für die Eigenschaft 'value' der Scrollbar
         self.scroll_anim = QPropertyAnimation(scrollbar, b"value")
         self.scroll_anim.setDuration(300)  # Dauer in ms
         self.scroll_anim.setStartValue(scrollbar.value())
         self.scroll_anim.setEndValue(scrollbar.maximum())
-    
+
         # Eine sanfte Kurve (beschleunigt und bremst ab)
         self.scroll_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.scroll_anim.start()
-    
+
     def show_info(self):
         """Zeigt das Info-Fenster mit spezifischen Farben für Status-Texte."""
         lang = str(getattr(self, "LANG", "de")).lower()
@@ -3321,10 +3333,14 @@ class PatchManagerGUI(QWidget):
 
         current_repo = getattr(self, "EMUREPO", REPO_1)
         lang = getattr(self, "LANG", "de").lower()
-    
+
         # Texte laden
-        lang_dict = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
-    
+        lang_dict = (
+            globals()
+            .get("TEXTS", {})
+            .get(lang, globals().get("TEXTS", {}).get("en", {}))
+        )
+
         title = lang_dict.get("repo_dialog_title", "Repository Auswahl")
         label = lang_dict.get("repo_dialog_label", "Wähle die gewünschte Repo-URL:")
         btn_ok = lang_dict.get("ok_button", "OK")
@@ -3336,10 +3352,10 @@ class PatchManagerGUI(QWidget):
         dialog.setLabelText(label)
         dialog.setComboBoxItems(REPO_OPTIONS)
         dialog.setComboBoxEditable(False)
-    
+
         # Start-Index setzen
         start_idx = 1 if current_repo == REPO_2 else 0
-        dialog.setTextValue(REPO_OPTIONS[start_idx]) 
+        dialog.setTextValue(REPO_OPTIONS[start_idx])
 
         # Buttons übersetzen
         dialog.setOkButtonText(btn_ok)
@@ -3352,7 +3368,7 @@ class PatchManagerGUI(QWidget):
         if ok and new_url:
             # 1. WERTE SETZEN
             self.EMUREPO = new_url
-            globals()["EMUREPO"] = new_url 
+            globals()["EMUREPO"] = new_url
 
             # 2. CONFIG AKTUALISIEREN
             if hasattr(self, "cfg"):
@@ -3372,7 +3388,9 @@ class PatchManagerGUI(QWidget):
 
                 except Exception as e:
                     if hasattr(self, "log_message"):
-                        self.log_message(f"<span style='color:orange;'>❌ Fehler: {e}</span>")
+                        self.log_message(
+                            f"<span style='color:orange;'>❌ Fehler: {e}</span>"
+                        )
 
     def change_modifier_name(self):
         """
@@ -3383,15 +3401,21 @@ class PatchManagerGUI(QWidget):
 
         current_author = getattr(self, "patch_modifier", "speedy005")
         lang = getattr(self, "LANG", "de").lower()
-    
+
         # TEXTS laden
-        lang_dict = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
+        lang_dict = (
+            globals()
+            .get("TEXTS", {})
+            .get(lang, globals().get("TEXTS", {}).get("en", {}))
+        )
 
         # Texte aus deinem Dictionary (oder Fallbacks)
         title_auth = lang_dict.get("mod_dialog_title", "Patch Autor")
         label_auth = lang_dict.get("mod_dialog_label", "Name des Autors:")
         btn_ok = lang_dict.get("ok_button", "OK")
-        btn_cancel = lang_dict.get("cancel_button", "Abbrechen") # Hier wird "Abbrechen" gesetzt
+        btn_cancel = lang_dict.get(
+            "cancel_button", "Abbrechen"
+        )  # Hier wird "Abbrechen" gesetzt
 
         # --- Dialog manuell konfigurieren für lokalisierte Buttons ---
         dialog = QInputDialog(self)
@@ -3399,7 +3423,7 @@ class PatchManagerGUI(QWidget):
         dialog.setLabelText(label_auth)
         dialog.setTextValue(current_author)
         dialog.setTextEchoMode(QLineEdit.EchoMode.Normal)
-    
+
         # Hier werden die Buttons übersetzt
         dialog.setOkButtonText(btn_ok)
         dialog.setCancelButtonText(btn_cancel)
@@ -3428,7 +3452,9 @@ class PatchManagerGUI(QWidget):
 
                 except Exception as e:
                     if hasattr(self, "log_message"):
-                        self.log_message(f"<span style='color:orange;'>❌ Fehler: {e}</span>")
+                        self.log_message(
+                            f"<span style='color:orange;'>❌ Fehler: {e}</span>"
+                        )
 
     def collect_and_save(self):
         """Speichert leise und aktualisiert die Farben sofort."""
@@ -4109,8 +4135,12 @@ class PatchManagerGUI(QWidget):
 
         # 2. Farben & Variablen
         colors = {
-            "success": "#00FF00", "warning": "orange", "error": "red",
-            "info": "yellow", "white": "white", "raw": "transparent",
+            "success": "#00FF00",
+            "warning": "orange",
+            "error": "red",
+            "info": "yellow",
+            "white": "white",
+            "raw": "transparent",
         }
         lvl_str = str(level).lower()
         current_color = colors.get(lvl_str, "white")
@@ -4125,7 +4155,9 @@ class PatchManagerGUI(QWidget):
         if lvl_str == "raw":
             html_output += f'<div style="display:inline;">{safe_text}</div>'
         else:
-            html_output += f'<div style="color:{current_color}; display:inline;">{safe_text}</div>'
+            html_output += (
+                f'<div style="color:{current_color}; display:inline;">{safe_text}</div>'
+            )
 
         # 4. Am Ende einfügen
         cursor = widget.textCursor()
@@ -4134,9 +4166,9 @@ class PatchManagerGUI(QWidget):
         cursor.insertHtml(html_output)
 
         # 5. FIX FÜR DIE FEHLERMELDUNG (MINGW64)
-        QApplication.processEvents() 
+        QApplication.processEvents()
         scrollbar = widget.verticalScrollBar()
-        
+
         if scrollbar:
             # Animation instanziieren, falls nicht vorhanden
             if not hasattr(self, "_scroll_anim") or self._scroll_anim is None:
@@ -4151,7 +4183,7 @@ class PatchManagerGUI(QWidget):
             # Zielobjekt neu binden
             if self._scroll_anim.targetObject() != scrollbar:
                 self._scroll_anim.setTargetObject(scrollbar)
-            
+
             # Animation nur starten, wenn wir nicht schon am Ende sind
             if scrollbar.value() < scrollbar.maximum():
                 self._scroll_anim.setDuration(300)
@@ -4159,7 +4191,7 @@ class PatchManagerGUI(QWidget):
                 self._scroll_anim.setEndValue(scrollbar.maximum())
                 self._scroll_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
                 self._scroll_anim.start()
-        
+
         widget.ensureCursorVisible()
 
     def run_background_task(self, fn, *args, **kwargs):
@@ -4174,7 +4206,9 @@ class PatchManagerGUI(QWidget):
         )
         self.worker.start()
 
-    def restart_application_with_info(self, checked=False, progress_callback=None, info_widget=None):
+    def restart_application_with_info(
+        self, checked=False, progress_callback=None, info_widget=None
+    ):
         """
         Plattformübergreifender Neustart: Fix für Git Bash (Windows) Leerzeichen-Fehler.
         """
@@ -4188,7 +4222,7 @@ class PatchManagerGUI(QWidget):
         try:
             # Zugriff auf die globalen Texte
             lang_pack = globals().get("TEXTS", {}).get(lang_key, {})
-            if not lang_pack: # Fallback auf EN
+            if not lang_pack:  # Fallback auf EN
                 lang_pack = globals().get("TEXTS", {}).get("en", {})
         except Exception:
             lang_pack = {}
@@ -4197,10 +4231,18 @@ class PatchManagerGUI(QWidget):
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Icon.Question)
         msg.setWindowTitle(lang_pack.get("restart_tool", "Neustart"))
-        msg.setText(lang_pack.get("restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"))
-        
-        yes_btn = msg.addButton(lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
-        no_btn = msg.addButton(lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
+        msg.setText(
+            lang_pack.get(
+                "restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"
+            )
+        )
+
+        yes_btn = msg.addButton(
+            lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+        )
+        no_btn = msg.addButton(
+            lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+        )
 
         msg.exec()
 
@@ -4208,7 +4250,7 @@ class PatchManagerGUI(QWidget):
             # Sound via globaler safe_play Funktion
             if "safe_play" in globals():
                 safe_play("service-logout.oga")
-            
+
             # --- SPEICHERN VOR NEUSTART ---
             try:
                 if hasattr(self, "get_gui_settings"):
@@ -4229,18 +4271,18 @@ class PatchManagerGUI(QWidget):
 
                 # FIX: In Git Bash unter Windows hilft shell=False mit einer Liste,
                 # aber wir stellen sicher, dass die Pfade absolut sauber übergeben werden.
-                if os.name == 'nt':
+                if os.name == "nt":
                     # Windows-Spezifisch: Prozess abkapseln (verhindert hängende Terminals)
                     subprocess.Popen(
                         [python_exe, script_path] + cmd_args,
                         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
                         close_fds=True,
-                        shell=False
+                        shell=False,
                     )
                 else:
                     # Linux/macOS
                     subprocess.Popen([python_exe, script_path] + cmd_args)
-                
+
                 # --- HOVER FIX VOR DEM BEENDEN ---
                 # Falls repaint_ui_colors existiert, triggern wir es kurz (kosmetisch)
                 if hasattr(self, "repaint_ui_colors"):
@@ -4272,17 +4314,18 @@ class PatchManagerGUI(QWidget):
                 self.cfg["language"] = getattr(self, "LANG", "DE").upper()
                 if "save_config" in globals():
                     save_config(self.cfg)
-        except: pass
+        except:
+            pass
 
         safe_play("service-logout.oga")
 
         # PFAD-FIX für Windows (Leerzeichen in 'Program Files')
         python = sys.executable
         script = os.path.abspath(__file__)
-        
+
         # Subprocess mit Liste verhindert das Abschneiden des Pfades
         subprocess.Popen([python, script] + sys.argv[1:])
-        
+
         QApplication.quit()
         sys.exit(0)
 
@@ -4730,53 +4773,79 @@ class PatchManagerGUI(QWidget):
             self.update_plugin_button_state()
             return None
 
-    def plugin_update_button_clicked(self, checked=False, info_widget=None, progress_callback=None):
+    def plugin_update_button_clicked(
+        self, checked=False, info_widget=None, progress_callback=None
+    ):
         """
         Geprüfter Update-Callback: Vergleicht Versionen präzise und behebt den Hover-Effekt.
         """
         from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
         from PyQt6.QtGui import QTextCursor
         import requests, time
-        
+
         # Sicherstellen, dass die Version-Klasse verfügbar ist
         try:
             from packaging.version import Version
         except ImportError:
+
             class Version:
-                def __init__(self, v): 
+                def __init__(self, v):
                     # Säubert Strings wie '2.6.5\n' zu [2, 6, 5]
-                    self.v = [int(x) for x in str(v).replace('v','').strip().split('.') if x.strip().isdigit()]
-                def __gt__(self, other): return self.v > other.v
-                def __lt__(self, other): return self.v < other.v
-                def __eq__(self, other): return self.v == other.v
+                    self.v = [
+                        int(x)
+                        for x in str(v).replace("v", "").strip().split(".")
+                        if x.strip().isdigit()
+                    ]
+
+                def __gt__(self, other):
+                    return self.v > other.v
+
+                def __lt__(self, other):
+                    return self.v < other.v
+
+                def __eq__(self, other):
+                    return self.v == other.v
 
         lang_key = getattr(self, "LANG", "en").lower()
         widget = info_widget or getattr(self, "info_text", None)
-        progress = progress_callback or (self.progress_bar.setValue if hasattr(self, "progress_bar") else None)
+        progress = progress_callback or (
+            self.progress_bar.setValue if hasattr(self, "progress_bar") else None
+        )
 
         if hasattr(self, "progress_bar"):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
 
         def log(text_key, level="info", **kwargs):
-            colors = {"success": "green", "warning": "orange", "error": "red", "info": "blue"}
+            colors = {
+                "success": "green",
+                "warning": "orange",
+                "error": "red",
+                "info": "blue",
+            }
             color = colors.get(level, "gray")
             # Hole Template aus globaler TEXTS Struktur
-            text_template = TEXTS.get(lang_key, TEXTS.get("en", {})).get(text_key, text_key)
+            text_template = TEXTS.get(lang_key, TEXTS.get("en", {})).get(
+                text_key, text_key
+            )
             try:
-                safe_kwargs = {"current": APP_VERSION, "latest": getattr(self, "latest_version", "???")}
+                safe_kwargs = {
+                    "current": APP_VERSION,
+                    "latest": getattr(self, "latest_version", "???"),
+                }
                 safe_kwargs.update(kwargs)
                 text = text_template.format(**safe_kwargs)
-            except: 
+            except:
                 text = text_template
-            
+
             if isinstance(widget, QTextEdit):
                 widget.append(f'<span style="color:{color}">{text}</span>')
                 widget.moveCursor(QTextCursor.MoveOperation.End)
                 QApplication.processEvents()
 
         log("update_check_start", "info")
-        if progress: progress(20)
+        if progress:
+            progress(20)
 
         try:
             # FIX: Syntaxfehler behoben (Klammer geschlossen) und Zeitstempel für Cache-Bypass
@@ -4785,56 +4854,76 @@ class PatchManagerGUI(QWidget):
                 "speedy005/Oscam-Emu-patch-Manager/main/version.txt"
                 f"?t={int(time.time())}"
             )
-            
+
             resp = requests.get(version_url, timeout=10)
             resp.raise_for_status()
 
             # Versionen extrem sauber strippen
             latest_str = resp.text.strip().lower().replace("v", "").strip()
             current_str = APP_VERSION.strip().lower().replace("v", "").strip()
-            
+
             self.latest_version = latest_str
             v_latest = Version(latest_str)
             v_current = Version(current_str)
 
-            if progress: progress(60)
+            if progress:
+                progress(60)
 
             # --- PRÄZISER VERGLEICH ---
             # Nur fortfahren, wenn Online-Version ECHTE Nummer größer als Lokal
             if v_latest > v_current:
                 # UPDATE VERFÜGBAR
-                if progress: progress(80)
+                if progress:
+                    progress(80)
                 msg_box = QMessageBox(self)
                 msg_box.setIcon(QMessageBox.Icon.Question)
-                msg_box.setWindowTitle(TEXTS.get(lang_key, TEXTS["en"]).get("update_available_title", "Update"))
-                
-                raw_msg = TEXTS.get(lang_key, TEXTS["en"]).get("update_available_msg", "Neu: {latest} (Aktuell: {current}). Update?")
+                msg_box.setWindowTitle(
+                    TEXTS.get(lang_key, TEXTS["en"]).get(
+                        "update_available_title", "Update"
+                    )
+                )
+
+                raw_msg = TEXTS.get(lang_key, TEXTS["en"]).get(
+                    "update_available_msg",
+                    "Neu: {latest} (Aktuell: {current}). Update?",
+                )
                 msg_box.setText(raw_msg.format(current=APP_VERSION, latest=latest_str))
-                msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                msg_box.setStandardButtons(
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
 
                 # Buttons übersetzen
                 btn_y = msg_box.button(QMessageBox.StandardButton.Yes)
-                if btn_y: btn_y.setText(TEXTS.get(lang_key, {}).get("yes", "Ja"))
+                if btn_y:
+                    btn_y.setText(TEXTS.get(lang_key, {}).get("yes", "Ja"))
                 btn_no = msg_box.button(QMessageBox.StandardButton.No)
-                if btn_no: btn_no.setText(TEXTS.get(lang_key, {}).get("no", "Nein"))
+                if btn_no:
+                    btn_no.setText(TEXTS.get(lang_key, {}).get("no", "Nein"))
 
                 if msg_box.exec() == QMessageBox.StandardButton.Yes:
                     if hasattr(self, "plugin_update_action"):
-                        self.plugin_update_action(latest_version=latest_str, progress_callback=progress)
+                        self.plugin_update_action(
+                            latest_version=latest_str, progress_callback=progress
+                        )
                 else:
                     log("update_declined", "info")
-                    if progress: progress(100)
+                    if progress:
+                        progress(100)
             else:
                 # KEIN UPDATE (Version ist gleich oder lokal sogar neuer)
-                msg_templ = TEXTS.get(lang_key, TEXTS["en"]).get("up_to_date", "Plugin aktuell (v{v})")
+                msg_templ = TEXTS.get(lang_key, TEXTS["en"]).get(
+                    "up_to_date", "Plugin aktuell (v{v})"
+                )
                 QMessageBox.information(self, "Update", msg_templ.format(v=APP_VERSION))
                 log("update_no_update", "success")
-                if progress: progress(100)
+                if progress:
+                    progress(100)
 
         except Exception as e:
             log("update_fail", "error", error=str(e))
-            if progress: progress(0)
-        
+            if progress:
+                progress(0)
+
         # --- FINALER HOVER & COLOR FIX ---
         # Stellt sicher, dass nach dem Dialog alle Buttons (auch btn_check_commit)
         # ihr korrektes Design zurückerhalten.
@@ -5020,7 +5109,13 @@ class PatchManagerGUI(QWidget):
             SZ_BIG, SZ_NORM = "26px", "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
-            C_ORANGE, C_GREEN, C_BLUE, C_LINE, C_ERR = "#F37804", "#00FF00", "#00ADFF", "#808080", "#FF0000"
+            C_ORANGE, C_GREEN, C_BLUE, C_LINE, C_ERR = (
+                "#F37804",
+                "#00FF00",
+                "#00ADFF",
+                "#808080",
+                "#FF0000",
+            )
 
             # 2. LOG-FENSTER VORBEREITEN
             if hasattr(self, "info_text") and self.info_text:
@@ -5035,14 +5130,20 @@ class PatchManagerGUI(QWidget):
 
             # Texte aus dem Dictionary laden (txt wird hier definiert)
             lang = getattr(self, "LANG", "de").lower()
-            txt = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
-            
+            txt = (
+                globals()
+                .get("TEXTS", {})
+                .get(lang, globals().get("TEXTS", {}).get("en", {}))
+            )
+
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
             # --- BLOCK 1: START & TOOLS ---
             start_msg = txt.get("start_check", "Starte System-Check...")
-            output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>')
+            output.append(
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span>'
+            )
 
             tools = ["git"]
             if platform.system() != "Windows":
@@ -5051,48 +5152,71 @@ class PatchManagerGUI(QWidget):
             for name in tools:
                 found = shutil.which(name)
                 color, icon = (C_GREEN, "✅") if found else (C_ERR, "❌")
-                status = txt.get("found", "gefunden") if found else txt.get("missing", "FEHLT!")
-                output.append(f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>')
+                status = (
+                    txt.get("found", "gefunden")
+                    if found
+                    else txt.get("missing", "FEHLT!")
+                )
+                output.append(
+                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span>'
+                )
 
             # --- BLOCK 2: INTERNET-CHECK (ÜBERSETZT) ---
             output.append(f'<span style="color:{C_LINE}">{"." * 45}</span>')
             net_msg = txt.get("net_check", "Prüfe Internetverbindung...")
-            output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>🔍 {net_msg}</b></span>')
-            
+            output.append(
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>🔍 {net_msg}</b></span>'
+            )
+
             try:
                 # Prüfe Verbindung
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
                 net_status_text = txt.get("net_online", "Online")
-                net_status_key = "Online" # Interner Status für Logik
+                net_status_key = "Online"  # Interner Status für Logik
                 net_col, net_icon = C_GREEN, "✅"
             except:
                 net_status_text = txt.get("net_offline", "Offline")
                 net_status_key = "Offline"
                 net_col, net_icon = C_ERR, "❌"
 
-            output.append(f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Status : {net_status_text}</b></span>')
+            output.append(
+                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Status : {net_status_text}</b></span>'
+            )
             output.append(f'<span style="color:{C_LINE}">{"-" * 45}</span>')
 
             # --- BLOCK 3: UPDATE TITEL ---
             upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
-            output.append(f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>')
+            output.append(
+                f'<span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span>'
+            )
 
             # Gesamte HTML-Ausgabe an den Infoscreen senden
             self.append_info(self.info_text, "\n".join(output), "raw")
 
             # --- ÜBERGABE AN UPDATE-CHECK ---
             from PyQt6.QtCore import QTimer
-            if hasattr(self, "check_for_update_on_start") and net_status_key == "Online":
+
+            if (
+                hasattr(self, "check_for_update_on_start")
+                and net_status_key == "Online"
+            ):
                 QTimer.singleShot(200, self.check_for_update_on_start)
             elif net_status_key == "Offline":
-                skip_msg = "⚠️ Update-Check übersprungen (Offline)" if lang == "de" else "⚠️ Update check skipped (Offline)"
+                skip_msg = (
+                    "⚠️ Update-Check übersprungen (Offline)"
+                    if lang == "de"
+                    else "⚠️ Update check skipped (Offline)"
+                )
                 self.append_info(self.info_text, skip_msg, "warning")
 
         except Exception as e:
             if hasattr(self, "append_info"):
-                self.append_info(getattr(self, "info_text", None), f"❌ Error: {e}", "error")
+                self.append_info(
+                    getattr(self, "info_text", None), f"❌ Error: {e}", "error"
+                )
         finally:
             from PyQt6.QtCore import QTimer
+
             QTimer.singleShot(1000, lambda: setattr(self, "_checking_active", False))
 
     def closeEvent(self, event):
@@ -5390,9 +5514,7 @@ class PatchManagerGUI(QWidget):
         self.color_label = make_label(self.get_t("color_label", "Farbe:"))
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
-        saved_color = self.cfg.get(
-            "theme_color", "Classics"
-        )
+        saved_color = self.cfg.get("theme_color", "Classics")
         index = self.color_box.findText(saved_color)
         if index >= 0:
             self.color_box.setCurrentIndex(index)
@@ -5467,14 +5589,13 @@ class PatchManagerGUI(QWidget):
         # Wir nutzen get_t für die Übersetzung, aber einen kurzen Default-Wert
         commit_btn_txt = self.get_t("check_commit_button_short", "🔄 Check Commit")
         tooltip_text = self.get_t(
-            "check_commit_tooltip",
-            "Prüfe auf neue Commits im Streamboard-Repository."
+            "check_commit_tooltip", "Prüfe auf neue Commits im Streamboard-Repository."
         )
-        
+
         self.btn_check_commit = QPushButton(commit_btn_txt)
         self.btn_check_commit.setFixedSize(160, CONTROL_HEIGHT)
 
-        # WICHTIG: Hier darf KEIN eigener Textblock stehen. 
+        # WICHTIG: Hier darf KEIN eigener Textblock stehen.
         # Wir weisen EXAKT die gleiche Variable zu wie bei btn_repo_url!
         self.btn_check_commit.setStyleSheet(button_style)
 
@@ -5499,9 +5620,9 @@ class PatchManagerGUI(QWidget):
         controls_layout.addSpacing(10)
         controls_layout.addWidget(self.btn_repo_url)
         controls_layout.addSpacing(10)
-        
+
         # Den Button hier final hinzufügen
-        controls_layout.addWidget(self.btn_check_commit) 
+        controls_layout.addWidget(self.btn_check_commit)
 
         controls_layout.addStretch(1)
 
@@ -5544,11 +5665,7 @@ class PatchManagerGUI(QWidget):
 
         self.setWindowTitle(
             f"OSCam Toolkit v{APP_VERSION} | {getattr(self, 'patch_modifier', 'speedy005')}"
-)
-
-    def update_buttons_language(self):
-        self.github_upload_patch_button.setText(TEXTS[LANG]["github_upload_patch"])
-        self.github_upload_emu_button.setText(TEXTS[LANG]["github_upload_emu"])
+        )
 
     # =====================
     # BUTTON & COLOR HANDLING
@@ -5610,19 +5727,25 @@ class PatchManagerGUI(QWidget):
         lang = getattr(self, "LANG", "de").lower()
         cyan = "<span style='color:cyan;'>"
         end = "</span>"
-    
+
         # Lokalisierte Titel für die MessageBox
         mb_title = "Commit-Check"
-        msg_no_hash = "Kein Commit-Hash gefunden." if lang == "de" else "No commit hash found."
-        msg_up_to_date = "Kein neuer Commit vorhanden." if lang == "de" else "No new commit found."
-        msg_new_found = "Neuer Commit gefunden:\n" if lang == "de" else "New commit found:\n"
+        msg_no_hash = (
+            "Kein Commit-Hash gefunden." if lang == "de" else "No commit hash found."
+        )
+        msg_up_to_date = (
+            "Kein neuer Commit vorhanden." if lang == "de" else "No new commit found."
+        )
+        msg_new_found = (
+            "Neuer Commit gefunden:\n" if lang == "de" else "New commit found:\n"
+        )
 
         try:
             # Seite abrufen
             url = "https://git.streamboard.tv/common/oscam/-/commits/c656fef9b74e90533a1d756eb2e1c344ce4bbfcc"
             resp = requests.get(url, timeout=8)
             resp.raise_for_status()
-    
+
             m = re.search(r"([a-f0-9]{40})", resp.text)
             if not m:
                 self.log_message(f"<span style='color:orange;'>⚠️ {msg_no_hash}</span>")
@@ -5634,18 +5757,22 @@ class PatchManagerGUI(QWidget):
 
             if newest_hash == last_known:
                 # Im Infoscreen loggen & Popup zeigen
-                self.log_message(f"{cyan}ℹ️ {msg_up_to_date} (Hash: {newest_hash[:7]}){end}")
+                self.log_message(
+                    f"{cyan}ℹ️ {msg_up_to_date} (Hash: {newest_hash[:7]}){end}"
+                )
                 QMessageBox.information(self, mb_title, msg_up_to_date)
             else:
                 # Log im Infoscreen (NUR die Fundmeldung)
                 self.log_message(f"{cyan}🆕 {msg_new_found}{newest_hash[:7]}...{end}")
-        
+
                 # POPUP bei neuem Commit
-                QMessageBox.information(self, mb_title, f"{msg_new_found}{newest_hash[:7]}…")
+                QMessageBox.information(
+                    self, mb_title, f"{msg_new_found}{newest_hash[:7]}…"
+                )
 
                 # Hash in Config speichern
                 self.cfg["last_stream_commit"] = newest_hash
-        
+
                 # Speichern triggern (SILENT=TRUE unterdrückt die Einstellungs-Liste)
                 if "save_config" in globals():
                     globals()["save_config"](self.cfg, gui_instance=self, silent=True)
@@ -5655,8 +5782,6 @@ class PatchManagerGUI(QWidget):
             self.log_message(f"<span style='color:red;'>{error_msg}</span>")
             QMessageBox.critical(self, mb_title, error_msg)
 
-
-    
     def on_clean_emu_clicked(self):
         """Sorgt dafür, dass das Log vor der Bereinigung englisch wird."""
         # 1. Sprache/UI synchronisieren (löscht alte deutsche Texte im Log)
@@ -5999,10 +6124,10 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
 
-         # 1. SPRACHE ERMITTELN & SETZEN
+        # 1. SPRACHE ERMITTELN & SETZEN
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if "EN" in selected else "de"
-    
+
         # Globales Dictionary für diese Methode laden
         lang_dict = globals().get("TEXTS", {}).get(self.LANG, {})
 
@@ -6018,7 +6143,7 @@ class PatchManagerGUI(QWidget):
             self.update_language()
 
         # --- BUTTON-TEXTE AUS DICTIONARY ODER LOGIK ---
-    
+
         # 1. Patch Autor Button
         if hasattr(self, "btn_modifier"):
             auth_label = lang_dict.get("auth_label", "Autor")
@@ -6037,7 +6162,8 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "btn_check_commit"):
             self.btn_check_commit.setText("🔄 Check Commit")
             commit_tt = (
-                "Prüfe auf neue Commits" if self.LANG == "de" 
+                "Prüfe auf neue Commits"
+                if self.LANG == "de"
                 else "Check for new commits"
             )
             self.btn_check_commit.setToolTip(commit_tt)
@@ -6054,7 +6180,7 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
             # Optional: Hier NICHT clear() nutzen, wenn du das Config-Log behalten willst!
-            # self.info_text.clear() 
+            # self.info_text.clear()
             QApplication.processEvents()
 
             if hasattr(self, "run_full_system_check"):
