@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.6.8"
+APP_VERSION = "2.6.9"
 
 
 # ===================== PATCH DIRS =====================
@@ -4061,141 +4061,97 @@ class PatchManagerGUI(QWidget):
         )
         self.worker.start()
 
-    def restart_application_with_info(
-        self, checked=False, progress_callback=None, info_widget=None
-    ):
+    def restart_application_with_info(self, checked=False, progress_callback=None, info_widget=None):
         """
-        Startet das Tool neu via Button-Klick und speichert vorher die Config.
-        Plattformübergreifend für Windows und Linux optimiert (Absturzsicher).
+        Startet das Tool neu: Fix für Leerzeichen in Pfaden (Windows) und Linux-Support.
         """
         from PyQt6.QtWidgets import QMessageBox, QTextEdit, QApplication
         import sys
         import os
         import subprocess
-        import json
-        import platform
 
-        # 1. Widget & Sprache sicherstellen
-        widget = info_widget or getattr(self, "info_text", None)
-        lang_key = str(getattr(self, "LANG", "de")).lower()
-
-        # Texte aus dem globalen TEXTS Dictionary laden
+        # 1. Sprache & Texte sicherstellen
+        lang_key = getattr(self, "LANG", "de").lower()
+        # Falls TEXTS global definiert ist
         try:
             lang_pack = TEXTS.get(lang_key, TEXTS.get("en", {}))
-        except (NameError, KeyError):
+        except NameError:
             lang_pack = {}
 
         # 2. Dialog aufbauen
         msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Question)
         msg.setWindowTitle(lang_pack.get("restart_tool", "Neustart"))
-        msg.setText(
-            lang_pack.get(
-                "restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"
-            )
-        )
-
-        yes_text = lang_pack.get("yes", "Ja")
-        no_text = lang_pack.get("no", "Nein")
-        yes_button = msg.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
-        no_button = msg.addButton(no_text, QMessageBox.ButtonRole.NoRole)
+        msg.setText(lang_pack.get("restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"))
+        
+        yes_btn = msg.addButton(lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
+        no_btn = msg.addButton(lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
 
         msg.exec()
 
-        if msg.clickedButton() == yes_button:
-            # --- SICHERER SOUND VOR DEM NEUSTART ---
-            # safe_play verhindert den Absturz, falls paplay fehlt
+        if msg.clickedButton() == yes_btn:
+            # Sound abspielen (plattformabhängig via deine safe_play Funktion)
             safe_play("service-logout.oga")
-
-            # --- SPEICHERN DER AKTUELLEN EINSTELLUNGEN ---
+            
+            # --- SPEICHERN VOR NEUSTART ---
             try:
                 if hasattr(self, "get_gui_settings"):
-                    current_config = self.get_gui_settings()
-                else:
-                    current_config = {
-                        "commit_count": getattr(self, "commit_count", 5),
-                        "color": getattr(self, "current_color", "s"),
-                        "language": lang_key.upper(),
-                        "s3_patch_path": getattr(self, "OLD_PATCH_DIR", OLD_PATCH_DIR),
-                    }
-
-                if "save_config" in globals():
-                    globals()["save_config"](current_config)
-                else:
-                    # Fallback Pfad ermitteln
-                    config_path = globals().get(
-                        "CONFIG_FILE",
-                        os.path.join(os.path.dirname(__file__), "config.json"),
-                    )
-                    with open(config_path, "w", encoding="utf-8") as f:
-                        json.dump(current_config, f, indent=2, ensure_ascii=False)
+                    cfg = self.get_gui_settings()
+                    if "save_config" in globals():
+                        globals()["save_config"](cfg)
+                elif hasattr(self, "cfg"):
+                    if "save_config" in globals():
+                        globals()["save_config"](self.cfg)
             except Exception as e:
-                print(f"⚠️ Fehler beim Speichern vor Neustart: {e}")
+                print(f"⚠️ Save error before restart: {e}")
 
-            # Info im GUI-Log (falls Widget noch existiert)
-            info_msg = lang_pack.get("restart_tool_info", "Neustart läuft...")
-            if isinstance(widget, QTextEdit):
-                widget.append(f'<br><span style="color:gray">{info_msg}</span>')
-                QApplication.processEvents()
-
-            # 3. Plattformübergreifend Neustarten
+            # --- PLATTFORMÜBERGREIFENDER NEUSTART (WINDOWS & LINUX FIX) ---
             try:
-                executable = sys.executable
-                args = sys.argv[:]
+                python = sys.executable
+                script = os.path.abspath(__file__)
+                args = sys.argv[1:]
 
-                if os.name != "nt":
-                    # Linux: Aktuellen Prozess durch neuen ersetzen
-                    os.execl(executable, executable, *args)
-                else:
-                    # Windows: Neuen Prozess starten und alten beenden
-                    subprocess.Popen([executable] + args)
-                    QApplication.instance().quit()
-            except Exception as e:
-                # Letzter Rettungsversuch über System-Call
-                print(f"Kritischer Fehler beim Neustart: {e}")
-                os.system(f"{sys.executable} {' '.join(sys.argv)} &")
+                # Unter Windows (nt) müssen wir sicherstellen, dass Leerzeichen im Pfad 
+                # den Prozess nicht killen. Popen mit Liste macht das automatisch.
+                subprocess.Popen([python, script] + args)
+                
+                # App sauber schließen
                 QApplication.instance().quit()
+                sys.exit(0)
+            except Exception as e:
+                # Letzter Notfall-Versuch falls Popen scheitert
+                print(f"❌ Neustart fehlgeschlagen: {e}")
+                QApplication.quit()
         else:
-            # Falls "Nein" geklickt wurde, Fortschritt auf 100% setzen
+            # Wenn "Nein", Fortschrittsbalken auf 100% (falls vorhanden)
             if progress_callback:
-                try:
-                    progress_callback(100)
-                except:
-                    pass
+                progress_callback(100)
 
     def restart_application(self, *args, **kwargs):
         import subprocess
         import sys
         import os
-        import platform
         from PyQt6.QtWidgets import QApplication
 
-        # --- SPEICHER-FIX VOR NEUSTART ---
+        # Speichern vor dem Exit
         try:
-            if "current_color_name" in globals():
-                self.cfg["color"] = globals()["current_color_name"]
+            if hasattr(self, "cfg"):
+                self.cfg["language"] = getattr(self, "LANG", "DE").upper()
+                if "save_config" in globals():
+                    save_config(self.cfg)
+        except: pass
 
-            self.cfg["language"] = getattr(self, "LANG", "DE").upper()
-
-            if "save_config" in globals():
-                save_config(self.cfg)
-                print(f"✅ Restart-Save: {self.cfg['color']} wurde gesichert.")
-        except Exception as e:
-            print(f"⚠️ Fehler beim Sichern vor Restart: {e}")
-
-        # --- SICHERER SOUND BEIM NEUSTART (Linux) ---
-        # Nutzt die globale Master-Funktion (Absturzsicher)
         safe_play("service-logout.oga")
 
-        # ---------------------------------
+        # PFAD-FIX für Windows (Leerzeichen in 'Program Files')
         python = sys.executable
         script = os.path.abspath(__file__)
-        args_list = sys.argv
-
-        # Neuen Prozess starten
-        subprocess.Popen([python, script] + args_list[1:])
-
-        # Aktuelle Instanz beenden
+        
+        # Subprocess mit Liste verhindert das Abschneiden des Pfades
+        subprocess.Popen([python, script] + sys.argv[1:])
+        
         QApplication.quit()
+        sys.exit(0)
 
     # ===================== ZIP PATCH =====================
     def zip_patch(self, info_widget=None, progress_callback=None):
