@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.6.9"
+APP_VERSION = "2.7.0"
 
 
 # ===================== PATCH DIRS =====================
@@ -4063,7 +4063,7 @@ class PatchManagerGUI(QWidget):
 
     def restart_application_with_info(self, checked=False, progress_callback=None, info_widget=None):
         """
-        Startet das Tool neu: Fix für Leerzeichen in Pfaden (Windows) und Linux-Support.
+        Plattformübergreifender Neustart: Fix für Git Bash (Windows) Leerzeichen-Fehler.
         """
         from PyQt6.QtWidgets import QMessageBox, QTextEdit, QApplication
         import sys
@@ -4072,10 +4072,12 @@ class PatchManagerGUI(QWidget):
 
         # 1. Sprache & Texte sicherstellen
         lang_key = getattr(self, "LANG", "de").lower()
-        # Falls TEXTS global definiert ist
         try:
-            lang_pack = TEXTS.get(lang_key, TEXTS.get("en", {}))
-        except NameError:
+            # Zugriff auf die globalen Texte
+            lang_pack = globals().get("TEXTS", {}).get(lang_key, {})
+            if not lang_pack: # Fallback auf EN
+                lang_pack = globals().get("TEXTS", {}).get("en", {})
+        except Exception:
             lang_pack = {}
 
         # 2. Dialog aufbauen
@@ -4090,8 +4092,9 @@ class PatchManagerGUI(QWidget):
         msg.exec()
 
         if msg.clickedButton() == yes_btn:
-            # Sound abspielen (plattformabhängig via deine safe_play Funktion)
-            safe_play("service-logout.oga")
+            # Sound via globaler safe_play Funktion
+            if "safe_play" in globals():
+                safe_play("service-logout.oga")
             
             # --- SPEICHERN VOR NEUSTART ---
             try:
@@ -4105,27 +4108,44 @@ class PatchManagerGUI(QWidget):
             except Exception as e:
                 print(f"⚠️ Save error before restart: {e}")
 
-            # --- PLATTFORMÜBERGREIFENDER NEUSTART (WINDOWS & LINUX FIX) ---
+            # --- PLATTFORMÜBERGREIFENDER NEUSTART (GIT BASH & WINDOWS SPACE FIX) ---
             try:
-                python = sys.executable
-                script = os.path.abspath(__file__)
-                args = sys.argv[1:]
+                python_exe = sys.executable
+                script_path = os.path.abspath(__file__)
+                cmd_args = sys.argv[1:]
 
-                # Unter Windows (nt) müssen wir sicherstellen, dass Leerzeichen im Pfad 
-                # den Prozess nicht killen. Popen mit Liste macht das automatisch.
-                subprocess.Popen([python, script] + args)
+                # FIX: In Git Bash unter Windows hilft shell=False mit einer Liste,
+                # aber wir stellen sicher, dass die Pfade absolut sauber übergeben werden.
+                if os.name == 'nt':
+                    # Windows-Spezifisch: Prozess abkapseln (verhindert hängende Terminals)
+                    subprocess.Popen(
+                        [python_exe, script_path] + cmd_args,
+                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                        close_fds=True,
+                        shell=False
+                    )
+                else:
+                    # Linux/macOS
+                    subprocess.Popen([python_exe, script_path] + cmd_args)
                 
-                # App sauber schließen
+                # --- HOVER FIX VOR DEM BEENDEN ---
+                # Falls repaint_ui_colors existiert, triggern wir es kurz (kosmetisch)
+                if hasattr(self, "repaint_ui_colors"):
+                    self.repaint_ui_colors()
+
                 QApplication.instance().quit()
                 sys.exit(0)
             except Exception as e:
-                # Letzter Notfall-Versuch falls Popen scheitert
-                print(f"❌ Neustart fehlgeschlagen: {e}")
+                print(f"❌ Kritischer Fehler beim Neustart: {e}")
+                # Not-Ausgang
                 QApplication.quit()
         else:
-            # Wenn "Nein", Fortschrittsbalken auf 100% (falls vorhanden)
+            # Bei "Nein" Fortschritt abschließen
             if progress_callback:
-                progress_callback(100)
+                try:
+                    progress_callback(100)
+                except:
+                    pass
 
     def restart_application(self, *args, **kwargs):
         import subprocess
