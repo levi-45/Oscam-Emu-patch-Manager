@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.1"
+APP_VERSION = "2.7.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -875,9 +875,19 @@ TEXTS = {
         "github_upload_start": "🚀 GitHub upload started, please wait...",
         "github_emu_git_revision_failed": "⚠️ Could not retrieve revision: {error}",
         # Patch modifier
-        "mod_dialog_title": "Change Modifier",
+        "ok_button": "OK",
+        "config_saved": "Settings updated",
+        "auth_label": "Author",
+        "repo_label": "Repository",
+        "lang_label": "Language",
+        "dir_label": "Patch Directory",
+        "auto_update_label": "Auto-Update",
+        "cancel_button": "Cancel",
+        "mod_dialog_title": "Change Author",
         "mod_dialog_label": "Patch Author Name:",
         "mod_changed_success": "✅ Modifier changed to: {name}",
+        "repo_dialog_title": "Repository Selection",
+        "repo_dialog_label": "Select the desired Repo URL:",
         # Patch anwenden
         "executing_cmd": "Executing command:",
         "cmd_failed": "Command failed with exit code:",
@@ -1130,6 +1140,10 @@ TEXTS = {
         "github_user_name_label": "Git Name:",
         "github_user_email_label": "Git Email:",
         # Active autor repo
+        "ok_button": "OK",
+         "repo_dialog_title": "Repository Auswahl",
+        "repo_dialog_label": "Wähle die gewünschte Repo-URL:",
+        "cancel_button": "Abbrechen",
         "config_active_header": "🛠️ <b>Aktive Konfiguration:</b>",
         "current_author": "👤 Patch Autor:",
         "current_repo": "🌐 Repository:",
@@ -1296,7 +1310,7 @@ TEXTS = {
         "mod_changed_success": "✅ Modifier geändert zu: {name}",
         # "language_label": "Sprache:",
         "language_label": "Sprache:",
-        "color_label": "Hover",
+        "color_label": "Style:",
         "commit_count_label": "Anzahl der Commits",
         "settings_header": "Einstellungen",
         "info_tooltip": "Info / Hilfe",
@@ -1406,9 +1420,14 @@ fill_missing_keys(TEXTS)
 
 
 def save_config(cfg, gui_instance=None):
-    """Speichert die Config und loggt übersetzte Meldungen in den Infoscreen."""
+    """Speichert die Config und synchronisiert GUI-Werte."""
     try:
-        # 1. Pfade und Speichern
+        # 1. Sicherstellen, dass die Keys konsistent sind (Mapping korrigieren)
+        # Falls in deiner GUI 'patch_modifier' genutzt wird, aber global 'PATCH_MODIFIER'
+        patch_author = cfg.get("patch_modifier", "speedy005")
+        repo_url = cfg.get("EMUREPO", "")
+
+        # 2. Pfade und Speichern
         abs_config_path = os.path.abspath(CONFIG_FILE)
         config_dir = os.path.dirname(abs_config_path)
         if config_dir and not os.path.exists(config_dir):
@@ -1417,31 +1436,38 @@ def save_config(cfg, gui_instance=None):
         with open(abs_config_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=4, ensure_ascii=False)
 
-        # 2. Globale Variablen synchronisieren
-        globals()["PATCH_MODIFIER"] = cfg.get("patch_modifier", "speedy005")
-        globals()["EMUREPO"] = cfg.get("EMUREPO", "")
+        # 3. Globale Variablen synchronisieren (WICHTIG für den Rest des Scripts)
+        globals()["PATCH_MODIFIER"] = patch_author
+        globals()["EMUREPO"] = repo_url
 
-        # 3. Übersetztes Logging für den Infoscreen
+        # 4. Logging in den Infoscreen
         if gui_instance and hasattr(gui_instance, "log_message"):
-            # Sprache ermitteln (Standard: de)
             lang = str(cfg.get("language", "de")).lower()
-            
-            # Text-Dictionary für die aktuelle Sprache holen
-            # Nutzt globals() um auf deine TEXTS Variable zuzugreifen
             t = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
             
-            # Übersetzungen abrufen (mit Fallback)
-            msg_ok = t.get("config_saved", "Einstellungen aktualisiert")
-            msg_auth = t.get("auth_label", "Autor")
-            msg_repo = t.get("repo_label", "Repo")
+            cyan = "<span style='color:cyan;'>"
+            end = "</span>"
+            
+            # Mapping für die Anzeige (muss exakt mit den Keys in cfg übereinstimmen!)
+            display_map = {
+                "patch_modifier": t.get("auth_label", "Autor"),
+                "EMUREPO": t.get("repo_label", "Repository"),
+                "language": t.get("lang_label", "Sprache"),
+                "s3_patch_path": "s3_patch_path",
+                "commit_count": "commit_count",
+                "color": "color"
+            }
 
-            gui_instance.log_message(f"✅ <b>{msg_ok}</b>")
-            gui_instance.log_message(f"   👤 {msg_auth}: {cfg.get('patch_modifier')}")
-            gui_instance.log_message(f"   🌐 {msg_repo}: {cfg.get('EMUREPO')}")
+            msg_ok = t.get("config_saved", "Einstellungen aktualisiert")
+            gui_instance.log_message(f"{cyan}✅ {msg_ok}{end}")
+
+            for key, value in cfg.items():
+                label = display_map.get(key, key)
+                gui_instance.log_message(f"{cyan}➤ {label}: {value}{end}")
 
     except Exception as e:
         if gui_instance and hasattr(gui_instance, "log_message"):
-            gui_instance.log_message(f"❌ Fehler beim Speichern: {e}")
+            gui_instance.log_message(f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>")
 
 
 # ===================== CONFIG =====================
@@ -3074,11 +3100,23 @@ class PatchManagerGUI(QWidget):
                     print(f"Fehler beim Speichern: {e}")
 
     def log_message(self, message):
-        """Zentrale Funktion für alle Log-Ausgaben."""
+        """Zentrale Funktion: Zeit in ROT, Inhalt in CYAN - sauber untereinander."""
+        from datetime import datetime
         now = datetime.now().strftime("%H:%M:%S")
-        # Nutze das korrekte Attribut self.info_text aus __init__
-        self.info_text.append(f"<b>[{now}]</b> {message}")
+    
+        # 1. Sicherstellen, dass wir eine neue Zeile haben
+        self.info_text.append("") 
+    
+        # 2. HTML-Zeile bauen (Zeit ROT, Nachricht CYAN/Inhalt)
+        full_html = f"<span style='color:red;'>[{now}]</span> {message}"
+     
+        # 3. Cursor ans Ende und HTML einfügen
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+        self.info_text.insertHtml(full_html)
+    
+        # 4. Scrollen
+        self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+
 
     def scroll_to_bottom_smooth(self):
         """Scrollt das Info-Fenster sanft nach unten."""
@@ -3267,28 +3305,44 @@ class PatchManagerGUI(QWidget):
 
     def change_emu_repo(self):
         """
-        Öffnet einen Dialog zur Auswahl der Repository-URL.
-        Speichert die Wahl permanent, führt aber keinen erneuten System-Check aus.
+        Öffnet einen Dialog zur Auswahl der Repository-URL mit lokalisierten Buttons.
         """
         from PyQt6.QtWidgets import QInputDialog, QApplication
         from PyQt6.QtCore import QTimer
 
-        # --- DEINE DEFINIERTEN REPOS ---
         REPO_1 = "https://github.com/oscam-mirror/oscam-emu.git"
         REPO_2 = "https://github.com/speedy005/Oscam-emu.git"
         REPO_OPTIONS = [REPO_1, REPO_2]
 
         current_repo = getattr(self, "EMUREPO", REPO_1)
         lang = getattr(self, "LANG", "de").lower()
+    
+        # Texte laden
+        lang_dict = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
+    
+        title = lang_dict.get("repo_dialog_title", "Repository Auswahl")
+        label = lang_dict.get("repo_dialog_label", "Wähle die gewünschte Repo-URL:")
+        btn_ok = lang_dict.get("ok_button", "OK")
+        btn_cancel = lang_dict.get("cancel_button", "Abbrechen")
 
-        title = "Repository Auswahl" if lang == "de" else "Repository Selection"
-        label = "Wähle die gewünschte Repo-URL:" if lang == "de" else "Select the desired Repo URL:"
+        # --- Dialog als Objekt erstellen für lokalisierte Buttons ---
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.setLabelText(label)
+        dialog.setComboBoxItems(REPO_OPTIONS)
+        dialog.setComboBoxEditable(False)
+    
+        # Start-Index setzen
+        start_idx = 1 if current_repo == REPO_2 else 0
+        dialog.setTextValue(REPO_OPTIONS[start_idx]) 
 
-        start_index = 1 if current_repo == REPO_2 else 0
+        # Buttons übersetzen
+        dialog.setOkButtonText(btn_ok)
+        dialog.setCancelButtonText(btn_cancel)
 
-        new_url, ok = QInputDialog.getItem(
-            self, title, label, REPO_OPTIONS, start_index, False
-        )
+        # Dialog ausführen
+        ok = dialog.exec()
+        new_url = dialog.textValue()
 
         if ok and new_url:
             # 1. WERTE SETZEN
@@ -3299,7 +3353,7 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "cfg"):
                 self.cfg["EMUREPO"] = self.EMUREPO
                 try:
-                    # Speichern und Bestätigung im Log ausgeben
+                    # Speichern (nutzt deine neue save_config mit Cyan-Log)
                     if "save_config" in globals():
                         globals()["save_config"](self.cfg, gui_instance=self)
 
@@ -3307,51 +3361,47 @@ class PatchManagerGUI(QWidget):
                     if hasattr(self, "update_language"):
                         self.update_language()
 
-                    # 4. SCROLL-TRIGGER (Ohne neuen System-Check)
-                    if hasattr(self, "info_text") and self.info_text:
-                        QApplication.processEvents()
-                        
-                        # Wir triggern nur die Smooth-Scroll Animation aus append_info
-                        if hasattr(self, "_scroll_anim"):
-                            QTimer.singleShot(200, lambda: self.append_info("", "info", newline=False))
-
+                    # Sound abspielen
                     if "safe_play" in globals():
-                        safe_play("complete.oga")
+                        globals()["safe_play"]("complete.oga")
 
                 except Exception as e:
-                    if hasattr(self, "info_text"):
-                        self.append_info(self.info_text, f"❌ Error: {e}", "error")
-                    if "safe_play" in globals():
-                        safe_play("dialog-error.oga")
+                    if hasattr(self, "log_message"):
+                        self.log_message(f"<span style='color:orange;'>❌ Fehler: {e}</span>")
 
     def change_modifier_name(self):
         """
-        Öffnet einen Dialog zur Eingabe des Autors.
-        Aktualisiert den Namen permanent in der Config, ohne neuen System-Check.
+        Öffnet einen Dialog zur Eingabe des Autors mit lokalisierten Buttons.
         """
         from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
         from PyQt6.QtCore import QTimer
 
         current_author = getattr(self, "patch_modifier", "speedy005")
         lang = getattr(self, "LANG", "de").lower()
-        
+    
         # TEXTS laden
         lang_dict = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
 
-        def play_mod_sound(success=True):
-            sound = "complete.oga" if success else "dialog-warning.oga"
-            if "safe_play" in globals():
-                globals()["safe_play"](sound)
-            else:
-                QApplication.beep()
-
+        # Texte aus deinem Dictionary (oder Fallbacks)
         title_auth = lang_dict.get("mod_dialog_title", "Patch Autor")
         label_auth = lang_dict.get("mod_dialog_label", "Name des Autors:")
+        btn_ok = lang_dict.get("ok_button", "OK")
+        btn_cancel = lang_dict.get("cancel_button", "Abbrechen") # Hier wird "Abbrechen" gesetzt
 
-        # 1. Abfrage des neuen Namens
-        new_name, ok = QInputDialog.getText(
-            self, title_auth, label_auth, QLineEdit.EchoMode.Normal, current_author
-        )
+        # --- Dialog manuell konfigurieren für lokalisierte Buttons ---
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle(title_auth)
+        dialog.setLabelText(label_auth)
+        dialog.setTextValue(current_author)
+        dialog.setTextEchoMode(QLineEdit.EchoMode.Normal)
+    
+        # Hier werden die Buttons übersetzt
+        dialog.setOkButtonText(btn_ok)
+        dialog.setCancelButtonText(btn_cancel)
+
+        # Dialog ausführen
+        ok = dialog.exec()
+        new_name = dialog.textValue()
 
         if ok and new_name.strip():
             new_author = new_name.strip()
@@ -3361,26 +3411,19 @@ class PatchManagerGUI(QWidget):
                 self.cfg["patch_modifier"] = self.patch_modifier
 
                 try:
-                    # 2. Speichern mit GUI-Referenz (loggt Bestätigung in den Infoscreen)
                     if "save_config" in globals():
                         globals()["save_config"](self.cfg, gui_instance=self)
 
-                    # 3. UI & Tooltips aktualisieren
                     if hasattr(self, "update_language"):
                         self.update_language()
 
-                    # 4. Scroll-Trigger (Sorgt dafür, dass die Bestätigung sichtbar wird)
-                    if hasattr(self, "info_text") and self.info_text:
-                        QApplication.processEvents()
-                        if hasattr(self, "_scroll_anim"):
-                            QTimer.singleShot(200, lambda: self.append_info("", "info", newline=False))
-
-                    play_mod_sound(True)
+                    # Sound abspielen
+                    if "safe_play" in globals():
+                        globals()["safe_play"]("complete.oga")
 
                 except Exception as e:
-                    if hasattr(self, "info_text") and self.info_text:
-                        self.append_info(self.info_text, f"❌ Fehler: {e}", "error")
-                    play_mod_sound(False)
+                    if hasattr(self, "log_message"):
+                        self.log_message(f"<span style='color:orange;'>❌ Fehler: {e}</span>")
 
     def collect_and_save(self):
         """Speichert leise und aktualisiert die Farben sofort."""
