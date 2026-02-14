@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.2"
+APP_VERSION = "2.7.3"
 
 
 # ===================== PATCH DIRS =====================
@@ -1419,15 +1419,20 @@ for key, value in TEXTS["en"].items():
 fill_missing_keys(TEXTS)
 
 
-def save_config(cfg, gui_instance=None):
-    """Speichert die Config und synchronisiert GUI-Werte."""
+def save_config(cfg, gui_instance=None, silent=False):
+    """
+    Speichert die Config im Hintergrund.
+    silent=True: Absolut KEIN Log im Infoscreen (ideal für den Commit-Check).
+    silent=False: Volle Liste (für manuelle Änderungen am Autor/Repo).
+    """
     try:
-        # 1. Sicherstellen, dass die Keys konsistent sind (Mapping korrigieren)
-        # Falls in deiner GUI 'patch_modifier' genutzt wird, aber global 'PATCH_MODIFIER'
+        # 1. System-Werte synchronisieren (Immer ausführen)
         patch_author = cfg.get("patch_modifier", "speedy005")
         repo_url = cfg.get("EMUREPO", "")
+        globals()["PATCH_MODIFIER"] = patch_author
+        globals()["EMUREPO"] = repo_url
 
-        # 2. Pfade und Speichern
+        # 2. Pfade sicherstellen und Speichern (Immer ausführen)
         abs_config_path = os.path.abspath(CONFIG_FILE)
         config_dir = os.path.dirname(abs_config_path)
         if config_dir and not os.path.exists(config_dir):
@@ -1436,36 +1441,36 @@ def save_config(cfg, gui_instance=None):
         with open(abs_config_path, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=4, ensure_ascii=False)
 
-        # 3. Globale Variablen synchronisieren (WICHTIG für den Rest des Scripts)
-        globals()["PATCH_MODIFIER"] = patch_author
-        globals()["EMUREPO"] = repo_url
-
-        # 4. Logging in den Infoscreen
-        if gui_instance and hasattr(gui_instance, "log_message"):
+        # 3. Logging (NUR wenn NICHT silent)
+        if not silent and gui_instance and hasattr(gui_instance, "log_message"):
             lang = str(cfg.get("language", "de")).lower()
             t = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
             
             cyan = "<span style='color:cyan;'>"
             end = "</span>"
+
+            # Erfolgsmeldung
+            msg_ok = t.get("config_saved", "Einstellungen aktualisiert")
+            gui_instance.log_message(f"{cyan}✅ {msg_ok}{end}")
+
+            # Blacklist für interne Werte
+            skip_keys = ["color", "last_stream_commit", "s3_patch_path", "auto_update"]
             
-            # Mapping für die Anzeige (muss exakt mit den Keys in cfg übereinstimmen!)
             display_map = {
                 "patch_modifier": t.get("auth_label", "Autor"),
                 "EMUREPO": t.get("repo_label", "Repository"),
                 "language": t.get("lang_label", "Sprache"),
-                "s3_patch_path": "s3_patch_path",
-                "commit_count": "commit_count",
-                "color": "color"
+                "commit_count": "commit_count"
             }
 
-            msg_ok = t.get("config_saved", "Einstellungen aktualisiert")
-            gui_instance.log_message(f"{cyan}✅ {msg_ok}{end}")
-
             for key, value in cfg.items():
+                if key in skip_keys:
+                    continue
                 label = display_map.get(key, key)
                 gui_instance.log_message(f"{cyan}➤ {label}: {value}{end}")
 
     except Exception as e:
+        # Fehler sollten auch im silent-Mode gemeldet werden
         if gui_instance and hasattr(gui_instance, "log_message"):
             gui_instance.log_message(f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>")
 
@@ -5598,44 +5603,59 @@ class PatchManagerGUI(QWidget):
 
     def check_for_new_commit(self):
         import requests
+        import re
         from PyQt6.QtWidgets import QMessageBox
+
+        # Texte & Farbschema laden
+        lang = getattr(self, "LANG", "de").lower()
+        cyan = "<span style='color:cyan;'>"
+        end = "</span>"
+    
+        # Lokalisierte Titel für die MessageBox
+        mb_title = "Commit-Check"
+        msg_no_hash = "Kein Commit-Hash gefunden." if lang == "de" else "No commit hash found."
+        msg_up_to_date = "Kein neuer Commit vorhanden." if lang == "de" else "No new commit found."
+        msg_new_found = "Neuer Commit gefunden:\n" if lang == "de" else "New commit found:\n"
 
         try:
             # Seite abrufen
             url = "https://git.streamboard.tv/common/oscam/-/commits/c656fef9b74e90533a1d756eb2e1c344ce4bbfcc"
             resp = requests.get(url, timeout=8)
             resp.raise_for_status()
-            html = resp.text
-
-            # Commit‑Hash parsen
-            # (die Seite zeigt Commit‑Hashes im HTML; wir suchen den ersten 40‑stelligen Hash)
-            import re
-
-            m = re.search(r"([a-f0-9]{40})", html)
+    
+            m = re.search(r"([a-f0-9]{40})", resp.text)
             if not m:
-                QMessageBox.warning(self, "Commit‑Check", "Kein Commit‑Hash gefunden.")
+                self.log_message(f"<span style='color:orange;'>⚠️ {msg_no_hash}</span>")
+                QMessageBox.warning(self, mb_title, msg_no_hash)
                 return
 
             newest_hash = m.group(1)
-
-            # gespeicherten Commit‑Hash aus Config laden
             last_known = self.cfg.get("last_stream_commit", "")
 
             if newest_hash == last_known:
-                QMessageBox.information(self, "Commit‑Check", "Kein neuer Commit.")
+                # Im Infoscreen loggen & Popup zeigen
+                self.log_message(f"{cyan}ℹ️ {msg_up_to_date} (Hash: {newest_hash[:7]}){end}")
+                QMessageBox.information(self, mb_title, msg_up_to_date)
             else:
-                QMessageBox.information(
-                    self,
-                    "Commit‑Check",
-                    f"Neuer Commit gefunden:\n{newest_hash[:7]}…",
-                )
+                # Log im Infoscreen (NUR die Fundmeldung)
+                self.log_message(f"{cyan}🆕 {msg_new_found}{newest_hash[:7]}...{end}")
+        
+                # POPUP bei neuem Commit
+                QMessageBox.information(self, mb_title, f"{msg_new_found}{newest_hash[:7]}…")
 
-                # Option: speichern
+                # Hash in Config speichern
                 self.cfg["last_stream_commit"] = newest_hash
-                self.collect_and_save()
+        
+                # Speichern triggern (SILENT=TRUE unterdrückt die Einstellungs-Liste)
+                if "save_config" in globals():
+                    globals()["save_config"](self.cfg, gui_instance=self, silent=True)
 
         except Exception as e:
-            QMessageBox.critical(self, "Fehler beim Commit‑Check", str(e))
+            error_msg = f"❌ Fehler beim Commit-Check: {e}"
+            self.log_message(f"<span style='color:red;'>{error_msg}</span>")
+            QMessageBox.critical(self, mb_title, error_msg)
+
+
     
     def on_clean_emu_clicked(self):
         """Sorgt dafür, dass das Log vor der Bereinigung englisch wird."""
