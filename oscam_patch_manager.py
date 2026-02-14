@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.6"
+APP_VERSION = "2.7.7"
 
 
 # ===================== PATCH DIRS =====================
@@ -3041,7 +3041,68 @@ class PatchManagerGUI(QWidget):
 
         # Update-Check nach 2 Sekunden
         # if hasattr(self, "check_for_update_on_start"):
+        QTimer.singleShot(500, self.show_welcome_info)
         QTimer.singleShot(2000, self.check_for_update_on_start)
+
+    def show_welcome_info(self):
+        """Zeigt die Tool-Übersicht mit optimierten Farben und großer Fett-Schrift im Footer."""
+        lang = getattr(self, "LANG", "de").lower()
+        version = globals().get("APP_VERSION", "2.7.6")
+    
+        # Farbcodes für das Design
+        color_title   = "color:#00ADFF;"   # Blau
+        color_features = "color:#F37804;" # Orange
+        color_items    = "color:#00FF00;" # Grün
+        color_footer   = "color:#FF0000;" # Rot
+
+        if lang == "de":
+            title = "OSCam Emu Patch Generator"
+            features_label = "Hauptmerkmale:"
+            f1 = "➤ <b>Automatisches Patching:</b> Erstellt .patch Dateien direkt vom Streamboard."
+            f2 = "➤ <b>Commit Monitor:</b> Echtzeit-Tracking von neuen Änderungen."
+            f3 = "➤ <b>Lokalisierung:</b> Vollständige Unterstützung für DE/EN."
+            f4 = "➤ <b>Smart Logging:</b> Farblich kodiertes Feedback-System."
+            footer = f"Autor: speedy005 | Version: {version} | Lizenz: MIT"
+        else:
+            title = "OSCam Emu Patch Generator"
+            features_label = "Key Features:"
+            f1 = "➤ <b>Automated Patching:</b> Generates .patch files directly from Streamboard."
+            f2 = "➤ <b>Commit Monitor:</b> Real-time tracking of new changes."
+            f3 = "➤ <b>Localization:</b> Full support for DE/EN."
+            f4 = "➤ <b>Smart Logging:</b> Color-coded feedback system."
+            footer = f"Author: speedy005 | Version: {version} | License: MIT"
+
+        welcome_html = f"""
+        <div style="margin-bottom: 24px; font-family: 'Segoe UI', Tahoma, sans-serif;">
+            <h2 style="{color_title} margin-bottom:0;">🚀 {title}</h2>
+            <hr style="color: #808080;">
+        
+            <b style="{color_features} font-size: 24px;">{features_label}</b><br>
+        
+            <div style="{color_items} font-size: 24px; line-height: 2.0; margin-top: 5px;">
+                {f1}<br>
+                {f2}<br>
+                {f3}<br>
+                {f4}
+            </div>
+        
+            <hr style="color: #808080;">
+        
+            <!-- FOOTER: Rot, Fett und Größer (24px statt 12px) -->
+            <div style="{color_footer} font-size: 24px; margin-top: 5px;">
+                <b>{footer}</b>
+            </div>
+        </div>
+        """
+    
+        if hasattr(self, "info_text"):
+            from PyQt6.QtGui import QTextCursor
+            # Ans Ende springen und HTML einfügen
+            self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+            self.info_text.insertHtml(welcome_html)
+            # Ein kleiner Puffer nach unten
+            self.info_text.insertHtml("<br>")
+            self.info_text.moveCursor(QTextCursor.MoveOperation.End)
 
     def display_startup_info(self):
         """Bündelt alle Startinfos in der gewünschten Reihenfolge."""
@@ -5073,10 +5134,10 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             self.append_info(widget, f"Update-Fehler: {str(e)}", "error")
 
-    def run_full_system_check(self, clear_log=True):
+    def run_full_system_check(self, clear_log=False):
         """
         Teil 1 des System-Checks: Tools, Internet und Update-Check.
-        Nutzt das TEXTS-Dictionary für vollständige Lokalisierung (DE/EN).
+        Optimiert: Löscht die Welcome-Info beim Start NICHT mehr automatisch.
         """
         # 1. DOPPEL-CHECK SPERRE
         if getattr(self, "_checking_active", False):
@@ -5104,15 +5165,20 @@ class PatchManagerGUI(QWidget):
             # 2. LOG-FENSTER VORBEREITEN
             if hasattr(self, "info_text") and self.info_text:
                 if clear_log:
+                    # Nur löschen, wenn explizit True übergeben wurde (z.B. durch manuellen Button)
                     self.info_text.clear()
                 else:
-                    self.append_info(self.info_text, "", "raw")
+                    # Fügt 2 Zeilenabstände ein, damit die Info oben stehen bleibt
+                    from PyQt6.QtGui import QTextCursor
+                    self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+                    self.info_text.insertHtml("<br><br>")
+            
                 QApplication.processEvents()
 
             if "safe_play" in globals():
                 safe_play("dialog-information.oga")
 
-            # Texte aus dem Dictionary laden (txt wird hier definiert)
+            # Texte aus dem Dictionary laden
             lang = getattr(self, "LANG", "de").lower()
             txt = (
                 globals()
@@ -5156,7 +5222,7 @@ class PatchManagerGUI(QWidget):
                 # Prüfe Verbindung
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
                 net_status_text = txt.get("net_online", "Online")
-                net_status_key = "Online"  # Interner Status für Logik
+                net_status_key = "Online"
                 net_col, net_icon = C_GREEN, "✅"
             except:
                 net_status_text = txt.get("net_offline", "Offline")
@@ -5176,13 +5242,13 @@ class PatchManagerGUI(QWidget):
 
             # Gesamte HTML-Ausgabe an den Infoscreen senden
             self.append_info(self.info_text, "\n".join(output), "raw")
-
+  
             # --- ÜBERGABE AN UPDATE-CHECK ---
             from PyQt6.QtCore import QTimer
 
             if (
                 hasattr(self, "check_for_update_on_start")
-                and net_status_key == "Online"
+                    and net_status_key == "Online"
             ):
                 QTimer.singleShot(200, self.check_for_update_on_start)
             elif net_status_key == "Offline":
@@ -5197,10 +5263,10 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "append_info"):
                 self.append_info(
                     getattr(self, "info_text", None), f"❌ Error: {e}", "error"
-                )
+                )    
         finally:
             from PyQt6.QtCore import QTimer
-
+            # Reset Sperre
             QTimer.singleShot(1000, lambda: setattr(self, "_checking_active", False))
 
     def closeEvent(self, event):
@@ -6100,76 +6166,73 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Nutzt das TEXTS-Dictionary und loggt die Änderung im Infoscreen.
+        Bereinigt den Screen und zeigt die Welcome-Info stabil an.
         """
         if not hasattr(self, "language_box"):
             return
 
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
-
+ 
         # 1. SPRACHE ERMITTELN & SETZEN
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if "EN" in selected else "de"
 
-        # Globales Dictionary für diese Methode laden
+        # Globales Dictionary laden
         lang_dict = globals().get("TEXTS", {}).get(self.LANG, {})
 
-        # 2. KONFIGURATION SPEICHERN & LOGGEN
+        # 2. KONFIGURATION SPEICHERN (Hier silent=True, damit kein Log das clear() stört)
         if hasattr(self, "cfg"):
             self.cfg["language"] = self.LANG.upper()
             if "save_config" in globals():
-                # Wir übergeben self, damit die Änderung sofort in Cyan geloggt wird
-                globals()["save_config"](self.cfg, gui_instance=self)
+                # Silent speichern, damit die Info-Box danach alleinsteht
+                globals()["save_config"](self.cfg, gui_instance=self, silent=True)
 
         # 3. UI-TEXTE AKTUALISIEREN
         if hasattr(self, "update_language"):
             self.update_language()
 
-        # --- BUTTON-TEXTE AUS DICTIONARY ODER LOGIK ---
-
-        # 1. Patch Autor Button
+        # --- BUTTON-TEXTE & TOOLTIPS ---
         if hasattr(self, "btn_modifier"):
             auth_label = lang_dict.get("auth_label", "Autor")
             self.btn_modifier.setText(f"👤 {auth_label}")
             auth_name = getattr(self, "patch_modifier", "speedy005")
             self.btn_modifier.setToolTip(f"{auth_label}: {auth_name}")
 
-        # 2. Repo URL Button
         if hasattr(self, "btn_repo_url"):
             repo_label = lang_dict.get("repo_label", "Repo URL")
             self.btn_repo_url.setText(f"🌐 {repo_label}")
             curr_repo = getattr(self, "EMUREPO", "Repo")
             self.btn_repo_url.setToolTip(f"URL: {curr_repo}")
 
-        # 3. Commit-Überprüfungsbutton
         if hasattr(self, "btn_check_commit"):
             self.btn_check_commit.setText("🔄 Check Commit")
-            commit_tt = (
-                "Prüfe auf neue Commits"
-                if self.LANG == "de"
-                else "Check for new commits"
-            )
+            commit_tt = "Prüfe auf neue Commits" if self.LANG == "de" else "Check for new commits"
             self.btn_check_commit.setToolTip(commit_tt)
 
-        # 4. Hover & Farben Refresh
+        # 4. UI REFRESH (Farben & Sounds)
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
-        # 4. SOUND ABSPIELEN
         if "safe_play" in globals():
             safe_play("dialog-information.oga")
 
-        # 5. UI BEREINIGEN & SYSTEM-CHECK NEU STARTEN
+        # 5. INFOSCREEN AKTUALISIEREN
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
-            # Optional: Hier NICHT clear() nutzen, wenn du das Config-Log behalten willst!
-            # self.info_text.clear()
+        
+            # Erst alles löschen
+            self.info_text.clear()
             QApplication.processEvents()
 
+            # Welcome Info sofort anzeigen
+            if hasattr(self, "show_welcome_info"):
+                self.show_welcome_info()
+
+            # System-Check VIEL später starten (4 Sek), damit die Info nicht weggeschoben wird
             if hasattr(self, "run_full_system_check"):
-                # Kurze Verzögerung, damit das Config-Logging vorher sichtbar ist
-                QTimer.singleShot(500, self.run_full_system_check)
+                # Erhöht auf 4000ms für bessere Lesbarkeit
+                QTimer.singleShot(4000, self.run_full_system_check)
 
     # =====================
     # GITHUB EMU CREDENTIALS
