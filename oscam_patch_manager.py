@@ -62,7 +62,22 @@ def check_and_install_dependencies(required_packages):
             missing_packages.append(pkg)
             
     if missing_packages:
-        # Erstelle einen Dialog
+        # Falls PyQt6 fehlt, können wir keine MessageBox zeigen!
+        if "PyQt6" in missing_packages:
+            print(f"\n⚠️ Fehlende Komponenten: {', '.join(missing_packages)}")
+            choice = input("Möchten Sie diese jetzt via pip installieren? (j/n): ")
+            if choice.lower() == 'j':
+                for pkg in missing_packages:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+                # Neustart des Skripts
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+                return True
+            return False
+
+        # Wenn PyQt6 vorhanden ist, aber andere (wie requests) fehlen:
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+        temp_app = QApplication.instance() or QApplication(sys.argv)
+        
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Information)
         msg.setWindowTitle("Fehlende Komponenten")
@@ -73,8 +88,11 @@ def check_and_install_dependencies(required_packages):
         if msg.exec() == QMessageBox.StandardButton.Yes:
             for pkg in missing_packages:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
-            return True # Neustart empfohlen
+            # Neustart des Skripts nach Installation
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+            return True
     return False
+
 # ===================== GLOBALE SOUND-SICHERHEIT =====================
 HAS_PAPLAY = shutil.which("paplay") is not None
 
@@ -152,7 +170,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.9"
+APP_VERSION = "2.8.0"
 
 
 # ===================== PATCH DIRS =====================
