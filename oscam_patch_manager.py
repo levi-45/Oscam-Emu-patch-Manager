@@ -5971,78 +5971,75 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Optimiert für Windows & Linux (Pfadsicherheit & UI-Repaint).
+        Nutzt das TEXTS-Dictionary und loggt die Änderung im Infoscreen.
         """
         if not hasattr(self, "language_box"):
             return
 
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
-        import os
 
-        # 1. SPRACHE ERMITTELN & SETZEN
+         # 1. SPRACHE ERMITTELN & SETZEN
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if "EN" in selected else "de"
+    
+        # Globales Dictionary für diese Methode laden
+        lang_dict = globals().get("TEXTS", {}).get(self.LANG, {})
 
-        # 2. KONFIGURATION SPEICHERN (Pfadsicher)
+        # 2. KONFIGURATION SPEICHERN & LOGGEN
         if hasattr(self, "cfg"):
             self.cfg["language"] = self.LANG.upper()
             if "save_config" in globals():
-                # Hier werden interne Pfade cross-platform gespeichert
-                globals()["save_config"](self.cfg)
+                # Wir übergeben self, damit die Änderung sofort in Cyan geloggt wird
+                globals()["save_config"](self.cfg, gui_instance=self)
 
         # 3. UI-TEXTE AKTUALISIEREN
         if hasattr(self, "update_language"):
             self.update_language()
 
-        # --- SPEZIELLE BUTTON-TEXTE & TOOLTIPS ---
-        
+        # --- BUTTON-TEXTE AUS DICTIONARY ODER LOGIK ---
+    
         # 1. Patch Autor Button
         if hasattr(self, "btn_modifier"):
-            self.btn_modifier.setText("👤 Autor" if self.LANG == "de" else "👤 Author")
+            auth_label = lang_dict.get("auth_label", "Autor")
+            self.btn_modifier.setText(f"👤 {auth_label}")
             auth_name = getattr(self, "patch_modifier", "speedy005")
-            self.btn_modifier.setToolTip(f"Author: {auth_name}")
+            self.btn_modifier.setToolTip(f"{auth_label}: {auth_name}")
 
         # 2. Repo URL Button
         if hasattr(self, "btn_repo_url"):
-            self.btn_repo_url.setText("🌐 Repo URL")
+            repo_label = lang_dict.get("repo_label", "Repo URL")
+            self.btn_repo_url.setText(f"🌐 {repo_label}")
             curr_repo = getattr(self, "EMUREPO", "Repo")
             self.btn_repo_url.setToolTip(f"URL: {curr_repo}")
 
-        # 3. Commit-Überprüfungsbutton (KURZ & ÜBERSETZT)
+        # 3. Commit-Überprüfungsbutton
         if hasattr(self, "btn_check_commit"):
-            # Kurzer Text verhindert das Abschneiden unter Windows/Linux
             self.btn_check_commit.setText("🔄 Check Commit")
             commit_tt = (
-                "Prüfe auf neue Commits im Streamboard" if self.LANG == "de" 
-                else "Check for new commits on Streamboard"
+                "Prüfe auf neue Commits" if self.LANG == "de" 
+                else "Check for new commits"
             )
             self.btn_check_commit.setToolTip(commit_tt)
 
-        # 4. Update Button
-        if hasattr(self, "btn_update"):
-            self.btn_update.setText("Prüfe..." if self.LANG == "de" else "Checking...")
-
-        # --- DER HOVER FIX (WICHTIG!) ---
-        # Dieser Aufruf erzwingt den gewählten Hover-Effekt für ALLE Buttons,
-        # auch für den neu hinzugefügten btn_check_commit.
+        # 4. Hover & Farben Refresh
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
-        # 4. SOUND ABSPIELEN (Cross-platform safe)
+        # 4. SOUND ABSPIELEN
         if "safe_play" in globals():
             safe_play("dialog-information.oga")
 
-        # 5. UI BEREINIGEN & RE-CHECK
+        # 5. UI BEREINIGEN & SYSTEM-CHECK NEU STARTEN
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
-            self._update_dialog_active = False
-            self.info_text.clear()
+            # Optional: Hier NICHT clear() nutzen, wenn du das Config-Log behalten willst!
+            # self.info_text.clear() 
             QApplication.processEvents()
 
-            # System-Check neu triggern
             if hasattr(self, "run_full_system_check"):
-                QTimer.singleShot(200, self.run_full_system_check)
+                # Kurze Verzögerung, damit das Config-Logging vorher sichtbar ist
+                QTimer.singleShot(500, self.run_full_system_check)
 
     # =====================
     # GITHUB EMU CREDENTIALS
