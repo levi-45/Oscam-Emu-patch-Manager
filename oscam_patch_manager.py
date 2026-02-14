@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.8"
+APP_VERSION = "2.7.9"
 
 
 # ===================== PATCH DIRS =====================
@@ -5380,12 +5380,12 @@ class PatchManagerGUI(QWidget):
         )
 
         by_label = QLabel("by speedy005")
-        by_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        by_label.setFont(QFont("Bold", 20, QFont.Weight.Bold))
         by_label.setStyleSheet("color: blue;")
         by_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         v_label = QLabel(f"v{APP_VERSION}")
-        v_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        v_label.setFont(QFont("Bold", 20, QFont.Weight.Bold))
         v_label.setStyleSheet("color: red;")
         v_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
