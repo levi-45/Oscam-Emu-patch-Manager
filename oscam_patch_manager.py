@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.4"
+APP_VERSION = "2.7.5"
 
 
 # ===================== PATCH DIRS =====================
@@ -4206,73 +4206,65 @@ class PatchManagerGUI(QWidget):
         )
         self.worker.start()
 
-    def restart_application_with_info(
-        self, checked=False, progress_callback=None, info_widget=None
-    ):
+    def restart_application_with_info(self, checked=False, progress_callback=None, info_widget=None):
         """
-        Plattformübergreifender Neustart: Fix für Git Bash (Windows) Leerzeichen-Fehler.
+        Sichert alle Daten und startet das Tool plattformübergreifend neu.
         """
-        from PyQt6.QtWidgets import QMessageBox, QTextEdit, QApplication
+        from PyQt6.QtWidgets import QMessageBox, QApplication
         import sys
         import os
         import subprocess
 
         # 1. Sprache & Texte sicherstellen
         lang_key = getattr(self, "LANG", "de").lower()
-        try:
-            # Zugriff auf die globalen Texte
-            lang_pack = globals().get("TEXTS", {}).get(lang_key, {})
-            if not lang_pack:  # Fallback auf EN
-                lang_pack = globals().get("TEXTS", {}).get("en", {})
-        except Exception:
-            lang_pack = {}
+        lang_pack = globals().get("TEXTS", {}).get(lang_key, globals().get("TEXTS", {}).get("en", {}))
 
         # 2. Dialog aufbauen
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Icon.Question)
         msg.setWindowTitle(lang_pack.get("restart_tool", "Neustart"))
-        msg.setText(
-            lang_pack.get(
-                "restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"
-            )
-        )
+        msg.setText(lang_pack.get("restart_tool_question", "Möchten Sie das Tool jetzt neu starten?"))
 
-        yes_btn = msg.addButton(
-            lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
-        )
-        no_btn = msg.addButton(
-            lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole
-        )
+        yes_btn = msg.addButton(lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
+        no_btn = msg.addButton(lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
 
         msg.exec()
 
         if msg.clickedButton() == yes_btn:
-            # Sound via globaler safe_play Funktion
+            # Sound abspielen
             if "safe_play" in globals():
                 safe_play("service-logout.oga")
 
-            # --- SPEICHERN VOR NEUSTART ---
+            # --- KRITISCHES SPEICHERN VOR NEUSTART ---
             try:
-                if hasattr(self, "get_gui_settings"):
-                    cfg = self.get_gui_settings()
+                # Falls self.cfg existiert, stellen wir sicher, dass die aktuellen UI-Werte drin sind
+                if hasattr(self, "cfg"):
+                    # Manuelle Synchronisation der wichtigsten Felder (Sicherheitsnetz)
+                    if hasattr(self, "patch_modifier"):
+                        self.cfg["patch_modifier"] = self.patch_modifier
+                    if hasattr(self, "EMUREPO"):
+                        self.cfg["EMUREPO"] = self.EMUREPO
+                    if hasattr(self, "LANG"):
+                        self.cfg["language"] = self.LANG.upper()
+  
+                    # Speichern (Silent=True, da wir eh beenden)
                     if "save_config" in globals():
-                        globals()["save_config"](cfg)
-                elif hasattr(self, "cfg"):
-                    if "save_config" in globals():
-                        globals()["save_config"](self.cfg)
+                        globals()["save_config"](self.cfg, gui_instance=self, silent=True)
+            
+                # WICHTIG: Gib dem OS kurz Zeit, die Datei physisch zu schreiben
+                QApplication.processEvents()
+            
             except Exception as e:
                 print(f"⚠️ Save error before restart: {e}")
 
-            # --- PLATTFORMÜBERGREIFENDER NEUSTART (GIT BASH & WINDOWS SPACE FIX) ---
+            # --- PLATTFORMÜBERGREIFENDER NEUSTART ---
             try:
                 python_exe = sys.executable
                 script_path = os.path.abspath(__file__)
                 cmd_args = sys.argv[1:]
 
-                # FIX: In Git Bash unter Windows hilft shell=False mit einer Liste,
-                # aber wir stellen sicher, dass die Pfade absolut sauber übergeben werden.
+                # Starte neuen Prozess
                 if os.name == "nt":
-                    # Windows-Spezifisch: Prozess abkapseln (verhindert hängende Terminals)
                     subprocess.Popen(
                         [python_exe, script_path] + cmd_args,
                         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
@@ -4280,27 +4272,19 @@ class PatchManagerGUI(QWidget):
                         shell=False,
                     )
                 else:
-                    # Linux/macOS
                     subprocess.Popen([python_exe, script_path] + cmd_args)
 
-                # --- HOVER FIX VOR DEM BEENDEN ---
-                # Falls repaint_ui_colors existiert, triggern wir es kurz (kosmetisch)
-                if hasattr(self, "repaint_ui_colors"):
-                    self.repaint_ui_colors()
-
+                # Beende aktuelle Instanz sauber
                 QApplication.instance().quit()
                 sys.exit(0)
             except Exception as e:
                 print(f"❌ Kritischer Fehler beim Neustart: {e}")
-                # Not-Ausgang
                 QApplication.quit()
         else:
-            # Bei "Nein" Fortschritt abschließen
+            # Bei "Nein" Fortschrittsbalken (falls vorhanden) auf 100 setzen
             if progress_callback:
-                try:
-                    progress_callback(100)
-                except:
-                    pass
+                try: progress_callback(100)
+                except: pass
 
     def restart_application(self, *args, **kwargs):
         import subprocess
