@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.6.5"
+APP_VERSION = "2.6.6"
 
 
 # ===================== PATCH DIRS =====================
@@ -1044,6 +1044,10 @@ TEXTS = {
         "github_dialog_title": "GitHub Emu Configuration",
         "patch_check_fail": "❌ Patch cannot be applied: conflicts or errors found",
         "patch_failed": "❌ Patch failed: {path}",
+        # check for new commits
+        "check_commit_button_short": "🔄 Check Commit",
+        "check_commit_button": "🔄 Check for new commit",
+        "check_commit_tooltip": "Click here to check if a new commit is available in the Streamboard repository. If a new commit is found, the last commit hash will be displayed.",
         # Clean Patch Folder
         "": "ℹ️ Deleting OSCam-Emu Git folder: {path}",
         "oscam_emu_git_missing": "⚠️ Folder not found: {path}",
@@ -1217,6 +1221,10 @@ TEXTS = {
         "update_done": "✅ Update auf Version {version} erfolgreich abgeschlossen.",
         "update_backup_done": "✅ Backup der alten Plugin-Dateien erstellt.",
         "msg_update_available_text": "Eine neue Version ({latest}) ist verfügbar.\nAktuell installiert: {current}.\nJetzt updaten?",
+        # check for new commits
+        "check_commit_button_short": "🔄 Commit Check",
+        "check_commit_button": "🔄 Prüfe auf neuen Commit",
+        "check_commit_tooltip": "Klicke hier, um zu prüfen, ob ein neuer Commit im Streamboard-Repository vorhanden ist. Falls ein neuer Commit vorhanden ist, wird der Hash des letzten Commits angezeigt.",
         # Option Buttons
         "git_status": "Commits anzeigen",
         "restart_tool": "Tool Neustarten",
@@ -5042,9 +5050,12 @@ class PatchManagerGUI(QWidget):
             QProgressBar,
             QApplication,
             QFrame,
+            QMessageBox,
         )
         from PyQt6.QtGui import QPixmap, QFont
         from PyQt6.QtCore import Qt, QSize, QTimer, QDateTime
+        import subprocess
+        import os
         import requests
 
         # ---------------------------------------------------------
@@ -5067,7 +5078,7 @@ class PatchManagerGUI(QWidget):
         header_widget = QFrame()
         header_widget.setFixedHeight(90)
 
-        # --- HIER DAS STYLESHEET FÜR DEN HEADER ---
+        # Header Styles
         header_widget.setStyleSheet(
             """
             QFrame {
@@ -5187,7 +5198,6 @@ class PatchManagerGUI(QWidget):
         self.info_text.setReadOnly(True)
         self.info_text.setFont(QFont("Courier", 12))
 
-        # --- INFOSCREEN WIEDER SCHWARZ SETZEN ---
         self.info_text.setStyleSheet(
             """
             QTextEdit {
@@ -5204,7 +5214,6 @@ class PatchManagerGUI(QWidget):
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(15)
 
-        # --- PROGRESSBAR OPTIK ANPASSEN ---
         self.progress_bar.setStyleSheet(
             """
             QProgressBar {
@@ -5235,28 +5244,17 @@ class PatchManagerGUI(QWidget):
         }
         """
         )
-        # --- Layout für die Einstellungen-Gruppe ---
         controls_group_layout = QVBoxLayout(controls_group)
         controls_group_layout.setContentsMargins(10, 8, 10, 10)
         controls_group_layout.setSpacing(6)
 
-        # 1. Label erstellen und an self binden (WICHTIG für Übersetzung!)
         translated_text = self.get_t("settings_header", "Einstellungen")
         self.controls_header = QLabel(translated_text)
 
-        # 2. Dimensionen und Layout-Verhalten
         self.controls_header.setMinimumWidth(180)
         self.controls_header.setFixedHeight(28)
-
-        # Text innerhalb des farbigen Balkens zentrieren
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Sorgt dafür, dass die Mindestbreite von 180px respektiert wird
-        self.controls_header.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
-
-        # 3. Stylesheet (Nutzt bg_color und text_color aus dem Theme)
         bg = current_diff_colors.get("bg", "#3a6ea5")
         fg = current_diff_colors.get("fg", "#FFFFFF")
 
@@ -5274,12 +5272,10 @@ class PatchManagerGUI(QWidget):
             """
         )
 
-        # 4. Zum Layout hinzufügen (Balken sitzt links in der Gruppe)
         controls_group_layout.addWidget(
             self.controls_header, alignment=Qt.AlignmentFlag.AlignLeft
         )
 
-        # --- Nachfolgende Controls ---
         controls_row = QWidget()
         controls_layout = QHBoxLayout(controls_row)
         controls_layout.setContentsMargins(5, 5, 5, 5)
@@ -5310,17 +5306,13 @@ class PatchManagerGUI(QWidget):
         self.language_box.setFixedSize(80, CONTROL_HEIGHT)
         self.language_box.setStyleSheet(control_style)
 
-        # Den Wert aus der Config laden
         saved_lang = self.cfg.get("language", "de").lower()
 
-        # 4. Den passenden Index RICHTIG auswählen:
         if saved_lang == "en":
             self.language_box.setCurrentIndex(0)  # 0 ist EN
         else:
             self.language_box.setCurrentIndex(1)  # 1 ist DE
 
-        # WICHTIG: Den Connect erst NACH setCurrentIndex machen,
-        # damit beim Starten nicht sofort change_language ausgelöst wird!
         self.language_box.currentIndexChanged.connect(self.change_language)
 
         self.color_label = make_label(self.get_t("color_label", "Farbe:"))
@@ -5328,12 +5320,11 @@ class PatchManagerGUI(QWidget):
         self.color_box.addItems(list(DIFF_COLORS.keys()))
         saved_color = self.cfg.get(
             "theme_color", "Classics"
-        )  # oder "color", je nachdem was du jetzt nutzt
+        )
         index = self.color_box.findText(saved_color)
         if index >= 0:
             self.color_box.setCurrentIndex(index)
         else:
-            # Falls er nichts findet, nimm den ersten Eintrag
             self.color_box.setCurrentIndex(0)
         self.color_box.setFixedSize(160, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
@@ -5366,12 +5357,11 @@ class PatchManagerGUI(QWidget):
                 color: #FFD700;
                 border: 1px solid #FFD700;
             }
-            /* Wenn der Check läuft */
             QPushButton:disabled {
                 background-color: #222222;
                 color: #888888;
                 border: 1px solid #333333;
-            }
+           }
         """
         self.btn_check_tools.setStyleSheet(button_style)
         self.btn_check_tools.clicked.connect(self.run_full_system_check)
@@ -5379,12 +5369,10 @@ class PatchManagerGUI(QWidget):
         # --- 2. Modifier Button ---
         button_text = self.get_t("modifier_button_text", "👤 Patch Autor")
 
-        # Erstellen
         self.btn_modifier = QPushButton(button_text)
         self.btn_modifier.setFixedSize(160, CONTROL_HEIGHT)
         self.btn_modifier.setStyleSheet(button_style)
 
-        # Tooltip je nach Sprache
         lang = getattr(self, "LANG", "de")
         self.btn_modifier.setToolTip(
             "Namen des Patch-Autors ändern (Signatur)"
@@ -5392,7 +5380,6 @@ class PatchManagerGUI(QWidget):
             else "Change Patch Author Name (Signature)"
         )
 
-        # NUR EINMAL VERBINDEN (Damit nur ein Fenster öffnet!)
         self.btn_modifier.clicked.connect(self.change_modifier_name)
 
         # --- 3. Repo URL Button ---
@@ -5404,7 +5391,25 @@ class PatchManagerGUI(QWidget):
         )
         self.btn_repo_url.clicked.connect(self.change_emu_repo)
 
-        # --- 4. Layout befüllen ---
+        # --- 4. Commit-Überprüfungsbutton ---
+        # Wir nutzen get_t für die Übersetzung, aber einen kurzen Default-Wert
+        commit_btn_txt = self.get_t("check_commit_button_short", "🔄 Check Commit")
+        tooltip_text = self.get_t(
+            "check_commit_tooltip",
+            "Prüfe auf neue Commits im Streamboard-Repository."
+        )
+        
+        self.btn_check_commit = QPushButton(commit_btn_txt)
+        self.btn_check_commit.setFixedSize(160, CONTROL_HEIGHT)
+
+        # WICHTIG: Hier darf KEIN eigener Textblock stehen. 
+        # Wir weisen EXAKT die gleiche Variable zu wie bei btn_repo_url!
+        self.btn_check_commit.setStyleSheet(button_style)
+
+        self.btn_check_commit.setToolTip(tooltip_text)
+        self.btn_check_commit.clicked.connect(self.check_for_new_commit)
+
+        # --- Layout mit den Buttons befüllen ---
         controls_layout.addWidget(self.lang_label)
         controls_layout.addWidget(self.language_box)
         controls_layout.addSpacing(15)
@@ -5415,11 +5420,16 @@ class PatchManagerGUI(QWidget):
         controls_layout.addWidget(self.commit_spin)
         controls_layout.addSpacing(10)
 
+        # Hier kommen die Funktions-Buttons
         controls_layout.addWidget(self.btn_check_tools)
         controls_layout.addSpacing(10)
         controls_layout.addWidget(self.btn_modifier)
         controls_layout.addSpacing(10)
         controls_layout.addWidget(self.btn_repo_url)
+        controls_layout.addSpacing(10)
+        
+        # Den Button hier final hinzufügen
+        controls_layout.addWidget(self.btn_check_commit) 
 
         controls_layout.addStretch(1)
 
@@ -5457,14 +5467,20 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(1000, self.run_full_system_check)
         self.setMinimumSize(1200, 850)
         self.showMaximized()
-        # Automatisch speichern bei Änderung
         self.color_box.currentTextChanged.connect(self.collect_and_save)
         self.commit_spin.valueChanged.connect(self.collect_and_save)
-        # ... (ganz viele andere Buttons und Layout-Befehle)
+
         self.setWindowTitle(
             f"OSCam Toolkit v{APP_VERSION} | {getattr(self, 'patch_modifier', 'speedy005')}"
-        )
+)
 
+    def update_buttons_language(self):
+        self.github_upload_patch_button.setText(TEXTS[LANG]["github_upload_patch"])
+        self.github_upload_emu_button.setText(TEXTS[LANG]["github_upload_emu"])
+
+    # =====================
+    # BUTTON & COLOR HANDLING
+    # =====================
     def update_buttons_language(self):
         self.github_upload_patch_button.setText(TEXTS[LANG]["github_upload_patch"])
         self.github_upload_emu_button.setText(TEXTS[LANG]["github_upload_emu"])
@@ -5513,6 +5529,47 @@ class PatchManagerGUI(QWidget):
 
         return btn
 
+    def check_for_new_commit(self):
+        import requests
+        from PyQt6.QtWidgets import QMessageBox
+
+        try:
+            # Seite abrufen
+            url = "https://git.streamboard.tv/common/oscam/-/commits/c656fef9b74e90533a1d756eb2e1c344ce4bbfcc"
+            resp = requests.get(url, timeout=8)
+            resp.raise_for_status()
+            html = resp.text
+
+            # Commit‑Hash parsen
+            # (die Seite zeigt Commit‑Hashes im HTML; wir suchen den ersten 40‑stelligen Hash)
+            import re
+
+            m = re.search(r"([a-f0-9]{40})", html)
+            if not m:
+                QMessageBox.warning(self, "Commit‑Check", "Kein Commit‑Hash gefunden.")
+                return
+
+            newest_hash = m.group(1)
+
+            # gespeicherten Commit‑Hash aus Config laden
+            last_known = self.cfg.get("last_stream_commit", "")
+
+            if newest_hash == last_known:
+                QMessageBox.information(self, "Commit‑Check", "Kein neuer Commit.")
+            else:
+                QMessageBox.information(
+                    self,
+                    "Commit‑Check",
+                    f"Neuer Commit gefunden:\n{newest_hash[:7]}…",
+                )
+
+                # Option: speichern
+                self.cfg["last_stream_commit"] = newest_hash
+                self.collect_and_save()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler beim Commit‑Check", str(e))
+    
     def on_clean_emu_clicked(self):
         """Sorgt dafür, dass das Log vor der Bereinigung englisch wird."""
         # 1. Sprache/UI synchronisieren (löscht alte deutsche Texte im Log)
@@ -5613,6 +5670,7 @@ class PatchManagerGUI(QWidget):
             "plugin_update_button",
             "restart_tool_button",
             "btn_check_tools",
+            "btn_check_commit",
             "btn_modifier",  # Hinzugefügt
             "btn_repo_url",  # Hinzugefügt
         ]
@@ -5869,26 +5927,43 @@ class PatchManagerGUI(QWidget):
             self.update_language()
 
         # --- SPEZIELLE BUTTON-TEXTE & TOOLTIPS ---
-        # Patch Autor Button
+        
+        # 1. Patch Autor Button
         if hasattr(self, "btn_modifier"):
-            btn_mod_txt = "👤 Patch Autor" if self.LANG == "de" else "👤 Patch Author"
+            btn_mod_txt = "👤 Autor" if self.LANG == "de" else "👤 Author"
             self.btn_modifier.setText(btn_mod_txt)
-            # Tooltip zeigt den Namen
             auth_name = getattr(self, "patch_modifier", "speedy005")
             self.btn_modifier.setToolTip(f"Author: {auth_name}")
 
-        # Repo URL Button (Neu hinzugefügt)
+        # 2. Repo URL Button
         if hasattr(self, "btn_repo_url"):
-            btn_repo_txt = "🌐 Repo URL" if self.LANG == "de" else "🌐 Repo URL"
+            btn_repo_txt = "🌐 Repo URL"
             self.btn_repo_url.setText(btn_repo_txt)
-            # Wichtig: Tooltip zeigt die aktuell gewählte URL an!
             current_url = getattr(self, "EMUREPO", "https://github.com")
             self.btn_repo_url.setToolTip(f"Active Repo: {current_url}")
 
-        # Update Button Fix
+        # 3. Commit-Überprüfungsbutton (KÜRZER FÜR BESSERE LESBARKEIT)
+        if hasattr(self, "btn_check_commit"):
+            # Kurzer Text für den Button, damit er nicht abgeschnitten wird
+            commit_txt = "🔄 Check Commit" 
+            commit_tt = (
+                "Prüfe auf neue Commits im Streamboard-Repository"
+                if self.LANG == "de" else 
+                "Check for new commits in the Streamboard repository"
+            )
+            self.btn_check_commit.setText(commit_txt)
+            self.btn_check_commit.setToolTip(commit_tt)
+
+        # 4. Update Button Fix
         if hasattr(self, "btn_update"):
             upd_wait = "Prüfe..." if self.LANG == "de" else "Checking..."
             self.btn_update.setText(upd_wait)
+
+        # --- DER HOVER FIX: FARBSCHEMA ERZWINGEN ---
+        # Wir rufen repaint_ui_colors auf, damit alle Buttons (inkl. Commit-Check)
+        # dein ausgewähltes Hover-Farbschema erhalten.
+        if hasattr(self, "repaint_ui_colors"):
+            self.repaint_ui_colors()
 
         # 4. SOUND ABSPIELEN
         if "safe_play" in globals():
