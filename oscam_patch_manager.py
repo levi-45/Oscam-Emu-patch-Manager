@@ -127,7 +127,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.7.7"
+APP_VERSION = "2.7.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -5319,23 +5319,30 @@ class PatchManagerGUI(QWidget):
         # Uhr & Datum vertikal in eigenem Container
         time_date_container = QWidget()
         time_date_layout = QVBoxLayout(time_date_container)
-        time_date_layout.setContentsMargins(0, 0, 0, 0)
+        # 15px Abstand nach links zum Info-Button
+        time_date_layout.setContentsMargins(15, 0, 0, 0)
         time_date_layout.setSpacing(2)
+        # Der gesamte Block bleibt links
         time_date_layout.setAlignment(
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
         )
 
+        # Gemeinsame Schriftart: Fett und Größe 24
+        bold_font = QFont("Segoe UI", 24)
+        bold_font.setBold(True)
+
+        # Uhrzeit-Label (Rot & Fett)
         self.digital_clock = QLabel("--:--:--")
-        self.digital_clock.setFont(QFont("Bold", 22, QFont.Weight.Bold))
-        self.digital_clock.setStyleSheet("color: red;")
-        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.digital_clock.setFont(bold_font)
+        self.digital_clock.setStyleSheet("color: red; font-weight: bold;")
+        self.digital_clock.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         time_date_layout.addWidget(self.digital_clock)
 
-        # Datum-Label
+        # Datum-Label (Grün & Fett)
         self.date_label = QLabel("--.--.----")
-        self.date_label.setFont(QFont("Bold", 22))
-        self.date_label.setStyleSheet("color: green;")  # <-- hier Grün!
-        self.date_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.date_label.setFont(bold_font)
+        self.date_label.setStyleSheet("color: green; font-weight: bold;")
+        self.date_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         time_date_layout.addWidget(self.date_label)
 
         # Container korrekt setzen
