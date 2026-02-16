@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ============================================================================
+# =====================================================================
 #  OSCam Emu Patch Generator
 #
 #  Copyright (c) 2026 speedy005
@@ -19,7 +19,7 @@
 #  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 #  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 #  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# ============================================================================
+# =====================================================================
 import sys
 import os
 import json
@@ -94,7 +94,7 @@ def check_and_install_dependencies(required_packages):
             return True
     return False
 
-# ===================== GLOBALE SOUND-SICHERHEIT =====================
+# ===================== GLOBALE SOUND-SICHERHEIT=====================
 HAS_PAPLAY = shutil.which("paplay") is not None
 
 def safe_play(sound_name):
@@ -166,7 +166,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.8.1"
+APP_VERSION = "2.8.2"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -1053,7 +1053,7 @@ TEXTS = {
         "update_declined": "Update declined.",
         "update_current_version": "✅ Installed version: {version}",
         "restart_required_title": "Restart Required",
-        "restart_required_msg": "The tool needs to be restarted. Restart now?",
+        "restart_required_msg": "The tool needs to be restarted, Restart now?",
         "yes": "Yes",
         "no": "No",
         "save": "Save",
@@ -4005,22 +4005,46 @@ class PatchManagerGUI(QWidget):
         factor_pressed=0.85,
         min_height=40,
         radius=10,
+        icon_name=None,
     ):
-        # Zeilenumbruch bei langen Texten erzwingen (ersetzt Leerzeichen durch Umbruch)
+        from PyQt6.QtGui import QIcon
+        from PyQt6.QtCore import QSize
+        from PyQt6.QtWidgets import QStyle
+
+        # Zeilenumbruch bei langen Texten erzwingen
         display_text = text.replace(" ", "\n") if len(text) > 12 else text
 
         btn = QPushButton(display_text, parent)
         btn.setMinimumHeight(min_height)
-        btn.setMinimumWidth(10)  # Erlaubt extremes Schrumpfen im Grid
+        btn.setMinimumWidth(10)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        # Sorgt dafür, dass der Text im Button zentriert und umgebrochen wird
+        # --- ICON LOGIK START ---
+        if icon_name and isinstance(icon_name, str):
+            # Überprüfen, ob das Icon bereits gesetzt wurde
+            current_icon = btn.icon()
+            
+            if current_icon.isNull():  # Nur setzen, wenn noch kein Icon vorhanden ist
+                icon = QIcon()
+                if icon_name.startswith("SP_"):
+                    # System-Icon laden (mit Fallback)
+                    p_enum = getattr(QStyle.StandardPixmap, icon_name, QStyle.StandardPixmap.SP_ComputerIcon)
+                    icon = self.style().standardIcon(p_enum)
+                else:
+                    # Datei-Icon laden
+                    icon = QIcon(icon_name)
+                
+                # Nur wenn das Icon geladen werden konnte, setzen wir es
+                if not icon.isNull():
+                    btn.setIcon(icon)
+                    btn.setIconSize(QSize(18, 18))
+        # --- ICON LOGIK ENDE ---
+
         btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         hover_color = self.adjust_color(color, factor_hover)
         pressed_color = self.adjust_color(color, factor_pressed)
 
-        # Padding reduziert, damit Text mehr Platz hat
         btn.setStyleSheet(
             f"""
             QPushButton {{
@@ -4048,12 +4072,14 @@ class PatchManagerGUI(QWidget):
         self, parent, button_definitions, all_buttons_list, info_widget=None
     ):
         """
-        Erzeugt Buttons basierend auf einer Liste von Definitionen.
-        WICHTIG: Muss 'self' als ersten Parameter haben, um create_action_button aufzurufen.
+        Erzeugt Buttons basierend auf einer Liste von Definitionen (Dictionaries).
         """
         buttons = {}
         for bd in button_definitions:
-            # Aufruf über self, da create_action_button eine Instanzmethode ist
+            # Überprüfen, ob ein Icon gesetzt wurde, und sicherstellen, dass es nur einmal zugewiesen wird
+            icon_name = bd.get("icon", None)
+            
+            # Überprüfen, ob ein Icon gesetzt wurde, bevor es weitergegeben wird
             btn = self.create_action_button(
                 parent=parent,
                 text=bd["text"],
@@ -4061,8 +4087,11 @@ class PatchManagerGUI(QWidget):
                 callback=bd["callback"],
                 all_buttons_list=all_buttons_list,
                 fg=bd.get("fg", "white"),
-                min_height=self.BUTTON_HEIGHT if hasattr(self, "BUTTON_HEIGHT") else 40,
+                icon_name=icon_name,  # Icon aus Dictionary laden
+                min_height=bd.get("min_height", self.BUTTON_HEIGHT if hasattr(self, "BUTTON_HEIGHT") else 40),
+                radius=self.BUTTON_RADIUS if hasattr(self, "BUTTON_RADIUS") else 10
             )
+            # Button in der buttons-Datenstruktur ablegen
             buttons[bd.get("key", bd["text"])] = btn
         return buttons
 
@@ -4122,65 +4151,18 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtWidgets import QGridLayout, QWidget, QSizePolicy
         from PyQt6.QtGui import QFont
 
+        # 1. Key | 2. Text-Key | 3. Hintergrund | 4. Funktion | 5. Schriftfarbe | 6. Icon
         button_defs = [
-            ("git_status", "git_status", "#1E90FF", self.show_commits, "white"),
-            (
-                "plugin_update",
-                "plugin_update",
-                "#FF8C00",
-                self.plugin_update_button_clicked,
-                "white",
-            ),
-            (
-                "restart_tool",
-                "restart_tool",
-                "#FF4500",
-                self.restart_application_with_info,
-                "white",
-            ),
-            (
-                "edit_patch_header",
-                "edit_patch_header",
-                "#32CD32",
-                self.edit_patch_header,
-                "white",
-            ),
-            (
-                "github_emu_config",
-                "github_emu_config_button",
-                "#FFA500",
-                self.edit_emu_github_config,
-                "black",
-            ),
-            (
-                "github_upload_patch",
-                "github_upload_patch",
-                "#1E90FF",
-                github_upload_patch_file,
-                "white",
-            ),
-            (
-                "github_upload_emu",
-                "github_upload_emu",
-                "#1E90FF",
-                github_upload_oscam_emu_folder,
-                "white",
-            ),
-            (
-                "oscam_emu_git_patch",
-                "oscam_emu_git_patch",
-                "#32CD32",
-                patch_oscam_emu_git,
-                "white",
-            ),
-            (
-                "oscam_emu_git_clear",
-                "oscam_emu_git_clear",
-                "#FF4500",
-                self.oscam_emu_git_clear,
-                "white",
-            ),
-            ("terminal", "Terminal", "#2E2E2E", self.open_terminal, "#39FF14"),
+            ("git_status", "git_status", "#1E90FF", self.show_commits, "white", "SP_FileDialogContentsView"),
+            ("plugin_update", "plugin_update", "#FF8C00", self.plugin_update_button_clicked, "white", "SP_ArrowDown"),
+            ("restart_tool", "restart_tool", "#FF4500", self.restart_application_with_info, "white", "SP_BrowserReload"),
+            ("edit_patch_header", "edit_patch_header", "#32CD32", self.edit_patch_header, "white", "SP_FileDialogDetailedView"),
+            ("github_emu_config", "github_emu_config_button", "#FFA500", self.edit_emu_github_config, "black", "SP_ComputerIcon"),
+            ("github_upload_patch", "github_upload_patch", "#1E90FF", github_upload_patch_file, "white", "SP_ArrowUp"),
+            ("github_upload_emu", "github_upload_emu", "#1E90FF", github_upload_oscam_emu_folder, "white", "SP_ArrowUp"),
+            ("oscam_emu_git_patch", "oscam_emu_git_patch", "#32CD32", patch_oscam_emu_git, "white", "SP_DialogApplyButton"),
+            ("oscam_emu_git_clear", "oscam_emu_git_clear", "#FF4500", self.oscam_emu_git_clear, "white", "SP_TrashIcon"),
+            ("terminal", "Terminal", "#FFA500", self.open_terminal, "black"),
         ]
 
         container = QWidget()
@@ -4192,34 +4174,32 @@ class PatchManagerGUI(QWidget):
         cols_per_row = 5
 
         for idx, (key, text_key, color, callback, *rest) in enumerate(button_defs):
-            fg = rest[0] if rest else "white"
+            # Präzise Extraktion aus 'rest'
+            current_fg = rest[0] if len(rest) > 0 else "white"
+            current_icon = rest[1] if len(rest) > 1 else None
+
             raw_text = self.get_t(text_key, text_key)
 
-            # Dieser Part regelt den Aufruf ohne 'self' Konflikt
             def create_cb(c):
-                # Wenn es eine Methode der Klasse ist (self.name)
                 if hasattr(c, "__self__"):
                     return lambda: c()
-                # Wenn es eine externe Funktion ist
-                return lambda: c(
-                    gui_instance=self,
-                    info_widget=self.info_text,
-                    progress_callback=None,
-                )
+                return lambda: c(gui_instance=self, info_widget=self.info_text, progress_callback=None)
 
+            # Button erstellen
             btn = self.create_action_button(
                 parent=self,
                 text=raw_text,
                 color=color,
-                fg=fg,
                 callback=create_cb(callback),
                 all_buttons_list=self.all_buttons,
+                fg=current_fg,
+                icon_name=current_icon,  # Sicherstellen, dass das Icon nicht doppelt übergeben wird
                 min_height=35,
-                radius=self.BUTTON_RADIUS,
+                radius=self.BUTTON_RADIUS if hasattr(self, "BUTTON_RADIUS") else 10,
             )
 
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            btn.setFixedHeight(self.BUTTON_HEIGHT)
+            btn.setFixedHeight(self.BUTTON_HEIGHT if hasattr(self, "BUTTON_HEIGHT") else 35)
             btn.setFont(QFont("Arial", 9, QFont.Weight.Bold))
 
             row = idx // cols_per_row
