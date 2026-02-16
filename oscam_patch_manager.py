@@ -53,6 +53,7 @@ import sys
 import importlib.util
 from PyQt6.QtWidgets import QMessageBox
 
+
 def check_and_install_dependencies(required_packages):
     missing_packages = []
     for pkg in required_packages:
@@ -94,8 +95,10 @@ def check_and_install_dependencies(required_packages):
             return True
     return False
 
+
 # ===================== GLOBALE SOUND-SICHERHEIT=====================
 HAS_PAPLAY = shutil.which("paplay") is not None
+
 
 def safe_play(sound_name):
     """Spielt Sounds nur ab, wenn paplay existiert, sonst Beep."""
@@ -112,6 +115,7 @@ def safe_play(sound_name):
             except:
                 pass
     QApplication.beep()
+
 
 # ===================== VERSION HANDLING =====================
 try:
@@ -142,6 +146,7 @@ except (ImportError, ModuleNotFoundError):
     class InvalidVersion(Exception):
         pass
 
+
 # ===================== ENV SETUP =====================
 # Git Fehler unterdrücken
 if platform.system() == "Windows":
@@ -152,6 +157,7 @@ else:
 # ===================== SCRIPT DIR =====================
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
 def ensure_executable_self():
     """Setzt Ausführungsrechte für das eigene Skript (Linux/Unix)."""
     try:
@@ -161,12 +167,15 @@ def ensure_executable_self():
     except Exception as e:
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
+
 # ===================== ZEIT =====================
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.8.2"
+APP_VERSION = "2.8.3"
+
+
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -179,6 +188,7 @@ def get_best_patch_dir():
 
     os.makedirs(local_path, exist_ok=True)
     return local_path
+
 
 def get_initial_patch_dir():
     """Wählt den sichersten Backup-Ordner je nach OS."""
@@ -194,6 +204,7 @@ def get_initial_patch_dir():
 
     os.makedirs(path, exist_ok=True)
     return path
+
 
 OLD_PATCH_DIR = get_initial_patch_dir()
 OLD_PATCH_DIR_PLUGIN_DEFAULT = OLD_PATCH_DIR
@@ -227,6 +238,7 @@ for d in [TEMP_REPO, PATCH_EMU_GIT_DIR, OLD_PATCH_DIR]:
 
 from PyQt6.QtWidgets import QLayout, QSizePolicy, QWidgetItem
 from PyQt6.QtCore import QRect, QSize, Qt, QPoint
+
 
 class FlowLayout(QLayout):
     def __init__(self, parent=None, margin=0, spacing=5):
@@ -301,6 +313,7 @@ class FlowLayout(QLayout):
 
         return y + line_height - rect.y()
 
+
 def ensure_dir(directory):
     """
     Erstellt das Verzeichnis, falls es noch nicht existiert.
@@ -321,7 +334,9 @@ def ensure_dir(directory):
         except Exception as e:
             print(f"[ERROR] Unbekannter Fehler beim Erstellen von {directory}: {e}")
 
+
 from PyQt6.QtCore import QObject, pyqtSignal
+
 
 class StreamToGui(QObject):
     """Sichere Weiterleitung von stdout an die GUI mittels Signalen."""
@@ -337,6 +352,7 @@ class StreamToGui(QObject):
 
     def flush(self):
         pass
+
 
 # ===================== NEVER_DELETE =====================
 NEVER_DELETE = [
@@ -843,6 +859,7 @@ DIFF_COLORS = {
 current_diff_colors = DIFF_COLORS["Classics"]
 current_color_name = "Classics"
 
+
 def fill_missing_keys(texts):
     """
     Prüft, ob alle Keys aus 'en' auch in 'de' existieren.
@@ -856,6 +873,7 @@ def fill_missing_keys(texts):
             de_keys[key] = value  # Englische Version als Platzhalter
 
     texts["de"] = de_keys
+
 
 # ===================== LANGUAGE =====================
 LANG = "de"
@@ -1482,6 +1500,7 @@ for key, value in TEXTS["en"].items():
 # 4️⃣ **Unbedingt einmalig vor GUI-Start aufrufen**
 fill_missing_keys(TEXTS)
 
+
 def save_config(cfg, gui_instance=None, silent=False):
     """
     Speichert die Config im Hintergrund.
@@ -1542,6 +1561,7 @@ def save_config(cfg, gui_instance=None, silent=False):
             gui_instance.log_message(
                 f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>"
             )
+
 
 # ===================== CONFIG =====================
 def load_config():
@@ -1609,6 +1629,7 @@ def load_config():
     except Exception as e:
         print(f"⚠️ Kritischer Config Fehler: {e}")
         return default_cfg.copy()
+
 
 # ===================== INFOSCREEN =====================
 def github_upload_patch_file(
@@ -1773,10 +1794,12 @@ def github_upload_patch_file(
     # 7. Cleanup
     shutil.rmtree(temp_repo, ignore_errors=True)
 
+
 from datetime import datetime, timezone
 import subprocess
 import os
 import shutil  # wird unten benötigt
+
 
 def get_patch_header(repo_dir=None, lang="de", modifier=None):
     """
@@ -1843,9 +1866,11 @@ def get_patch_header(repo_dir=None, lang="de", modifier=None):
 
     return header
 
+
 # ===================== PATCH FUNCTIONS =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 import os, subprocess, shutil
+
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -1991,10 +2016,12 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
     set_progress(100)
 
+
 # ===================== backup_old_patch=====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os, re
+
 
 def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback=None):
     """
@@ -2109,10 +2136,12 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
     # Fertig
     set_progress(100)
 
+
 # ===================== CLEAN PATCH FOLDER =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
+
 
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
@@ -2220,8 +2249,10 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
 
     QApplication.processEvents()
 
+
 # ===================== ICONS =====================
 ICON_SIZE = 64
+
 
 def create_icons():
     """
@@ -2264,6 +2295,7 @@ def get_icon_for(name):
     path = os.path.join(ICON_DIR, safe_name + ".png")
     return QIcon(path) if os.path.exists(path) else QIcon()
 
+
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
 def clean_oscam_emu_git(progress_callback=None):
     """Löscht den Emu-Git Ordner stumm im Log, aber mit Sound-Feedback (Absturzsicher)."""
@@ -2303,6 +2335,7 @@ def clean_oscam_emu_git(progress_callback=None):
     if progress_callback:
         progress_callback(100)
     return "not_found"
+
 
 # ===================== patch_oscam_emu_git=====================
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
@@ -2464,6 +2497,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
     # QTimer.singleShot(100, final_logs)
     set_progress(100)
 
+
 def load_github_config():
     if os.path.exists(GITHUB_CONF_FILE):
         try:
@@ -2487,6 +2521,7 @@ def save_github_config(cfg):
         json.dump(cfg, open(GITHUB_CONF_FILE, "w"))
     except:
         pass
+
 
 # ===================== GITHUB UPLOAD =====================
 def _github_upload(
@@ -2560,10 +2595,12 @@ def _github_upload(
         "success" if code == 0 else "error",
     )
 
+
 # ===================== GITHUB UPLOAD PATCH FILE =====================
 from PyQt6.QtWidgets import QTextEdit, QApplication
 from PyQt6.QtGui import QTextCursor
 import shutil, os
+
 
 def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     """
@@ -2655,6 +2692,7 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
     except Exception as e:
         log(f"run_bash error: {e}", "error")
         return -1
+
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -2846,6 +2884,7 @@ def github_upload_oscam_emu_folder(
         set_progress(0)
         play_sound(False)  # FEHLER
 
+
 # =====================
 # GITHUB CONFIG DIALOG
 # =====================
@@ -2939,7 +2978,9 @@ class GithubConfigDialog(QDialog):
             print(f"Fehler beim Speichern der GitHub-Config: {e}")
             self.reject()
 
+
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QThread, pyqtSignal, QUrl
+
 
 class TaskWorker(QThread):
     progress = pyqtSignal(int)
@@ -2962,6 +3003,7 @@ class TaskWorker(QThread):
         except Exception as e:
             self.info.emit(f"Fehler: {str(e)}", "error")
             self.progress.emit(100)
+
 
 # =====================
 # PATCH MANAGER GUI
@@ -3083,55 +3125,80 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(2000, self.check_for_update_on_start)
 
     def show_welcome_info(self):
-        """Zeigt die Tool-Übersicht kompakt ohne große Leerstellen an."""
+        """Zeigt die Tool-Übersicht mit fettem Text und buntem Footer an."""
         lang = getattr(self, "LANG", "de").lower()
-        version = globals().get("APP_VERSION", "2.7.6")
+        version = globals().get("APP_VERSION", "2.8.2")
 
         # Farbcodes
-        color_title, color_features, color_items, color_footer = (
-            "#00ADFF",
-            "#F37804",
-            "#00FF00",
-            "#FF0000",
-        )
+        C_TITLE = "#E63946"  # Rot-Ton für Titel
+        C_FEATURES = "#F37804"  # Orange für Hauptmerkmale
+        C_GREEN = "#00FF00"  # Grün
+        C_BLUE = "#00ADFF"  # Blau
+        C_RED = "#FF0000"  # Reinrot
+        C_YELLOW = "#FFFF00"  # Gelb
+        C_GRAY = "#808080"  # Grau für Trenner
+
+        # Helfer-Funktion für fette, zweifarbige Zeilen
+        def format_line(icon_text, description):
+            # Beide Teile sind fett (<b>) für gleiche Schriftstärke
+            return f'<span style="color:{C_GREEN};"><b>{icon_text}</b></span> <span style="color:{C_BLUE};"><b>{description}</b></span>'
 
         if lang == "de":
             title = "OSCam Emu Patch Generator"
             features_label = "Hauptmerkmale:"
-            f1 = "➤ <b>Automatisches Patching:</b> Erstellt .patch Dateien direkt vom Streamboard."
-            f2 = "➤ <b>Commit Monitor:</b> Echtzeit-Tracking von neuen Änderungen."
-            f3 = "➤ <b>Lokalisierung:</b> Vollständige Unterstützung für DE/EN."
-            f4 = "➤ <b>Smart Logging:</b> Farblich kodiertes Feedback-System."
-            footer = f"Autor: speedy005 | Version: {version} | Lizenz: MIT"
+            f1 = format_line(
+                "➤ Automatisches Patching:",
+                "Erstellt .patch Dateien direkt vom Streamboard.",
+            )
+            f2 = format_line(
+                "➤ Commit Monitor:", "Echtzeit-Tracking von neuen Änderungen."
+            )
+            f3 = format_line(
+                "➤ Lokalisierung:", "Vollständige Unterstützung für DE/EN."
+            )
+            f4 = format_line("➤ Smart Logging:", "Farblich kodiertes Feedback-System.")
         else:
             title = "OSCam Emu Patch Generator"
             features_label = "Key Features:"
-            f1 = "➤ <b>Automated Patching:</b> Generates .patch files directly from Streamboard."
-            f2 = "➤ <b>Commit Monitor:</b> Real-time tracking of new changes."
-            f3 = "➤ <b>Localization:</b> Full support for DE/EN."
-            f4 = "➤ <b>Smart Logging:</b> Color-coded feedback system."
-            footer = f"Author: speedy005 | Version: {version} | License: MIT"
+            f1 = format_line(
+                "➤ Automated Patching:",
+                "Generates .patch files directly from Streamboard.",
+            )
+            f2 = format_line("➤ Commit Monitor:", "Real-time tracking of new changes.")
+            f3 = format_line("➤ Localization:", "Full support for DE/EN.")
+            f4 = format_line("➤ Smart Logging:", "Color-coded feedback system.")
 
-        # OPTIMIERUNG: margin:0 und line-height reduziert für Kompaktheit
+        # Bunter Footer: Jedes Element erhält explizit seine eigene Farbe
+        # WICHTIG: Das umschließende div darf keine color-Eigenschaft haben!
+        footer_html = f"""
+        <div style="font-size: 24px; margin-top: 2px;">
+            <span style="color:{C_RED};"><b>Autor:</b></span> 
+            <span style="color:{C_GREEN};"><b>speedy005</b></span> 
+            <span style="color:{C_GRAY};"> | </span>
+            <span style="color:{C_BLUE};"><b>Version:</b></span> 
+            <span style="color:{C_YELLOW};"><b>{version}</b></span> 
+            <span style="color:{C_GRAY};"> | </span>
+            <span style="color:{C_RED};"><b>Lizenz:</b></span> 
+            <span style="color:{C_GREEN};"><b>MIT</b></span>
+        </div>
+        """
+
         welcome_html = f"""
         <div style="font-family: 'Segoe UI', Tahoma, sans-serif;">
-            <h2 style="color:{color_title}; margin-top:0px; margin-bottom:0px;">🚀 {title}</h2>
-            <hr style="color: #808080; margin: 2px 0px;">
-        
-            <b style="color:{color_features}; font-size: 24px;">{features_label}</b>
-        
-            <div style="color:{color_items}; font-size: 24px; line-height: 1.2; margin-top: 2px;">
+            <h2 style="color:{C_TITLE}; margin-top:0px; margin-bottom:0px;">🚀 {title}</h2>
+            <hr style="color: {C_GRAY}; margin: 2px 0px;">
+
+            <b style="color:{C_FEATURES}; font-size: 24px;">{features_label}</b>
+
+            <div style="font-size: 24px; line-height: 1.2; margin-top: 2px;">
                 {f1}<br>
                 {f2}<br>
                 {f3}<br>
                 {f4}
             </div>
-        
-            <hr style="color: #808080; margin: 2px 0px;">
-        
-            <div style="color:{color_footer}; font-size: 24px; margin-top: 2px;">
-                <b>{footer}</b>
-            </div>
+
+            <hr style="color: {C_GRAY}; margin: 2px 0px;">
+            {footer_html}
         </div>
         """
 
@@ -3140,7 +3207,7 @@ class PatchManagerGUI(QWidget):
 
             self.info_text.moveCursor(QTextCursor.MoveOperation.End)
             self.info_text.insertHtml(welcome_html)
-            # Nur ein einfacher kleiner Umbruch statt großem Puffer
+            # Kleiner Abstandshalter
             self.info_text.insertHtml("<div style='font-size:4px;'>&nbsp;</div>")
             self.info_text.moveCursor(QTextCursor.MoveOperation.End)
 
@@ -4023,17 +4090,21 @@ class PatchManagerGUI(QWidget):
         if icon_name and isinstance(icon_name, str):
             # Überprüfen, ob das Icon bereits gesetzt wurde
             current_icon = btn.icon()
-            
+
             if current_icon.isNull():  # Nur setzen, wenn noch kein Icon vorhanden ist
                 icon = QIcon()
                 if icon_name.startswith("SP_"):
                     # System-Icon laden (mit Fallback)
-                    p_enum = getattr(QStyle.StandardPixmap, icon_name, QStyle.StandardPixmap.SP_ComputerIcon)
+                    p_enum = getattr(
+                        QStyle.StandardPixmap,
+                        icon_name,
+                        QStyle.StandardPixmap.SP_ComputerIcon,
+                    )
                     icon = self.style().standardIcon(p_enum)
                 else:
                     # Datei-Icon laden
                     icon = QIcon(icon_name)
-                
+
                 # Nur wenn das Icon geladen werden konnte, setzen wir es
                 if not icon.isNull():
                     btn.setIcon(icon)
@@ -4078,7 +4149,7 @@ class PatchManagerGUI(QWidget):
         for bd in button_definitions:
             # Überprüfen, ob ein Icon gesetzt wurde, und sicherstellen, dass es nur einmal zugewiesen wird
             icon_name = bd.get("icon", None)
-            
+
             # Überprüfen, ob ein Icon gesetzt wurde, bevor es weitergegeben wird
             btn = self.create_action_button(
                 parent=parent,
@@ -4088,8 +4159,11 @@ class PatchManagerGUI(QWidget):
                 all_buttons_list=all_buttons_list,
                 fg=bd.get("fg", "white"),
                 icon_name=icon_name,  # Icon aus Dictionary laden
-                min_height=bd.get("min_height", self.BUTTON_HEIGHT if hasattr(self, "BUTTON_HEIGHT") else 40),
-                radius=self.BUTTON_RADIUS if hasattr(self, "BUTTON_RADIUS") else 10
+                min_height=bd.get(
+                    "min_height",
+                    self.BUTTON_HEIGHT if hasattr(self, "BUTTON_HEIGHT") else 40,
+                ),
+                radius=self.BUTTON_RADIUS if hasattr(self, "BUTTON_RADIUS") else 10,
             )
             # Button in der buttons-Datenstruktur ablegen
             buttons[bd.get("key", bd["text"])] = btn
@@ -4153,15 +4227,78 @@ class PatchManagerGUI(QWidget):
 
         # 1. Key | 2. Text-Key | 3. Hintergrund | 4. Funktion | 5. Schriftfarbe | 6. Icon
         button_defs = [
-            ("git_status", "git_status", "#1E90FF", self.show_commits, "white", "SP_FileDialogContentsView"),
-            ("plugin_update", "plugin_update", "#FF8C00", self.plugin_update_button_clicked, "white", "SP_ArrowDown"),
-            ("restart_tool", "restart_tool", "#FF4500", self.restart_application_with_info, "white", "SP_BrowserReload"),
-            ("edit_patch_header", "edit_patch_header", "#32CD32", self.edit_patch_header, "white", "SP_FileDialogDetailedView"),
-            ("github_emu_config", "github_emu_config_button", "#FFA500", self.edit_emu_github_config, "black", "SP_ComputerIcon"),
-            ("github_upload_patch", "github_upload_patch", "#1E90FF", github_upload_patch_file, "white", "SP_ArrowUp"),
-            ("github_upload_emu", "github_upload_emu", "#1E90FF", github_upload_oscam_emu_folder, "white", "SP_ArrowUp"),
-            ("oscam_emu_git_patch", "oscam_emu_git_patch", "#32CD32", patch_oscam_emu_git, "white", "SP_DialogApplyButton"),
-            ("oscam_emu_git_clear", "oscam_emu_git_clear", "#FF4500", self.oscam_emu_git_clear, "white", "SP_TrashIcon"),
+            (
+                "git_status",
+                "git_status",
+                "#1E90FF",
+                self.show_commits,
+                "white",
+                "SP_FileDialogContentsView",
+            ),
+            (
+                "plugin_update",
+                "plugin_update",
+                "#FF8C00",
+                self.plugin_update_button_clicked,
+                "white",
+                "SP_ArrowDown",
+            ),
+            (
+                "restart_tool",
+                "restart_tool",
+                "#FF4500",
+                self.restart_application_with_info,
+                "white",
+                "SP_BrowserReload",
+            ),
+            (
+                "edit_patch_header",
+                "edit_patch_header",
+                "#32CD32",
+                self.edit_patch_header,
+                "white",
+                "SP_FileDialogDetailedView",
+            ),
+            (
+                "github_emu_config",
+                "github_emu_config_button",
+                "#FFA500",
+                self.edit_emu_github_config,
+                "black",
+                "SP_ComputerIcon",
+            ),
+            (
+                "github_upload_patch",
+                "github_upload_patch",
+                "#1E90FF",
+                github_upload_patch_file,
+                "white",
+                "SP_ArrowUp",
+            ),
+            (
+                "github_upload_emu",
+                "github_upload_emu",
+                "#1E90FF",
+                github_upload_oscam_emu_folder,
+                "white",
+                "SP_ArrowUp",
+            ),
+            (
+                "oscam_emu_git_patch",
+                "oscam_emu_git_patch",
+                "#32CD32",
+                patch_oscam_emu_git,
+                "white",
+                "SP_DialogApplyButton",
+            ),
+            (
+                "oscam_emu_git_clear",
+                "oscam_emu_git_clear",
+                "#FF4500",
+                self.oscam_emu_git_clear,
+                "white",
+                "SP_TrashIcon",
+            ),
             ("terminal", "Terminal", "#FFA500", self.open_terminal, "black"),
         ]
 
@@ -4183,7 +4320,11 @@ class PatchManagerGUI(QWidget):
             def create_cb(c):
                 if hasattr(c, "__self__"):
                     return lambda: c()
-                return lambda: c(gui_instance=self, info_widget=self.info_text, progress_callback=None)
+                return lambda: c(
+                    gui_instance=self,
+                    info_widget=self.info_text,
+                    progress_callback=None,
+                )
 
             # Button erstellen
             btn = self.create_action_button(
@@ -4199,7 +4340,9 @@ class PatchManagerGUI(QWidget):
             )
 
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            btn.setFixedHeight(self.BUTTON_HEIGHT if hasattr(self, "BUTTON_HEIGHT") else 35)
+            btn.setFixedHeight(
+                self.BUTTON_HEIGHT if hasattr(self, "BUTTON_HEIGHT") else 35
+            )
             btn.setFont(QFont("Arial", 9, QFont.Weight.Bold))
 
             row = idx // cols_per_row
@@ -5222,7 +5365,7 @@ class PatchManagerGUI(QWidget):
 
     def run_full_system_check(self, clear_log=False):
         """
-        Teil 1 des System-Checks: Kompakt-Version ohne große Abstände.
+        Vollständiger System-Check: Fette, zweifarbige Zeilen und bunter Footer am Ende.
         """
         if getattr(self, "_checking_active", False):
             return
@@ -5235,24 +5378,24 @@ class PatchManagerGUI(QWidget):
             from PyQt6.QtWidgets import QApplication
             from PyQt6.QtGui import QTextCursor
 
-            # --- STYLE OPTIMIERUNG ---
+            # --- STYLE KONFIGURATION ---
             SZ_BIG, SZ_NORM = "26px", "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
-            C_ORANGE, C_GREEN, C_BLUE, C_LINE, C_ERR = (
-                "#F37804",
-                "#00FF00",
-                "#00ADFF",
-                "#808080",
-                "#FF0000",
-            )
+
+            # Farbcodes
+            C_ORANGE = "#F37804"  # Titel
+            C_GREEN = "#00FF00"  # Erfolg / Namen
+            C_BLUE = "#00ADFF"  # Status / Version
+            C_YELLOW = "#FFFF00"  # Versions-Nummer
+            C_RED = "#FF0000"  # Fehler / Autor / Lizenz
+            C_LINE = "#808080"  # Trenner
 
             # 2. LOG-FENSTER VORBEREITEN
             if hasattr(self, "info_text") and self.info_text:
                 if clear_log:
                     self.info_text.clear()
                 else:
-                    # FIX: Nur ein minimaler Abstand (4px) statt zwei großen <br>
                     self.info_text.moveCursor(QTextCursor.MoveOperation.End)
                     self.info_text.insertHtml(
                         "<div style='font-size:4px;'>&nbsp;</div>"
@@ -5264,6 +5407,7 @@ class PatchManagerGUI(QWidget):
                 safe_play("dialog-information.oga")
 
             lang = getattr(self, "LANG", "de").lower()
+            version = globals().get("APP_VERSION", "2.8.2")
             txt = (
                 globals()
                 .get("TEXTS", {})
@@ -5273,7 +5417,7 @@ class PatchManagerGUI(QWidget):
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
-            # --- BLOCK 1: START & TOOLS (Kompakte line-height) ---
+            # --- BLOCK 1: START & TOOLS ---
             start_msg = txt.get("start_check", "Starte System-Check...")
             output.append(
                 f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>'
@@ -5285,20 +5429,27 @@ class PatchManagerGUI(QWidget):
 
             for name in tools:
                 found = shutil.which(name)
-                color, icon = (C_GREEN, "✅") if found else (C_ERR, "❌")
+                prefix_color = C_GREEN if found else C_ERR
+                icon = "✅" if found else "❌"
                 status = (
                     txt.get("found", "gefunden")
                     if found
                     else txt.get("missing", "FEHLT!")
                 )
-                output.append(
-                    f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{color}"><b>  {icon} {name.ljust(6)} : {status}</b></span></div>'
+
+                line = (
+                    f'<div style="line-height:1.1;">'
+                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{prefix_color}"><b>  {icon} {name.ljust(6)} : </b></span>'
+                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{status}</b></span>'
+                    f"</div>"
                 )
+                output.append(line)
 
             # --- BLOCK 2: INTERNET-CHECK ---
             output.append(
                 f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>'
             )
+
             net_msg = txt.get("net_check", "Prüfe Internetverbindung...")
             output.append(
                 f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>🔍 {net_msg}</b></span></div>'
@@ -5306,14 +5457,14 @@ class PatchManagerGUI(QWidget):
 
             try:
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
-                net_status_text, net_status_key, net_col, net_icon = (
+                net_status_text, net_status_key, net_prefix_col, net_icon = (
                     txt.get("net_online", "Online"),
                     "Online",
                     C_GREEN,
                     "✅",
                 )
             except:
-                net_status_text, net_status_key, net_col, net_icon = (
+                net_status_text, net_status_key, net_prefix_col, net_icon = (
                     txt.get("net_offline", "Offline"),
                     "Offline",
                     C_ERR,
@@ -5321,17 +5472,31 @@ class PatchManagerGUI(QWidget):
                 )
 
             output.append(
-                f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Status : {net_status_text}</b></span></div>'
+                f'<div style="line-height:1.1;">'
+                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_prefix_col}"><b>  {net_icon} Status : </b></span>'
+                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{net_status_text}</b></span>'
+                f"</div>"
             )
+
             output.append(
                 f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>'
             )
 
-            # --- BLOCK 3: UPDATE TITEL ---
+            # --- BLOCK 3: UPDATE TITEL & FOOTER ---
             upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
             output.append(
                 f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span></div>'
             )
+
+            # DER BUNTE FOOTER (Rot, Grün, Blau, Gelb)
+            footer_line = (
+                f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; margin-top: 4px; line-height:1.2;">'
+                f'<span style="color:{C_RED};"><b>Autor:</b></span> <span style="color:{C_GREEN};"><b>speedy005</b></span> | '
+                f'<span style="color:{C_BLUE};"><b>Version:</b></span> <span style="color:{C_YELLOW};"><b>{version}</b></span> | '
+                f'<span style="color:{C_RED};"><b>Lizenz:</b></span> <span style="color:{C_GREEN};"><b>MIT</b></span>'
+                f"</div>"
+            )
+            output.append(footer_line)
 
             # Gesamte HTML-Ausgabe senden
             self.append_info(self.info_text, "".join(output), "raw")
@@ -6872,6 +7037,7 @@ class PatchManagerGUI(QWidget):
                     print(f"[WARN] Config save failed: {e}")
 
             QApplication.quit()
+
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
