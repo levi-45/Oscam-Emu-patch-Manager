@@ -173,7 +173,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.8.3"
+APP_VERSION = "2.8.4"
 
 
 # ===================== PATCH DIRS =====================
@@ -1875,7 +1875,7 @@ import os, subprocess, shutil
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Erstellt den Patch im TEMP_REPO mit dem exakten 3-Zeilen-Header.
-    Inklusive akustischem Feedback bei Abschluss.
+    Inklusive akustischem Feedback bei Start und Abschluss.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
@@ -1908,13 +1908,10 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             widget.moveCursor(QTextCursor.MoveOperation.End)
             QApplication.processEvents()
 
-    def play_sound(success=True):
-        """Spielt den passenden Sound für Linux ab (abgesichert via safe_play)."""
-        # Bestimme den Dateinamen basierend auf Erfolg oder Fehler
-        sound_file = "complete.oga" if success else "dialog-error.oga"
-
-        # Rufe die globale Sicherheits-Funktion auf, die du oben eingebaut hast
-        safe_play(sound_file)
+    def play_sound(sound_name):
+        """Spielt den passenden Sound ab (abgesichert via safe_play)."""
+        if "safe_play" in globals():
+            safe_play(sound_name)
 
     def set_progress(val):
         if progress_callback:
@@ -1925,6 +1922,9 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
                 pass
 
     # --- START ---
+    # 1. START-SOUND (Signalisiert den Beginn der Arbeit)
+    play_sound("dialog-information.oga")
+    
     log("patch_create_start", "info")
     set_progress(10)
 
@@ -2005,13 +2005,14 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
                     patch_version=header_lines[0].strip(),
                 )
 
-        # Sound abspielen
-        play_sound(success=True)
+        # 2. ERFOLGS-SOUND (Signalisiert das Ende der Arbeit)
+        play_sound("complete.oga")
 
     except Exception as e:
         log("patch_create_failed", "error", error=str(e))
         set_progress(0)
-        play_sound(success=False)
+        # 3. FEHLER-SOUND
+        play_sound("dialog-error.oga")
         return
 
     set_progress(100)
@@ -2146,6 +2147,7 @@ import shutil, os
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Löscht temporäre Repos und Dateien (TEMP_REPO, TEMP_PATCH_GIT, PATCH_FILE, ZIP_FILE).
+    Der PATCH_EMU_GIT_DIR wird NICHT gelöscht.
     Inklusive akustischem Feedback bei Erfolg.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
@@ -2177,7 +2179,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
         )
 
         # Die globale Sicherheits-Funktion nutzen
-        safe_play(sound)
+        if "safe_play" in globals():
+            safe_play(sound)
 
     def log(text_key, level="info", **kwargs):
         lang_data = TEXTS.get(lang, TEXTS.get("en", {}))
@@ -2209,7 +2212,8 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     log("cleanup_start", "info")
 
     targets = []
-    for var_name in ["TEMP_REPO", "TEMP_PATCH_GIT", "PATCH_EMU_GIT_DIR"]:
+    # PATCH_EMU_GIT_DIR wurde hier entfernt, damit er nicht gelöscht wird!
+    for var_name in ["TEMP_REPO", "TEMP_PATCH_GIT"]:
         path = globals().get(var_name)
         if path and os.path.exists(path):
             targets.append((path, "folder"))
@@ -2222,7 +2226,7 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     if not targets:
         set_progress(100)
         log("cleanup_success", "success")
-        play_sound("success")  # Auch wenn nichts zu tun war, Bestätigung senden
+        play_sound("success")
         return
 
     all_cleaned = True
@@ -2341,11 +2345,15 @@ def clean_oscam_emu_git(progress_callback=None):
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Klont das Streamboard Git, wendet oscam-emu.patch an und commitet.
-    Inklusive Sound-Feedback bei Erfolg oder Fehlern.
+    Inklusive Start-Sound und Sound-Feedback bei Erfolg oder Fehlern.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtCore import QTimer
     import os, shutil, subprocess, platform
+
+    # --- Start-Sound sofort abspielen ---
+    if "safe_play" in globals():
+        safe_play("dialog-information.oga")
 
     widget = (
         info_widget
@@ -2364,9 +2372,9 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
 
     def play_sound(success=True):
         """Spielt Sound-Effekte für Patch-Ergebnisse ab (Absturzsicher via safe_play)."""
-        # Wir wählen die Datei und übergeben sie an die globale Master-Funktion
         sound_file = "complete.oga" if success else "dialog-error.oga"
-        safe_play(sound_file)
+        if "safe_play" in globals():
+            safe_play(sound_file)
 
     def log(text_key, level="info", **kwargs):
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
@@ -2382,7 +2390,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
             widget.append(text)
         QApplication.processEvents()
 
-    # --- Start ---
+    # --- Start Ablauf ---
     set_progress(5)
     log("patch_emu_git_start", "info", path=PATCH_EMU_GIT_DIR)
 
@@ -2408,14 +2416,14 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
 
     if clone.returncode != 0:
         log("patch_emu_git_clone_failed", "error")
-        play_sound(False)
+        play_sound(False) # Fehlersound
         return
 
     # --- Patch anwenden ---
     set_progress(50)
     if not os.path.exists(PATCH_FILE):
         log("patch_file_missing", "error")
-        play_sound(False)
+        play_sound(False) # Fehlersound
         return
 
     abs_patch_path = os.path.abspath(PATCH_FILE)
@@ -2428,7 +2436,7 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
 
     if apply_patch.returncode != 0:
         log("patch_emu_git_apply_failed", "error")
-        play_sound(False)
+        play_sound(False) # Fehlersound
         return
 
     # --- Git Config & Commit ---
@@ -2481,21 +2489,19 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
         pass
 
     # --- Finale Meldungen & Sound ---
-    def final_logs():
-        if gui_instance:
-            log("patch_emu_git_done", "success")
-            if rev:
-                rev_text = (
-                    TEXTS[lang]
-                    .get("patch_emu_git_revision", "Git revision: {sha}")
-                    .format(sha=rev)
-                )
-                gui_instance.append_info(widget, rev_text, "success")
-            # Erfolgssound abspielen
-            play_sound(True)
-
-    # QTimer.singleShot(100, final_logs)
     set_progress(100)
+    if gui_instance:
+        log("patch_emu_git_done", "success")
+        if rev:
+            rev_text = (
+                TEXTS[lang]
+                .get("patch_emu_git_revision", "Git revision: {sha}")
+                .format(sha=rev)
+            )
+            gui_instance.append_info(widget, rev_text, "success")
+        
+        # Erfolgssound abspielen
+        play_sound(True)
 
 
 def load_github_config():
@@ -5806,10 +5812,20 @@ class PatchManagerGUI(QWidget):
         def make_label(text):
             lbl = QLabel(text)
             lbl.setFixedHeight(CONTROL_HEIGHT)
+            
+            # WICHTIG: Nutze die Variable 'fg' (Vordergrundfarbe des aktuellen Themes)
+            lbl.setStyleSheet(f"""
+                color: {fg}; 
+                font-weight: bold; 
+                font-size: 18px;
+                background: transparent;
+            """)
+            
             lbl.setAlignment(
                 Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
             )
             return lbl
+
 
         self.lang_label = make_label(self.get_t("language_label", "Language:"))
         self.language_box = QComboBox()
@@ -5844,8 +5860,48 @@ class PatchManagerGUI(QWidget):
         self.commit_spin.setRange(1, 20)
         self.commit_spin.setFixedSize(70, CONTROL_HEIGHT)
         saved_commits = self.cfg.get("commit_count", 10)
+        self.commit_spin = QSpinBox()
+        self.commit_spin.setRange(1, 20)
+        # Wichtig: Breite auf 100, damit die 30px breiten Buttons Platz haben
+        self.commit_spin.setFixedSize(100, CONTROL_HEIGHT)
+        
+        self.commit_spin.setStyleSheet("""
+            QSpinBox {
+                background-color: #222222;
+                color: #FFFFFF;
+                font-size: 20px;
+                font-weight: bold;
+                border: 2px solid #555555;
+                border-radius: 6px;
+            }
+            /* Die seitlichen Klick-Flächen */
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #333333;
+                width: 30px;
+                border-left: 1px solid #555555;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background-color: #444444;
+            }
+
+            /* Der obere ROTE Pfeil */
+            QSpinBox::up-arrow {
+                width: 0px; height: 0px;
+                border-left: 8px solid transparent;
+                border-right: 8px solid transparent;
+                border-bottom: 8px solid #FF0000; /* REINROT */
+            }
+            /* Der untere ROTE Pfeil */
+            QSpinBox::down-arrow {
+                width: 0px; height: 0px;
+                border-left: 8px solid transparent;
+                border-right: 8px solid transparent;
+                border-top: 8px solid #FF0000; /* REINROT */
+            }
+        """)
+
+        saved_commits = self.cfg.get("commit_count", 10)
         self.commit_spin.setValue(saved_commits)
-        self.commit_spin.setStyleSheet(control_style)
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
 
         self.btn_check_tools = QPushButton(
@@ -5886,66 +5942,86 @@ class PatchManagerGUI(QWidget):
                 color: white;
                 /* Schrift-Einstellungen */
                 font-weight: bold; 
-                font-size: 13px;          /* Größer ist oft deutlicher als nur fett */
+                font-size: 28px;          /* Größer ist oft deutlicher als nur fett */
                 font-family: sans-serif;  /* Verhindert dünne Serifen-Schriften */
                 
                 border-radius: 6px;
-                border: 1px solid #555555;
+                border: 3px solid #555555;
             }
             QPushButton:hover { 
                 background-color: #333333; 
                 color: #FFD700; 
-                border: 1px solid #FFD700;
+                border: 3px solid #FFD700;
                 font-weight: 900;         /* "Extra Bold" für den Hover-Effekt */
             }
             QPushButton:disabled {
                 background-color: #222222;
                 color: #888888;
-                border: 1px solid #333333;
+                border: 3px solid #333333;
            }
         """
+        # --- Deine neuen Maße (Jetzt auch im Code genutzt!) ---
+        B_WIDTH = 220   
+        B_HEIGHT = 40  
+        I_SIZE = 25     
 
-        # --- 2. Definition der Ordner-Buttons ---
+        # --- 2. Ordner-Buttons (Mit korrekter Höhe und Icon-Größe) ---
         f_icon = self.style().standardIcon(self.style().StandardPixmap.SP_DirIcon)
 
         self.btn_open_work = QPushButton(" Arbeitsordner")
         self.btn_open_work.setIcon(f_icon)
-        self.btn_open_work.setFixedSize(160, CONTROL_HEIGHT)
+        self.btn_open_work.setIconSize(QSize(I_SIZE, I_SIZE)) # <-- Icons groß machen
+        self.btn_open_work.setFixedSize(B_WIDTH, B_HEIGHT)   # <-- B_HEIGHT statt CONTROL_HEIGHT
         self.btn_open_work.setStyleSheet(button_style)
         self.btn_open_work.clicked.connect(lambda: self.open_custom_folder(PLUGIN_DIR))
 
         self.btn_open_temp = QPushButton(" Temp-Repo")
         self.btn_open_temp.setIcon(f_icon)
-        self.btn_open_temp.setFixedSize(160, CONTROL_HEIGHT)
+        self.btn_open_temp.setIconSize(QSize(I_SIZE, I_SIZE))
+        self.btn_open_temp.setFixedSize(B_WIDTH, B_HEIGHT)   # <-- Hier auch
         self.btn_open_temp.setStyleSheet(button_style)
         self.btn_open_temp.clicked.connect(lambda: self.open_custom_folder(TEMP_REPO))
 
         self.btn_open_emu = QPushButton(" Emu-Git")
         self.btn_open_emu.setIcon(f_icon)
-        self.btn_open_emu.setFixedSize(160, CONTROL_HEIGHT)
+        self.btn_open_emu.setIconSize(QSize(I_SIZE, I_SIZE))
+        self.btn_open_emu.setFixedSize(B_WIDTH, B_HEIGHT)   # <-- Und hier
         self.btn_open_emu.setStyleSheet(button_style)
-        self.btn_open_emu.clicked.connect(
-            lambda: self.open_custom_folder(PATCH_EMU_GIT_DIR)
-        )
+        self.btn_open_emu.clicked.connect(lambda: self.open_custom_folder(PATCH_EMU_GIT_DIR))
 
-        # --- 3. Definition der Funktions-Buttons ---
+        # --- 3. Funktions-Buttons (Ebenfalls auf B_HEIGHT angepasst) ---
         self.btn_check_tools = QPushButton("🛠️ Tools prüfen")
-        self.btn_check_tools.setFixedSize(160, CONTROL_HEIGHT)
+        self.btn_check_tools.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_check_tools.setStyleSheet(button_style)
         self.btn_check_tools.clicked.connect(self.run_full_system_check)
 
         self.btn_modifier = QPushButton("👤 Patch Autor")
-        self.btn_modifier.setFixedSize(160, CONTROL_HEIGHT)
+        self.btn_modifier.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_modifier.setStyleSheet(button_style)
         self.btn_modifier.clicked.connect(self.change_modifier_name)
 
         self.btn_repo_url = QPushButton("🌐 Repo URL")
-        self.btn_repo_url.setFixedSize(160, CONTROL_HEIGHT)
+        self.btn_repo_url.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_repo_url.setStyleSheet(button_style)
         self.btn_repo_url.clicked.connect(self.change_emu_repo)
 
         self.btn_check_commit = QPushButton("🔄 Commit Check")
-        self.btn_check_commit.setFixedSize(160, CONTROL_HEIGHT)
+        self.btn_check_commit.setFixedSize(B_WIDTH, B_HEIGHT)
+        self.btn_check_commit.setStyleSheet(button_style)
+        self.btn_check_commit.clicked.connect(self.check_for_new_commit)
+
+        self.btn_modifier = QPushButton("👤 Patch Autor")
+        self.btn_modifier.setFixedSize(220, CONTROL_HEIGHT)
+        self.btn_modifier.setStyleSheet(button_style)
+        self.btn_modifier.clicked.connect(self.change_modifier_name)
+
+        self.btn_repo_url = QPushButton("🌐 Repo URL")
+        self.btn_repo_url.setFixedSize(220, CONTROL_HEIGHT)
+        self.btn_repo_url.setStyleSheet(button_style)
+        self.btn_repo_url.clicked.connect(self.change_emu_repo)
+
+        self.btn_check_commit = QPushButton("🔄 Commit Check")
+        self.btn_check_commit.setFixedSize(220, CONTROL_HEIGHT)
         self.btn_check_commit.setStyleSheet(button_style)
         self.btn_check_commit.clicked.connect(self.check_for_new_commit)
 
@@ -5953,12 +6029,13 @@ class PatchManagerGUI(QWidget):
         controls_group.setTitle("")
         grid_layout = QGridLayout()
         grid_layout.setContentsMargins(10, 5, 10, 5)
-        grid_layout.setVerticalSpacing(6)
+        grid_layout.setVerticalSpacing(25)
         grid_layout.setHorizontalSpacing(10)
 
         # Zeile 0: Der Header "Einstellungen" (Ganz oben links)
         self.controls_header = QLabel(" Einstellungen")
-        self.controls_header.setFixedHeight(20)
+        self.controls_header.setFixedHeight(40)   # Etwas höher für die Optik
+        self.controls_header.setFixedWidth(160)   # <--- HIER: Feste Breite (z.B. wie ein Button)
         self.controls_header.setStyleSheet(
             "background-color: #0078D7; color: white; font-weight: bold; border-radius: 4px; padding-left: 5px;"
         )
@@ -6230,7 +6307,7 @@ class PatchManagerGUI(QWidget):
         hover_color = current_diff_colors.get("hover", bg_color)
         active_color = current_diff_colors.get("active", bg_color)
 
-        # 1. Standard Button Style
+        # 1. Standard Button Style (Deine bestehende Logik)
         button_style = f"""
             QPushButton {{
                 background-color: {bg_color};
@@ -6250,35 +6327,25 @@ class PatchManagerGUI(QWidget):
             }}
         """
 
-        # A) Liste aller Funktions-Buttons (Inklusive deiner neuen Buttons)
+        # A) Liste aller Funktions-Buttons
         main_buttons = [
-            "edit_header_button",
-            "commits_button",
-            "clean_emu_button",
-            "patch_emu_git_button",
-            "github_upload_patch_button",
-            "plugin_update_button",
-            "restart_tool_button",
-            "btn_check_tools",
-            "btn_check_commit",
-            "btn_modifier",
-            "btn_repo_url",
-            "btn_open_work",
-            "btn_open_temp",
-            "btn_open_emu",
+            "edit_header_button", "commits_button", "clean_emu_button",
+            "patch_emu_git_button", "github_upload_patch_button",
+            "plugin_update_button", "restart_tool_button",
+            "btn_check_tools", "btn_check_commit", "btn_modifier",
+            "btn_repo_url", "btn_open_work", "btn_open_temp", "btn_open_emu",
         ]
 
         for btn_name in main_buttons:
             btn = getattr(self, btn_name, None)
             try:
-                # Wichtig: Prüfen ob das Objekt existiert UND nicht gelöscht wurde
-                if btn is not None and not isinstance(btn, (type(None))):
+                if btn is not None:
                     btn.setGraphicsEffect(None)
                     btn.setStyleSheet(button_style)
             except RuntimeError:
-                continue  # Widget wurde von Qt gelöscht, einfach ignorieren
+                continue
 
-        # B) Grid Buttons & Options Leiste
+        # B) Grid Buttons
         if hasattr(self, "buttons"):
             for btn in self.buttons.values():
                 try:
@@ -6286,36 +6353,34 @@ class PatchManagerGUI(QWidget):
                 except RuntimeError:
                     continue
 
-        # 2. Progressbar (Safe Check)
+        # 2. Progressbar
         pb = getattr(self, "progress_bar", None)
         if pb:
             try:
-                pb.setGraphicsEffect(None)
-                pb.setStyleSheet(
-                    f"""
-                    QProgressBar {{
-                        border: 1px solid {bg_color};
-                        border-radius: 7px;
-                        background-color: #1a1a1a;
-                        text-align: center;
-                        color: white;
-                    }}
+                pb.setStyleSheet(f"""
+                    QProgressBar {{ border: 1px solid {bg_color}; border-radius: 7px; background-color: #1a1a1a; text-align: center; color: white; }}
                     QProgressBar::chunk {{ background-color: {bg_color}; }}
-                """
-                )
-            except RuntimeError:
-                pass
+                """)
+            except RuntimeError: pass
 
-        # 3. Header (Hier passierte der Crash)
+        # 3. Header
         header = getattr(self, "controls_header", None)
         if header:
             try:
-                header.setStyleSheet(
-                    f"background-color: {bg_color}; color: {text_color}; "
-                    f"font-weight: bold; border-radius: 6px; padding-left: 10px;"
-                )
-            except RuntimeError:
-                pass  # Widget existiert im C++ Speicher nicht mehr
+                header.setStyleSheet(f"background-color: {bg_color}; color: {text_color}; font-weight: bold; border-radius: 6px; padding-left: 10px;")
+            except RuntimeError: pass
+
+        # --- NEU: 5. Labels (Sprache, Style, Commits) ---
+        # Wir sprechen die Labels direkt an, damit sie die Theme-Farbe (text_color) übernehmen
+        target_labels = ["lang_label", "color_label", "commit_label"]
+        for lbl_name in target_labels:
+            lbl = getattr(self, lbl_name, None)
+            if lbl:
+                try:
+                    # Hier setzen wir die Farbe auf die aktuelle Theme-Farbe (text_color)
+                    lbl.setStyleSheet(f"color: {text_color}; font-weight: bold; font-size: 18px; background: transparent;")
+                except RuntimeError:
+                    pass
 
         # 4. Hauptfenster Style
         try:
@@ -6796,31 +6861,41 @@ class PatchManagerGUI(QWidget):
 
     # ===================== OSCam-EMU BUTTON WRAPPERS =====================
     def oscam_emu_git_patch(self, info_widget=None, progress_callback=None):
-        """Patch erstellen und auf GitHub hochladen."""
+        """Patch erstellen und auf GitHub hochladen mit Sound-Feedback."""
         info_widget = info_widget or self.info_text
-        lang = getattr(self, "LANG", LANG)  # aktuelle GUI-Sprache
+        lang = getattr(self, "LANG", "de").lower()
 
-        # Info-Meldung in aktueller Sprache
         self.append_info(
             info_widget,
-            TEXTS[lang].get(
+            globals().get("TEXTS", {}).get(lang, {}).get(
                 "oscam_emu_git_patch_start", "🔹 OSCam-Emu Git Patch wird erstellt..."
             ),
             "info",
         )
 
-        # Patch hochladen
-        _github_upload(
-            PATCH_EMU_GIT_DIR,
-            load_github_config().get("emu_repo_url"),
-            info_widget=info_widget,
-        )
+        try:
+            # Patch hochladen
+            _github_upload(
+                PATCH_EMU_GIT_DIR,
+                load_github_config().get("emu_repo_url"),
+                info_widget=info_widget,
+            )
+            
+            # --- SOUND FEEDBACK BEI ERFOLG ---
+            if "safe_play" in globals():
+                safe_play("complete.oga")
+
+        except Exception as e:
+            self.append_info(info_widget, f"❌ Fehler beim Patch-Vorgang: {e}", "error")
+            # --- SOUND FEEDBACK BEI FEHLER ---
+            if "safe_play" in globals():
+                safe_play("dialog-error.oga")
 
         if progress_callback:
             progress_callback(100)
 
     def oscam_emu_git_clear(self, info_widget=None, progress_callback=None):
-        """Zentrales Logging für die Emu-Git Bereinigung."""
+        """Zentrales Logging für die Emu-Git Bereinigung mit Sound-Feedback."""
         info_widget = info_widget or self.info_text
         lang = getattr(self, "LANG", "de")
 
@@ -6833,22 +6908,25 @@ class PatchManagerGUI(QWidget):
         # 2. Ausführung
         result = clean_oscam_emu_git(progress_callback=progress_callback)
 
-        # 3. Ergebnis-Meldung
+        # 3. Ergebnis-Meldung & Sound-Trigger
         if result == "success":
-            msg = TEXTS[lang].get(
-                "oscam_emu_git_cleared", "✅ Bereinigung erfolgreich!"
-            )
+            msg = TEXTS[lang].get("oscam_emu_git_cleared", "✅ Bereinigung erfolgreich!")
             self.append_info(info_widget, msg, "success")
+            if "safe_play" in globals():
+                safe_play("complete.oga") # Erfolgssound
+
         elif result == "not_found":
-            msg = "ℹ️ " + (
-                "Ordner bereits leer." if lang == "de" else "Folder already empty."
-            )
+            msg = "ℹ️ " + ("Ordner bereits leer." if lang == "de" else "Folder already empty.")
             self.append_info(info_widget, msg, "info")
+            if "safe_play" in globals():
+                safe_play("dialog-information.oga") # Kurzer Info-Ton
+
         else:
             self.append_info(info_widget, "❌ Error during deletion", "error")
+            if "safe_play" in globals():
+                safe_play("dialog-error.oga") # Fehlersound
 
         from PyQt6.QtWidgets import QApplication
-
         QApplication.processEvents()
 
     def check_patch(self, info_widget=None, progress_callback=None):
