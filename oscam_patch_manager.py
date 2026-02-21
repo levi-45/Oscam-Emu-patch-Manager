@@ -6218,7 +6218,7 @@ class PatchManagerGUI(QWidget):
         self.btn_check_commit.setStyleSheet(button_style)
         self.btn_check_commit.clicked.connect(self.check_for_new_commit)
 
-        # --- 4. GRID-LAYOUT (Header-Fix: 200px Breite) ---
+        # --- 4. GRID-LAYOUT (Header-Fix: Breite & Höhe bestimmen) ---
         grid_layout = QGridLayout()
         grid_layout.setContentsMargins(10, 10, 10, 10)
         grid_layout.setVerticalSpacing(10)   
@@ -6229,10 +6229,11 @@ class PatchManagerGUI(QWidget):
         fg = current_diff_colors.get("fg", "#FFFFFF")
 
         self.header_container = QWidget()
-        self.header_container.setFixedHeight(self.BUTTON_HEIGHT + 10)
         
-        # --- FIX: Header auf exakt 200px Länge festgelegt ---
-        self.header_container.setFixedWidth(200)
+        # --- HIER BREITE UND HÖHE FESTLEGEN (Beispiel: 200px breit, 40px hoch) ---
+        # Du kannst die Zahlen hier direkt ändern: setFixedSize(Breite, Höhe)
+        self.header_container.setFixedSize(200, 35)
+        
         self.header_container.setStyleSheet(f"background-color: {bg}; border-radius: 6px;")
 
         h_layout = QHBoxLayout(self.header_container)
@@ -6251,7 +6252,7 @@ class PatchManagerGUI(QWidget):
         h_layout.addStretch()
 
         # --- ZEILE 0: Header & Ordner-Buttons ---
-        # Header belegt die ersten 2 Spalten (Sprache-Label und Box)
+        # Header belegt die ersten 2 Spalten
         grid_layout.addWidget(self.header_container, 0, 0, 1, 2)
         
         grid_layout.addWidget(self.btn_open_work, 0, 6)
@@ -6280,7 +6281,7 @@ class PatchManagerGUI(QWidget):
         self.commit_spin.setFixedSize(60, self.BUTTON_HEIGHT) 
         grid_layout.addWidget(self.commit_spin, 1, 5)
 
-        # --- DER MITTEL-PUFFER (Hält links alles kompakt) ---
+        # --- DER MITTEL-PUFFER ---
         grid_layout.setColumnStretch(5, 1)
 
         # 4. Funktions-Buttons rechts
