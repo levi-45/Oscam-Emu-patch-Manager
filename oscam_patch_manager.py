@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.9.1"
+APP_VERSION = "2.9.2"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -6354,7 +6354,7 @@ class PatchManagerGUI(QWidget):
 
         # --- B) RECHTER BADGE (OSCam Status - Länge 280) ---
         self.right_badge = QFrame()
-        self.right_badge.setFixedSize(750, 35) 
+        self.right_badge.setFixedSize(750, 35)
         self.right_badge.setStyleSheet(f"""
             QFrame {{
                 background-color: {base_bg};
@@ -6366,20 +6366,19 @@ class PatchManagerGUI(QWidget):
                 border: 1px solid #777777;
             }}
         """)
-        
+
         right_layout = QHBoxLayout(self.right_badge)
-        right_layout.setContentsMargins(10, 0, 10, 0)
-        
+        right_layout.setContentsMargins(10, 0, 10, 0)  # Margins setzen, um Platz für Text zu schaffen
+
         # Status-Label (Zwingend WEISSE Schrift)
         self.status_label = QLabel("") 
-        self.status_label.setStyleSheet("color: white; font-weight: bold; font-size: 22px; background: transparent; border: none;")
-        
-        right_layout.addStretch() 
-        right_layout.addWidget(self.status_label)
-        right_layout.addStretch()
-        h_layout.addWidget(self.right_badge)
+        self.status_label.setStyleSheet("color: white; font-weight: bold; font-size: 18px; background: transparent; border: none;")
 
-        h_layout.addStretch()
+        # Füge das Label ohne Stretch hin
+        right_layout.addWidget(self.status_label)
+
+        # Keine weiteren Strecken mehr erforderlich
+        h_layout.addWidget(self.right_badge)
 
         # --- Integration ins Grid (Zeile 0) ---
         grid_layout.addWidget(self.header_container, 0, 0, 1, 4)
