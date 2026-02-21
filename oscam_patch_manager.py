@@ -173,7 +173,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.8.5"
+APP_VERSION = "2.8.6"
 
 
 # ===================== PATCH DIRS =====================
@@ -1078,7 +1078,6 @@ TEXTS = {
         "new_version_found": "New version available",
         # Option Buttons
         "git_status": "View Commits",
-        "settings_header": "Settings",
         "edit_patch_header": "Edit Patch Header",
         "github_emu_config_button": "Edit GitHub Config",
         "github_upload_patch": "Upload Patch File",
@@ -6224,15 +6223,29 @@ class PatchManagerGUI(QWidget):
         grid_layout.setVerticalSpacing(10)
         grid_layout.setHorizontalSpacing(10)
 
-        # Zeile 0: Der Header "Einstellungen" (Ganz oben links)
-        self.controls_header = QLabel(" Einstellungen")
-        self.controls_header.setMinimumHeight(45)  # Etwas höher für die Optik
-        self.controls_header.setFixedWidth(
-            170
-        )  # <--- HIER: Feste Breite (z.B. wie ein Button)
-        self.controls_header.setStyleSheet(
-            "background-color: #0078D7; color: white; font-weight: bold; border-radius: 4px; padding-left: 5px;"
+        # Header für "Einstellungen" mit einem Icon
+        self.controls_header = QWidget()  # Wir nutzen ein Widget, um das Label und das Icon zu halten
+        header_layout = QHBoxLayout(self.controls_header)  # Layout für den Header erstellen
+
+        # Erstelle das Label für "Einstellungen"
+        self.header_label = QLabel(" Einstellungen" if self.LANG == "de" else " Settings") 
+        self.controls_header.setMinimumHeight(self.BUTTON_HEIGHT)  # Setze die gleiche Höhe wie die anderen Buttons
+        self.controls_header.setFixedWidth(200)  # Feste Breite für das Label
+        self.header_label.setStyleSheet(
+            "color: white; font-weight: bold; font-size: 20px; padding-left: 0px; background: transparent;" 
+            # Hintergrundfarbe entfernt
         )
+
+        # Erstelle das Icon (zum Beispiel ein Einstellungen-Icon)
+        icon = self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon)  # Beispiel-Standardicon
+        icon_label = QLabel()
+        icon_label.setPixmap(icon.pixmap(28, 28))  # Setze die Größe des Icons (28x28)
+
+        # Füge das Icon und das Label in das Layout hinzu
+        header_layout.addWidget(icon_label)
+        header_layout.addWidget(self.header_label)
+
+        # Füge das Header-Widget zum Grid-Layout hinzu
         grid_layout.addWidget(self.controls_header, 0, 0, 1, 2)
 
         # Zeile 0: Ordner-Buttons (Oben rechts)
@@ -6241,7 +6254,6 @@ class PatchManagerGUI(QWidget):
         grid_layout.addWidget(self.btn_open_emu, 0, 8)
 
         # Zeile 1: Dropdowns & Funktions-Buttons (ALLES IN EINER ZEILE = MITTIG)
-        # Linke Seite (Einstellungen)
         grid_layout.addWidget(self.lang_label, 1, 0)
         grid_layout.addWidget(self.language_box, 1, 1)
         grid_layout.addWidget(self.color_label, 1, 2)
@@ -6872,22 +6884,22 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Fix: Verhindert doppelte Icons und erzwingt Übersetzung von GroupBoxen (Settings).
+        Fix: Erzwingt Übersetzung von GroupBoxen UND dem speziellen Header-Label.
         """
         if not hasattr(self, "language_box"):
             return
 
-        from PyQt6.QtWidgets import QApplication, QGroupBox
+        from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel
         from PyQt6.QtCore import QTimer
         import re
 
-        # Hilfsfunktion: Entfernt Emojis/Symbole am Anfang, um Verdopplung zu verhindern
+        # Hilfsfunktion: Entfernt Emojis/Symbole am Anfang
         def strip_icons(text):
             return re.sub(r'^[^\w\s]+', '', str(text)).strip()
 
         # 1. SPRACHE ERMITTELN & SETZEN
         selected = self.language_box.currentText().upper()
-        self.LANG = "en" if "EN" in selected or "ENG" in selected else "de"
+        self.LANG = "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
         
         # Globales Dictionary laden
         lang_dict = globals().get("TEXTS", {}).get(self.LANG, {})
@@ -6903,22 +6915,28 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "update_language"):
             self.update_language()
 
-        # --- UNIVERSAL-SCANNER: GroupBoxen (Fix für 'Einstellungen') ---
+        # --- FIX FÜR DAS SPEZIELLE HEADER-LABEL (Das mit dem Icon) ---
+        if hasattr(self, "header_label"):
+            new_header = lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen")
+            # Wir behalten das führende Leerzeichen für den Abstand zum Icon bei
+            self.header_label.setText(f" {strip_icons(new_header)}")
+
+        # --- UNIVERSAL-SCANNER: GroupBoxen ---
         for box in self.findChildren(QGroupBox):
             title = box.title()
-            if "Einstellungen" in title or "Settings" in title:
+            # Erkennt die Box, egal ob sie aktuell "Settings" oder "Einstellungen" heißt
+            if any(word in title for word in ["Einstellungen", "Settings"]):
                 box.setTitle(lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen"))
-            if "GitHub" in title:
+            if any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
                 box.setTitle(lang_dict.get("github_config_header", "GitHub Configuration" if self.LANG == "en" else "GitHub Konfiguration"))
 
         # --- SPEZIFISCHE BUTTON-TEXTE & TOOLTIPS ---
-
         # A) Patch Autor Button
         if hasattr(self, "btn_modifier"):
-            label = strip_icons(lang_dict.get("modifier_button_text", "Patch Autor"))
+            label = strip_icons(lang_dict.get("modifier_button_text", "Patch Author" if self.LANG == "en" else "Patch Autor"))
             self.btn_modifier.setText(f"👤 {label}")
             auth_name = getattr(self, "patch_modifier", "speedy005")
-            tt_prefix = lang_dict.get("modifier_tooltip_prefix", "Autor:")
+            tt_prefix = lang_dict.get("modifier_tooltip_prefix", "Author:" if self.LANG == "en" else "Autor:")
             self.btn_modifier.setToolTip(f"{tt_prefix} {auth_name}")
 
         # B) Repo URL Button
@@ -6929,17 +6947,10 @@ class PatchManagerGUI(QWidget):
             tt_prefix = lang_dict.get("repo_tooltip_prefix", "URL:")
             self.btn_repo_url.setToolTip(f"{tt_prefix} {curr_repo}")
 
-        # C) Commit Check Button
-        if hasattr(self, "btn_check_commit"):
-            label = strip_icons(lang_dict.get("check_commit_button_short", "Commit Check"))
-            self.btn_check_commit.setText(f"🔄 {label}")
-            self.btn_check_commit.setToolTip(lang_dict.get("check_commit_tooltip", ""))
-
-        # D) Tools Prüfen Button
+        # C) Tools Prüfen Button
         if hasattr(self, "btn_check_tools"):
-            label = strip_icons(lang_dict.get("check_tools_button", "Tools prüfen"))
+            label = strip_icons(lang_dict.get("check_tools_button", "Check Tools" if self.LANG == "en" else "Tools prüfen"))
             self.btn_check_tools.setText(f"🛠️ {label}")
-            self.btn_check_tools.setToolTip(lang_dict.get("check_tools_tooltip", ""))
 
         # 4. UI REFRESH (Farben & Sounds)
         if hasattr(self, "repaint_ui_colors"):
@@ -6953,29 +6964,21 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
             self.info_text.clear()
-            
-            # Zwingt die Grafik zum Neuzeichnen
-            QApplication.processEvents()
-
-            if hasattr(self, "show_welcome_info"):
-                self.show_welcome_info()
-
-            if hasattr(self, "run_full_system_check"):
-                QTimer.singleShot(4000, self.run_full_system_check)
-
-            # Layout-Stabilität: Verhindert abgeschnittene Texte
-            if self.layout():
-                self.layout().activate()
         
-            QApplication.processEvents()
+        QApplication.processEvents()
 
+        if hasattr(self, "show_welcome_info"):
+            self.show_welcome_info()
 
+        if hasattr(self, "run_full_system_check"):
+            # 2 Sekunden Verzögerung für flüssigeres UI-Feeling
+            QTimer.singleShot(2000, self.run_full_system_check)
 
-            if hasattr(self, "show_welcome_info"):
-                self.show_welcome_info()
+        if self.layout():
+            self.layout().activate()
+    
+        QApplication.processEvents()
 
-            if hasattr(self, "run_full_system_check"):
-                QTimer.singleShot(4000, self.run_full_system_check)
 
 
 
