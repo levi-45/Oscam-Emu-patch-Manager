@@ -5,7 +5,7 @@ Letzte Aktualisierung: 21.02.2026 18:02
 
 ## 🔧 Änderungen am Script
 
-* Update oscam_patch_manager.py (0f9ed70)
+
 ---
 
 ## 📊 Aktueller Tool-Status
