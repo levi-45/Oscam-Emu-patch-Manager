@@ -167,7 +167,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.8.8"
+APP_VERSION = "2.8.9"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -6218,68 +6218,83 @@ class PatchManagerGUI(QWidget):
         self.btn_check_commit.setStyleSheet(button_style)
         self.btn_check_commit.clicked.connect(self.check_for_new_commit)
 
-        # --- 4. GRID-LAYOUT (Kompakt-Fix mit automatischer Style-Farbe) ---
+        # --- 4. GRID-LAYOUT (Header-Fix: 200px Breite) ---
         grid_layout = QGridLayout()
-        grid_layout.setContentsMargins(0, 5, 10, 5)
-        grid_layout.setVerticalSpacing(10)
-        grid_layout.setHorizontalSpacing(5) 
+        grid_layout.setContentsMargins(10, 10, 10, 10)
+        grid_layout.setVerticalSpacing(10)   
+        grid_layout.setHorizontalSpacing(8)  
 
-        # Farben dynamisch aus dem aktuellen Style laden
-        # Falls current_diff_colors noch nicht bereit ist, wird ein dunkles Blau als Fallback genutzt
-        bg = current_diff_colors.get("bg", "#3a6ea5")
+        # Farben & Header-Setup
+        bg = current_diff_colors.get("bg", "#1a3a5a")
         fg = current_diff_colors.get("fg", "#FFFFFF")
 
-        # FIX: Wir speichern das Widget in 'self', damit es bei Style-Wechseln erreichbar bleibt
-        self.header_container = QWidget() 
-        self.header_container.setStyleSheet(f"background-color: {bg}; border-radius: 8px;")
+        self.header_container = QWidget()
+        self.header_container.setFixedHeight(self.BUTTON_HEIGHT + 10)
         
+        # --- FIX: Header auf exakt 200px Länge festgelegt ---
+        self.header_container.setFixedWidth(200)
+        self.header_container.setStyleSheet(f"background-color: {bg}; border-radius: 6px;")
+
         h_layout = QHBoxLayout(self.header_container)
-        h_layout.setContentsMargins(10, 0, 10, 0) # Innenabstand für Icon/Text
-        h_layout.setSpacing(5)
-
-        # Das eigentliche Text-Label
-        self.header_label = QLabel(" Einstellungen" if self.LANG == "de" else " Settings") 
-        self.header_label.setMinimumHeight(self.BUTTON_HEIGHT)
-        self.header_label.setFixedWidth(200)
-        # WICHTIG: background: transparent, damit die Farbe vom Container durchscheint
-        self.header_label.setStyleSheet(f"color: {fg}; font-weight: bold; font-size: 20px; background: transparent;")
-
+        h_layout.setContentsMargins(10, 0, 10, 0)
+        h_layout.setSpacing(8)
+        
         icon_label = QLabel()
         icon = self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon)
-        icon_label.setPixmap(icon.pixmap(28, 28))
-        icon_label.setStyleSheet("background: transparent;")
+        icon_label.setPixmap(icon.pixmap(22, 22))
+        
+        self.header_label = QLabel(" " + ("Einstellungen" if self.LANG == "de" else "Settings"))
+        self.header_label.setStyleSheet(f"color: {fg}; font-weight: bold; font-size: 16px; background: transparent;")
 
         h_layout.addWidget(icon_label)
         h_layout.addWidget(self.header_label)
+        h_layout.addStretch()
 
-        # Container ins Grid (Spalte 0-1)
+        # --- ZEILE 0: Header & Ordner-Buttons ---
+        # Header belegt die ersten 2 Spalten (Sprache-Label und Box)
         grid_layout.addWidget(self.header_container, 0, 0, 1, 2)
-
-        # --- ZEILE 0: ORDNER-BUTTONS (Rechts daneben ab Spalte 6) ---
+        
         grid_layout.addWidget(self.btn_open_work, 0, 6)
         grid_layout.addWidget(self.btn_open_temp, 0, 7)
         grid_layout.addWidget(self.btn_open_emu, 0, 8)
 
-        # --- ZEILE 1: DROPDOWNS (Kompakt nach links, Spalten 0-5) ---
+        # --- ZEILE 1: Einstellungen ---
+        
+        # 1. Sprache
         grid_layout.addWidget(self.lang_label, 1, 0)
+        self.language_box.setFixedWidth(70) 
         grid_layout.addWidget(self.language_box, 1, 1)
+        
+        # 2. Style
+        self.color_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         grid_layout.addWidget(self.color_label, 1, 2)
+        self.color_box.setFixedWidth(130) 
         grid_layout.addWidget(self.color_box, 1, 3)
+
+        # 3. Anzahl Commits
+        self.commit_label.setMinimumWidth(160) 
+        self.commit_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         grid_layout.addWidget(self.commit_label, 1, 4)
+        
+        # SpinBox kompakt
+        self.commit_spin.setFixedSize(60, self.BUTTON_HEIGHT) 
         grid_layout.addWidget(self.commit_spin, 1, 5)
 
-        # --- ZEILE 1: FUNKTIONS-BUTTONS (Ab Spalte 6) ---
+        # --- DER MITTEL-PUFFER (Hält links alles kompakt) ---
+        grid_layout.setColumnStretch(5, 1)
+
+        # 4. Funktions-Buttons rechts
         grid_layout.addWidget(self.btn_check_tools, 1, 6)
         grid_layout.addWidget(self.btn_modifier, 1, 7)
         grid_layout.addWidget(self.btn_repo_url, 1, 8)
         grid_layout.addWidget(self.btn_check_commit, 1, 9)
 
-        # --- DER ENTSCHEIDENDE FIX GEGEN LÜCKEN ---
-        grid_layout.setColumnStretch(10, 1)
+        # Button-Breiten rechts einheitlich
+        for btn in [self.btn_open_work, self.btn_open_temp, self.btn_open_emu, 
+                    self.btn_check_tools, self.btn_modifier, self.btn_repo_url, self.btn_check_commit]:
+            btn.setMinimumWidth(145)
 
         controls_group_layout.addLayout(grid_layout)
-
-        # --- 5. Integration ---
         main_layout.addWidget(controls_group)
 
         # --- RECOVERY: Untere Sektion ---
