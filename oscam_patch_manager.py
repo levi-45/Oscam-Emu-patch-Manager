@@ -145,18 +145,14 @@ except (ImportError, ModuleNotFoundError):
 
     class InvalidVersion(Exception):
         pass
-
-
 # ===================== ENV SETUP =====================
 # Git Fehler unterdrücken
 if platform.system() == "Windows":
     os.environ["GIT_REDIRECT_STDERR"] = "2>nul"
 else:
     os.environ["GIT_REDIRECT_STDERR"] = "2>/dev/null"
-
 # ===================== SCRIPT DIR =====================
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
-
 
 def ensure_executable_self():
     """Setzt Ausführungsrechte für das eigene Skript (Linux/Unix)."""
@@ -166,16 +162,12 @@ def ensure_executable_self():
             os.chmod(__file__, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     except Exception as e:
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
-
-
 # ===================== ZEIT =====================
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.8.7"
-
-
+APP_VERSION = "2.8.8"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -3355,6 +3347,7 @@ class PatchManagerGUI(QWidget):
             DIFF_COLORS.get("Classics", {"bg": "#FFFFFF", "fg": "#000000"}),
         )
         bg = base_colors.get("bg", "#FFFFFF")
+        fg = base_colors.get("fg", "#FFFFFF") # Textfarbe extrahieren
 
         # 3️⃣ Farben für UI vorbereiten (Hover/Active Nuancen)
         current_diff_colors = {
@@ -3373,12 +3366,21 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
+        # --- FIX: EINSTELLUNGEN-HEADER LIVE UMFÄRBEN ---
+        if hasattr(self, "header_container"):
+            self.header_container.setStyleSheet(
+                f"background-color: {bg}; border-radius: 8px;"
+            )
+        
+        if hasattr(self, "header_label"):
+            self.header_label.setStyleSheet(
+                f"color: {fg}; font-weight: bold; font-size: 20px; background: transparent;"
+            )
+
         # 5️⃣ Zentral Speichern über deine neue save_config
-        # Wir nutzen silent=True, damit beim reinen Farbwechsel kein großer Log-Text erscheint
         if not getattr(self, "is_loading", False):
             if self.cfg.get("color") != current_color_name:
                 self.cfg["color"] = current_color_name
-                # Hier rufen wir deine neue globale Speicher-Funktion auf
                 save_config(self.cfg, gui_instance=self, silent=True)
 
     def log_message(self, message):
@@ -5715,7 +5717,7 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(12)
-        main_layout.setContentsMargins(20, 0, 20, 10)
+        main_layout.setContentsMargins(5, 0, 20, 10)
 
         # Setzt das gesamte Fenster auf Dunkelgrau
         self.setStyleSheet("background-color: #2F2F2F;")
@@ -5918,7 +5920,7 @@ class PatchManagerGUI(QWidget):
         controls_group_layout = QVBoxLayout(controls_group)
 
         # OPTIMIERUNG: Mehr Abstand nach oben (20) und unten (20) macht den Kasten höher
-        controls_group_layout.setContentsMargins(15, 20, 15, 20)
+        controls_group_layout.setContentsMargins(0, 20, 15, 20)
         # Mehr Abstand zwischen Header und den Reglern
         controls_group_layout.setSpacing(15)
 
@@ -5954,41 +5956,41 @@ class PatchManagerGUI(QWidget):
         controls_row = QWidget()
         controls_layout = QHBoxLayout(controls_row)
         # OPTIMIERUNG: Auch hier mehr Innenabstand für die Zeile
-        controls_layout.setContentsMargins(10, 10, 10, 10)
-        controls_layout.setSpacing(15)
+        controls_layout.setContentsMargins(0, 5, 5, 5)
+        controls_layout.setSpacing(0)
 
         # Nutze hier deine neue B_HEIGHT (z.B. 60), falls definiert, sonst BUTTON_HEIGHT
         CONTROL_HEIGHT = getattr(self, "B_HEIGHT", 35)
-
+        controls_layout.addStretch(1) 
         control_style = f"""
         QComboBox, QSpinBox {{
-            font-size: 18px;             /* Schrift in den Boxen vergrößert */
+            font-size: 18px;
             border-radius: {self.BUTTON_RADIUS}px;
-            border: 2px solid #555;      /* Deutlicherer Rand */
+            border: 2px solid #555;
             padding: 4px 8px;
             color: white;
             background-color: #444;
             height: {CONTROL_HEIGHT}px;
+            margin-left: -2px;   /* Schiebt die Box näher an den Doppelpunkt des Labels */
         }}
         """
 
         def make_label(text):
             lbl = QLabel(text)
             lbl.setMinimumHeight(CONTROL_HEIGHT)
+            
+            # OPTIONAL: Alle Labels genau 100px breit machen
+            # So fangen alle Auswahlboxen (DE, Style etc.) exakt an der gleichen Stelle an.
+            lbl.setFixedWidth(100) 
 
-            # WICHTIG: Nutze die Variable 'fg' (Vordergrundfarbe des aktuellen Themes)
-            lbl.setStyleSheet(
-                f"""
+            lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+            lbl.setStyleSheet(f"""
                 color: {fg}; 
                 font-weight: bold; 
                 font-size: 18px;
                 background: transparent;
-            """
-            )
-
-            lbl.setAlignment(
-                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
-            )
+                padding-left: 0px;
+            """)
             return lbl
 
         # --- Sprache-Dropdown Anpassung ---
@@ -6056,7 +6058,7 @@ class PatchManagerGUI(QWidget):
         self.commit_label = make_label(self.get_t("commit_count_label", "Commits:"))
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
-        self.commit_spin.setFixedSize(70, CONTROL_HEIGHT)
+        self.commit_spin.setFixedSize(60, CONTROL_HEIGHT)
         saved_commits = self.cfg.get("commit_count", 10)
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
@@ -6216,44 +6218,49 @@ class PatchManagerGUI(QWidget):
         self.btn_check_commit.setStyleSheet(button_style)
         self.btn_check_commit.clicked.connect(self.check_for_new_commit)
 
-        # --- 4. GRID-LAYOUT (Mittig optimiert) ---
-        controls_group.setTitle("")
+        # --- 4. GRID-LAYOUT (Kompakt-Fix mit automatischer Style-Farbe) ---
         grid_layout = QGridLayout()
-        grid_layout.setContentsMargins(10, 5, 10, 5)
+        grid_layout.setContentsMargins(0, 5, 10, 5)
         grid_layout.setVerticalSpacing(10)
-        grid_layout.setHorizontalSpacing(10)
+        grid_layout.setHorizontalSpacing(5) 
 
-        # Header für "Einstellungen" mit einem Icon
-        self.controls_header = QWidget()  # Wir nutzen ein Widget, um das Label und das Icon zu halten
-        header_layout = QHBoxLayout(self.controls_header)  # Layout für den Header erstellen
+        # Farben dynamisch aus dem aktuellen Style laden
+        # Falls current_diff_colors noch nicht bereit ist, wird ein dunkles Blau als Fallback genutzt
+        bg = current_diff_colors.get("bg", "#3a6ea5")
+        fg = current_diff_colors.get("fg", "#FFFFFF")
 
-        # Erstelle das Label für "Einstellungen"
+        # FIX: Wir speichern das Widget in 'self', damit es bei Style-Wechseln erreichbar bleibt
+        self.header_container = QWidget() 
+        self.header_container.setStyleSheet(f"background-color: {bg}; border-radius: 8px;")
+        
+        h_layout = QHBoxLayout(self.header_container)
+        h_layout.setContentsMargins(10, 0, 10, 0) # Innenabstand für Icon/Text
+        h_layout.setSpacing(5)
+
+        # Das eigentliche Text-Label
         self.header_label = QLabel(" Einstellungen" if self.LANG == "de" else " Settings") 
-        self.controls_header.setMinimumHeight(self.BUTTON_HEIGHT)  # Setze die gleiche Höhe wie die anderen Buttons
-        self.controls_header.setFixedWidth(200)  # Feste Breite für das Label
-        self.header_label.setStyleSheet(
-            "color: white; font-weight: bold; font-size: 20px; padding-left: 0px; background: transparent;" 
-            # Hintergrundfarbe entfernt
-        )
+        self.header_label.setMinimumHeight(self.BUTTON_HEIGHT)
+        self.header_label.setFixedWidth(200)
+        # WICHTIG: background: transparent, damit die Farbe vom Container durchscheint
+        self.header_label.setStyleSheet(f"color: {fg}; font-weight: bold; font-size: 20px; background: transparent;")
 
-        # Erstelle das Icon (zum Beispiel ein Einstellungen-Icon)
-        icon = self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon)  # Beispiel-Standardicon
         icon_label = QLabel()
-        icon_label.setPixmap(icon.pixmap(28, 28))  # Setze die Größe des Icons (28x28)
+        icon = self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon)
+        icon_label.setPixmap(icon.pixmap(28, 28))
+        icon_label.setStyleSheet("background: transparent;")
 
-        # Füge das Icon und das Label in das Layout hinzu
-        header_layout.addWidget(icon_label)
-        header_layout.addWidget(self.header_label)
+        h_layout.addWidget(icon_label)
+        h_layout.addWidget(self.header_label)
 
-        # Füge das Header-Widget zum Grid-Layout hinzu
-        grid_layout.addWidget(self.controls_header, 0, 0, 1, 2)
+        # Container ins Grid (Spalte 0-1)
+        grid_layout.addWidget(self.header_container, 0, 0, 1, 2)
 
-        # Zeile 0: Ordner-Buttons (Oben rechts)
+        # --- ZEILE 0: ORDNER-BUTTONS (Rechts daneben ab Spalte 6) ---
         grid_layout.addWidget(self.btn_open_work, 0, 6)
         grid_layout.addWidget(self.btn_open_temp, 0, 7)
         grid_layout.addWidget(self.btn_open_emu, 0, 8)
 
-        # Zeile 1: Dropdowns & Funktions-Buttons (ALLES IN EINER ZEILE = MITTIG)
+        # --- ZEILE 1: DROPDOWNS (Kompakt nach links, Spalten 0-5) ---
         grid_layout.addWidget(self.lang_label, 1, 0)
         grid_layout.addWidget(self.language_box, 1, 1)
         grid_layout.addWidget(self.color_label, 1, 2)
@@ -6261,22 +6268,21 @@ class PatchManagerGUI(QWidget):
         grid_layout.addWidget(self.commit_label, 1, 4)
         grid_layout.addWidget(self.commit_spin, 1, 5)
 
-        # Rechte Seite (Funktionen - exakt daneben)
+        # --- ZEILE 1: FUNKTIONS-BUTTONS (Ab Spalte 6) ---
         grid_layout.addWidget(self.btn_check_tools, 1, 6)
         grid_layout.addWidget(self.btn_modifier, 1, 7)
         grid_layout.addWidget(self.btn_repo_url, 1, 8)
         grid_layout.addWidget(self.btn_check_commit, 1, 9)
 
-        # Spalten-Stretch
+        # --- DER ENTSCHEIDENDE FIX GEGEN LÜCKEN ---
         grid_layout.setColumnStretch(10, 1)
 
-        # Layout dem Container zuweisen
         controls_group_layout.addLayout(grid_layout)
 
         # --- 5. Integration ---
         main_layout.addWidget(controls_group)
 
-        # --- RECOVERY: Bringt die untere Sektion zurück ---
+        # --- RECOVERY: Untere Sektion ---
         self.setup_option_buttons(main_layout)
         self.grid_container = QWidget()
         self.layout_grid_buttons = QGridLayout(self.grid_container)
@@ -6884,7 +6890,7 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Fix: Erzwingt Übersetzung von GroupBoxen UND dem speziellen Header-Label.
+        Fix: Nutzt self.header_label und aktualisiert alle Einstellungs-Labels.
         """
         if not hasattr(self, "language_box"):
             return
@@ -6915,16 +6921,25 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "update_language"):
             self.update_language()
 
-        # --- FIX FÜR DAS SPEZIELLE HEADER-LABEL (Das mit dem Icon) ---
+        # --- FIX FÜR DAS SPEZIELLE HEADER-LABEL ---
         if hasattr(self, "header_label"):
             new_header = lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen")
-            # Wir behalten das führende Leerzeichen für den Abstand zum Icon bei
+            # Behält das führende Leerzeichen für die Optik bei
             self.header_label.setText(f" {strip_icons(new_header)}")
+
+        # --- NEU: ÜBERSETZUNG DER LABELS IN DER EINSTELLUNGS-ZEILE ---
+        if hasattr(self, "lang_label"):
+            self.lang_label.setText(lang_dict.get("language_label", "Language:" if self.LANG == "en" else "Sprache:"))
+        
+        if hasattr(self, "color_label"):
+            self.color_label.setText(lang_dict.get("color_label", "Style:" if self.LANG == "en" else "Farbe:"))
+            
+        if hasattr(self, "commit_label"):
+            self.commit_label.setText(lang_dict.get("commit_count_label", "Commits:" if self.LANG == "en" else "Commits:"))
 
         # --- UNIVERSAL-SCANNER: GroupBoxen ---
         for box in self.findChildren(QGroupBox):
             title = box.title()
-            # Erkennt die Box, egal ob sie aktuell "Settings" oder "Einstellungen" heißt
             if any(word in title for word in ["Einstellungen", "Settings"]):
                 box.setTitle(lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen"))
             if any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
@@ -6971,17 +6986,12 @@ class PatchManagerGUI(QWidget):
             self.show_welcome_info()
 
         if hasattr(self, "run_full_system_check"):
-            # 2 Sekunden Verzögerung für flüssigeres UI-Feeling
             QTimer.singleShot(2000, self.run_full_system_check)
 
         if self.layout():
             self.layout().activate()
     
         QApplication.processEvents()
-
-
-
-
 
     # =====================
     # GITHUB EMU CREDENTIALS
