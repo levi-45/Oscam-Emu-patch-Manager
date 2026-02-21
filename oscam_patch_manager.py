@@ -167,7 +167,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.8.9"
+APP_VERSION = "2.9.0"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -5922,7 +5922,7 @@ class PatchManagerGUI(QWidget):
         # OPTIMIERUNG: Mehr Abstand nach oben (20) und unten (20) macht den Kasten höher
         controls_group_layout.setContentsMargins(0, 20, 15, 20)
         # Mehr Abstand zwischen Header und den Reglern
-        controls_group_layout.setSpacing(15)
+        controls_group_layout.setSpacing(0)
 
         translated_text = self.get_t("settings_header", "Einstellungen")
         self.controls_header = QLabel(translated_text)
@@ -5956,7 +5956,7 @@ class PatchManagerGUI(QWidget):
         controls_row = QWidget()
         controls_layout = QHBoxLayout(controls_row)
         # OPTIMIERUNG: Auch hier mehr Innenabstand für die Zeile
-        controls_layout.setContentsMargins(0, 5, 5, 5)
+        controls_layout.setContentsMargins(0, 0, 5, 5)
         controls_layout.setSpacing(0)
 
         # Nutze hier deine neue B_HEIGHT (z.B. 60), falls definiert, sonst BUTTON_HEIGHT
@@ -6112,7 +6112,7 @@ class PatchManagerGUI(QWidget):
         self.btn_check_tools.setFixedSize(220, 35)
 
         # --- 0. Container Erstellung (Korrektur: QGroupBox statt QFrame) ---
-        controls_group = QGroupBox("Einstellungen")
+        controls_group = QGroupBox("")
         controls_group_layout = QVBoxLayout(controls_group)
 
         # Stylesheet: Macht den Kasten extrem flach und rückt den Titel bündig
@@ -6220,8 +6220,8 @@ class PatchManagerGUI(QWidget):
 
         # --- 4. GRID-LAYOUT (Header-Fix: Breite & Höhe bestimmen) ---
         grid_layout = QGridLayout()
-        grid_layout.setContentsMargins(10, 10, 10, 10)
-        grid_layout.setVerticalSpacing(10)   
+        grid_layout.setContentsMargins(10, 0, 10, 10)
+        grid_layout.setVerticalSpacing(5)   
         grid_layout.setHorizontalSpacing(8)  
 
         # Farben & Header-Setup
