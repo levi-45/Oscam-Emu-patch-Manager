@@ -173,7 +173,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.8.6"
+APP_VERSION = "2.8.7"
 
 
 # ===================== PATCH DIRS =====================
@@ -5701,8 +5701,8 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         # 1. Grundwerte
         # ---------------------------------------------------------
-        self.TITLE_HEIGHT = 45
-        self.BUTTON_HEIGHT = 45 # <-- Von 40 auf 60 erhöhen
+        self.TITLE_HEIGHT = 35
+        self.BUTTON_HEIGHT = 35 # <-- Von 40 auf 60 erhöhen
         self.BUTTON_RADIUS = 10
 
         # Hilfsvariablen für deine Buttons unten (damit die Namen stimmen)
@@ -5721,7 +5721,7 @@ class PatchManagerGUI(QWidget):
         self.setStyleSheet("background-color: #2F2F2F;")
 
         header_widget = QFrame()
-        header_widget.setMinimumHeight(45)
+        header_widget.setMinimumHeight(40)
 
         # Header Styles
         header_widget.setStyleSheet(
@@ -5927,7 +5927,7 @@ class PatchManagerGUI(QWidget):
 
         self.controls_header.setMinimumWidth(220)
         # OPTIMIERUNG: Header-Höhe von 28 auf 45 erhöht für mehr Präsenz
-        self.controls_header.setMinimumHeight(45)
+        self.controls_header.setMinimumHeight(40)
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         bg = current_diff_colors.get("bg", "#3a6ea5")
@@ -5958,7 +5958,7 @@ class PatchManagerGUI(QWidget):
         controls_layout.setSpacing(15)
 
         # Nutze hier deine neue B_HEIGHT (z.B. 60), falls definiert, sonst BUTTON_HEIGHT
-        CONTROL_HEIGHT = getattr(self, "B_HEIGHT", 45)
+        CONTROL_HEIGHT = getattr(self, "B_HEIGHT", 35)
 
         control_style = f"""
         QComboBox, QSpinBox {{
@@ -6107,7 +6107,7 @@ class PatchManagerGUI(QWidget):
         self.btn_check_tools = QPushButton(
             self.get_t("check_tools_button", "🛠️ Tools prüfen")
         )
-        self.btn_check_tools.setFixedSize(220, 45)
+        self.btn_check_tools.setFixedSize(220, 35)
 
         # --- 0. Container Erstellung (Korrektur: QGroupBox statt QFrame) ---
         controls_group = QGroupBox("Einstellungen")
@@ -6159,7 +6159,7 @@ class PatchManagerGUI(QWidget):
         """
         # --- Deine neuen Maße (Jetzt auch im Code genutzt!) ---
         B_WIDTH = 170
-        B_HEIGHT = 45
+        B_HEIGHT = 35
         I_SIZE = 25
 
         # --- 2. Ordner-Buttons (Mit korrekter Höhe und Icon-Größe) ---
