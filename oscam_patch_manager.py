@@ -3187,6 +3187,78 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(2000, self.check_for_update_on_start)
         QTimer.singleShot(3000, self.start_oscam_update_check)
 
+    
+    
+    def get_status_indicator(self, tool_name):
+        """Erzeugt ein Widget mit LED-Punkt und Label für den Systemcheck."""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(5, 0, 5, 0)
+        layout.setSpacing(6)
+
+        # Die LED (ein Kreis)
+        led = QLabel()
+        led.setFixedSize(10, 10)
+        
+        # Prüfung ob Tool (git, patch, etc.) im Systempfad ist
+        exists = shutil.which(tool_name) is not None
+        color = "#27ae60" if exists else "#c0392b" # Grün wenn da, Rot wenn fehlt
+        
+        led.setStyleSheet(f"""
+            background-color: {color}; 
+            border-radius: 5px; 
+            border: 1px solid rgba(255,255,255,0.3);
+        """)
+        
+        # Das Text-Label daneben
+        label = QLabel(tool_name.lower())
+        label.setFont(QFont("Monospace", 9))
+        
+        layout.addWidget(led)
+        layout.addWidget(label)
+        return container
+    
+    def toggle_theme(self):
+        # Wir prüfen den aktuellen Zustand (Dunkel ist Standard)
+        is_dark = "#2F2F2F" in self.styleSheet()
+
+        if is_dark:
+            # --- LIGHT MODE SETTINGS ---
+            self.setStyleSheet("background-color: #F5F5F5; color: #222;")
+            
+            # Das Haupt-Textfeld hell machen
+            self.info_text.setStyleSheet("""
+                background-color: #FFFFFF; 
+                color: #222222; 
+                border: 1px solid #CCC; 
+                border-radius: 5px;
+            """)
+            
+            # Den Header (falls als self.header_widget definiert) anpassen
+            if hasattr(self, 'header_widget'):
+                self.header_widget.setStyleSheet("background-color: #E0E0E0; border: 1px solid #BBB; border-radius: 10px;")
+            
+            # Den Theme-Button selbst anpassen
+            self.btn_theme.setStyleSheet("background-color: #DDD; color: #222; border: 1px solid #BBB; border-radius: 4px; font-size: 10px;")
+            self.btn_theme.setText("☀️ Light Mode")
+            
+        else:
+            # --- DARK MODE SETTINGS (Standard) ---
+            self.setStyleSheet("background-color: #2F2F2F; color: #EEE;")
+            
+            self.info_text.setStyleSheet("""
+                background-color: #000000; 
+                color: #FFFFFF; 
+                border: 1px solid #444; 
+                border-radius: 5px;
+            """)
+            
+            if hasattr(self, 'header_widget'):
+                self.header_widget.setStyleSheet("background-color: #2F2F2F; border: 1px solid #444; border-radius: 10px;")
+            
+            self.btn_theme.setStyleSheet("background-color: #3D3D3D; color: #EEE; border: 1px solid #555; border-radius: 4px; font-size: 10px;")
+            self.btn_theme.setText("🌓 Dark Mode")
+    
     def start_oscam_update_check(self):
         """Startet den Thread für den OSCam Update-Check."""
         self.update_worker = OSCamUpdateWorker(STREAMREPO, TEMP_REPO)
@@ -5932,34 +6004,30 @@ class PatchManagerGUI(QWidget):
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
         self.info_text.setFont(QFont("Courier", 12))
-
-        self.info_text.setStyleSheet(
-            """
+        self.info_text.setStyleSheet("""
             QTextEdit {
                 background-color: #000000;
                 color: #FFFFFF;
                 border: 1px solid #444;
                 border-radius: 5px;
             }
-        """
-        )
-
+        """)
+        # Die "10" gibt dem Textfeld Vorrang beim Platz, schiebt aber nichts weg
         main_layout.addWidget(self.info_text, 10)
 
+        # Kleinerer Abstand zwischen Textfeld und Progressbar
+        main_layout.addSpacing(5)
+
         self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(20)  # Höhe exakt auf 20px setzen
+        self.progress_bar.setFixedHeight(25)  # Etwas dicker für bessere Optik (25px)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
-
-        # Prozentanzeige in der Mitte aktivieren
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Style: Hintergrund dunkel, Fortschritt Orange/Grün, Schrift Weiß
         self.progress_bar.setStyleSheet("""
         QProgressBar {
-            border: 1px solid #444;      /* kleiner Rahmen */
-            border-radius: 8px;           /* kleiner Radius */
+            border: 1px solid #444;
+            border-radius: 8px;
             background-color: #1A1A1A;
             color: white;
             text-align: center;
@@ -5967,13 +6035,79 @@ class PatchManagerGUI(QWidget):
             font-size: 14px;
         }
         QProgressBar::chunk {
-             background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                                               stop:0 #F37804, stop:1 #FFD700);
-            border-radius: 8px;           /* passt zum Bar-Radius */
+            border-radius: 8px;
         }
         """)
         main_layout.addWidget(self.progress_bar)
 
+        # ---------------------------------------------------------
+        # STATUS-BAR (DIREKT UNTER PROGRESSBAR)
+        # ---------------------------------------------------------
+        # WICHTIG: Das 'main_layout.addStretch(1)' wurde entfernt!
+        
+        status_bar_container = QFrame()
+        status_bar_container.setFixedHeight(45) 
+        # Dezenter dunkler Hintergrund, damit es sich vom Fenster abhebt
+        status_bar_container.setStyleSheet("""
+            QFrame {
+                background-color: rgba(0,0,0,0.3); 
+                border: 1px solid #444; 
+                border-radius: 8px;
+            }
+        """)
+        
+        status_bar_layout = QHBoxLayout(status_bar_container)
+        status_bar_layout.setContentsMargins(15, 0, 15, 0)
+        status_bar_layout.setSpacing(20)
+
+        status_info_label = QLabel("SYSTEM STATUS:")
+        status_info_label.setStyleSheet("color: #AAA; font-size: 14px; font-weight: bold; border: none; background: transparent;")
+        status_bar_layout.addWidget(status_info_label)
+
+        for tool in ["git", "patch", "gcc"]:
+            tool_widget = QWidget()
+            tool_widget.setStyleSheet("background: transparent; border: none;")
+            tool_lay = QHBoxLayout(tool_widget)
+            tool_lay.setContentsMargins(0, 0, 0, 0)
+            tool_lay.setSpacing(10)
+            
+            led = QLabel()
+            led.setFixedSize(14, 14)
+            exists = shutil.which(tool) is not None
+            color = "#27ae60" if exists else "#c0392b"
+            led.setStyleSheet(f"background-color: {color}; border-radius: 7px; border: 2px solid #555;")
+            
+            name_label = QLabel(tool.upper())
+            name_label.setStyleSheet(f"color: {'#FFF' if exists else '#999'}; font-size: 14px; font-weight: bold; font-family: 'Segoe UI';")
+            
+            tool_lay.addWidget(led)
+            tool_lay.addWidget(name_label)
+            status_bar_layout.addWidget(tool_widget)
+
+        status_bar_layout.addStretch()
+
+        self.btn_theme = QPushButton("🌓 DARK MODE")
+        self.btn_theme.setFixedSize(120, 30)
+        self.btn_theme.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_theme.setStyleSheet("""
+            QPushButton {
+                background-color: #444;
+                color: white;
+                border: 1px solid #666;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #555; border: 1px solid #F37804; }
+        """)
+        self.btn_theme.clicked.connect(self.toggle_theme) 
+        
+        status_bar_layout.addWidget(self.btn_theme)
+
+        # Die Leiste wird nun direkt nach der Progressbar eingefügt
+        main_layout.addWidget(status_bar_container)
         # ---------------------------------------------------------
         # KONTROLL-BLOCK MIT HEADER
         # ---------------------------------------------------------
