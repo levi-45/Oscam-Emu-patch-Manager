@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.0.0"
+APP_VERSION = "3.0.1"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -1581,7 +1581,7 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
         globals()["EMUREPO"] = repo_url
         
         # Blink-Speed Timer Update
-        blink_speed = current_cfg.get("blink_speed", 500)
+        blink_speed = current_cfg.get("blink_speed", 0)
         if gui_instance:
             timer = getattr(gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None))
             if timer:
@@ -1631,7 +1631,7 @@ def load_config():
         "patch_modifier": "speedy005",
         "EMUREPO": CORRECT_URL,
         "theme_mode": "standard",  # NEU: Standard-Look
-        "blink_speed": 500         # NEU: Standard-Blinken (500ms)
+        "blink_speed": 0         # NEU: Standard-Blinken (500ms)
     }
 
     if not os.path.exists(CONFIG_FILE):
@@ -1676,7 +1676,7 @@ def load_config():
         
         # NEU: Auch die neuen Werte global verfügbar machen (optional)
         globals()["THEME_MODE"] = cfg.get("theme_mode", "standard")
-        globals()["BLINK_SPEED"] = cfg.get("blink_speed", 500)
+        globals()["BLINK_SPEED"] = cfg.get("blink_speed", 0)
 
         return cfg
 
@@ -3085,35 +3085,59 @@ from PyQt6.QtWidgets import (
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
+        # 1. IMPORTS & SOUND
         from PyQt6.QtGui import QColor, QFont, QTextCursor, QIcon
         from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
-        import subprocess, platform, shutil, os, re
+        import subprocess, platform, shutil, os, re, sys
 
         safe_play("service-login.oga")
-
-        # 1. STATUS INITIALISIEREN
-        self.is_loading = True  # SCHUTZ: Verhindert, dass Defaults die Config beim Start überschreiben
+        
+        # 2. ATTR-BOOTSTRAP (Verhindert AttributeError: 'NoneType' / 'no attribute')
+        self.btn_matrix = None
+        self.blink_slider = None
+        self.color_box = None
+        self.status_leds = []
+        self.all_buttons = []
+        self.option_buttons = {}
+        self.buttons = {}
+        self._blink_state = True
+        self.is_loading = True  # SCHUTZ: Blockiert Speichervorgänge während des Setups
+        
         super().__init__()
 
-        # --- 2. INFOSCREEN & REDIRECTOR ---
+        # 3. INFOSCREEN & REDIRECTOR FIX
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
-        self.current_config = {} 
-        self.status_leds = []
-        self._blink_state = True
+        
         try:
-            import sys
-            sys.stdout = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "info"))
-            sys.stderr = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "error"))
-        except Exception as e:
-            self.append_info(self.info_text, f"❌ Redirector Error: {e}", "error")
+            # FIX: Dynamische Anpassung an die StreamToGui-Klassenstruktur
+            # Wir versuchen den Redirector ohne Argumente zu laden und den Callback manuell zu setzen
+            self.stdout_redir = StreamToGui() 
+            self.stdout_redir.callback = lambda msg: self.append_info(self.info_text, msg, "info")
+            sys.stdout = self.stdout_redir
+            
+            self.stderr_redir = StreamToGui()
+            self.stderr_redir.callback = lambda msg: self.append_info(self.info_text, msg, "error")
+            sys.stderr = self.stderr_redir
+        except Exception:
+            # Fallback falls die Klasse doch Argumente im __init__ erwartet
+            try:
+                sys.stdout = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "info"))
+                sys.stderr = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "error"))
+            except Exception as e:
+                print(f"⚠️ Redirector Setup failed: {e}")
 
-        # --- 3. KONFIGURATION LADEN ---
-        self.current_config = load_config()
+        # 4. KONFIGURATION LADEN
+        try:
+            self.current_config = load_config()
+        except:
+            self.current_config = {}
+            
         self.cfg = self.current_config 
         stored_lang = str(self.current_config.get("language", "de")).lower()
         self.LANG = stored_lang if stored_lang in ["en", "de"] else "de"
-        self.patch_modifier = self.current_config.get("patch_modifier", PATCH_MODIFIER)
+        # Patch Modifier Fallback
+        self.patch_modifier = self.current_config.get("patch_modifier", "Default")
 
         current_path = self.current_config.get("s3_patch_path", OLD_PATCH_DIR)
         self.OLD_PATCH_DIR = os.path.normpath(current_path)
@@ -3121,25 +3145,24 @@ class PatchManagerGUI(QWidget):
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
         # Basis-Variablen
-        self.all_buttons, self.option_buttons, self.buttons = [], {}, {}
         self.active_button_key = ""
         self.main_grid_layout = None
         self.latest_version = APP_VERSION.replace("v", "").strip()
         self.BUTTON_RADIUS = 5
 
-        # --- 4. HAUPT-UI AUFBAUEN ---
+        # 5. HAUPT-UI AUFBAUEN
+        # WICHTIG: Entferne 'self.update_blink_speed' aus deiner 'init_ui' Methode!
         self.init_ui()
 
-        # --- 5. TIMER VORBEREITEN ---
+        # 6. TIMER VORBEREITEN
         self.blink_timer = QTimer(self)
         self.blink_timer.timeout.connect(self.animate_status_bar)
 
-        # --- 6. FARBSCHEMA & THEME INITIALISIEREN ---
-        # (Diese Funktionen setzen oft ungewollt Slider zurück)
+        # 7. THEME & FARBEN (Signalsperre verhindert Slider-Resets)
         saved_color = self.current_config.get("color", "Classics")
         global current_color_name
 
-        if hasattr(self, "color_box"):
+        if self.color_box:
             self.color_box.blockSignals(True)
             index = self.color_box.findText(saved_color)
             if index != -1:
@@ -3148,36 +3171,33 @@ class PatchManagerGUI(QWidget):
             self.color_box.blockSignals(False)
             self.color_box.currentIndexChanged.connect(self.change_colors)
 
+        # Sprache und Styles anwenden
         self.update_language()
         self.change_colors()
 
+        # Matrix-Modus Start-Delay
         if self.current_config.get("theme_mode") == "matrix":
-            QTimer.singleShot(100, self.toggle_matrix)
+            QTimer.singleShot(150, self.toggle_matrix)
 
-        # =====================================================================
-        # FINALER FIX: SLIDER-WERT ERZWINGEN (Gegen den 500ms Reset)
-        # Wir machen das erst JETZT, damit Theme-Wechsel nichts mehr überschreiben!
-        # =====================================================================
-        start_speed = self.current_config.get("blink_speed", 500)
+        # 8. FINALER SLIDER-FIX (Erzwingt geladenen Wert)
+        start_speed = self.current_config.get("blink_speed", 0)
         
-        if hasattr(self, "blink_slider"):
-            self.blink_slider.blockSignals(True)   # Verhindert Signal-Feuer
-            self.blink_slider.setValue(start_speed) # Setzt den echten Wert (z.B. 1000)
+        if self.blink_slider:
+            self.blink_slider.blockSignals(True)
+            self.blink_slider.setValue(start_speed)
             self.blink_slider.blockSignals(False)
 
-        # Label (STATIC/TURBO/ms) und Timer final auf den geladenen Wert setzen
+        # Erst JETZT die Blink-Logik starten, da alle Objekte (LEDs/Buttons) existieren
         if hasattr(self, "update_blink_speed"):
-            # Manueller Aufruf setzt lbl_speed_val und Timer-Intervall korrekt
             self.update_blink_speed(start_speed)
 
-        # SETUP FERTIG - AB JETZT DARF GESPEICHERT WERDEN
+        # SETUP FERTIG
         self.is_loading = False 
-        # =====================================================================
 
+        # 9. POST-INIT CHECKS
         if hasattr(self, "update_plugin_button_state"):
             self.update_plugin_button_state()
 
-        # --- 7. AUTOMATISCHE CHECKS ---
         QTimer.singleShot(500, self.show_welcome_info)
         QTimer.singleShot(2000, self.check_for_update_on_start)
         QTimer.singleShot(2500, self.start_oscam_update_check)
@@ -3200,12 +3220,31 @@ class PatchManagerGUI(QWidget):
                 led.setStyleSheet("background-color: #222; border-radius: 4px; border: 1px solid #444;")
 
     def force_leds_static(self):
-        """Setzt die LEDs auf einen statischen Zustand, wenn Blinken deaktiviert ist."""
-        if hasattr(self, "status_leds"):
+        """Setzt die LEDs auf einen statischen Zustand ohne Absturzrisiko."""
+        # 1. Sicherheitscheck: Sind LEDs überhaupt schon da?
+        if not hasattr(self, "status_leds") or not self.status_leds:
+            return
+
+        # 2. Sicherheitscheck: Existiert der Button schon? 
+        # Wenn nicht, nehmen wir den Wert direkt aus der Config
+        is_matrix = False
+        if self.btn_matrix is not None:
+            try:
+                is_matrix = "EXIT" in self.btn_matrix.text()
+            except:
+                is_matrix = self.current_config.get("theme_mode") == "matrix"
+        else:
             is_matrix = self.current_config.get("theme_mode") == "matrix"
-            color = "#00FF41" if is_matrix else "cyan"
-            for led in self.status_leds:
+
+        # 3. Farbe setzen
+        color = "#00FF41" if is_matrix else "cyan"
+        for led in self.status_leds:
+            try:
                 led.setStyleSheet(f"background-color: {color}; border-radius: 5px; border: 1px solid #666;")
+            except:
+                continue
+
+
 
     def animate_status_bar(self):
         """Lässt das Status-Label blinken oder animiert es."""
@@ -3279,13 +3318,22 @@ class PatchManagerGUI(QWidget):
             QProgressBar::chunk { background-color: #008F11; }
         """
 
-    def toggle_matrix(self):
-        """Schaltet das neon-grüne Matrix-Theme ein oder aus und passt den Speed-Slider an."""
-        # Aktuelle Config holen
-        cfg = getattr(self, "current_config", {})
+    def toggle_matrix(self, force_state=None):
+        """
+        Schaltet das neon-grüne Matrix-Theme um.
+        force_state: "matrix" oder "standard" um einen Zustand zu erzwingen.
+        """
+        if not self.btn_matrix: return
         
-        if self.btn_matrix.text() == "📟 MATRIX MODE":
-            # Matrix-Style Definition
+        # 1. Bestimmen, welcher Modus aktiviert werden soll
+        cfg = getattr(self, "current_config", {})
+        current_mode = cfg.get("theme_mode", "standard")
+        
+        # Falls force_state gegeben ist (beim Start), nutzen wir diesen, sonst Toggle
+        target_mode = force_state if force_state else ("matrix" if current_mode != "matrix" else "standard")
+
+        if target_mode == "matrix":
+            # --- MATRIX STYLE ---
             matrix_qss = """
                 QWidget { background-color: #000000; color: #00FF41; font-family: 'Segoe UI', 'Consolas'; }
                 QGroupBox { border: 2px solid #008F11; border-radius: 8px; margin-top: 1ex; font-weight: bold; color: #00FF41; }
@@ -3297,7 +3345,7 @@ class PatchManagerGUI(QWidget):
                 QProgressBar::chunk { background-color: #008F11; }
                 QLineEdit { background-color: #111; border: 1px solid #008F11; color: #00FF41; padding: 2px; }
                 
-                /* Matrix-Style für den Speed-Slider */
+                /* Matrix-Style für Slider */
                 QSlider::groove:horizontal { border: 1px solid #008F11; height: 6px; background: #000; border-radius: 3px; }
                 QSlider::handle:horizontal { background: #00FF41; border: 1px solid #008F11; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
             """
@@ -3305,19 +3353,20 @@ class PatchManagerGUI(QWidget):
             self.btn_matrix.setText("🔙 EXIT MATRIX")
             cfg["theme_mode"] = "matrix"
             
-            # Gag im Log-Fenster
-            if hasattr(self, "info_text"):
+            if hasattr(self, "info_text") and not self.is_loading:
                 self.info_text.append('<br><span style="color:#00FF41; font-family:Consolas;"><b>[System]</b> Wake up, Neo... Matrix Mode engaged.</span>')
             
-            if "safe_play" in globals(): safe_play("dialog-information.oga")
+            if "safe_play" in globals() and not self.is_loading: 
+                safe_play("dialog-information.oga")
 
         else:
-            # Zurück zum normalen Style
+            # --- STANDARD STYLE ---
             self.setStyleSheet("") 
             
-            # Slider-Style zurücksetzen (Standard-Orange)
-            if hasattr(self, "slider_speed"):
-                self.slider_speed.setStyleSheet("""
+            # Slider-Style zurücksetzen (Suche nach blink_slider oder slider_speed)
+            target_slider = getattr(self, "blink_slider", getattr(self, "slider_speed", None))
+            if target_slider:
+                target_slider.setStyleSheet("""
                     QSlider::groove:horizontal { border: 1px solid #666; height: 6px; background: #222; border-radius: 3px; }
                     QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
                 """)
@@ -3325,12 +3374,17 @@ class PatchManagerGUI(QWidget):
             self.btn_matrix.setText("📟 MATRIX MODE")
             cfg["theme_mode"] = "standard"
             
-            if hasattr(self, "info_text"):
+            if hasattr(self, "info_text") and not self.is_loading:
                 self.info_text.append('<br><span style="color:orange;"><b>[System]</b> Matrix-Mode deaktiviert.</span>')
 
-        # Wahl dauerhaft in Config speichern
-        if "save_config" in globals():
-            save_config(cfg, gui_instance=self, silent=True)
+        # Synchronisiere die LEDs sofort
+        if hasattr(self, "force_leds_static"):
+            self.force_leds_static()
+
+        # Speichern nur, wenn wir nicht gerade im Startvorgang sind
+        if not getattr(self, "is_loading", False):
+            if "save_config" in globals():
+                save_config(cfg, gui_instance=self, silent=True)
 
 
     def toggle_theme(self):
@@ -6369,7 +6423,7 @@ class PatchManagerGUI(QWidget):
         self.slider_speed.setInvertedAppearance(True) 
         
         # Startwert laden
-        current_speed = self.current_config.get("blink_speed", 500)
+        current_speed = self.current_config.get("blink_speed", 0)
         self.slider_speed.setValue(current_speed)
         self.slider_speed.setCursor(Qt.CursorShape.PointingHandCursor)
         
@@ -6392,7 +6446,7 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.addWidget(self.lbl_speed_val)
 
         # Einmalig den Text beim Start setzen
-        self.update_blink_speed(current_speed)
+        #self.update_blink_speed(current_speed)
 
         # ---------------------------------------------------------
         # BUTTONS
