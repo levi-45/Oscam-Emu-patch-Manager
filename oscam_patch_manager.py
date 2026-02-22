@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.9.7"
+APP_VERSION = "2.9.8"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -1559,18 +1559,23 @@ fill_missing_keys(TEXTS)
 
 def save_config(cfg, gui_instance=None, silent=False):
     """
-    Speichert die Config im Hintergrund.
-    silent=True: Absolut KEIN Log im Infoscreen (ideal für den Commit-Check).
-    silent=False: Volle Liste (für manuelle Änderungen am Autor/Repo).
+    Speichert die Config im Hintergrund und berücksichtigt Theme-Einstellungen.
+    silent=True: Absolut KEIN Log im Infoscreen.
+    silent=False: Volle Liste der Änderungen im Log.
     """
     try:
-        # 1. System-Werte synchronisieren (Immer ausführen)
+        # 1. System-Werte & Globals synchronisieren
         patch_author = cfg.get("patch_modifier", "speedy005")
         repo_url = cfg.get("EMUREPO", "")
         globals()["PATCH_MODIFIER"] = patch_author
         globals()["EMUREPO"] = repo_url
+        
+        # NEU: Blink-Geschwindigkeit synchronisieren (falls im Timer genutzt)
+        blink_speed = cfg.get("blink_speed", 500)
+        if gui_instance and hasattr(gui_instance, "blink_timer"):
+            gui_instance.blink_timer.setInterval(blink_speed)
 
-        # 2. Pfade sicherstellen und Speichern (Immer ausführen)
+        # 2. Pfade sicherstellen und JSON Speichern
         abs_config_path = os.path.abspath(CONFIG_FILE)
         config_dir = os.path.dirname(abs_config_path)
         if config_dir and not os.path.exists(config_dir):
@@ -1588,21 +1593,28 @@ def save_config(cfg, gui_instance=None, silent=False):
                 .get(lang, globals().get("TEXTS", {}).get("en", {}))
             )
 
-            cyan = "<span style='color:cyan;'>"
+            # --- DYNAMISCHE FARBANPASSUNG FÜR MATRIX MODE ---
+            is_matrix = cfg.get("theme_mode") == "matrix"
+            color_hex = "#00FF41" if is_matrix else "cyan"
+            font_style = "font-family:Consolas;" if is_matrix else ""
+            
+            cyan = f"<span style='color:{color_hex}; {font_style}'>"
             end = "</span>"
 
             # Erfolgsmeldung
             msg_ok = t.get("config_saved", "Einstellungen aktualisiert")
-            gui_instance.log_message(f"{cyan}✅ {msg_ok}{end}")
+            gui_instance.log_message(f"{cyan}<b>✅ {msg_ok}</b>{end}")
 
-            # Blacklist für interne Werte
+            # Blacklist für interne Werte (Wichtig: theme_mode NICHT skippen!)
             skip_keys = ["color", "last_stream_commit", "s3_patch_path", "auto_update"]
 
             display_map = {
                 "patch_modifier": t.get("auth_label", "Autor"),
                 "EMUREPO": t.get("repo_label", "Repository"),
                 "language": t.get("lang_label", "Sprache"),
-                "commit_count": "commit_count",
+                "theme_mode": "System-Design",
+                "blink_speed": "Blink-Takt (ms)",
+                "commit_count": "Commits",
             }
 
             for key, value in cfg.items():
@@ -1612,11 +1624,12 @@ def save_config(cfg, gui_instance=None, silent=False):
                 gui_instance.log_message(f"{cyan}➤ {label}: {value}{end}")
 
     except Exception as e:
-        # Fehler sollten auch im silent-Mode gemeldet werden
         if gui_instance and hasattr(gui_instance, "log_message"):
             gui_instance.log_message(
                 f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>"
             )
+
+
 
 
 # ===================== CONFIG =====================
@@ -3077,14 +3090,23 @@ class TaskWorker(QThread):
 # =====================
 # PATCH MANAGER GUI
 # =====================
-from PyQt6.QtGui import QColor
-from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
+    QPushButton, QTextEdit, QLabel, QMessageBox, 
+    QDialog, QFormLayout, QLineEdit, QDialogButtonBox, 
+    QFileDialog, QGroupBox, QSizePolicy, 
+    QFrame, QProgressBar, QSlider)
 
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
+        from PyQt6.QtGui import QColor, QFont, QTextCursor, QIcon
         from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
-        import subprocess, platform
+        import subprocess
+        import platform
+        import shutil
+        import os
+        import re
 
         safe_play("service-login.oga")
 
@@ -3099,7 +3121,9 @@ class PatchManagerGUI(QWidget):
         # Das Widget muss existieren, bevor sys.stdout umgeleitet wird
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
-
+        self.current_config = {} 
+        self.status_leds = []
+        self._blink_state = True
         try:
             import sys
 
@@ -3194,8 +3218,146 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(2000, self.check_for_update_on_start)
         QTimer.singleShot(2500, self.start_oscam_update_check)
 
+    def update_blink_speed(self, value):
+        """Aktualisiert Text-Labels und stoppt/startet den Timer."""
+        # Timer Referenz (master_timer oder blink_timer)
+        timer = getattr(self, "master_timer", getattr(self, "blink_timer", None))
+        
+        if value >= 950:
+            self.lbl_speed_val.setText("STATIC")
+            self.lbl_speed_val.setStyleSheet("color: #2ecc71; font-size: 11px; font-weight: bold;")
+            if timer: timer.stop()
+            self.force_leds_static() # Zwingt LEDs auf Dauer-An
+        elif value <= 100:
+            self.lbl_speed_val.setText("TURBO")
+            self.lbl_speed_val.setStyleSheet("color: #FF0000; font-size: 11px; font-weight: bold;")
+            if timer:
+                if not timer.isActive(): timer.start()
+                timer.setInterval(value)
+        else:
+            self.lbl_speed_val.setText(f"{value}ms")
+            self.lbl_speed_val.setStyleSheet("color: #aaa; font-size: 11px; font-weight: bold;")
+            if timer:
+                if not timer.isActive(): timer.start()
+                timer.setInterval(value)
+
+        # In Config merken
+        self.current_config["blink_speed"] = value
     
+    def force_leds_static(self):
+        """Setzt alle LEDs auf statisches Leuchten ohne Blinken."""
+        is_matrix = "EXIT" in self.btn_matrix.text()
+        for led in self.status_leds:
+            bg = led.base_color if not is_matrix else "#00FF41"
+            border = "#555" if not is_matrix else "#00FF41"
+            led.setStyleSheet(f"background-color: {bg}; border-radius: 7px; border: 2px solid {border};")
     
+        # System Status Label auch auf Standard-Rot setzen
+        self.status_info_label.setStyleSheet("color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;")
+
+    def get_matrix_style(self):
+        return """
+            QWidget { background-color: #0D0D0D; color: #00FF41; font-family: 'Segoe UI', 'Ubuntu', sans-serif; }
+            QGroupBox { border: 2px solid #008F11; border-radius: 8px; margin-top: 1ex; font-weight: bold; }
+            QTextEdit { background-color: #000000; border: 1px solid #00FF41; color: #00FF41; font-family: 'Consolas', monospace; font-size: 13px; }
+            QPushButton { background-color: #1A1A1A; color: #00FF41; border: 1px solid #008F11; border-radius: 4px; padding: 6px; font-weight: bold; }
+            QPushButton:hover { background-color: #008F11; color: #000000; }
+            QLabel { color: #00FF41; }
+            QLineEdit { background-color: #1A1A1A; border: 1px solid #008F11; color: #FFFFFF; }
+            QProgressBar { border: 1px solid #008F11; border-radius: 5px; text-align: center; color: white; }
+            QProgressBar::chunk { background-color: #008F11; }
+        """
+
+    def toggle_matrix(self):
+        """Schaltet das neon-grüne Matrix-Theme ein oder aus und passt den Speed-Slider an."""
+        # Aktuelle Config holen
+        cfg = getattr(self, "current_config", {})
+        
+        if self.btn_matrix.text() == "📟 MATRIX MODE":
+            # Matrix-Style Definition
+            matrix_qss = """
+                QWidget { background-color: #000000; color: #00FF41; font-family: 'Segoe UI', 'Consolas'; }
+                QGroupBox { border: 2px solid #008F11; border-radius: 8px; margin-top: 1ex; font-weight: bold; color: #00FF41; }
+                QTextEdit { background-color: #050505; border: 1px solid #00FF41; color: #00FF41; font-family: 'Consolas'; font-size: 13px; }
+                QPushButton { background-color: #111; color: #00FF41; border: 1px solid #008F11; border-radius: 5px; padding: 5px; font-weight: bold; }
+                QPushButton:hover { background-color: #008F11; color: #000; border: 1px solid #00FF41; }
+                QLabel { color: #00FF41; background: transparent; border: none; }
+                QProgressBar { border: 1px solid #008F11; border-radius: 5px; text-align: center; color: white; background-color: #111; }
+                QProgressBar::chunk { background-color: #008F11; }
+                QLineEdit { background-color: #111; border: 1px solid #008F11; color: #00FF41; padding: 2px; }
+                
+                /* Matrix-Style für den Speed-Slider */
+                QSlider::groove:horizontal { border: 1px solid #008F11; height: 6px; background: #000; border-radius: 3px; }
+                QSlider::handle:horizontal { background: #00FF41; border: 1px solid #008F11; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
+            """
+            self.setStyleSheet(matrix_qss)
+            self.btn_matrix.setText("🔙 EXIT MATRIX")
+            cfg["theme_mode"] = "matrix"
+            
+            # Gag im Log-Fenster
+            if hasattr(self, "info_text"):
+                self.info_text.append('<br><span style="color:#00FF41; font-family:Consolas;"><b>[System]</b> Wake up, Neo... Matrix Mode engaged.</span>')
+            
+            if "safe_play" in globals(): safe_play("dialog-information.oga")
+
+        else:
+            # Zurück zum normalen Style
+            self.setStyleSheet("") 
+            
+            # Slider-Style zurücksetzen (Standard-Orange)
+            if hasattr(self, "slider_speed"):
+                self.slider_speed.setStyleSheet("""
+                    QSlider::groove:horizontal { border: 1px solid #666; height: 6px; background: #222; border-radius: 3px; }
+                    QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
+                """)
+                
+            self.btn_matrix.setText("📟 MATRIX MODE")
+            cfg["theme_mode"] = "standard"
+            
+            if hasattr(self, "info_text"):
+                self.info_text.append('<br><span style="color:orange;"><b>[System]</b> Matrix-Mode deaktiviert.</span>')
+
+        # Wahl dauerhaft in Config speichern
+        if "save_config" in globals():
+            save_config(cfg, gui_instance=self, silent=True)
+
+
+    def toggle_theme(self):
+        """Schaltet zwischen Matrix-Mode und System-Style um."""
+        # Wir prüfen, ob aktuell schon ein Style gesetzt ist
+        if not self.styleSheet():
+            self.setStyleSheet(self.get_matrix_style())
+            self.theme_button.setText("🕶️ Light Mode")
+            # Kleiner Sound-Effekt (optional)
+            if "safe_play" in globals(): safe_play("dialog-information.oga")
+        else:
+            self.setStyleSheet("") # Setzt auf System-Standard zurück
+            self.theme_button.setText("📟 Matrix Mode")
+    
+    def animate_everything(self):
+        """Steuert das Blinken von Text und LEDs."""
+        self._blink_state = not self._blink_state
+        
+        # 1. System Status Label blinken lassen
+        txt_color = "#FF0000" if self._blink_state else "#440000"
+        self.status_info_label.setStyleSheet(f"color: {txt_color}; font-size: 22px; font-weight: bold; border: none; background: transparent;")
+
+        # 2. LEDs blinken lassen (Matrix-Check inklusive)
+        is_matrix = "EXIT" in self.btn_matrix.text()
+        
+        for led in self.status_leds:
+            if self._blink_state:
+                # AN-Phase
+                color = led.base_color if not is_matrix else "#00FF41"
+                border = "#FFF" if not is_matrix else "#00FF41"
+            else:
+                # AUS-Phase (Abgedunkelt)
+                color = "#1a532d" if led.tool_exists else "#5a1a14"
+                border = "#333"
+            
+            led.setStyleSheet(f"background-color: {color}; border-radius: 7px; border: 2px solid {border};")
+
+
     def get_status_indicator(self, tool_name):
         """Erzeugt ein Widget mit LED-Punkt und Label für den Systemcheck."""
         container = QWidget()
@@ -6100,7 +6262,7 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
-        self.info_text.setFont(QFont("Courier", 12))
+        self.info_text.setFont(QFont("Consolas", 12)) # Consolas wirkt im Matrix-Mode besser
         self.info_text.setStyleSheet("""
             QTextEdit {
                 background-color: #000000;
@@ -6109,14 +6271,12 @@ class PatchManagerGUI(QWidget):
                 border-radius: 5px;
             }
         """)
-        # Die "10" gibt dem Textfeld Vorrang beim Platz, schiebt aber nichts weg
         main_layout.addWidget(self.info_text, 10)
 
-        # Kleinerer Abstand zwischen Textfeld und Progressbar
         main_layout.addSpacing(5)
 
         self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(25)  # Etwas dicker für bessere Optik (25px)
+        self.progress_bar.setFixedHeight(25)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(True)
@@ -6142,54 +6302,40 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         # STATUS-BAR (DIREKT UNTER PROGRESSBAR)
         # ---------------------------------------------------------
-        # WICHTIG: Das 'main_layout.addStretch(1)' wurde entfernt!
-        
         status_bar_container = QFrame()
         status_bar_container.setFixedHeight(45) 
-        # Dezenter dunkler Hintergrund, damit es sich vom Fenster abhebt
         status_bar_container.setStyleSheet("""
-            QFrame {
-                background-color: rgba(0,0,0,0.3); 
-                border: 1px solid #444; 
-                border-radius: 8px;
-            }
+            QFrame { background-color: rgba(0,0,0,0.3); border: 1px solid #444; border-radius: 8px; }
         """)
         
         status_bar_layout = QHBoxLayout(status_bar_container)
         status_bar_layout.setContentsMargins(15, 0, 15, 0)
-        status_bar_layout.setSpacing(20)
+        status_bar_layout.setSpacing(15)
 
-        status_info_label = QLabel("SYSTEM STATUS:")
-        status_info_label.setStyleSheet("color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;")
-        status_bar_layout.addWidget(status_info_label)
+        self.status_info_label = QLabel("SYSTEM STATUS:")
+        self.status_info_label.setStyleSheet("color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;")
+        status_bar_layout.addWidget(self.status_info_label)
 
-        # Definition der Farben für die Texte
-        label_colors = {
-            "git": "#2ecc71",   # Hellgrün
-            "patch": "#3498db", # Hellblau
-            "gcc": "#f1c40f"    # Gelb
-        }
+        label_colors = {"git": "#2ecc71", "patch": "#3498db", "gcc": "#f1c40f"}
+        self.status_leds = [] 
 
         for tool in ["git", "patch", "gcc"]:
             tool_widget = QWidget()
-            # Hier nehmen wir die Hintergrund-Styles, die Textfarbe setzen wir individuell unten
             tool_widget.setStyleSheet("background: transparent; border: none;")
             tool_lay = QHBoxLayout(tool_widget)
             tool_lay.setContentsMargins(0, 0, 0, 0)
             tool_lay.setSpacing(10)
     
-            # LED (Punkt) Logik
             led = QLabel()
             led.setFixedSize(14, 14)
             exists = shutil.which(tool) is not None
-            # Punkt ist grün wenn vorhanden, sonst rot
-            color = "#27ae60" if exists else "#c0392b"
-            led.setStyleSheet(f"background-color: {color}; border-radius: 7px; border: 2px solid #555;")
+            led.tool_exists = exists
+            led.base_color = "#27ae60" if exists else "#c0392b"
+            led.setStyleSheet(f"background-color: {led.base_color}; border-radius: 7px; border: 2px solid #555;")
+            self.status_leds.append(led)
     
-            # Label mit spezifischer Farbe aus dem Dictionary
             current_color = label_colors.get(tool, "#FFF") 
             name_label = QLabel(tool.upper())
-            # Hier wird die Farbe (Grün, Blau oder Gelb) zugewiesen
             name_label.setStyleSheet(f"color: {current_color}; font-size: 24px; font-weight: bold; font-family: 'Segoe UI';")
     
             tool_lay.addWidget(led)
@@ -6198,26 +6344,69 @@ class PatchManagerGUI(QWidget):
 
         status_bar_layout.addStretch()
 
+        # ---------------------------------------------------------
+        # NEU: SPEED REGLER (Komplett Umbau mit Labels)
+        # ---------------------------------------------------------
+        speed_icon = QLabel("⚡")
+        speed_icon.setStyleSheet("font-size: 16px; border: none; background: transparent;")
+        status_bar_layout.addWidget(speed_icon)
+
+        self.slider_speed = QSlider(Qt.Orientation.Horizontal)
+        self.slider_speed.setFixedWidth(110)
+        self.slider_speed.setRange(50, 1000)
+        # Wir behalten InvertedAppearance bei: Rechts = Schneller (kleinere ms)
+        self.slider_speed.setInvertedAppearance(True) 
+        
+        # Startwert laden
+        current_speed = self.current_config.get("blink_speed", 500)
+        self.slider_speed.setValue(current_speed)
+        self.slider_speed.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # Stylischer Slider (Orange/Dunkel)
+        self.slider_speed.setStyleSheet("""
+            QSlider::groove:horizontal { border: 1px solid #666; height: 6px; background: #222; border-radius: 3px; }
+            QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
+        """)
+        
+        # Event verknüpfen
+        if hasattr(self, 'update_blink_speed'):
+            self.slider_speed.valueChanged.connect(self.update_blink_speed)
+            
+        status_bar_layout.addWidget(self.slider_speed)
+
+        # Das Label für die dynamischen Texte (STATIC, NORMAL, TURBO)
+        self.lbl_speed_val = QLabel("")
+        self.lbl_speed_val.setStyleSheet("color: #aaa; font-size: 11px; font-weight: bold; border: none;")
+        self.lbl_speed_val.setFixedWidth(60) # Erhöht auf 60 für 'STATIC'
+        status_bar_layout.addWidget(self.lbl_speed_val)
+
+        # Einmalig den Text beim Start setzen
+        self.update_blink_speed(current_speed)
+
+        # ---------------------------------------------------------
+        # BUTTONS
+        # ---------------------------------------------------------
+        self.btn_matrix = QPushButton("📟 MATRIX MODE")
+        self.btn_matrix.setFixedSize(130, 30)
+        self.btn_matrix.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_matrix.setStyleSheet("QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; border: 1px solid #00FF41; }")
+        if hasattr(self, 'toggle_matrix'): self.btn_matrix.clicked.connect(self.toggle_matrix) 
+        status_bar_layout.addWidget(self.btn_matrix)
+
         self.btn_theme = QPushButton("🌓 DARK MODE")
         self.btn_theme.setFixedSize(120, 30)
         self.btn_theme.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_theme.setStyleSheet("""
-            QPushButton {
-                background-color: #444;
-                color: white;
-                border: 1px solid #666;
-                border-radius: 6px;
-                font-size: 11px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #555; border: 1px solid #F37804; }
-        """)
+        self.btn_theme.setStyleSheet("QPushButton { background-color: #444; color: white; border: 1px solid #666; border-radius: 6px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }")
         self.btn_theme.clicked.connect(self.toggle_theme) 
-        
         status_bar_layout.addWidget(self.btn_theme)
 
-        # Die Leiste wird nun direkt nach der Progressbar eingefügt
         main_layout.addWidget(status_bar_container)
+
+        # --- ANIMATIONS-TIMER STARTEN ---
+        self._blink_state = True
+        self.master_timer = QTimer(self)
+        self.master_timer.timeout.connect(self.animate_everything)
+        self.master_timer.start(500) # 500ms Takt für das Blinken
         # ---------------------------------------------------------
         # KONTROLL-BLOCK MIT HEADER
         # ---------------------------------------------------------
