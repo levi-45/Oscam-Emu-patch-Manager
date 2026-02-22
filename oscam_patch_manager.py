@@ -304,7 +304,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.0.5"
+APP_VERSION = "3.0.6"
 
 
 # ===================== PATCH DIRS =====================
@@ -3492,6 +3492,82 @@ class PatchManagerGUI(QWidget):
                 led.setStyleSheet(style)
             except:
                 continue
+
+    def show_tool_help(self, tool_id):
+        """Zeigt Status-Infos (Grün) oder Hilfe (Rot) für System-Tools an."""
+        from PyQt6.QtWidgets import QMessageBox, QApplication
+        import platform
+        import shutil
+
+        lang = getattr(self, "LANG", "de").lower()
+        
+        # 1. LIVE-CHECK: Ist das Tool installiert?
+        path = shutil.which(tool_id)
+        # Spezialfälle für PY und QT6, die nicht als binärer Pfad gesucht werden
+        is_installed = path is not None or tool_id in ["py", "qt6"]
+        
+        # Mapping der Installations-Befehle
+        commands = {
+            "snd": "sudo apt update && sudo apt install pulseaudio-utils",
+            "git": "sudo apt update && sudo apt install git",
+            "patch": "sudo apt update && sudo apt install patch",
+            "zip": "sudo apt update && sudo apt install zip",
+            "gcc": "sudo apt update && sudo apt install build-essential",
+            "make": "sudo apt update && sudo apt install make",
+            "ssl": "sudo apt update && sudo apt install libssl-dev",
+            "usb": "sudo apt update && sudo apt install libusb-1.0-0-dev"
+        }
+
+        cmd = commands.get(tool_id, "N/A")
+        title = "Tool Status" if lang == "de" else "Tool Status"
+        
+        # 2. TEXT-ZUSAMMENSTELLUNG (WEICHE)
+        if is_installed:
+            # FALL: TOOL IST INSTALLIERT (GRÜN)
+            tool_path = path if path else "System / Python"
+            if lang == "de":
+                msg = f"Das Tool <b style='color:#00FF00;'>{tool_id.upper()}</b> ist bereits installiert.<br><br>"
+                msg += f"Pfad: <code style='background-color:#222; color:#00ADFF; padding:3px;'>{tool_path}</code>"
+            else:
+                msg = f"Tool <b style='color:#00FF00;'>{tool_id.upper()}</b> is already installed.<br><br>"
+                msg += f"Path: <code style='background-color:#222; color:#00ADFF; padding:3px;'>{tool_path}</code>"
+        else:
+            # FALL: TOOL FEHLT (ROT)
+            if lang == "de":
+                msg = f"Das Tool <b style='color:#F37804;'>{tool_id.upper()}</b> wurde nicht im System gefunden.<br><br>"
+                if platform.system() == "Linux" and cmd != "N/A":
+                    msg += f"Installieren Sie es über das Terminal mit:<br><br><code style='background-color:#222; color:#00FF00; padding:5px;'>{cmd}</code>"
+                else:
+                    msg += "Bitte installieren Sie das erforderliche Paket manuell."
+            else:
+                msg = f"Tool <b style='color:#F37804;'>{tool_id.upper()}</b> not found in system.<br><br>"
+                if platform.system() == "Linux" and cmd != "N/A":
+                    msg += f"Install it via terminal using:<br><br><code style='background-color:#222; color:#00FF00; padding:5px;'>{cmd}</code>"
+                else:
+                    msg += "Please install the required package manually."
+
+        # 3. MESSAGEBOX KONFIGURIEREN
+        box = QMessageBox(self)
+        box.setWindowTitle(title)
+        # Icon-Weiche: Information bei Grün, Warnung bei Rot
+        box.setIcon(QMessageBox.Icon.Information if is_installed else QMessageBox.Icon.Warning)
+        box.setText(msg)
+        
+        # Buttons: Kopieren nur anzeigen, wenn das Tool fehlt
+        copy_btn = None
+        if not is_installed and cmd != "N/A":
+            copy_btn = box.addButton("Befehl kopieren" if lang == "de" else "Copy Command", QMessageBox.ButtonRole.ActionRole)
+        
+        box.addButton(QMessageBox.StandardButton.Ok)
+        box.exec()
+        
+        # 4. LOGIK FÜR DEN KOPIER-BUTTON
+        if copy_btn and box.clickedButton() == copy_btn:
+            QApplication.clipboard().setText(cmd)
+            if hasattr(self, "append_info"):
+                log_msg = f"📋 {tool_id.upper()} " + ("Befehl kopiert" if lang == "de" else "Command copied")
+                self.append_info(getattr(self, "info_text", None), log_msg, "status")
+
 
     def update_label_only(self, value):
         """Aktualisiert nur den Text und die Farbe des Labels beim Programmstart."""
@@ -6725,32 +6801,31 @@ class PatchManagerGUI(QWidget):
         main_layout.addWidget(self.progress_bar)
 
         # ---------------------------------------------------------
-        # STATUS-BAR (MAXIMALER AUSBAU: GROSSE ANZEIGEN)
+        # STATUS-BAR (MAXIMALER AUSBAU: GROSSE ANZEIGEN & ZIP)
         # ---------------------------------------------------------
         status_bar_container = QFrame()
-        status_bar_container.setFixedHeight(55)  # Etwas höher für die großen Fonts
+        status_bar_container.setFixedHeight(55)
         status_bar_container.setStyleSheet(
             "QFrame { background-color: rgba(0,0,0,0.4); border: 1px solid #444; border-radius: 10px; }"
         )
 
         status_bar_layout = QHBoxLayout(status_bar_container)
         status_bar_layout.setContentsMargins(15, 0, 15, 0)
-        status_bar_layout.setSpacing(12)  # Optimierter Abstand für große Schrift
+        status_bar_layout.setSpacing(12)
 
-        # Haupt-Label wieder vollständig und groß
         self.status_info_label = QLabel("SYSTEM STATUS:")
         self.status_info_label.setStyleSheet(
             "color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;"
         )
         status_bar_layout.addWidget(self.status_info_label)
 
-        # Die vollständige Tool-Liste
-        tools_to_check = ["py", "qt6", "snd", "git", "patch", "gcc", "make", "ssl", "usb"]
+        # Tool-Liste erweitert um 'zip'
+        tools_to_check = ["py", "qt6", "snd", "git", "patch", "zip", "gcc", "make", "ssl", "usb"]
         
         label_colors = {
             "py": "#3776AB", "qt6": "#41CD52", "snd": "#FF0000",
-            "git": "#2ecc71", "patch": "#3498db", "gcc": "#f1c40f",
-            "make": "#e67e22", "ssl": "#9b59b6", "usb": "#1abc9c"
+            "git": "#2ecc71", "patch": "#3498db", "zip": "#E24A39", 
+            "gcc": "#f1c40f", "make": "#e67e22", "ssl": "#9b59b6", "usb": "#1abc9c"
         }
         
         self.status_leds = []
@@ -6766,14 +6841,16 @@ class PatchManagerGUI(QWidget):
             elif tool == "qt6":
                 exists = importlib.util.find_spec("PyQt6") is not None
             elif tool == "snd":
-                exists = shutil.which("paplay") is not None or platform.system() == "Windows"
+                # Prüft auf paplay ODER pw-play (für neuere Linux Distros)
+                exists = any(shutil.which(c) for c in ["paplay", "pw-play", "aplay"]) or platform.system() == "Windows"
                 display_name = "SOUND"
-            elif tool == "ssl":
-                exists = subprocess.run(["dpkg-query", "-W", "-f='${Status}'", "libssl-dev"], 
-                                      capture_output=True, text=True).returncode == 0
-            elif tool == "usb":
-                exists = subprocess.run(["dpkg-query", "-W", "-f='${Status}'", "libusb-1.0-0-dev"], 
-                                      capture_output=True, text=True).returncode == 0
+            elif tool in ["ssl", "usb"]:
+                if platform.system() == "Linux" and shutil.which("dpkg"):
+                    pkg = "libssl-dev" if tool == "ssl" else "libusb-1.0-0-dev"
+                    exists = subprocess.run(["dpkg-query", "-W", "-f='${Status}'", pkg], 
+                                          capture_output=True, text=True).returncode == 0
+                else:
+                    exists = True # Fallback für andere OS
             else:
                 exists = shutil.which(tool) is not None
 
@@ -6783,7 +6860,7 @@ class PatchManagerGUI(QWidget):
             t_lay.setContentsMargins(0, 0, 0, 0)
             t_lay.setSpacing(6)
 
-            # LED (Vergrößert auf 16x16)
+            # LED (16x16) mit Klick-Event bei Fehler
             led = QLabel()
             led.setFixedSize(16, 16)
             led.tool_exists = exists
@@ -6791,9 +6868,25 @@ class PatchManagerGUI(QWidget):
             led.setStyleSheet(
                 f"background-color: {led.base_color}; border-radius: 8px; border: 2px solid #555;"
             )
+            
+            # Klickbare Hilfe für fehlende Tools (außer py/qt6)
+            # LED (16x16)
+            led = QLabel()
+            led.setFixedSize(16, 16)
+            led.tool_exists = exists
+            led.base_color = "#27ae60" if exists else "#c0392b"
+            led.setStyleSheet(
+                f"background-color: {led.base_color}; border-radius: 8px; border: 2px solid #555;"
+            )
+            
+            # --- JETZT FÜR ALLE LEDs (AUCH GRÜN) ---
+            led.setCursor(Qt.CursorShape.PointingHandCursor)
+            # Das lambda wird jetzt für jede LED registriert
+            led.mousePressEvent = lambda e, t=tool: self.show_tool_help(t)
+            
             self.status_leds.append(led)
 
-            # Text (Vergrößert auf 20px)
+            # Text (20px)
             c = label_colors.get(tool, "#FFF")
             lbl = QLabel(display_name)
             lbl.setStyleSheet(f"color: {c}; font-size: 20px; font-weight: bold; font-family: 'Segoe UI';")
@@ -6805,7 +6898,7 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.addStretch()
 
         # ---------------------------------------------------------
-        # SPEED REGLER (Teil des Status-Bar Blocks)
+        # SPEED REGLER
         # ---------------------------------------------------------
         speed_icon = QLabel("⚡")
         speed_icon.setStyleSheet("font-size: 20px; border: none; background: transparent;")
@@ -6816,7 +6909,6 @@ class PatchManagerGUI(QWidget):
         self.slider_speed.setRange(50, 1000)
         self.slider_speed.setInvertedAppearance(True)
         
-        # --- HIER KOMMT DIE NEUE LOGIK REIN ---
         current_speed = self.current_config.get("blink_speed", 500)
         self.slider_speed.setValue(current_speed)
         self.slider_speed.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -6825,11 +6917,9 @@ class PatchManagerGUI(QWidget):
             "QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }"
         )
 
-        # Initialisierung des Textes OHNE das Blinken zu triggern
-        if hasattr(self, "update_blink_speed"):
-            # 1. Nur den Text (Label) setzen (Funktion muss in der Klasse existieren!)
+        if hasattr(self, "update_label_only"):
             self.update_label_only(current_speed) 
-            # 2. Erst jetzt das Event verknüpfen, damit Bewegungen reagieren
+        if hasattr(self, "update_blink_speed"):
             self.slider_speed.valueChanged.connect(self.update_blink_speed)
 
         status_bar_layout.addWidget(self.slider_speed)
@@ -8037,7 +8127,7 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Aktualisiert Titel, Status-Labels, GroupBoxen, Buttons und triggert System-Checks.
+        Aktualisiert Titel, Status-Labels, GroupBoxen, Buttons und die Status-LEDs.
         """
         if not hasattr(self, "language_box"):
             return
@@ -8054,7 +8144,7 @@ class PatchManagerGUI(QWidget):
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
 
-        # self.TEXT für globale Zugriffe (z.B. OSCam-Check) aktualisieren
+        # self.TEXT für globale Zugriffe aktualisieren
         all_texts = globals().get("TEXTS", {})
         self.TEXT = all_texts.get(self.LANG, {})
         lang_dict = self.TEXT
@@ -8075,10 +8165,9 @@ class PatchManagerGUI(QWidget):
             new_title = lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen")
             self.header_label.setText(f" {strip_icons(new_title)}")
 
-        # --- B) STATUS LABEL (RECHTS) - Erhält das HTML Styling ---
+        # --- B) STATUS LABEL (RECHTS) ---
         if hasattr(self, "status_label") and self.status_label.text() != "":
             curr_status = self.status_label.text()
-            # Prüfen, ob ein Update-Status oder "Aktuell"-Status aktiv ist
             if any(x in curr_status for x in ["✅", "🚀", "aktuell", "up to date"]):
                 old_rev = getattr(self, "current_rev", "11943")
                 last_remote = getattr(self, "last_remote_rev", old_rev)
@@ -8123,31 +8212,35 @@ class PatchManagerGUI(QWidget):
             label = strip_icons(lang_dict.get("check_tools_button", "Check Tools" if self.LANG == "en" else "Tools prüfen"))
             self.btn_check_tools.setText(f"🛠️ {label}")
 
+        # --- F) STATUS-LEDs TOOLTIPS AKTUALISIEREN ---
+        if hasattr(self, "status_leds") and self.status_leds:
+            for led in self.status_leds:
+                if hasattr(led, "tool_exists") and hasattr(led, "tool_name"):
+                    status_txt = lang_dict.get("found", "OK") if led.tool_exists else lang_dict.get("missing", "FEHLT")
+                    help_hint = " (Klick für Hilfe)" if self.LANG == "de" else " (Click for Help)"
+                    led.setToolTip(f"{led.tool_name.upper()}: {status_txt}{help_hint}")
+
         # 4. UI REFRESH & SOUND TEST
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
-        # Spielt Sound ab, um den Sprachwechsel zu bestätigen (Nutzt HAS_SOUND_SUPPORT global)
         safe_play_func = globals().get("safe_play")
         if safe_play_func:
             safe_play_func("dialog-information.oga")
 
         # 5. LOG & SYSTEM-CHECK RESET
-        # Wir leeren das Info-Fenster, damit der neue Check sauber oben beginnt
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
             self.info_text.clear()
 
         QApplication.processEvents()
 
-        # Willkommensnachricht in neuer Sprache anzeigen
+        # Willkommensnachricht in neuer Sprache
         if hasattr(self, "show_welcome_info"):
             self.show_welcome_info()
 
-        # 6. SYSTEM-CHECK NEU STARTEN
-        # Wir triggern den detaillierten Check (inkl. Sound, Git, Python) in der neuen Sprache
+        # 6. SYSTEM-CHECK NEU STARTEN (Detaillierter Log)
         if hasattr(self, "run_full_system_check"):
-            # Eine kleine Verzögerung (800ms) sorgt für einen flüssigeren Übergang
             QTimer.singleShot(800, lambda: self.run_full_system_check(clear_log=True))
 
         if self.layout():
