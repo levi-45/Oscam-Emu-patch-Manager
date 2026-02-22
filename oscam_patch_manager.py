@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.9.2"
+APP_VERSION = "2.9.3"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -3185,7 +3185,7 @@ class PatchManagerGUI(QWidget):
         # if hasattr(self, "check_for_update_on_start"):
         QTimer.singleShot(500, self.show_welcome_info)
         QTimer.singleShot(2000, self.check_for_update_on_start)
-        QTimer.singleShot(3000, self.start_oscam_update_check)
+        QTimer.singleShot(2500, self.start_oscam_update_check)
 
     
     
@@ -3268,33 +3268,39 @@ class PatchManagerGUI(QWidget):
     def on_update_check_finished(self, update_available, new_hash_or_msg):
         """
         Wird aufgerufen, wenn der Git-Check fertig ist.
-        Setzt die Meldung linksbündig in den 720px Status-Badge.
+        - Zeitstempel: IMMER ROT
+        - Update verfügbar: Label ROT (Icon 🚀), Schrift WEISS.
+        - Alles aktuell: Label ORANGE (Icon ✅), Schrift ORANGE.
         """
+        from datetime import datetime
         txt = getattr(self, "TEXT", {})
         widget = getattr(self, "info_text", None)
         
-        # --- FARBEN & DESIGN (Identisch zum System-Check) ---
-        C_GREEN = "#00FF00"  # Erfolg (Grün)
-        C_ORANGE = "#F37804" # Update (Orange)
-        SZ_NORM = "21px"     # Schriftgröße für Log
+        # --- ZEITSTEMPEL ---
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        
+        # --- FARBEN ---
+        C_RED    = "#FF0000"  # Rot für Update & Zeitstempel
+        C_ORANGE = "#F37804"  # Orange für Aktuell
+        SZ_NORM  = "21px"
         F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
 
         if update_available:
-            # 1. Animation starten (Blinken)
             self.trigger_alert_animation(self.header_container)
-            
             upd_title = txt.get("oscam_update_found", "Update verfügbar!")
             
-            # 2. STATUS-BADGE (Oben Rechts im 720px Feld)
+            # Label: Icon & Zeit ROT, Text WEISS
             if hasattr(self, "status_label"):
-                # HTML: Icon Orange, Text WEISS, Links ausgerichtet
-                status_html = f'<span style="color:{C_ORANGE};">🚀</span> <span style="color:white;">{upd_title} ({new_hash_or_msg})</span>'
+                status_html = (
+                    f'<span style="color:{C_RED};"><b>🚀 [{timestamp}]</b></span> '
+                    f'<span style="color:white;"><b>{upd_title} ({new_hash_or_msg})</b></span>'
+                )
                 self.status_label.setText(status_html)
                 self.status_label.show()
 
-            # 3. INFOSCREEN (Log-Fenster)
+            # Infoscreen (Log)
             log_html = (
-                f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_ORANGE}; margin-top:5px;">'
+                f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_RED}; margin-top:5px;">'
                 f'<b>🚀 {upd_title} ({new_hash_or_msg})</b></div>'
             )
             self.append_info(widget, log_html, "raw")
@@ -3303,22 +3309,19 @@ class PatchManagerGUI(QWidget):
                 safe_play("message-new-instant")
 
         else:
-            # --- FALL: ALLES AKTUELL ---
             success_msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
             
-            # 1. STATUS-BADGE (Oben Rechts im 720px Feld)
+            # Label: Zeit ROT, Icon & Text ORANGE
             if hasattr(self, "status_label"):
-                # HTML: Icon GRÜN, Text WEISS, Links ausgerichtet
-                status_html = f'<span style="color:{C_GREEN};">✅</span> <span style="color:white;">{success_msg}</span>'
+                status_html = (
+                    f'<span style="color:{C_ORANGE};"><b>✅</b></span> '
+                    f'<span style="color:{C_RED};"><b>[{timestamp}]</b></span> '
+                    f'<span style="color:{C_ORANGE};"><b>{success_msg}</b></span>'
+                )
                 self.status_label.setText(status_html)
                 self.status_label.show()
 
-            # 2. INFOSCREEN (Log-Fenster)
-            log_html = (
-                f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_GREEN}; margin-top:5px;">'
-                f'<b>✅ {success_msg}</b></div>'
-            )
-            self.append_info(widget, log_html, "raw")
+
 
     def trigger_alert_animation(self, widget):
         """Lässt ein Widget dezent rot pulsieren."""
@@ -6063,25 +6066,38 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.setSpacing(20)
 
         status_info_label = QLabel("SYSTEM STATUS:")
-        status_info_label.setStyleSheet("color: #AAA; font-size: 14px; font-weight: bold; border: none; background: transparent;")
+        status_info_label.setStyleSheet("color: #FF0000; font-size: 18px; font-weight: bold; border: none; background: transparent;")
         status_bar_layout.addWidget(status_info_label)
+
+        # Definition der Farben für die Texte
+        label_colors = {
+            "git": "#2ecc71",   # Hellgrün
+            "patch": "#3498db", # Hellblau
+            "gcc": "#f1c40f"    # Gelb
+        }
 
         for tool in ["git", "patch", "gcc"]:
             tool_widget = QWidget()
+            # Hier nehmen wir die Hintergrund-Styles, die Textfarbe setzen wir individuell unten
             tool_widget.setStyleSheet("background: transparent; border: none;")
             tool_lay = QHBoxLayout(tool_widget)
             tool_lay.setContentsMargins(0, 0, 0, 0)
             tool_lay.setSpacing(10)
-            
+    
+            # LED (Punkt) Logik
             led = QLabel()
             led.setFixedSize(14, 14)
             exists = shutil.which(tool) is not None
+            # Punkt ist grün wenn vorhanden, sonst rot
             color = "#27ae60" if exists else "#c0392b"
             led.setStyleSheet(f"background-color: {color}; border-radius: 7px; border: 2px solid #555;")
-            
+    
+            # Label mit spezifischer Farbe aus dem Dictionary
+            current_color = label_colors.get(tool, "#FFF") 
             name_label = QLabel(tool.upper())
-            name_label.setStyleSheet(f"color: {'#FFF' if exists else '#999'}; font-size: 14px; font-weight: bold; font-family: 'Segoe UI';")
-            
+            # Hier wird die Farbe (Grün, Blau oder Gelb) zugewiesen
+            name_label.setStyleSheet(f"color: {current_color}; font-size: 14px; font-weight: bold; font-family: 'Segoe UI';")
+    
             tool_lay.addWidget(led)
             tool_lay.addWidget(name_label)
             status_bar_layout.addWidget(tool_widget)
