@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.9.8"
+APP_VERSION = "2.9.9"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -1557,84 +1557,64 @@ for key, value in TEXTS["en"].items():
 fill_missing_keys(TEXTS)
 
 
-def save_config(cfg, gui_instance=None, silent=False):
+def save_config(cfg_updates, gui_instance=None, silent=False):
     """
-    Speichert die Config im Hintergrund und berücksichtigt Theme-Einstellungen.
-    silent=True: Absolut KEIN Log im Infoscreen.
-    silent=False: Volle Liste der Änderungen im Log.
+    Speichert Config-Updates, ohne bestehende Werte zu löschen.
     """
     try:
-        # 1. System-Werte & Globals synchronisieren
-        patch_author = cfg.get("patch_modifier", "speedy005")
-        repo_url = cfg.get("EMUREPO", "")
+        # 1. Bestehende Config laden, um nichts zu überschreiben
+        current_cfg = {}
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    current_cfg = json.load(f)
+            except:
+                current_cfg = {}
+
+        # 2. Die neuen Updates in die bestehende Config mergen
+        current_cfg.update(cfg_updates)
+
+        # 3. System-Werte synchronisieren
+        patch_author = current_cfg.get("patch_modifier", "speedy005")
+        repo_url = current_cfg.get("EMUREPO", "")
         globals()["PATCH_MODIFIER"] = patch_author
         globals()["EMUREPO"] = repo_url
         
-        # NEU: Blink-Geschwindigkeit synchronisieren (falls im Timer genutzt)
-        blink_speed = cfg.get("blink_speed", 500)
-        if gui_instance and hasattr(gui_instance, "blink_timer"):
-            gui_instance.blink_timer.setInterval(blink_speed)
+        # Blink-Speed Timer Update
+        blink_speed = current_cfg.get("blink_speed", 500)
+        if gui_instance:
+            timer = getattr(gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None))
+            if timer:
+                if blink_speed >= 950: timer.stop()
+                else:
+                    timer.setInterval(blink_speed)
+                    if not timer.isActive(): timer.start()
 
-        # 2. Pfade sicherstellen und JSON Speichern
+        # 4. Alles zusammen speichern
         abs_config_path = os.path.abspath(CONFIG_FILE)
-        config_dir = os.path.dirname(abs_config_path)
-        if config_dir and not os.path.exists(config_dir):
-            os.makedirs(config_dir, exist_ok=True)
-
         with open(abs_config_path, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=4, ensure_ascii=False)
+            json.dump(current_cfg, f, indent=4, ensure_ascii=False)
 
-        # 3. Logging (NUR wenn NICHT silent)
+        # 5. UI-Instanz synchronisieren (WICHTIG!)
+        if gui_instance:
+            gui_instance.current_config = current_cfg
+
+        # 6. Logging (NUR wenn NICHT silent)
         if not silent and gui_instance and hasattr(gui_instance, "log_message"):
-            lang = str(cfg.get("language", "de")).lower()
-            t = (
-                globals()
-                .get("TEXTS", {})
-                .get(lang, globals().get("TEXTS", {}).get("en", {}))
-            )
-
-            # --- DYNAMISCHE FARBANPASSUNG FÜR MATRIX MODE ---
-            is_matrix = cfg.get("theme_mode") == "matrix"
-            color_hex = "#00FF41" if is_matrix else "cyan"
-            font_style = "font-family:Consolas;" if is_matrix else ""
-            
-            cyan = f"<span style='color:{color_hex}; {font_style}'>"
-            end = "</span>"
-
-            # Erfolgsmeldung
-            msg_ok = t.get("config_saved", "Einstellungen aktualisiert")
-            gui_instance.log_message(f"{cyan}<b>✅ {msg_ok}</b>{end}")
-
-            # Blacklist für interne Werte (Wichtig: theme_mode NICHT skippen!)
-            skip_keys = ["color", "last_stream_commit", "s3_patch_path", "auto_update"]
-
-            display_map = {
-                "patch_modifier": t.get("auth_label", "Autor"),
-                "EMUREPO": t.get("repo_label", "Repository"),
-                "language": t.get("lang_label", "Sprache"),
-                "theme_mode": "System-Design",
-                "blink_speed": "Blink-Takt (ms)",
-                "commit_count": "Commits",
-            }
-
-            for key, value in cfg.items():
-                if key in skip_keys:
-                    continue
-                label = display_map.get(key, key)
-                gui_instance.log_message(f"{cyan}➤ {label}: {value}{end}")
+            is_matrix = current_cfg.get("theme_mode") == "matrix"
+            color = "#00FF41" if is_matrix else "cyan"
+            gui_instance.log_message(f"<span style='color:{color};'><b>✅ Einstellungen gespeichert</b></span>")
 
     except Exception as e:
         if gui_instance and hasattr(gui_instance, "log_message"):
-            gui_instance.log_message(
-                f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>"
-            )
+            gui_instance.log_message(f"<span style='color:orange;'>❌ Fehler: {e}</span>")
 
 
 
 
 # ===================== CONFIG =====================
 def load_config():
-    """Lädt Config, erlaubt eigene URLs und repariert die Datei nur bei fehlenden Keys."""
+    """Lädt Config, erlaubt eigene URLs und repariert die Datei bei fehlenden Keys (inkl. Matrix & Blink-Speed)."""
     import os, json
 
     CORRECT_URL = "https://github.com/oscam-mirror/oscam-emu.git"
@@ -1642,6 +1622,7 @@ def load_config():
         "OLD_PATCH_DIR", os.path.dirname(os.path.abspath(__file__))
     )
 
+    # 1. Standard-Konfiguration (Erweitert um Theme und Blink-Speed)
     default_cfg = {
         "commit_count": 5,
         "color": "Classics",
@@ -1649,6 +1630,8 @@ def load_config():
         "s3_patch_path": base_patch_dir,
         "patch_modifier": "speedy005",
         "EMUREPO": CORRECT_URL,
+        "theme_mode": "standard",  # NEU: Standard-Look
+        "blink_speed": 500         # NEU: Standard-Blinken (500ms)
     }
 
     if not os.path.exists(CONFIG_FILE):
@@ -1666,16 +1649,14 @@ def load_config():
         if not isinstance(cfg, dict):
             return default_cfg.copy()
 
-        # 3. Fehlende Keys ergänzen
+        # 3. Fehlende Keys ergänzen (Fügt theme_mode und blink_speed hinzu, falls sie fehlen)
         needs_save = False
         for key, value in default_cfg.items():
             if key not in cfg:
                 cfg[key] = value
                 needs_save = True
 
-        # 4. KORREKTUR DER URL (GEÄNDERT)
-        # Wir prüfen nur noch, ob die URL viel zu kurz (kaputt) oder leer ist.
-        # "oscam-emu.git" wird NICHT mehr erzwungen, damit eigene URLs bleiben!
+        # 4. KORREKTUR DER URL
         current_repo = str(cfg.get("EMUREPO", "")).strip()
         if len(current_repo) < 8:
             cfg["EMUREPO"] = CORRECT_URL
@@ -1689,9 +1670,13 @@ def load_config():
             except:
                 pass
 
-        # 5. Globale Variablen synchronisieren (WICHTIG für den Patch-Generator)
+        # 5. Globale Variablen synchronisieren
         globals()["EMUREPO"] = cfg["EMUREPO"]
         globals()["PATCH_MODIFIER"] = cfg["patch_modifier"]
+        
+        # NEU: Auch die neuen Werte global verfügbar machen (optional)
+        globals()["THEME_MODE"] = cfg.get("theme_mode", "standard")
+        globals()["BLINK_SPEED"] = cfg.get("blink_speed", 500)
 
         return cfg
 
@@ -3102,23 +3087,15 @@ class PatchManagerGUI(QWidget):
     def __init__(self):
         from PyQt6.QtGui import QColor, QFont, QTextCursor, QIcon
         from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
-        import subprocess
-        import platform
-        import shutil
-        import os
-        import re
+        import subprocess, platform, shutil, os, re
 
         safe_play("service-login.oga")
 
-        # 2. System-Check (etwas später, damit die Sounds sich nicht "beißen")
-        # Erhöhe die Zeit von 500 auf 1500 (1.5 Sekunden)
-        # QTimer.singleShot(1500, self.display_startup_info)
         # 1. STATUS INITIALISIEREN
-        self.is_loading = True  # Verhindert ungewollte Event-Trigger während des Setups
+        self.is_loading = True  # SCHUTZ: Verhindert, dass Defaults die Config beim Start überschreiben
         super().__init__()
 
         # --- 2. INFOSCREEN & REDIRECTOR ---
-        # Das Widget muss existieren, bevor sys.stdout umgeleitet wird
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
         self.current_config = {} 
@@ -3126,123 +3103,157 @@ class PatchManagerGUI(QWidget):
         self._blink_state = True
         try:
             import sys
-
-            sys.stdout = StreamToGui(
-                lambda msg: self.append_info(self.info_text, msg, "info")
-            )
-            sys.stderr = StreamToGui(
-                lambda msg: self.append_info(self.info_text, msg, "error")
-            )
+            sys.stdout = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "info"))
+            sys.stderr = StreamToGui(lambda msg: self.append_info(self.info_text, msg, "error"))
         except Exception as e:
-            # Falls ein Fehler auftritt, loggen wir ihn direkt ins Widget
             self.append_info(self.info_text, f"❌ Redirector Error: {e}", "error")
 
         # --- 3. KONFIGURATION LADEN ---
-        self.cfg = load_config()
-
-        # Sprache setzen (de/en)
-        stored_lang = str(self.cfg.get("language", "de")).lower()
+        self.current_config = load_config()
+        self.cfg = self.current_config 
+        stored_lang = str(self.current_config.get("language", "de")).lower()
         self.LANG = stored_lang if stored_lang in ["en", "de"] else "de"
+        self.patch_modifier = self.current_config.get("patch_modifier", PATCH_MODIFIER)
 
-        # NEU: Patch-Modifier (Signatur) aus Config laden
-        # Priorität: 1. config.json, 2. Globale Variable PATCH_MODIFIER
-        self.patch_modifier = self.cfg.get("patch_modifier", PATCH_MODIFIER)
-
-        # Pfad-Logik
-        current_path = self.cfg.get("s3_patch_path", OLD_PATCH_DIR)
+        current_path = self.current_config.get("s3_patch_path", OLD_PATCH_DIR)
         self.OLD_PATCH_DIR = os.path.normpath(current_path)
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
 
-        # Basis-Variablen für die GUI
-        self.all_buttons = []
-        self.option_buttons = {}
-        self.buttons = {}
+        # Basis-Variablen
+        self.all_buttons, self.option_buttons, self.buttons = [], {}, {}
         self.active_button_key = ""
         self.main_grid_layout = None
         self.latest_version = APP_VERSION.replace("v", "").strip()
         self.BUTTON_RADIUS = 5
 
         # --- 4. HAUPT-UI AUFBAUEN ---
-        # Hier werden Buttons (inkl. btn_modifier) und Layouts erstellt
         self.init_ui()
 
-        # --- 5. FARBSCHEMA INITIALISIEREN ---
-        saved_color = self.cfg.get("color", "Classics")
+        # --- 5. TIMER VORBEREITEN ---
+        self.blink_timer = QTimer(self)
+        self.blink_timer.timeout.connect(self.animate_status_bar)
+
+        # --- 6. FARBSCHEMA & THEME INITIALISIEREN ---
+        # (Diese Funktionen setzen oft ungewollt Slider zurück)
+        saved_color = self.current_config.get("color", "Classics")
         global current_color_name
 
         if hasattr(self, "color_box"):
-            # Signal blockieren, damit change_colors nicht sofort speichert
             self.color_box.blockSignals(True)
-
             index = self.color_box.findText(saved_color)
             if index != -1:
                 self.color_box.setCurrentIndex(index)
                 current_color_name = saved_color
-            else:
-                index = self.color_box.findText("Classics")
-                if index != -1:
-                    self.color_box.setCurrentIndex(index)
-                current_color_name = "Classics"
+            self.color_box.blockSignals(False)
+            self.color_box.currentIndexChanged.connect(self.change_colors)
 
-        self.color_box.blockSignals(False)
-        # Jetzt erst Event verbinden
-        self.color_box.currentIndexChanged.connect(self.change_colors)
-
-        # --- 6. FINALE INITIALISIERUNG ---
-        if not hasattr(self, "label_patch_path"):
-            self.label_patch_path = QLabel()
-
-        # GUI-Texte gemäß Sprache befüllen (setzt auch Tooltips für btn_modifier)
         self.update_language()
-
-        # Farben anwenden
         self.change_colors()
 
-        # Zustand des Update-Buttons prüfen
+        if self.current_config.get("theme_mode") == "matrix":
+            QTimer.singleShot(100, self.toggle_matrix)
+
+        # =====================================================================
+        # FINALER FIX: SLIDER-WERT ERZWINGEN (Gegen den 500ms Reset)
+        # Wir machen das erst JETZT, damit Theme-Wechsel nichts mehr überschreiben!
+        # =====================================================================
+        start_speed = self.current_config.get("blink_speed", 500)
+        
+        if hasattr(self, "blink_slider"):
+            self.blink_slider.blockSignals(True)   # Verhindert Signal-Feuer
+            self.blink_slider.setValue(start_speed) # Setzt den echten Wert (z.B. 1000)
+            self.blink_slider.blockSignals(False)
+
+        # Label (STATIC/TURBO/ms) und Timer final auf den geladenen Wert setzen
+        if hasattr(self, "update_blink_speed"):
+            # Manueller Aufruf setzt lbl_speed_val und Timer-Intervall korrekt
+            self.update_blink_speed(start_speed)
+
+        # SETUP FERTIG - AB JETZT DARF GESPEICHERT WERDEN
+        self.is_loading = False 
+        # =====================================================================
+
         if hasattr(self, "update_plugin_button_state"):
             self.update_plugin_button_state()
 
-        # Laden beendet - Events sind nun frei
-        self.is_loading = False
-
-        # --- 7. AUTOMATISCHE CHECKS (Verzögert für flüssigen Start) ---
-        from PyQt6.QtCore import QTimer
-
-        # Tool-Check nach 1 Sekunde
-        # QTimer.singleShot(1000, self.manual_tool_check)
-
-        # Update-Check nach 2 Sekunden
-        # if hasattr(self, "check_for_update_on_start"):
+        # --- 7. AUTOMATISCHE CHECKS ---
         QTimer.singleShot(500, self.show_welcome_info)
         QTimer.singleShot(2000, self.check_for_update_on_start)
         QTimer.singleShot(2500, self.start_oscam_update_check)
 
+    # =====================================================================
+    # ANIMATIONS-LOGIK (Verhindert AttributeError)
+    # =====================================================================
+    def animate_status_bar(self):
+        """Wechselt den Zustand der LEDs für den Blink-Effekt."""
+        if not hasattr(self, 'status_leds') or not self.status_leds:
+            return
+        self._blink_state = not self._blink_state
+        is_matrix = self.current_config.get("theme_mode") == "matrix"
+        color = "#00FF41" if is_matrix else "cyan"
+        
+        for led in self.status_leds:
+            if self._blink_state:
+                led.setStyleSheet(f"background-color: {color}; border-radius: 4px; border: 1px solid white;")
+            else:
+                led.setStyleSheet("background-color: #222; border-radius: 4px; border: 1px solid #444;")
+
+    def force_leds_static(self):
+        """Setzt die LEDs auf einen statischen Zustand, wenn Blinken deaktiviert ist."""
+        if hasattr(self, "status_leds"):
+            is_matrix = self.current_config.get("theme_mode") == "matrix"
+            color = "#00FF41" if is_matrix else "cyan"
+            for led in self.status_leds:
+                led.setStyleSheet(f"background-color: {color}; border-radius: 5px; border: 1px solid #666;")
+
+    def animate_status_bar(self):
+        """Lässt das Status-Label blinken oder animiert es."""
+        if hasattr(self, 'status_label'):
+            # Beispiel: Einfaches Blinken
+            current_style = self.status_label.styleSheet()
+            if "opacity: 1" in current_style or not current_style:
+                self.status_label.setStyleSheet("color: yellow; opacity: 0.5;")
+            else:
+                self.status_label.setStyleSheet("color: white; opacity: 1;")
+
+    def load_config_from_file(self):
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {} # Fallback
+
     def update_blink_speed(self, value):
-        """Aktualisiert Text-Labels und stoppt/startet den Timer."""
-        # Timer Referenz (master_timer oder blink_timer)
+        """Aktualisiert Text-Labels, Timer und speichert in die Datei."""
         timer = getattr(self, "master_timer", getattr(self, "blink_timer", None))
         
+        # 1. UI Feedback
         if value >= 950:
-            self.lbl_speed_val.setText("STATIC")
-            self.lbl_speed_val.setStyleSheet("color: #2ecc71; font-size: 11px; font-weight: bold;")
+            if hasattr(self, "lbl_speed_val"):
+                self.lbl_speed_val.setText("STATIC")
+                self.lbl_speed_val.setStyleSheet("color: #2ecc71; font-weight: bold;")
             if timer: timer.stop()
-            self.force_leds_static() # Zwingt LEDs auf Dauer-An
-        elif value <= 100:
-            self.lbl_speed_val.setText("TURBO")
-            self.lbl_speed_val.setStyleSheet("color: #FF0000; font-size: 11px; font-weight: bold;")
+            self.force_leds_static()
+        elif value <= 50:
+            if hasattr(self, "lbl_speed_val"):
+                self.lbl_speed_val.setText("TURBO")
+                self.lbl_speed_val.setStyleSheet("color: #FF0000; font-weight: bold;")
             if timer:
+                timer.setInterval(max(10, value))
                 if not timer.isActive(): timer.start()
-                timer.setInterval(value)
         else:
-            self.lbl_speed_val.setText(f"{value}ms")
-            self.lbl_speed_val.setStyleSheet("color: #aaa; font-size: 11px; font-weight: bold;")
+            if hasattr(self, "lbl_speed_val"):
+                self.lbl_speed_val.setText(f"{value}ms")
+                self.lbl_speed_val.setStyleSheet("color: #aaa; font-weight: bold;")
             if timer:
-                if not timer.isActive(): timer.start()
                 timer.setInterval(value)
+                if not timer.isActive(): timer.start()
 
-        # In Config merken
-        self.current_config["blink_speed"] = value
+        # 2. Speichern (Nur wenn nicht gerade die GUI initialisiert wird)
+        if not self.is_loading:
+            self.current_config["blink_speed"] = value
+            if "save_config" in globals():
+                save_config({"blink_speed": value}, gui_instance=self, silent=True)
     
     def force_leds_static(self):
         """Setzt alle LEDs auf statisches Leuchten ohne Blinken."""
