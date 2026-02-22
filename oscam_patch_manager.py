@@ -304,7 +304,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.0.6"
+APP_VERSION = "3.0.7"
 
 
 # ===================== PATCH DIRS =====================
@@ -3492,6 +3492,86 @@ class PatchManagerGUI(QWidget):
                 led.setStyleSheet(style)
             except:
                 continue
+
+    def show_language_animation(self, lang_code):
+        """Animation mit automatischem Fallback für fehlende Emoji-Fonts."""
+        from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect
+        from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer, Qt
+        from PyQt6.QtGui import QFont, QFontInfo
+
+        # 1. PRÜFUNG: Ist ein Emoji-Font installiert?
+        emoji_font = QFont("Noto Color Emoji", 65)
+        # Wir prüfen, ob das System den Font wirklich geladen hat
+        has_emoji = QFontInfo(emoji_font).family().lower() == "noto color emoji"
+
+        # 2. STYLING & TEXT-WEICHE
+        if has_emoji:
+            # EMOJI MODUS (Wenn Schriftart vorhanden)
+            display_text = "🇩🇪" if lang_code == "de" else "🇺🇸"
+            style = "background: transparent; border: none;"
+            emoji_font.setFamilies(["Noto Color Emoji", "Segoe UI Emoji", "Apple Color Emoji"])
+        else:
+            # TEXT MODUS (Fallback für saubere Optik ohne Vierecke)
+            if lang_code == "de":
+                display_text = " DE "
+                style = """
+                    color: #FFCC00; 
+                    background-color: #000000; 
+                    border: 3px solid #FF0000; 
+                    border-radius: 12px; 
+                    font-size: 45px; 
+                    font-weight: bold; 
+                    padding: 8px;
+                """
+            else:
+                display_text = " EN "
+                style = """
+                    color: #FFFFFF; 
+                    background-color: #00247D; 
+                    border: 3px solid #CF142B; 
+                    border-radius: 12px; 
+                    font-size: 45px; 
+                    font-weight: bold; 
+                    padding: 8px;
+                """
+            emoji_font = QFont("Segoe UI", 45, QFont.Weight.Bold)
+
+        # 3. LABEL ERSTELLEN
+        self.flag_label = QLabel(display_text, self)
+        self.flag_label.setFont(emoji_font)
+        self.flag_label.setStyleSheet(style)
+        self.flag_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.flag_label.adjustSize()
+        
+        # 4. POSITIONIERUNG (Zentriert)
+        start_x = (self.width() - self.flag_label.width()) // 2
+        start_y = (self.height() - self.flag_label.height()) // 2
+        
+        # Opacity Effekt für sanftes Ausblenden
+        op = QGraphicsOpacityEffect(self.flag_label)
+        self.flag_label.setGraphicsEffect(op)
+        
+        # 5. ANIMATIONEN (Dauer: 1.2 Sekunden)
+        # Bewegung nach oben
+        self.anim = QPropertyAnimation(self.flag_label, b"geometry")
+        self.anim.setDuration(1200)
+        self.anim.setStartValue(QRect(start_x, start_y + 50, self.flag_label.width(), self.flag_label.height()))
+        self.anim.setEndValue(QRect(start_x, start_y - 70, self.flag_label.width(), self.flag_label.height()))
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        
+        # Fade Out (Verschwinden)
+        self.op_anim = QPropertyAnimation(op, b"opacity")
+        self.op_anim.setDuration(1200)
+        self.op_anim.setStartValue(1.0)
+        self.op_anim.setEndValue(0.0)
+        
+        # 6. START & CLEANUP
+        self.flag_label.show()
+        self.anim.start()
+        self.op_anim.start()
+        
+        # Nach Abschluss das Label aus dem Speicher löschen
+        QTimer.singleShot(1300, self.flag_label.deleteLater)
 
     def show_tool_help(self, tool_id):
         """Zeigt Status-Infos (Grün) oder Hilfe (Rot) für System-Tools an."""
@@ -8127,7 +8207,7 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Aktualisiert Titel, Status-Labels, GroupBoxen, Buttons und die Status-LEDs.
+        Aktualisiert Titel, Status-Labels, GroupBoxen, Buttons, LEDs und zeigt Flaggen-Animation.
         """
         if not hasattr(self, "language_box"):
             return
@@ -8143,6 +8223,10 @@ class PatchManagerGUI(QWidget):
         # 1. SPRACHE ERMITTELN & SETZEN
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
+
+        # 1.5 FLAGGEN-ANIMATION TRIGGERN
+        if hasattr(self, "show_language_animation"):
+            self.show_language_animation(self.LANG)
 
         # self.TEXT für globale Zugriffe aktualisieren
         all_texts = globals().get("TEXTS", {})
