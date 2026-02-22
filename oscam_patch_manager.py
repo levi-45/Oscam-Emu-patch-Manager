@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.9.4"
+APP_VERSION = "2.9.5"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -3329,35 +3329,69 @@ class PatchManagerGUI(QWidget):
             self.on_update_check_finished(False, self.current_rev)
 
     def on_update_check_finished(self, update_available, new_rev):
-        """Aktualisiert das UI mit den Revisionen."""
+        """Aktualisiert das UI und erzwingt Text-Symbole statt Skin-Icons."""
         from datetime import datetime
+        import os
+        
         txt = getattr(self, "TEXT", {})
         timestamp = datetime.now().strftime("%H:%M:%S")
         old_rev = getattr(self, "current_rev", "11743")
+        self.last_remote_rev = new_rev 
     
-        C_RED, C_ORANGE, C_GRAY = "#FF0000", "#F37804", "#FFFF00"
+        # Farbcodes: Grün für das Häkchen, Rot für Rakete/Zeit
+        C_RED, C_ORANGE, C_GRAY, C_GREEN = "#FF0000", "#F37804", "#FFFF00", "#00FF00"
+        
+        # --- SOUND LOGIK ---
+        def play_system_sound(sound_type="info"):
+            safe_play = globals().get("safe_play")
+            if safe_play:
+                if sound_type == "update":
+                    safe_play("dialog-information.oga")
+                elif sound_type == "uptodate":
+                    safe_play("complete.oga")
+                elif sound_type == "error":
+                    safe_play("dialog-error.oga")
+            else:
+                import platform
+                try:
+                    if platform.system() == "Windows":
+                        import winsound
+                        winsound.MessageBeep()
+                    else:
+                        print('\a')
+                except: pass
 
         if update_available:
             upd_title = txt.get("oscam_update_found", "Update verfügbar!")
-            # 🚀 [12:00:00] Update verfügbar! (r11743 ➔ r11943)
+            # Text-Symbol für Rakete (Unicode Pfeil nach oben als Alternative, falls Rakete nicht geht)
+            icon_char = "🚀" 
             status_html = (
-                f'<span style="color:{C_RED};"><b>🚀 [{timestamp}]</b></span> '
+                f'<span style="color:{C_RED}; font-size:18px;"><b>{icon_char}</b></span> '
+                f'<span style="color:{C_RED};"><b>[{timestamp}]</b></span> '
                 f'<span style="color:white;"><b>{upd_title}</b></span> '
                 f'<span style="color:{C_GRAY}; font-size:18px;">(r{old_rev} ➔ r{new_rev})</span>'
             )
+            play_system_sound("update")
         else:
             success_msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
-            # ✅ [12:00:00] OSCam ist aktuell. (r11743)
+            # WICHTIG: Hier nutzen wir das 'HEAVY CHECK MARK' (✔), das als Text zählt
+            icon_char = "✔" 
             status_html = (
-                f'<span style="color:{C_ORANGE};"><b>✅</b></span> '
+                f'<span style="color:{C_GREEN}; font-size:20px;"><b>{icon_char}</b></span> '
                 f'<span style="color:{C_RED};"><b>[{timestamp}]</b></span> '
                 f'<span style="color:{C_ORANGE};"><b>{success_msg}</b></span> '
                 f'<span style="color:{C_GRAY}; font-size:18px;">(r{old_rev})</span>'
             )
+            if new_rev:
+                play_system_sound("uptodate")
+            else:
+                play_system_sound("error")
 
         if hasattr(self, "status_label"):
             self.status_label.setText(status_html)
             self.status_label.show()
+
+
 
 
 
@@ -6134,7 +6168,7 @@ class PatchManagerGUI(QWidget):
             current_color = label_colors.get(tool, "#FFF") 
             name_label = QLabel(tool.upper())
             # Hier wird die Farbe (Grün, Blau oder Gelb) zugewiesen
-            name_label.setStyleSheet(f"color: {current_color}; font-size: 14px; font-weight: bold; font-family: 'Segoe UI';")
+            name_label.setStyleSheet(f"color: {current_color}; font-size: 24px; font-weight: bold; font-family: 'Segoe UI';")
     
             tool_lay.addWidget(led)
             tool_lay.addWidget(name_label)
@@ -6198,7 +6232,7 @@ class PatchManagerGUI(QWidget):
 
         self.controls_header.setMinimumWidth(220)
         # OPTIMIERUNG: Header-Höhe von 28 auf 45 erhöht für mehr Präsenz
-        self.controls_header.setMinimumHeight(40)
+        self.controls_header.setMinimumHeight(45)
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         bg = current_diff_colors.get("bg", "#3a6ea5")
@@ -6501,7 +6535,7 @@ class PatchManagerGUI(QWidget):
 
         # Haupt-Container (Gesamtbreite: 220 + 5 + 280 = 505px)
         self.header_container = QWidget()
-        self.header_container.setFixedSize(750, 35) 
+        self.header_container.setFixedSize(950, 45) 
         self.header_container.mousePressEvent = self.on_header_clicked
         
         h_layout = QHBoxLayout(self.header_container)
@@ -6510,7 +6544,7 @@ class PatchManagerGUI(QWidget):
 
         # --- A) LINKER BADGE (Einstellungen - Länge 220) ---
         self.left_badge = QFrame()
-        self.left_badge.setFixedSize(220, 35) 
+        self.left_badge.setFixedSize(220, 45) 
         self.left_badge.setStyleSheet(f"""
             QFrame {{
                 background-color: {base_bg};
