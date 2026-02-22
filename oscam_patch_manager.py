@@ -28,6 +28,92 @@ import subprocess
 import stat
 import platform
 import re
+
+HAS_SOUND_SUPPORT = False
+
+def ensure_dependencies():
+    """Prüft Python, System-Tools und Sound-Support (Mehrsprachig & Zukunftssicher)."""
+    global HAS_SOUND_SUPPORT
+    import importlib.util
+    import shutil
+    import platform
+    import locale
+    import subprocess
+    import sys
+    import os
+
+    # Zukunftssichere Spracherkennung (vermeidet DeprecationWarning)
+    try:
+        # Versucht die System-Sprache zu holen (z.B. 'de_DE')
+        loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
+        lang = loc[:2].lower()
+    except:
+        lang = "en"
+    
+    # Lokalisierte Texte für die Vorab-Prüfung
+    if lang == "de":
+        T_PY_MISSING = "Fehlende Python-Pakete:"
+        T_PY_PROMPT = "Möchten Sie diese jetzt automatisch installieren? (j/n): "
+        T_SYS_TITLE = "System-Anforderungen"
+        T_SYS_TEXT = "Erforderliche Programme fehlen!"
+        T_SYS_INFO = "Bitte installieren Sie: "
+        T_LINUX_CMD = "Befehl für das Terminal:"
+    else:
+        T_PY_MISSING = "Missing Python packages:"
+        T_PY_PROMPT = "Would you like to install them now? (y/n): "
+        T_SYS_TITLE = "System Requirements"
+        T_SYS_TEXT = "Required programs missing!"
+        T_SYS_INFO = "Please install: "
+        T_LINUX_CMD = "Terminal command:"
+
+    # 1. PYTHON PAKETE PRÜFEN
+    required_python = ["PyQt6", "requests", "packaging"]
+    missing_python = [pkg for pkg in required_python if importlib.util.find_spec(pkg) is None]
+
+    if missing_python:
+        print(f"\n[INFO] {T_PY_MISSING} {', '.join(missing_python)}")
+        choice = input(T_PY_PROMPT)
+        if choice.lower() in ['j', 'y']:
+            for pkg in missing_python:
+                print(f"Installing {pkg}...")
+                subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+            # Skript mit installierten Paketen neu starten
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        sys.exit(1)
+
+    # 2. SYSTEM TOOLS PRÜFEN (git, patch)
+    required_tools = ["git", "patch"]
+    missing_tools = [t for t in required_tools if shutil.which(t) is None]
+
+    if missing_tools:
+        # Da PyQt6 nun sicher vorhanden ist, nutzen wir die GUI für den System-Fehler
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+        
+        # Sicherstellen, dass eine App-Instanz für die Box existiert
+        _ = QApplication.instance() or QApplication(sys.argv)
+        
+        msg = f"{T_SYS_INFO} {', '.join(missing_tools)}\n\n"
+        if platform.system() == "Linux":
+            msg += f"{T_LINUX_CMD}\nsudo apt update && sudo apt install {' '.join(missing_tools)}"
+        else:
+            msg += f"Please install {', '.join(missing_tools)} and add it to your PATH."
+
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Icon.Critical)
+        box.setWindowTitle(T_SYS_TITLE)
+        box.setText(T_SYS_TEXT)
+        box.setInformativeText(msg)
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        box.exec()
+        sys.exit(1)
+
+    # 3. SOUND-CHECK (Setzt die globale Variable für safe_play)
+    if platform.system() == "Linux":
+        HAS_SOUND_SUPPORT = shutil.which("paplay") is not None
+    else:
+        # Auf Windows nutzen wir den Standard-Beep, daher True
+        HAS_SOUND_SUPPORT = True
+
 from datetime import datetime, timezone
 from PyQt6.QtGui import QFont, QColor, QTextCursor, QIcon
 from PyQt6.QtWidgets import (
@@ -145,6 +231,7 @@ HAS_PAPLAY = shutil.which("paplay") is not None
 def safe_play(sound_name):
     """Spielt Sounds nur ab, wenn paplay existiert, sonst Beep."""
     if platform.system() == "Linux":
+        # Nutzt die globale Variable HAS_PAPLAY, die oben gesetzt wurde
         s_path = f"/usr/share/sounds/freedesktop/stereo/{sound_name}"
         if HAS_PAPLAY and os.path.exists(s_path):
             try:
@@ -156,6 +243,9 @@ def safe_play(sound_name):
                 return
             except:
                 pass
+    
+    # Fallback, wenn Linux ohne paplay oder Windows/Mac
+    from PyQt6.QtWidgets import QApplication
     QApplication.beep()
 
 
@@ -214,7 +304,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.0.4"
+APP_VERSION = "3.0.5"
 
 
 # ===================== PATCH DIRS =====================
@@ -973,6 +1063,40 @@ TEXTS = {
         "github_emu_git_uploaded": "Upload completed successfully!",
         "github_emu_git_revision": "Uploaded revision {sha}. Message: {commit_msg}",
         "github_upload_failed": "Failed to upload to GitHub!",
+        # ... tool first start check ...
+        "log_start_header": "--- OSCam Emu Patch Generator v{} ---",
+        "log_sys_info": "System: {} {}",
+        "log_dep_check": "Prüfung: Git ({}), Patch ({}), Sound ({})",
+        "log_status_ok": "Status: Alle Abhängigkeiten geladen. Bereit.",
+        "ok": "OK",
+        "missing": "FEHLT",
+        "active": "Aktiv",
+        "inactive": "Inaktiv",
+        # --- Header & GroupBoxes ---
+        "settings_header": "⚙️ Settings",
+        "github_config_header": "📁 GitHub Configuration",
+        # --- Labels ---
+        "language_label": "Language:",
+        "color_label": "Style / Color:",
+        "commit_count_label": "Show Commits:",
+        # --- Buttons & Tooltips ---
+        "modifier_button_text": "👤 Patch Author",
+        "modifier_tooltip_prefix": "Created by:",
+        "check_tools_button": "🛠️ Check Tools",
+        # --- System-Check Log ---
+        "start_check": "Starting System Check...",
+        "found": "OK",
+        "missing": "MISSING!",
+        "net_check": "Checking connection...",
+        "net_online": "Online",
+        "net_offline": "Offline",
+        "upd_check": "🔍 Tool Update Check...",
+        "sound_active": "Active",
+        "sound_inactive": "Inactive",
+        # --- Status Messages ---
+        "status_up_to_date": "✅ OSCam is up to date",
+        "status_update_avail": "🚀 Update available!",
+        "welcome_msg": "Welcome to OSCam Emu Patch Generator!",
         # ... zip_patch ...
         "patch_file_missing": "Patch file does not exist: {path}",
         "zip_success": "✅ Patch successfully zipped: {zip_file}",
@@ -1336,6 +1460,40 @@ TEXTS = {
         "net_check": "Prüfe Internetverbindung...",
         "net_online": "Online",
         "net_offline": "Offline",
+        # ... check tools first start ...
+        "log_start_header": "--- OSCam Emu Patch Generator v{} ---",
+        "log_sys_info": "System: {} {}",
+        "log_dep_check": "Check: Git ({}), Patch ({}), Sound ({})",
+        "log_status_ok": "Status: All dependencies loaded. Ready.",
+        "ok": "OK",
+        "missing": "MISSING",
+        "active": "Active",
+        "inactive": "Inactive",
+        # --- Header & GroupBoxes ---
+        "settings_header": "⚙️ Einstellungen",
+        "github_config_header": "📁 GitHub Konfiguration",
+        # --- Labels ---
+        "language_label": "Sprache:",
+        "color_label": "Design / Farbe:",
+        "commit_count_label": "Commits anzeigen:",
+         # --- Buttons & Tooltips ---
+        "modifier_button_text": "👤 Patch Autor",
+        "modifier_tooltip_prefix": "Erstellt von:",
+        "check_tools_button": "🛠️ Tools prüfen",
+        # --- System-Check Log ---
+        "start_check": "Starte System-Check...",
+        "found": "OK",
+        "missing": "FEHLT!",
+        "net_check": "Prüfe Internetverbindung...",
+        "net_online": "Online",
+        "net_offline": "Offline",
+        "upd_check": "🔍 Tool Update Check...",
+        "sound_active": "Aktiv",
+        "sound_inactive": "Inaktiv",
+        # --- Status Meldungen ---
+        "status_up_to_date": "✅ OSCam ist aktuell",
+        "status_update_avail": "🚀 Update verfügbar!",
+        "welcome_msg": "Willkommen beim OSCam Emu Patch Generator!",
         # Patch anwenden
         "executing_cmd": "Führe Befehl aus:",
         "cmd_failed": "Befehl fehlgeschlagen mit Code:",
@@ -6238,15 +6396,14 @@ class PatchManagerGUI(QWidget):
     def run_full_system_check(self, clear_log=False):
         """
         Vollständiger System-Check: Fette, zweifarbige Zeilen und bunter Footer.
-        Leitet alle Statusmeldungen direkt in den Infoscreen um.
+        Inklusive Prüfung auf Python-Pakete, System-Tools und Sound.
         """
         if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
-        self._update_dialog_active = False
 
         try:
-            import shutil, platform, socket
+            import shutil, platform, socket, importlib.util
             from datetime import datetime
             from PyQt6.QtWidgets import QApplication
             from PyQt6.QtGui import QTextCursor
@@ -6256,143 +6413,86 @@ class PatchManagerGUI(QWidget):
             SZ_BIG, SZ_NORM = "26px", "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
-
-            # Farbcodes
-            C_ORANGE = "#F37804"  # Titel
-            C_GREEN = "#00FF00"  # Erfolg
-            C_BLUE = "#00ADFF"  # Status
-            C_YELLOW = "#FFFF00"  # Version
-            C_RED = "#FF0000"  # Fehler
-            C_LINE = "#808080"  # Trenner
-            C_ERR = C_RED
+            C_ORANGE, C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = "#F37804", "#00FF00", "#00ADFF", "#FFFF00", "#FF0000", "#808080"
 
             # 1. LOG-FENSTER VORBEREITEN
             widget = getattr(self, "info_text", None)
             if widget:
-                if clear_log:
-                    widget.clear()
-                else:
+                if clear_log: widget.clear()
+                else: 
                     widget.moveCursor(QTextCursor.MoveOperation.End)
                     widget.insertHtml("<div style='font-size:4px;'>&nbsp;</div>")
                 QApplication.processEvents()
 
-            if "safe_play" in globals():
-                safe_play("dialog-information.oga")
-
-            # Sicherer Zugriff auf Übersetzungen & Version
+            # 2. SPRACHE & VERSION
             lang = getattr(self, "LANG", "de").lower()
-            version = globals().get("APP_VERSION", "2.8.4")
+            version = globals().get("APP_VERSION", "3.0.4")
             txt = getattr(self, "TEXT", {})
-
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
-            # --- BLOCK 1: START & TOOLS ---
-            start_msg = txt.get("start_check", "Starte System-Check...")
-            output.append(
-                f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>'
-            )
+            # --- TITEL ---
+            start_msg = txt.get("start_check", "Starte System-Check...") if lang == "de" else "Starting System Check..."
+            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>')
 
+            # --- BLOCK 1: SYSTEM TOOLS (git, patch, zip) ---
             tools = ["git"]
             if platform.system() != "Windows":
                 tools += ["patch", "zip"]
 
             for name in tools:
                 found = shutil.which(name)
-                prefix_color = C_GREEN if found else C_ERR
                 icon = "✅" if found else "❌"
-                status = (
-                    txt.get("found", "gefunden")
-                    if found
-                    else txt.get("missing", "FEHLT!")
-                )
+                col = C_GREEN if found else C_RED
+                status_txt = "OK" if found else (txt.get("missing", "FEHLT") if lang == "de" else "MISSING")
+                output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{col}"><b>  {icon} {name.ljust(6)} : </b></span>'
+                              f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{status_txt}</b></span></div>')
 
-                output.append(
-                    f'<div style="line-height:1.1;">'
-                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{prefix_color}"><b>  {icon} {name.ljust(6)} : </b></span>'
-                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{status}</b></span>'
-                    f"</div>"
-                )
+            # --- BLOCK 2: PYTHON PAKETE (PyQt6, requests) ---
+            py_pkgs = ["PyQt6", "requests"]
+            for pkg in py_pkgs:
+                found = importlib.util.find_spec(pkg) is not None
+                icon = "📦" if found else "❌"
+                col = C_GREEN if found else C_RED
+                output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{col}"><b>  {icon} {pkg.ljust(8)} : </b></span>'
+                              f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>OK</b></span></div>')
 
-            # --- BLOCK 2: INTERNET-CHECK ---
-            output.append(
-                f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>'
-            )
-            net_msg = txt.get("net_check", "Prüfe Internetverbindung...")
-            output.append(
-                f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>🔍 {net_msg}</b></span></div>'
-            )
+            # --- BLOCK 3: SOUND-STATUS (Nutzt deine globale Variable) ---
+            is_sound = globals().get("HAS_SOUND_SUPPORT", False)
+            s_icon = "🔊" if is_sound else "🔇"
+            s_col = C_GREEN if is_sound else C_YELLOW
+            s_txt = ("Aktiv" if lang == "de" else "Active") if is_sound else ("Inaktiv" if lang == "de" else "Inactive")
+            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{s_col}"><b>  {s_icon} Sound  : </b></span>'
+                          f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{s_txt}</b></span></div>')
 
+            # --- BLOCK 4: INTERNET-CHECK ---
+            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>')
             net_status_key = "Offline"
             try:
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
-                net_status_text, net_status_key, net_prefix_col, net_icon = (
-                    txt.get("net_online", "Online"),
-                    "Online",
-                    C_GREEN,
-                    "✅",
-                )
+                net_txt, net_col, net_icon, net_status_key = ("Online", C_GREEN, "🌐", "Online")
             except:
-                net_status_text, net_prefix_col, net_icon = (
-                    txt.get("net_offline", "Offline"),
-                    C_ERR,
-                    "❌",
-                )
+                net_txt, net_col, net_icon = ("Offline", C_RED, "🚫")
 
-            output.append(
-                f'<div style="line-height:1.1;">'
-                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_prefix_col}"><b>  {net_icon} Status : </b></span>'
-                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{net_status_text}</b></span>'
-                f"</div>"
-            )
-            output.append(
-                f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>'
-            )
+            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Netzwerk : </b></span>'
+                          f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{net_txt}</b></span></div>')
+            
+            # --- FOOTER ---
+            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>')
+            footer = (f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; margin-top: 4px;">'
+                      f'<span style="color:{C_RED};"><b>Autor:</b></span> <span style="color:{C_GREEN};"><b>speedy005</b></span> | '
+                      f'<span style="color:{C_BLUE};"><b>Version:</b></span> <span style="color:{C_YELLOW};"><b>{version}</b></span></div>')
+            output.append(footer)
 
-            # --- BLOCK 3: UPDATE TITEL & FOOTER ---
-            upd_title = txt.get("upd_check", "🔍 Tooltest Update Check...")
-            output.append(
-                f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{upd_title}</b></span></div>'
-            )
-
-            footer_line = (
-                f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; margin-top: 4px; line-height:1.2;">'
-                f'<span style="color:{C_RED};"><b>Autor:</b></span> <span style="color:{C_GREEN};"><b>speedy005</b></span> | '
-                f'<span style="color:{C_BLUE};"><b>Version:</b></span> <span style="color:{C_YELLOW};"><b>{version}</b></span> | '
-                f'<span style="color:{C_RED};"><b>Lizenz:</b></span> <span style="color:{C_GREEN};"><b>MIT</b></span>'
-                f"</div>"
-            )
-            output.append(footer_line)
-
-            # HTML-Ausgabe gesammelt senden (Nutzt dein vorhandenes append_info)
+            # HTML Senden
             self.append_info(widget, "".join(output), "raw")
 
-            # --- ÜBERGABE AN UPDATE-CHECK ---
-            if net_status_key == "Online" and hasattr(
-                self, "check_for_update_on_start"
-            ):
-                # Verzögerung, damit der System-Check erst fertig gerendert wird
-                QTimer.singleShot(400, self.check_for_update_on_start)
-            elif net_status_key == "Offline":
-                skip_msg = (
-                    "⚠️ Update-Check übersprungen (Offline)"
-                    if lang == "de"
-                    else "⚠️ Update check skipped (Offline)"
-                )
-                self.append_info(
-                    widget,
-                    f'<br><span style="color:{C_ORANGE}; font-family:{F_FAMILY}; font-size:{SZ_NORM};"><b>{skip_msg}</b></span>',
-                    "raw",
-                )
+            # Update-Check triggern
+            if net_status_key == "Online" and hasattr(self, "check_for_update_on_start"):
+                QTimer.singleShot(500, self.check_for_update_on_start)
 
         except Exception as e:
-            # Fehler direkt in den Infoscreen statt print()
-            if hasattr(self, "append_info"):
-                self.append_info(
-                    getattr(self, "info_text", None),
-                    f"❌ System-Check Fehler: {str(e)}",
-                    "error",
-                )
+            self.append_info(widget, f"❌ System-Check Error: {str(e)}", "error")
         finally:
             QTimer.singleShot(1000, lambda: setattr(self, "_checking_active", False))
 
@@ -7937,7 +8037,7 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Aktualisiert Titel, Status-Labels, GroupBoxen und Buttons.
+        Aktualisiert Titel, Status-Labels, GroupBoxen, Buttons und triggert System-Checks.
         """
         if not hasattr(self, "language_box"):
             return
@@ -7952,9 +8052,7 @@ class PatchManagerGUI(QWidget):
 
         # 1. SPRACHE ERMITTELN & SETZEN
         selected = self.language_box.currentText().upper()
-        self.LANG = (
-            "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
-        )
+        self.LANG = "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
 
         # self.TEXT für globale Zugriffe (z.B. OSCam-Check) aktualisieren
         all_texts = globals().get("TEXTS", {})
@@ -7974,9 +8072,7 @@ class PatchManagerGUI(QWidget):
 
         # --- A) HEADER TITEL (LINKS) ---
         if hasattr(self, "header_label"):
-            new_title = lang_dict.get(
-                "settings_header", "Settings" if self.LANG == "en" else "Einstellungen"
-            )
+            new_title = lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen")
             self.header_label.setText(f" {strip_icons(new_title)}")
 
         # --- B) STATUS LABEL (RECHTS) - Erhält das HTML Styling ---
@@ -7984,112 +8080,75 @@ class PatchManagerGUI(QWidget):
             curr_status = self.status_label.text()
             # Prüfen, ob ein Update-Status oder "Aktuell"-Status aktiv ist
             if any(x in curr_status for x in ["✅", "🚀", "aktuell", "up to date"]):
-                # Wir nutzen die bestehende Funktion, um das HTML sauber neu zu generieren
                 old_rev = getattr(self, "current_rev", "11943")
-                # Falls wir eine Remote-Revision gespeichert hatten, nutzen wir diese
                 last_remote = getattr(self, "last_remote_rev", old_rev)
-
                 try:
                     is_update = int(last_remote) > int(old_rev)
                 except:
                     is_update = "🚀" in curr_status
-
-                self.on_update_check_finished(is_update, last_remote)
+                
+                if hasattr(self, "on_update_check_finished"):
+                    self.on_update_check_finished(is_update, last_remote)
 
         # --- C) LABELS & FORMULAR-TEXTE ---
-        if hasattr(self, "lang_label"):
-            self.lang_label.setText(
-                lang_dict.get(
-                    "language_label", "Language:" if self.LANG == "en" else "Sprache:"
-                )
-            )
-
-        if hasattr(self, "color_label"):
-            self.color_label.setText(
-                lang_dict.get(
-                    "color_label", "Style:" if self.LANG == "en" else "Farbe:"
-                )
-            )
-
-        if hasattr(self, "commit_label"):
-            self.commit_label.setText(
-                lang_dict.get(
-                    "commit_count_label",
-                    "Commits:" if self.LANG == "en" else "Commits:",
-                )
-            )
+        labels_map = {
+            "lang_label": "language_label",
+            "color_label": "color_label",
+            "commit_label": "commit_count_label"
+        }
+        for attr, key in labels_map.items():
+            if hasattr(self, attr):
+                default = "Label:"
+                if key == "language_label": default = "Language:" if self.LANG == "en" else "Sprache:"
+                elif key == "color_label": default = "Style:" if self.LANG == "en" else "Farbe:"
+                elif key == "commit_count_label": default = "Commits:"
+                getattr(self, attr).setText(lang_dict.get(key, default))
 
         # --- D) UNIVERSAL-SCANNER: GroupBoxen ---
         for box in self.findChildren(QGroupBox):
             title = box.title()
             if any(word in title for word in ["Einstellungen", "Settings"]):
-                box.setTitle(
-                    lang_dict.get(
-                        "settings_header",
-                        "Settings" if self.LANG == "en" else "Einstellungen",
-                    )
-                )
-            if any(
-                word in title for word in ["GitHub", "Configuration", "Konfiguration"]
-            ):
-                box.setTitle(
-                    lang_dict.get(
-                        "github_config_header",
-                        (
-                            "GitHub Configuration"
-                            if self.LANG == "en"
-                            else "GitHub Konfiguration"
-                        ),
-                    )
-                )
+                box.setTitle(lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen"))
+            if any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
+                box.setTitle(lang_dict.get("github_config_header", "GitHub Configuration" if self.LANG == "en" else "GitHub Konfiguration"))
 
         # --- E) BUTTONS & TOOLTIPS ---
         if hasattr(self, "btn_modifier"):
-            label = strip_icons(
-                lang_dict.get(
-                    "modifier_button_text",
-                    "Patch Author" if self.LANG == "en" else "Patch Autor",
-                )
-            )
+            label = strip_icons(lang_dict.get("modifier_button_text", "Patch Author" if self.LANG == "en" else "Patch Autor"))
             self.btn_modifier.setText(f"👤 {label}")
-            tt_prefix = lang_dict.get(
-                "modifier_tooltip_prefix", "Author:" if self.LANG == "en" else "Autor:"
-            )
-            self.btn_modifier.setToolTip(
-                f"{tt_prefix} {getattr(self, 'patch_modifier', 'speedy005')}"
-            )
+            tt_prefix = lang_dict.get("modifier_tooltip_prefix", "Author:" if self.LANG == "en" else "Autor:")
+            self.btn_modifier.setToolTip(f"{tt_prefix} {getattr(self, 'patch_modifier', 'speedy005')}")
 
         if hasattr(self, "btn_check_tools"):
-            label = strip_icons(
-                lang_dict.get(
-                    "check_tools_button",
-                    "Check Tools" if self.LANG == "en" else "Tools prüfen",
-                )
-            )
+            label = strip_icons(lang_dict.get("check_tools_button", "Check Tools" if self.LANG == "en" else "Tools prüfen"))
             self.btn_check_tools.setText(f"🛠️ {label}")
 
-        # 4. UI REFRESH & SOUND
+        # 4. UI REFRESH & SOUND TEST
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
+        # Spielt Sound ab, um den Sprachwechsel zu bestätigen (Nutzt HAS_SOUND_SUPPORT global)
         safe_play_func = globals().get("safe_play")
         if safe_play_func:
             safe_play_func("dialog-information.oga")
 
         # 5. LOG & SYSTEM-CHECK RESET
+        # Wir leeren das Info-Fenster, damit der neue Check sauber oben beginnt
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
             self.info_text.clear()
 
         QApplication.processEvents()
 
-        # Willkommensnachricht in neuer Sprache
+        # Willkommensnachricht in neuer Sprache anzeigen
         if hasattr(self, "show_welcome_info"):
             self.show_welcome_info()
 
-        # Startet den System-Check nach kurzer Verzögerung neu (optional)
+        # 6. SYSTEM-CHECK NEU STARTEN
+        # Wir triggern den detaillierten Check (inkl. Sound, Git, Python) in der neuen Sprache
         if hasattr(self, "run_full_system_check"):
-            QTimer.singleShot(1000, lambda: self.run_full_system_check(clear_log=True))
+            # Eine kleine Verzögerung (800ms) sorgt für einen flüssigeren Übergang
+            QTimer.singleShot(800, lambda: self.run_full_system_check(clear_log=True))
 
         if self.layout():
             self.layout().activate()
@@ -8561,16 +8620,17 @@ class PatchManagerGUI(QWidget):
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
-    # ⚡ Macht das Script ausführbar
+    # ⚡ 1. Macht das Script ausführbar
     ensure_executable_self()
 
-    # 1️⃣ Python-Abhängigkeiten prüfen (BEVOR die GUI-Klasse geladen wird!)
-    REQUIRED_PY_PKGS = ["requests", "packaging", "PyQt6"]
-    # Falls installiert wurde, startet os.execv das Skript hier bereits neu
-    if check_and_install_dependencies(REQUIRED_PY_PKGS):
-        sys.exit(0)
+    # 🛠️ 2. ALLES PRÜFEN: Python-Pakete UND System-Tools (git, patch)
+    # Diese Funktion enthält den Code, den wir oben besprochen haben.
+    # Sie installiert Python-Sachen nach und bricht bei fehlendem Git ab.
+    ensure_dependencies()
 
-    # Standard-Imports
+    # --- AB HIER SIND ALLE TOOLS GARANTIERT VORHANDEN ---
+
+    # 3. Standard-Imports (PyQt6 ist jetzt sicher da)
     import sys
     import os
     from PyQt6.QtWidgets import QApplication
@@ -8578,35 +8638,36 @@ if __name__ == "__main__":
     # ⚠️ Verhindert Accessibility-Warnungen unter Linux
     os.environ["NO_AT_BRIDGE"] = "1"
 
-    # Jetzt erst die GUI-Komponenten laden
-    from oscam_patch_manager import (
-        PatchManagerGUI,
-        TEXTS,
-        fill_missing_keys,
-        ensure_dir,  # War in deinem Original auskommentiert, wird aber unten genutzt
-        PLUGIN_DIR,
-        ICON_DIR,
-        TEMP_REPO,
-        load_config,
-    )
+    # 4. Jetzt erst die GUI-Komponenten laden
+    # Falls diese in einer separaten Datei liegen:
+    try:
+        from oscam_patch_manager import (
+            PatchManagerGUI,
+            TEXTS,
+            fill_missing_keys,
+            ensure_dir,
+            PLUGIN_DIR,
+            ICON_DIR,
+            TEMP_REPO,
+            load_config,
+        )
+    except ImportError:
+        # Falls die GUI-Klassen im selben File stehen, entfällt dieser Import
+        pass
 
-    # 2️⃣ Wichtige Verzeichnisse sicherstellen
+    # 5. Verzeichnisse sicherstellen
     ensure_dir(PLUGIN_DIR)
     ensure_dir(ICON_DIR)
     ensure_dir(TEMP_REPO)
 
-    # 3️⃣ Konfiguration laden
+    # 6. Konfiguration laden & Texte vervollständigen
     load_config()
-
-    # 4️⃣ Fehlende TEXTS automatisch auffüllen
     fill_missing_keys(TEXTS)
 
-    # 5️⃣ QApplication erstellen
+    # 7. QApplication & GUI starten
     app = QApplication(sys.argv)
-
-    # 6️⃣ GUI starten
     window = PatchManagerGUI()
     window.showMaximized()
 
-    # 7️⃣ Event-Loop starten
+    # 8. Event-Loop starten
     sys.exit(app.exec())
