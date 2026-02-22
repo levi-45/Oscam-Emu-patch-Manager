@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.9.3"
+APP_VERSION = "2.9.4"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -1932,10 +1932,11 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Erstellt den Patch im TEMP_REPO mit dem exakten 3-Zeilen-Header.
     Inklusive akustischem Feedback bei Start und Abschluss.
+    Speichert die aktuelle Revision plattformübergreifend für den Update-Check.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
-    import subprocess, os, shutil, platform
+    import subprocess, os, shutil, platform, re
 
     # 1. Widget & Sprache & Modifier sicherstellen
     widget = info_widget
@@ -1965,7 +1966,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             QApplication.processEvents()
 
     def play_sound(sound_name):
-        """Spielt den passenden Sound ab (abgesichert via safe_play)."""
         if "safe_play" in globals():
             safe_play(sound_name)
 
@@ -1978,9 +1978,7 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
                 pass
 
     # --- START ---
-    # 1. START-SOUND (Signalisiert den Beginn der Arbeit)
     play_sound("dialog-information.oga")
-
     log("patch_create_start", "info")
     set_progress(10)
 
@@ -1989,7 +1987,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
     git_dir = os.path.join(TEMP_REPO, ".git")
 
-    # Repository Validierung
     if os.path.exists(TEMP_REPO) and not os.path.exists(git_dir):
         log("patch_create_clone_start", "warning")
         try:
@@ -2002,21 +1999,10 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         # 2. Git Synchronisierung
         if not os.path.exists(git_dir):
             set_progress(20)
-            subprocess.run(
-                f"git clone {STREAMREPO} .",
-                shell=True,
-                cwd=TEMP_REPO,
-                capture_output=True,
-            )
+            subprocess.run(f"git clone {STREAMREPO} .", shell=True, cwd=TEMP_REPO, capture_output=True)
 
-        subprocess.run(
-            ["git", "remote", "remove", "emu-repo"], cwd=TEMP_REPO, capture_output=True
-        )
-        subprocess.run(
-            ["git", "remote", "add", "emu-repo", active_emu_repo],
-            cwd=TEMP_REPO,
-            capture_output=True,
-        )
+        subprocess.run(["git", "remote", "remove", "emu-repo"], cwd=TEMP_REPO, capture_output=True)
+        subprocess.run(["git", "remote", "add", "emu-repo", active_emu_repo], cwd=TEMP_REPO, capture_output=True)
 
         set_progress(40)
         for cmd in [
@@ -2029,45 +2015,66 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         set_progress(70)
 
         # 3. HEADER & DIFF GENERIEREN
-        header = get_patch_header(
-            repo_dir=TEMP_REPO, lang=lang, modifier=active_modifier
-        )
+        header = get_patch_header(repo_dir=TEMP_REPO, lang=lang, modifier=active_modifier)
         diff = subprocess.check_output(
             ["git", "diff", "origin/master..emu-repo/master", "--", ".", ":!.github"],
-            cwd=TEMP_REPO,
-            text=True,
+            cwd=TEMP_REPO, text=True
         )
 
         if not diff.strip():
             log("patch_create_no_changes", "warning")
             diff = "# No changes detected"
 
-        # 4. DATEI SCHREIBEN
+        # 4. DATEI SCHREIBEN (Patch-File)
         with open(PATCH_FILE, "w", encoding="utf-8") as f:
             f.write(header + "\n" + diff + "\n")
+
+        # --- NEU: REVISION AUS GIT LOG EXTRAHIEREN UND ROBUST SPEICHERN ---
+        try:
+            # Erhöhe auf 50 Commits, um r-Nummer sicher zu finden
+            rev_log = subprocess.check_output(
+                ["git", "log", "-n", "50", "--pretty=format:%s"],
+                cwd=TEMP_REPO, text=True, stderr=subprocess.STDOUT
+            )
+            rev_match = re.search(r'r(\d{5})', rev_log)
+            
+            if rev_match:
+                new_rev_found = rev_match.group(1)
+                
+                # Pfad-Logik: Nutze Skript-Ordner (PC) oder /etc/enigma2/ (Receiver)
+                if os.path.exists("/etc/enigma2"):
+                    rev_storage_path = "/etc/enigma2/oscam_rev.txt"
+                else:
+                    # Sicherer absoluter Pfad zum Skript-Verzeichnis
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    rev_storage_path = os.path.join(script_dir, "oscam_rev.txt")
+                
+                with open(rev_storage_path, "w", encoding="utf-8") as f:
+                    f.write(new_rev_found)
+                
+                if isinstance(widget, QTextEdit):
+                    widget.append(f'<br><span style="color:#00FF00; font-size:13px;">'
+                                  f'<b>[System]</b> Revision r{new_rev_found} gemerkt.</span>')
+        except Exception as rev_err:
+            if isinstance(widget, QTextEdit):
+                widget.append(f'<br><span style="color:red; font-size:11px;">'
+                              f'[Debug] Revision konnte nicht gespeichert werden: {rev_err}</span>')
 
         set_progress(90)
 
         # --- ERFOLG ---
         log("patch_create_success", "success", patch_file=PATCH_FILE)
 
-        # Patch-Version aus Header loggen
         if header.strip():
             header_lines = header.splitlines()
             if header_lines:
-                log(
-                    "patch_version_from_header",
-                    "success",
-                    patch_version=header_lines[0].strip(),
-                )
+                log("patch_version_from_header", "success", patch_version=header_lines[0].strip())
 
-        # 2. ERFOLGS-SOUND (Signalisiert das Ende der Arbeit)
         play_sound("complete.oga")
 
     except Exception as e:
         log("patch_create_failed", "error", error=str(e))
         set_progress(0)
-        # 3. FEHLER-SOUND
         play_sound("dialog-error.oga")
         return
 
@@ -3259,67 +3266,98 @@ class PatchManagerGUI(QWidget):
             self.btn_theme.setStyleSheet("background-color: #3D3D3D; color: #EEE; border: 1px solid #555; border-radius: 4px; font-size: 10px;")
             self.btn_theme.setText("🌓 Dark Mode")
     
-    def start_oscam_update_check(self):
-        """Startet den Thread für den OSCam Update-Check."""
-        self.update_worker = OSCamUpdateWorker(STREAMREPO, TEMP_REPO)
-        self.update_worker.status_signal.connect(self.on_update_check_finished)
-        self.update_worker.start()
+    import os
+    import re
+    import requests
+    from datetime import datetime
 
-    def on_update_check_finished(self, update_available, new_hash_or_msg):
-        """
-        Wird aufgerufen, wenn der Git-Check fertig ist.
-        - Zeitstempel: IMMER ROT
-        - Update verfügbar: Label ROT (Icon 🚀), Schrift WEISS.
-        - Alles aktuell: Label ORANGE (Icon ✅), Schrift ORANGE.
-        """
+    # --- Hilfsfunktionen innerhalb der Klasse ---
+
+    def get_local_revision(self):
+        """Liest die gespeicherte Revision aus der Datei oscam_rev.txt."""
+        rev_file = os.path.join(os.getcwd(), "oscam_rev.txt")
+        if os.path.exists(rev_file):
+            try:
+                with open(rev_file, "r") as f:
+                    return f.read().strip()
+            except: pass
+        return "11743" # Fallback
+
+    def get_latest_remote_revision(self):
+        """Scannt die Streamboard-Commit-Seite nach der neuesten rXXXXX Nummer."""
+        import re
+        # Falls requests oben nicht importiert wurde, versuchen wir es hier lokal
+        try:
+            import requests
+        except ImportError:
+            print("Fehler: Das Modul 'requests' fehlt. Bitte 'pip install requests' ausführen.")
+            return None
+
+        url = "https://git.streamboard.tv"
+        try:
+            # Fake Browser-Header, damit Streamboard uns nicht blockt
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                # Findet r gefolgt von 5 Ziffern (z.B. r11743)
+                matches = re.findall(r'r(\d{5})', response.text)
+                if matches:
+                    # Wir nehmen den ersten (obersten) Treffer der Seite
+                    return matches[0]
+        except Exception as e:
+            print(f"Fehler beim Web-Check: {e}")
+        return None
+
+    def start_oscam_update_check(self):
+        """Wird aufgerufen, um den Vergleich zu starten."""
+        # 1. Lokale Rev holen (aus Datei oder Fallback)
+        self.current_rev = self.get_local_revision()
+        
+        # 2. Remote Rev von Streamboard holen
+        remote_rev = self.get_latest_remote_revision()
+        
+        if remote_rev:
+            try:
+                # Prüfen ob die Online-Nummer größer als die lokale ist
+                update_available = int(remote_rev) > int(self.current_rev)
+                self.on_update_check_finished(update_available, remote_rev)
+            except ValueError:
+                self.on_update_check_finished(False, self.current_rev)
+        else:
+            # Fehlerfall: Nur lokalen Stand zeigen
+            self.on_update_check_finished(False, self.current_rev)
+
+    def on_update_check_finished(self, update_available, new_rev):
+        """Aktualisiert das UI mit den Revisionen."""
         from datetime import datetime
         txt = getattr(self, "TEXT", {})
-        widget = getattr(self, "info_text", None)
-        
-        # --- ZEITSTEMPEL ---
         timestamp = datetime.now().strftime("%H:%M:%S")
-        
-        # --- FARBEN ---
-        C_RED    = "#FF0000"  # Rot für Update & Zeitstempel
-        C_ORANGE = "#F37804"  # Orange für Aktuell
-        SZ_NORM  = "21px"
-        F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
+        old_rev = getattr(self, "current_rev", "11743")
+    
+        C_RED, C_ORANGE, C_GRAY = "#FF0000", "#F37804", "#FFFF00"
 
         if update_available:
-            self.trigger_alert_animation(self.header_container)
             upd_title = txt.get("oscam_update_found", "Update verfügbar!")
-            
-            # Label: Icon & Zeit ROT, Text WEISS
-            if hasattr(self, "status_label"):
-                status_html = (
-                    f'<span style="color:{C_RED};"><b>🚀 [{timestamp}]</b></span> '
-                    f'<span style="color:white;"><b>{upd_title} ({new_hash_or_msg})</b></span>'
-                )
-                self.status_label.setText(status_html)
-                self.status_label.show()
-
-            # Infoscreen (Log)
-            log_html = (
-                f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; color:{C_RED}; margin-top:5px;">'
-                f'<b>🚀 {upd_title} ({new_hash_or_msg})</b></div>'
+            # 🚀 [12:00:00] Update verfügbar! (r11743 ➔ r11943)
+            status_html = (
+                f'<span style="color:{C_RED};"><b>🚀 [{timestamp}]</b></span> '
+                f'<span style="color:white;"><b>{upd_title}</b></span> '
+                f'<span style="color:{C_GRAY}; font-size:18px;">(r{old_rev} ➔ r{new_rev})</span>'
             )
-            self.append_info(widget, log_html, "raw")
-            
-            if "safe_play" in globals():
-                safe_play("message-new-instant")
-
         else:
             success_msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
-            
-            # Label: Zeit ROT, Icon & Text ORANGE
-            if hasattr(self, "status_label"):
-                status_html = (
-                    f'<span style="color:{C_ORANGE};"><b>✅</b></span> '
-                    f'<span style="color:{C_RED};"><b>[{timestamp}]</b></span> '
-                    f'<span style="color:{C_ORANGE};"><b>{success_msg}</b></span>'
-                )
-                self.status_label.setText(status_html)
-                self.status_label.show()
+            # ✅ [12:00:00] OSCam ist aktuell. (r11743)
+            status_html = (
+                f'<span style="color:{C_ORANGE};"><b>✅</b></span> '
+                f'<span style="color:{C_RED};"><b>[{timestamp}]</b></span> '
+                f'<span style="color:{C_ORANGE};"><b>{success_msg}</b></span> '
+                f'<span style="color:{C_GRAY}; font-size:18px;">(r{old_rev})</span>'
+            )
+
+        if hasattr(self, "status_label"):
+            self.status_label.setText(status_html)
+            self.status_label.show()
 
 
 
@@ -7228,16 +7266,16 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Aktualisiert Titel (links) und Status (rechts) getrennt voneinander.
+        Aktualisiert Titel, Status-Labels, GroupBoxen und Buttons.
         """
         if not hasattr(self, "language_box"):
             return
 
-        from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel
+        from PyQt6.QtWidgets import QApplication, QGroupBox
         from PyQt6.QtCore import QTimer
         import re
 
-        # Hilfsfunktion: Entfernt Emojis/Symbole am Anfang
+        # Hilfsfunktion: Entfernt Emojis/Symbole am Anfang eines Strings
         def strip_icons(text):
             return re.sub(r'^[^\w\s]+', '', str(text)).strip()
 
@@ -7245,7 +7283,7 @@ class PatchManagerGUI(QWidget):
         selected = self.language_box.currentText().upper()
         self.LANG = "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
         
-        # --- WICHTIG: self.TEXT FÜR DEN OSCAM-CHECK AKTUALISIEREN ---
+        # self.TEXT für globale Zugriffe (z.B. OSCam-Check) aktualisieren
         all_texts = globals().get("TEXTS", {})
         self.TEXT = all_texts.get(self.LANG, {})
         lang_dict = self.TEXT 
@@ -7266,21 +7304,24 @@ class PatchManagerGUI(QWidget):
             new_title = lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen")
             self.header_label.setText(f" {strip_icons(new_title)}")
 
-        # --- B) STATUS LABEL (RECHTS) ---
+        # --- B) STATUS LABEL (RECHTS) - Erhält das HTML Styling ---
         if hasattr(self, "status_label") and self.status_label.text() != "":
-            # Prüfen, ob gerade ein Status angezeigt wird (anhand von Icons oder Textinhalt)
             curr_status = self.status_label.text()
-            if "✅" in curr_status or "🚀" in curr_status or "aktuell" in curr_status.lower() or "up to date" in curr_status.lower():
-                # Status-Meldung übersetzen
-                is_update = "🚀" in curr_status
-                if is_update:
-                    new_status = lang_dict.get("oscam_update_found", "Update available!")
-                    self.status_label.setText(f"🚀 {new_status}")
-                else:
-                    new_status = lang_dict.get("oscam_uptodate", "OSCam ist aktuell.")
-                    self.status_label.setText(f"✅ {new_status}")
+            # Prüfen, ob ein Update-Status oder "Aktuell"-Status aktiv ist
+            if any(x in curr_status for x in ["✅", "🚀", "aktuell", "up to date"]):
+                # Wir nutzen die bestehende Funktion, um das HTML sauber neu zu generieren
+                old_rev = getattr(self, "current_rev", "11743")
+                # Falls wir eine Remote-Revision gespeichert hatten, nutzen wir diese
+                last_remote = getattr(self, "last_remote_rev", old_rev)
+                
+                try:
+                    is_update = int(last_remote) > int(old_rev)
+                except:
+                    is_update = "🚀" in curr_status
+                
+                self.on_update_check_finished(is_update, last_remote)
 
-        # --- LABELS AKTUALISIEREN ---
+        # --- C) LABELS & FORMULAR-TEXTE ---
         if hasattr(self, "lang_label"):
             self.lang_label.setText(lang_dict.get("language_label", "Language:" if self.LANG == "en" else "Sprache:"))
         
@@ -7290,7 +7331,7 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "commit_label"):
             self.commit_label.setText(lang_dict.get("commit_count_label", "Commits:" if self.LANG == "en" else "Commits:"))
 
-        # --- UNIVERSAL-SCANNER: GroupBoxen ---
+        # --- D) UNIVERSAL-SCANNER: GroupBoxen ---
         for box in self.findChildren(QGroupBox):
             title = box.title()
             if any(word in title for word in ["Einstellungen", "Settings"]):
@@ -7298,7 +7339,7 @@ class PatchManagerGUI(QWidget):
             if any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
                 box.setTitle(lang_dict.get("github_config_header", "GitHub Configuration" if self.LANG == "en" else "GitHub Konfiguration"))
 
-        # --- BUTTONS & TOOLTIPS ---
+        # --- E) BUTTONS & TOOLTIPS ---
         if hasattr(self, "btn_modifier"):
             label = strip_icons(lang_dict.get("modifier_button_text", "Patch Author" if self.LANG == "en" else "Patch Autor"))
             self.btn_modifier.setText(f"👤 {label}")
@@ -7309,7 +7350,7 @@ class PatchManagerGUI(QWidget):
             label = strip_icons(lang_dict.get("check_tools_button", "Check Tools" if self.LANG == "en" else "Tools prüfen"))
             self.btn_check_tools.setText(f"🛠️ {label}")
 
-        # 4. UI REFRESH
+        # 4. UI REFRESH & SOUND
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
@@ -7317,19 +7358,20 @@ class PatchManagerGUI(QWidget):
         if safe_play_func:
             safe_play_func("dialog-information.oga")
 
-        # 5. INFOSCREEN RESET & NEUSTART SYSTEM-CHECK
+        # 5. LOG & SYSTEM-CHECK RESET
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
             self.info_text.clear() 
         
         QApplication.processEvents()
 
+        # Willkommensnachricht in neuer Sprache
         if hasattr(self, "show_welcome_info"):
             self.show_welcome_info()
 
-        # Startet den System-Check neu, damit auch das Log in der neuen Sprache erscheint
+        # Startet den System-Check nach kurzer Verzögerung neu (optional)
         if hasattr(self, "run_full_system_check"):
-            QTimer.singleShot(1500, lambda: self.run_full_system_check(clear_log=True))
+            QTimer.singleShot(1000, lambda: self.run_full_system_check(clear_log=True))
 
         if self.layout():
             self.layout().activate()
