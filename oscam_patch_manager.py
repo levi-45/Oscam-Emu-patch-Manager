@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.9.6"
+APP_VERSION = "2.9.7"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -1932,7 +1932,7 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Erstellt den Patch im TEMP_REPO mit dem exakten 3-Zeilen-Header.
     Inklusive akustischem Feedback bei Start und Abschluss.
-    Speichert die aktuelle Revision plattformübergreifend für den Update-Check.
+    Speichert die aktuelle Revision im Skript-Ordner für den Update-Check.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
@@ -1949,25 +1949,22 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
     def log(text_key, level="info", **kwargs):
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
-        text_template = lang_dict.get(
-            text_key, TEXTS.get("en", {}).get(text_key, text_key)
-        )
+        text_template = lang_dict.get(text_key, text_key)
         try:
             text = text_template.format(**kwargs)
         except:
             text = text_template
 
         if isinstance(widget, QTextEdit):
-            color = {"success": "green", "warning": "orange", "error": "red"}.get(
-                level, "gray"
-            )
+            color = {"success": "green", "warning": "orange", "error": "red"}.get(level, "yellow")
             widget.append(f'<span style="color:{color}">{text}</span>')
             widget.moveCursor(QTextCursor.MoveOperation.End)
             QApplication.processEvents()
 
     def play_sound(sound_name):
-        if "safe_play" in globals():
-            safe_play(sound_name)
+        safe_func = globals().get("safe_play")
+        if safe_func:
+            safe_func(sound_name)
 
     def set_progress(val):
         if progress_callback:
@@ -1996,7 +1993,7 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             log("delete_failed", "error", path=TEMP_REPO)
 
     try:
-        # 2. Git Synchronisierung
+        # 2. Git Synchronisierung (Erzwinge origin/master für r11943)
         if not os.path.exists(git_dir):
             set_progress(20)
             subprocess.run(f"git clone {STREAMREPO} .", shell=True, cwd=TEMP_REPO, capture_output=True)
@@ -2025,40 +2022,41 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             log("patch_create_no_changes", "warning")
             diff = "# No changes detected"
 
-        # 4. DATEI SCHREIBEN (Patch-File)
+        # 4. DATEI SCHREIBEN
         with open(PATCH_FILE, "w", encoding="utf-8") as f:
             f.write(header + "\n" + diff + "\n")
 
-        # --- NEU: REVISION AUS GIT LOG EXTRAHIEREN UND ROBUST SPEICHERN ---
+        # --- REVISION EXTRAHIEREN ---
         try:
-            # Erhöhe auf 50 Commits, um r-Nummer sicher zu finden
-            rev_log = subprocess.check_output(
-                ["git", "log", "-n", "50", "--pretty=format:%s"],
-                cwd=TEMP_REPO, text=True, stderr=subprocess.STDOUT
-            )
-            rev_match = re.search(r'r(\d{5})', rev_log)
-            
+            # Suche erst im Header, dann im Log
+            rev_match = re.search(r'-(\d{5,6})-', header)
+            if not rev_match:
+                rev_log = subprocess.check_output(["git", "log", "origin/master", "-n", "10", "--pretty=format:%s"], cwd=TEMP_REPO, text=True)
+                rev_match = re.search(r'(?:r)?(\d{5,6})', rev_log)
+
             if rev_match:
                 new_rev_found = rev_match.group(1)
-                
-                # Pfad-Logik: Nutze Skript-Ordner (PC) oder /etc/enigma2/ (Receiver)
-                if os.path.exists("/etc/enigma2"):
-                    rev_storage_path = "/etc/enigma2/oscam_rev.txt"
-                else:
-                    # Sicherer absoluter Pfad zum Skript-Verzeichnis
-                    script_dir = os.path.dirname(os.path.abspath(__file__))
-                    rev_storage_path = os.path.join(script_dir, "oscam_rev.txt")
+                script_dir = os.path.dirname(os.path.realpath(__file__))
+                rev_storage_path = os.path.join(script_dir, "oscam_rev.txt")
                 
                 with open(rev_storage_path, "w", encoding="utf-8") as f:
                     f.write(new_rev_found)
                 
+                if gui_instance:
+                    gui_instance.current_rev = new_rev_found
+                    if hasattr(gui_instance, "on_update_check_finished"):
+                        gui_instance.on_update_check_finished(False, new_rev_found)
+
+                # --- HIER DIE ÄNDERUNG: ROT UND GROSS ---
                 if isinstance(widget, QTextEdit):
-                    widget.append(f'<br><span style="color:#00FF00; font-size:13px;">'
-                                  f'<b>[System]</b> Revision r{new_rev_found} gemerkt.</span>')
+                    widget.append(f'<br><span style="color:#FF0000; font-size:24px;">'
+                                  f'<b>[System]</b> Revision <b>{new_rev_found}</b> erfolgreich gespeichert.</span>')
+            else:
+                if isinstance(widget, QTextEdit):
+                    widget.append('<br><span style="color:orange;">[Info] Revision nicht gefunden.</span>')
         except Exception as rev_err:
             if isinstance(widget, QTextEdit):
-                widget.append(f'<br><span style="color:red; font-size:11px;">'
-                              f'[Debug] Revision konnte nicht gespeichert werden: {rev_err}</span>')
+                widget.append(f'<br><span style="color:red; font-size:11px;">[Debug] Rev-Save Fehler: {rev_err}</span>')
 
         set_progress(90)
 
@@ -2079,6 +2077,8 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         return
 
     set_progress(100)
+
+
 
 
 # ===================== backup_old_patch=====================
@@ -3274,40 +3274,66 @@ class PatchManagerGUI(QWidget):
     # --- Hilfsfunktionen innerhalb der Klasse ---
 
     def get_local_revision(self):
-        """Liest die gespeicherte Revision aus der Datei oscam_rev.txt."""
-        rev_file = os.path.join(os.getcwd(), "oscam_rev.txt")
+        """Liest die gespeicherte Revision aus der Datei oscam_rev.txt im Skript-Ordner."""
+        import os
+        # realpath löst auch Symlinks korrekt auf – konsistent mit create_patch
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        rev_file = os.path.join(script_dir, "oscam_rev.txt")
+
         if os.path.exists(rev_file):
             try:
-                with open(rev_file, "r") as f:
-                    return f.read().strip()
-            except: pass
-        return "11943" # Fallback
+                with open(rev_file, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    # Sicherheitscheck: Inhalt muss eine Zahl sein
+                    if content and content.isdigit():
+                        return content
+            except: 
+                pass
+
+        # Fallback, falls Datei fehlt oder ungültig ist
+        return "11943"
+
 
     def get_latest_remote_revision(self):
-        """Scannt die Streamboard-Commit-Seite nach der neuesten rXXXXX Nummer."""
-        import re
-        # Falls requests oben nicht importiert wurde, versuchen wir es hier lokal
-        try:
-            import requests
-        except ImportError:
-            print("Fehler: Das Modul 'requests' fehlt. Bitte 'pip install requests' ausführen.")
-            return None
-
+        """Holt die aktuellste r-Nummer direkt aus dem Streamboard-Log."""
+        import requests, re
+    
+        # Der direkte Link zum OSCam-Repository Log
         url = "https://git.streamboard.tv"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        
         try:
-            # Fake Browser-Header, damit Streamboard uns nicht blockt
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
             response = requests.get(url, headers=headers, timeout=10)
-            
             if response.status_code == 200:
-                # Findet r gefolgt von 5 Ziffern (z.B. r11943)
-                matches = re.findall(r'r(\d{5})', response.text)
+                # Sucht nach 'r' gefolgt von 5 oder mehr Ziffern
+                # Der erste Treffer im HTML ist bei Streamboard immer der aktuellste Commit
+                matches = re.findall(r'r(\d{5,7})', response.text)
                 if matches:
-                    # Wir nehmen den ersten (obersten) Treffer der Seite
                     return matches[0]
         except Exception as e:
-            print(f"Fehler beim Web-Check: {e}")
+            print(f"Fehler: {e}")
         return None
+
+    def start_oscam_update_check(self):
+        # Aktuellen Stand laden
+        self.current_rev = self.get_local_revision()
+        remote_rev = self.get_latest_remote_revision()
+    
+        if remote_rev:
+            # Numerischer Vergleich ist sicherer als String-Vergleich
+            is_new = int(remote_rev) > int(self.current_rev)
+            self.on_update_check_finished(is_new, remote_rev)
+        else:
+            self.on_update_check_finished(False, self.current_rev)
+
+    def save_local_revision(self, revision):
+        """Speichert die neue Revision in die Datei, damit sie lokal bekannt ist."""
+        rev_file = os.path.join(os.getcwd(), "oscam_rev.txt")
+        try:
+            with open(rev_file, "w") as f:
+                f.write(str(revision))
+        except Exception as e:
+            print(f"Fehler beim Speichern der Revision: {e}")
 
     def start_oscam_update_check(self):
         """Wird aufgerufen, um den Vergleich zu starten."""
