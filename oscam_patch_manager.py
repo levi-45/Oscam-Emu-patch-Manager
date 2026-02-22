@@ -214,7 +214,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.0.2"
+APP_VERSION = "3.0.3"
 
 
 # ===================== PATCH DIRS =====================
@@ -1597,6 +1597,7 @@ fill_missing_keys(TEXTS)
 def save_config(cfg_updates, gui_instance=None, silent=False):
     """
     Speichert Config-Updates, ohne bestehende Werte zu löschen.
+    Verhindert automatisches Blinken beim Programmstart durch is_loading Check.
     """
     try:
         # 1. Bestehende Config laden, um nichts zu überschreiben
@@ -1617,17 +1618,22 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
         globals()["PATCH_MODIFIER"] = patch_author
         globals()["EMUREPO"] = repo_url
 
-        # Blink-Speed Timer Update
-        blink_speed = current_cfg.get("blink_speed", 0)
+        # --- BLINK-SPEED TIMER UPDATE (KORRIGIERT) ---
+        blink_speed = current_cfg.get("blink_speed", 500)
+        
         if gui_instance:
-            timer = getattr(
-                gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None)
-            )
+            timer = getattr(gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None))
+            
             if timer:
-                if blink_speed >= 950:
+                # WICHTIG: Wenn wir im Lade-Modus sind ODER Speed >= 950ms -> TIMER STOPPEN
+                if getattr(gui_instance, "is_loading", False) or blink_speed >= 950:
                     timer.stop()
+                    # Alle LEDs auf statisch leuchten setzen
+                    if hasattr(gui_instance, "force_leds_static"):
+                        gui_instance.force_leds_static()
                 else:
-                    timer.setInterval(blink_speed)
+                    # NUR starten, wenn wir NICHT mehr laden und der User einen Speed gewählt hat
+                    timer.setInterval(max(10, blink_speed))
                     if not timer.isActive():
                         timer.start()
 
@@ -1640,13 +1646,14 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
         if gui_instance:
             gui_instance.current_config = current_cfg
 
-        # 6. Logging (NUR wenn NICHT silent)
-        if not silent and gui_instance and hasattr(gui_instance, "log_message"):
-            is_matrix = current_cfg.get("theme_mode") == "matrix"
-            color = "#00FF41" if is_matrix else "cyan"
-            gui_instance.log_message(
-                f"<span style='color:{color};'><b>✅ Einstellungen gespeichert</b></span>"
-            )
+        # 6. Logging (NUR wenn NICHT silent UND NICHT im Lade-Modus)
+        if not silent and gui_instance and not getattr(gui_instance, "is_loading", False):
+            if hasattr(gui_instance, "log_message"):
+                is_matrix = current_cfg.get("theme_mode") == "matrix"
+                color = "#00FF41" if is_matrix else "cyan"
+                gui_instance.log_message(
+                    f"<span style='color:{color};'><b>✅ Einstellungen gespeichert</b></span>"
+                )
 
     except Exception as e:
         if gui_instance and hasattr(gui_instance, "log_message"):
@@ -3170,23 +3177,25 @@ from PyQt6.QtWidgets import (
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
-        # 1. IMPORTS & SOUND
+        # 1. IMPORTS & INITIALER SCHUTZ
         from PyQt6.QtGui import QColor, QFont, QTextCursor, QIcon
         from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
         import subprocess, platform, shutil, os, re, sys
 
+        # Absoluter Schutz: Verhindert Blink-Starts und Log-Spam während des Setups
+        self.is_loading = True  
+
         safe_play("service-login.oga")
 
-        # 2. ATTR-BOOTSTRAP (Verhindert AttributeError: 'NoneType' / 'no attribute')
+        # 2. ATTR-BOOTSTRAP (Attribute vorab definieren)
         self.btn_matrix = None
-        self.blink_slider = None
+        self.slider_speed = None  
         self.color_box = None
         self.status_leds = []
         self.all_buttons = []
         self.option_buttons = {}
         self.buttons = {}
         self._blink_state = True
-        self.is_loading = True  # SCHUTZ: Blockiert Speichervorgänge während des Setups
 
         super().__init__()
 
@@ -3195,30 +3204,15 @@ class PatchManagerGUI(QWidget):
         self.info_text.setReadOnly(True)
 
         try:
-            # FIX: Dynamische Anpassung an die StreamToGui-Klassenstruktur
-            # Wir versuchen den Redirector ohne Argumente zu laden und den Callback manuell zu setzen
+            # Versuch den Output-Redirector zu setzen
             self.stdout_redir = StreamToGui()
-            self.stdout_redir.callback = lambda msg: self.append_info(
-                self.info_text, msg, "info"
-            )
+            self.stdout_redir.callback = lambda msg: self.append_info(self.info_text, msg, "info")
             sys.stdout = self.stdout_redir
-
             self.stderr_redir = StreamToGui()
-            self.stderr_redir.callback = lambda msg: self.append_info(
-                self.info_text, msg, "error"
-            )
+            self.stderr_redir.callback = lambda msg: self.append_info(self.info_text, msg, "error")
             sys.stderr = self.stderr_redir
         except Exception:
-            # Fallback falls die Klasse doch Argumente im __init__ erwartet
-            try:
-                sys.stdout = StreamToGui(
-                    lambda msg: self.append_info(self.info_text, msg, "info")
-                )
-                sys.stderr = StreamToGui(
-                    lambda msg: self.append_info(self.info_text, msg, "error")
-                )
-            except Exception as e:
-                print(f"⚠️ Redirector Setup failed: {e}")
+            pass
 
         # 4. KONFIGURATION LADEN
         try:
@@ -3229,7 +3223,6 @@ class PatchManagerGUI(QWidget):
         self.cfg = self.current_config
         stored_lang = str(self.current_config.get("language", "de")).lower()
         self.LANG = stored_lang if stored_lang in ["en", "de"] else "de"
-        # Patch Modifier Fallback
         self.patch_modifier = self.current_config.get("patch_modifier", "Default")
 
         current_path = self.current_config.get("s3_patch_path", OLD_PATCH_DIR)
@@ -3244,52 +3237,57 @@ class PatchManagerGUI(QWidget):
         self.BUTTON_RADIUS = 5
 
         # 5. HAUPT-UI AUFBAUEN
-        # WICHTIG: Entferne 'self.update_blink_speed' aus deiner 'init_ui' Methode!
         self.init_ui()
 
-        # 6. TIMER VORBEREITEN
+        # 6. TIMER VORBEREITEN (Nur anlegen, nicht starten!)
         self.blink_timer = QTimer(self)
         self.blink_timer.timeout.connect(self.animate_status_bar)
 
-        # 7. THEME & FARBEN (Signalsperre verhindert Slider-Resets)
+        # 7. THEME & FARBEN
         saved_color = self.current_config.get("color", "Classics")
-        global current_color_name
-
-        if self.color_box:
+        if hasattr(self, "color_box") and self.color_box:
             self.color_box.blockSignals(True)
             index = self.color_box.findText(saved_color)
             if index != -1:
                 self.color_box.setCurrentIndex(index)
-                current_color_name = saved_color
             self.color_box.blockSignals(False)
             self.color_box.currentIndexChanged.connect(self.change_colors)
 
-        # Sprache und Styles anwenden
         self.update_language()
         self.change_colors()
 
-        # Matrix-Modus Start-Delay
-        # Theme sofort anwenden (is_loading verhindert Log-Spam und Sounds beim Start)
+        # Theme-Status ohne Blinken anwenden
         target_theme = self.current_config.get("theme_mode", "standard")
-        if target_theme == "matrix":
-            self.toggle_matrix(force_state="matrix")
-        else:
-            # Stellt sicher, dass das Standard-Theme (Standard-Farben) aktiv ist
-            self.toggle_matrix(force_state="standard")
+        if hasattr(self, "toggle_matrix"):
+            self.toggle_matrix(force_state=target_theme)
 
-        # 8. FINALER SLIDER-FIX (Erzwingt geladenen Wert)
-        start_speed = self.current_config.get("blink_speed", 0)
+        # ---------------------------------------------------------
+        # 8. FINALER SLIDER-FIX (KEIN BLINKEN BEIM START)
+        # ---------------------------------------------------------
+        # Wert laden (949 aus deiner Config)
+        current_speed = self.current_config.get("blink_speed", 500)
 
-        if self.blink_slider:
-            self.blink_slider.blockSignals(True)
-            self.blink_slider.setValue(start_speed)
-            self.blink_slider.blockSignals(False)
+        if hasattr(self, "slider_speed") and self.slider_speed:
+            # Schritt A: Signale blockieren
+            self.slider_speed.blockSignals(True)
+            self.slider_speed.setValue(current_speed)
+            self.slider_speed.blockSignals(False)
 
-        # Erst JETZT die Blink-Logik starten, da alle Objekte (LEDs/Buttons) existieren
-        if hasattr(self, "update_blink_speed"):
-            self.update_blink_speed(start_speed)
+            # Schritt B: Nur das Label zeichnen (Ohne Timer-Triggern)
+            if hasattr(self, "update_label_only"):
+                self.update_label_only(current_speed) 
+            
+            # Schritt C: Erst jetzt die Funktion für manuelle Änderungen verbinden
+            if hasattr(self, "update_blink_speed"):
+                self.slider_speed.valueChanged.connect(self.update_blink_speed)
 
-        # SETUP FERTIG
+        # Schritt D: Timer explizit stoppen & LEDs auf Dauerlicht setzen
+        if hasattr(self, "blink_timer"):
+            self.blink_timer.stop()
+        if hasattr(self, "force_leds_static"):
+            self.force_leds_static()
+
+        # SETUP FERTIG - Ab hier darf das Tool reagieren
         self.is_loading = False
 
         # 9. POST-INIT CHECKS
@@ -3300,11 +3298,16 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(2000, self.check_for_update_on_start)
         QTimer.singleShot(2500, self.start_oscam_update_check)
 
+
     # =====================================================================
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
     def animate_status_bar(self):
         """Wechselt den Zustand der LEDs für den Blink-Effekt mit Theme-Support."""
+        # --- 0. NOTBREMSE: Verhindert Blinken beim Start ---
+        if getattr(self, "is_loading", False):
+            return
+
         if not hasattr(self, "status_leds") or not self.status_leds:
             return
 
@@ -3319,12 +3322,11 @@ class PatchManagerGUI(QWidget):
             color = "#00FF41" if is_matrix else "cyan"
             border = "1px solid #008F11" if is_matrix else "1px solid white"
         else:
-            # AUS-Zustand (Matrix bekommt ein sehr dunkles Grün statt nur Grau)
+            # AUS-Zustand
             color = "#002200" if is_matrix else "#222"
             border = "1px solid #004400" if is_matrix else "1px solid #444"
 
         # 3. Stylesheet anwenden
-        # Wir nutzen 5px Radius für Konsistenz mit force_leds_static
         style = f"background-color: {color}; border-radius: 5px; border: {border};"
 
         for led in self.status_leds:
@@ -3332,6 +3334,26 @@ class PatchManagerGUI(QWidget):
                 led.setStyleSheet(style)
             except:
                 continue
+
+    def update_label_only(self, value):
+        """Aktualisiert nur den Text und die Farbe des Labels beim Programmstart."""
+        if not hasattr(self, "lbl_speed_val") or not self.lbl_speed_val:
+            return
+
+        if value >= 950:
+            txt = "STATIC"
+            style = "color: #2ecc71; font-weight: bold; font-size: 12px;"
+        elif value <= 50:
+            txt = "TURBO"
+            style = "color: #FF0000; font-weight: bold; font-size: 12px;"
+        else:
+            txt = f"{value}ms" if value > 50 else "TURBO"
+            # Falls du doch lieber "NORMAL" statt der ms Zahl willst:
+            # txt = "NORMAL" if value > 400 else f"{value}ms"
+            style = "color: #aaa; font-weight: bold; font-size: 12px;"
+            
+        self.lbl_speed_val.setText(txt)
+        self.lbl_speed_val.setStyleSheet(style)
 
     def force_leds_static(self):
         """Setzt die LEDs auf einen statischen Zustand ohne Absturzrisiko."""
@@ -3377,54 +3399,60 @@ class PatchManagerGUI(QWidget):
         return {}  # Fallback
 
     def update_blink_speed(self, value):
-        """Aktualisiert Text-Labels, Timer und speichert in die Datei."""
+        """
+        Aktualisiert Text-Labels, Timer und speichert in die Datei.
+        Verhindert automatisches Blinken beim Programmstart durch 'is_loading' Check.
+        """
+        # 1. Timer finden (master_timer oder blink_timer)
         timer = getattr(self, "master_timer", getattr(self, "blink_timer", None))
-
-        # 1. UI Feedback
-        if value >= 950:
-            if hasattr(self, "lbl_speed_val"):
+        
+        # 2. UI Feedback & Label-Styling
+        if hasattr(self, "lbl_speed_val"):
+            if value >= 950:
                 self.lbl_speed_val.setText("STATIC")
-                self.lbl_speed_val.setStyleSheet("color: #2ecc71; font-weight: bold;")
-            if timer:
-                timer.stop()
-            self.force_leds_static()
-        elif value <= 50:
-            if hasattr(self, "lbl_speed_val"):
+                self.lbl_speed_val.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 12px;")
+                # Bei STATIC immer sofort stoppen und LEDs fest anzeigen
+                if timer:
+                    timer.stop()
+                self.force_leds_static()
+            elif value <= 50:
                 self.lbl_speed_val.setText("TURBO")
-                self.lbl_speed_val.setStyleSheet("color: #FF0000; font-weight: bold;")
-            if timer:
-                timer.setInterval(max(10, value))
-                if not timer.isActive():
-                    timer.start()
-        else:
-            if hasattr(self, "lbl_speed_val"):
+                self.lbl_speed_val.setStyleSheet("color: #FF0000; font-weight: bold; font-size: 12px;")
+            else:
                 self.lbl_speed_val.setText(f"{value}ms")
-                self.lbl_speed_val.setStyleSheet("color: #aaa; font-weight: bold;")
-            if timer:
-                timer.setInterval(value)
+                self.lbl_speed_val.setStyleSheet("color: #aaa; font-weight: bold; font-size: 12px;")
+
+        # 3. Blink-Logik (Nur wenn NICHT geladen wird)
+        if not getattr(self, "is_loading", False):
+            if timer and value < 950:
+                timer.setInterval(max(10, value))
+                # Starte den Timer nur, wenn er nicht schon läuft
                 if not timer.isActive():
                     timer.start()
+            elif timer and value >= 950:
+                timer.stop()
+                self.force_leds_static()
 
-        # 2. Speichern (Nur wenn nicht gerade die GUI initialisiert wird)
-        if not self.is_loading:
+        # 4. Speichern der Konfiguration
+        # Wir speichern nur, wenn die GUI fertig geladen ist
+        if not getattr(self, "is_loading", False):
             self.current_config["blink_speed"] = value
+            # Prüfen ob Speicherfunktion existiert
             if "save_config" in globals():
                 save_config({"blink_speed": value}, gui_instance=self, silent=True)
+            elif hasattr(self, "save_config"):
+                self.save_config()
 
     def force_leds_static(self):
-        """Setzt alle LEDs auf statisches Leuchten ohne Blinken."""
-        is_matrix = "EXIT" in self.btn_matrix.text()
-        for led in self.status_leds:
-            bg = led.base_color if not is_matrix else "#00FF41"
-            border = "#555" if not is_matrix else "#00FF41"
-            led.setStyleSheet(
-                f"background-color: {bg}; border-radius: 7px; border: 2px solid {border};"
-            )
-
-        # System Status Label auch auf Standard-Rot setzen
-        self.status_info_label.setStyleSheet(
-            "color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;"
-        )
+        """Setzt alle LEDs sofort auf ihren dauerhaften Status (kein Blinken)."""
+        if hasattr(self, "status_leds"):
+            for led in self.status_leds:
+                led.show() # Sicherstellen, dass sie sichtbar sind
+                # Farbe basierend auf dem Tool-Status wiederherstellen
+                color = "#27ae60" if getattr(led, "tool_exists", False) else "#c0392b"
+                led.setStyleSheet(
+                    f"background-color: {color}; border-radius: 8px; border: 2px solid #555;"
+                )
 
     def get_matrix_style(self):
         return """
@@ -6597,121 +6625,138 @@ class PatchManagerGUI(QWidget):
         main_layout.addWidget(self.progress_bar)
 
         # ---------------------------------------------------------
-        # STATUS-BAR (DIREKT UNTER PROGRESSBAR)
+        # STATUS-BAR (MAXIMALER AUSBAU: GROSSE ANZEIGEN)
         # ---------------------------------------------------------
         status_bar_container = QFrame()
-        status_bar_container.setFixedHeight(45)
+        status_bar_container.setFixedHeight(55)  # Etwas höher für die großen Fonts
         status_bar_container.setStyleSheet(
-            """
-            QFrame { background-color: rgba(0,0,0,0.3); border: 1px solid #444; border-radius: 8px; }
-        """
+            "QFrame { background-color: rgba(0,0,0,0.4); border: 1px solid #444; border-radius: 10px; }"
         )
 
         status_bar_layout = QHBoxLayout(status_bar_container)
         status_bar_layout.setContentsMargins(15, 0, 15, 0)
-        status_bar_layout.setSpacing(15)
+        status_bar_layout.setSpacing(12)  # Optimierter Abstand für große Schrift
 
+        # Haupt-Label wieder vollständig und groß
         self.status_info_label = QLabel("SYSTEM STATUS:")
         self.status_info_label.setStyleSheet(
             "color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;"
         )
         status_bar_layout.addWidget(self.status_info_label)
 
-        label_colors = {"git": "#2ecc71", "patch": "#3498db", "gcc": "#f1c40f"}
+        # Die vollständige Tool-Liste
+        tools_to_check = ["py", "qt6", "snd", "git", "patch", "gcc", "make", "ssl", "usb"]
+        
+        label_colors = {
+            "py": "#3776AB", "qt6": "#41CD52", "snd": "#FF0000",
+            "git": "#2ecc71", "patch": "#3498db", "gcc": "#f1c40f",
+            "make": "#e67e22", "ssl": "#9b59b6", "usb": "#1abc9c"
+        }
+        
         self.status_leds = []
 
-        for tool in ["git", "patch", "gcc"]:
-            tool_widget = QWidget()
-            tool_widget.setStyleSheet("background: transparent; border: none;")
-            tool_lay = QHBoxLayout(tool_widget)
-            tool_lay.setContentsMargins(0, 0, 0, 0)
-            tool_lay.setSpacing(10)
+        for tool in tools_to_check:
+            exists = False
+            display_name = tool.upper()
 
+            # --- SPEZIAL-PRÜFUNGEN ---
+            if tool == "py":
+                exists = True
+                display_name = f"PY {sys.version_info.major}.{sys.version_info.minor}"
+            elif tool == "qt6":
+                exists = importlib.util.find_spec("PyQt6") is not None
+            elif tool == "snd":
+                exists = shutil.which("paplay") is not None or platform.system() == "Windows"
+                display_name = "SOUND"
+            elif tool == "ssl":
+                exists = subprocess.run(["dpkg-query", "-W", "-f='${Status}'", "libssl-dev"], 
+                                      capture_output=True, text=True).returncode == 0
+            elif tool == "usb":
+                exists = subprocess.run(["dpkg-query", "-W", "-f='${Status}'", "libusb-1.0-0-dev"], 
+                                      capture_output=True, text=True).returncode == 0
+            else:
+                exists = shutil.which(tool) is not None
+
+            # Tool Container
+            t_widget = QWidget()
+            t_lay = QHBoxLayout(t_widget)
+            t_lay.setContentsMargins(0, 0, 0, 0)
+            t_lay.setSpacing(6)
+
+            # LED (Vergrößert auf 16x16)
             led = QLabel()
-            led.setFixedSize(14, 14)
-            exists = shutil.which(tool) is not None
+            led.setFixedSize(16, 16)
             led.tool_exists = exists
             led.base_color = "#27ae60" if exists else "#c0392b"
             led.setStyleSheet(
-                f"background-color: {led.base_color}; border-radius: 7px; border: 2px solid #555;"
+                f"background-color: {led.base_color}; border-radius: 8px; border: 2px solid #555;"
             )
             self.status_leds.append(led)
 
-            current_color = label_colors.get(tool, "#FFF")
-            name_label = QLabel(tool.upper())
-            name_label.setStyleSheet(
-                f"color: {current_color}; font-size: 24px; font-weight: bold; font-family: 'Segoe UI';"
-            )
+            # Text (Vergrößert auf 20px)
+            c = label_colors.get(tool, "#FFF")
+            lbl = QLabel(display_name)
+            lbl.setStyleSheet(f"color: {c}; font-size: 20px; font-weight: bold; font-family: 'Segoe UI';")
 
-            tool_lay.addWidget(led)
-            tool_lay.addWidget(name_label)
-            status_bar_layout.addWidget(tool_widget)
+            t_lay.addWidget(led)
+            t_lay.addWidget(lbl)
+            status_bar_layout.addWidget(t_widget)
 
         status_bar_layout.addStretch()
 
         # ---------------------------------------------------------
-        # NEU: SPEED REGLER (Komplett Umbau mit Labels)
+        # SPEED REGLER (Teil des Status-Bar Blocks)
         # ---------------------------------------------------------
         speed_icon = QLabel("⚡")
-        speed_icon.setStyleSheet(
-            "font-size: 16px; border: none; background: transparent;"
-        )
+        speed_icon.setStyleSheet("font-size: 20px; border: none; background: transparent;")
         status_bar_layout.addWidget(speed_icon)
 
         self.slider_speed = QSlider(Qt.Orientation.Horizontal)
         self.slider_speed.setFixedWidth(110)
         self.slider_speed.setRange(50, 1000)
-        # Wir behalten InvertedAppearance bei: Rechts = Schneller (kleinere ms)
         self.slider_speed.setInvertedAppearance(True)
-
-        # Startwert laden
-        current_speed = self.current_config.get("blink_speed", 0)
+        
+        # --- HIER KOMMT DIE NEUE LOGIK REIN ---
+        current_speed = self.current_config.get("blink_speed", 500)
         self.slider_speed.setValue(current_speed)
         self.slider_speed.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        # Stylischer Slider (Orange/Dunkel)
         self.slider_speed.setStyleSheet(
-            """
-            QSlider::groove:horizontal { border: 1px solid #666; height: 6px; background: #222; border-radius: 3px; }
-            QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
-        """
+            "QSlider::groove:horizontal { border: 1px solid #666; height: 6px; background: #222; border-radius: 3px; }"
+            "QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }"
         )
 
-        # Event verknüpfen
+        # Initialisierung des Textes OHNE das Blinken zu triggern
         if hasattr(self, "update_blink_speed"):
+            # 1. Nur den Text (Label) setzen (Funktion muss in der Klasse existieren!)
+            self.update_label_only(current_speed) 
+            # 2. Erst jetzt das Event verknüpfen, damit Bewegungen reagieren
             self.slider_speed.valueChanged.connect(self.update_blink_speed)
 
         status_bar_layout.addWidget(self.slider_speed)
 
-        # Das Label für die dynamischen Texte (STATIC, NORMAL, TURBO)
         self.lbl_speed_val = QLabel("")
-        self.lbl_speed_val.setStyleSheet(
-            "color: #aaa; font-size: 11px; font-weight: bold; border: none;"
-        )
-        self.lbl_speed_val.setFixedWidth(60)  # Erhöht auf 60 für 'STATIC'
+        self.lbl_speed_val.setStyleSheet("color: #aaa; font-size: 12px; font-weight: bold; border: none;")
+        self.lbl_speed_val.setFixedWidth(55)
         status_bar_layout.addWidget(self.lbl_speed_val)
-
-        # Einmalig den Text beim Start setzen
-        # self.update_blink_speed(current_speed)
 
         # ---------------------------------------------------------
         # BUTTONS
         # ---------------------------------------------------------
         self.btn_matrix = QPushButton("📟 MATRIX MODE")
-        self.btn_matrix.setFixedSize(130, 30)
-        self.btn_matrix.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_matrix.setFixedSize(130, 32)
         self.btn_matrix.setStyleSheet(
-            "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; border: 1px solid #00FF41; }"
+            "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } "
+            "QPushButton:hover { background-color: #008F11; color: black; }"
         )
         if hasattr(self, "toggle_matrix"):
             self.btn_matrix.clicked.connect(self.toggle_matrix)
         status_bar_layout.addWidget(self.btn_matrix)
 
-        self.btn_theme = QPushButton("🌓 DARK MODE")
-        self.btn_theme.setFixedSize(120, 30)
-        self.btn_theme.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_theme = QPushButton("🌓 THEME")
+        self.btn_theme.setFixedSize(100, 32)
         self.btn_theme.setStyleSheet(
-            "QPushButton { background-color: #444; color: white; border: 1px solid #666; border-radius: 6px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
+            "QPushButton { background-color: #444; color: white; border: 1px solid #666; border-radius: 6px; font-size: 14px; font-weight: bold; } "
+            "QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
         )
         self.btn_theme.clicked.connect(self.toggle_theme)
         status_bar_layout.addWidget(self.btn_theme)
