@@ -201,7 +201,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "2.9.5"
+APP_VERSION = "2.9.6"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -3281,7 +3281,7 @@ class PatchManagerGUI(QWidget):
                 with open(rev_file, "r") as f:
                     return f.read().strip()
             except: pass
-        return "11743" # Fallback
+        return "11943" # Fallback
 
     def get_latest_remote_revision(self):
         """Scannt die Streamboard-Commit-Seite nach der neuesten rXXXXX Nummer."""
@@ -3300,7 +3300,7 @@ class PatchManagerGUI(QWidget):
             response = requests.get(url, headers=headers, timeout=10)
             
             if response.status_code == 200:
-                # Findet r gefolgt von 5 Ziffern (z.B. r11743)
+                # Findet r gefolgt von 5 Ziffern (z.B. r11943)
                 matches = re.findall(r'r(\d{5})', response.text)
                 if matches:
                     # Wir nehmen den ersten (obersten) Treffer der Seite
@@ -3335,7 +3335,7 @@ class PatchManagerGUI(QWidget):
         
         txt = getattr(self, "TEXT", {})
         timestamp = datetime.now().strftime("%H:%M:%S")
-        old_rev = getattr(self, "current_rev", "11743")
+        old_rev = getattr(self, "current_rev", "11943")
         self.last_remote_rev = new_rev 
     
         # Farbcodes: Grün für das Häkchen, Rot für Rakete/Zeit
@@ -3390,10 +3390,6 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "status_label"):
             self.status_label.setText(status_html)
             self.status_label.show()
-
-
-
-
 
     def trigger_alert_animation(self, widget):
         """Lässt ein Widget dezent rot pulsieren."""
@@ -6138,7 +6134,7 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.setSpacing(20)
 
         status_info_label = QLabel("SYSTEM STATUS:")
-        status_info_label.setStyleSheet("color: #FF0000; font-size: 18px; font-weight: bold; border: none; background: transparent;")
+        status_info_label.setStyleSheet("color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;")
         status_bar_layout.addWidget(status_info_label)
 
         # Definition der Farben für die Texte
@@ -7344,7 +7340,7 @@ class PatchManagerGUI(QWidget):
             # Prüfen, ob ein Update-Status oder "Aktuell"-Status aktiv ist
             if any(x in curr_status for x in ["✅", "🚀", "aktuell", "up to date"]):
                 # Wir nutzen die bestehende Funktion, um das HTML sauber neu zu generieren
-                old_rev = getattr(self, "current_rev", "11743")
+                old_rev = getattr(self, "current_rev", "11943")
                 # Falls wir eine Remote-Revision gespeichert hatten, nutzen wir diese
                 last_remote = getattr(self, "last_remote_rev", old_rev)
                 
@@ -7873,7 +7869,6 @@ class PatchManagerGUI(QWidget):
                     print(f"[WARN] Config save failed: {e}")
 
             QApplication.quit()
-
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
