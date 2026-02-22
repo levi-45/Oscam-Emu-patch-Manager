@@ -3176,8 +3176,13 @@ class PatchManagerGUI(QWidget):
         self.change_colors()
 
         # Matrix-Modus Start-Delay
-        if self.current_config.get("theme_mode") == "matrix":
-            QTimer.singleShot(150, self.toggle_matrix)
+        # Theme sofort anwenden (is_loading verhindert Log-Spam und Sounds beim Start)
+        target_theme = self.current_config.get("theme_mode", "standard")
+        if target_theme == "matrix":
+            self.toggle_matrix(force_state="matrix")
+        else:
+            # Stellt sicher, dass das Standard-Theme (Standard-Farben) aktiv ist
+            self.toggle_matrix(force_state="standard")
 
         # 8. FINALER SLIDER-FIX (Erzwingt geladenen Wert)
         start_speed = self.current_config.get("blink_speed", 0)
@@ -3206,18 +3211,34 @@ class PatchManagerGUI(QWidget):
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
     def animate_status_bar(self):
-        """Wechselt den Zustand der LEDs für den Blink-Effekt."""
+        """Wechselt den Zustand der LEDs für den Blink-Effekt mit Theme-Support."""
         if not hasattr(self, 'status_leds') or not self.status_leds:
             return
+            
         self._blink_state = not self._blink_state
+        
+        # 1. Theme-Check
         is_matrix = self.current_config.get("theme_mode") == "matrix"
-        color = "#00FF41" if is_matrix else "cyan"
+        
+        # 2. Farben & Rahmen definieren
+        if self._blink_state:
+            # AN-Zustand
+            color = "#00FF41" if is_matrix else "cyan"
+            border = "1px solid #008F11" if is_matrix else "1px solid white"
+        else:
+            # AUS-Zustand (Matrix bekommt ein sehr dunkles Grün statt nur Grau)
+            color = "#002200" if is_matrix else "#222"
+            border = "1px solid #004400" if is_matrix else "1px solid #444"
+
+        # 3. Stylesheet anwenden
+        # Wir nutzen 5px Radius für Konsistenz mit force_leds_static
+        style = f"background-color: {color}; border-radius: 5px; border: {border};"
         
         for led in self.status_leds:
-            if self._blink_state:
-                led.setStyleSheet(f"background-color: {color}; border-radius: 4px; border: 1px solid white;")
-            else:
-                led.setStyleSheet("background-color: #222; border-radius: 4px; border: 1px solid #444;")
+            try:
+                led.setStyleSheet(style)
+            except:
+                continue
 
     def force_leds_static(self):
         """Setzt die LEDs auf einen statischen Zustand ohne Absturzrisiko."""
