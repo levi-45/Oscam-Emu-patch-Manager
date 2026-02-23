@@ -309,7 +309,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.0.8"
+APP_VERSION = "3.0.9"
 
 
 # ===================== PATCH DIRS =====================
@@ -3508,6 +3508,28 @@ class PatchManagerGUI(QWidget):
             except:
                 continue
 
+    def get_language_flag(self):
+        """Gibt die passende Flagge zur Systemsprache zurück."""
+        try:
+            import locale
+            # Holen der Sprache (z.B. 'de_DE' oder 'en_US')
+            loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
+            lang = loc[:2].lower()
+        except:
+            lang = "en"
+
+        # Mapping von Sprachcode zu Flaggen-Emoji
+        flags = {
+            "de": "🇩🇪",
+           "en": "🇺🇸",
+            "fr": "🇫🇷",
+            "it": "🇮🇹",
+            "es": "🇪🇸",
+            "ru": "🇷🇺",
+            "tr": "🇹🇷"
+        }
+        return flags.get(lang, "🌐") # Weltkugel als Fallback
+
     def force_user_leds_static(self):
         """User-LEDs statisch setzen (NUR User-LEDs, Farbe Orange!)"""
         # Wir nutzen eine spezifische Farbe für User-LEDs, 
@@ -4116,61 +4138,57 @@ class PatchManagerGUI(QWidget):
             self.on_update_check_finished(False, self.current_rev)
 
     def on_update_check_finished(self, update_available, new_rev):
-        """Aktualisiert das UI und erzwingt Text-Symbole statt Skin-Icons."""
+        """Aktualisiert das UI: Icon zuerst, Zeit Rot, Schriftgröße anpassbar."""
         from datetime import datetime
         import os
+
+        # --- DEINE EINSTELLUNG FÜR DIE SCHRIFTGRÖSSE ---
+        F_SIZE = "22px"  # Hier einfach den Wert ändern (z.B. "24px" oder "20px")
+        # -----------------------------------------------
 
         txt = getattr(self, "TEXT", {})
         timestamp = datetime.now().strftime("%H:%M:%S")
         old_rev = getattr(self, "current_rev", "11943")
         self.last_remote_rev = new_rev
 
-        # Farbcodes: Grün für das Häkchen, Rot für Rakete/Zeit
+        # Deine funktionierenden Farbcodes
         C_RED, C_ORANGE, C_GRAY, C_GREEN = "#FF0000", "#F37804", "#FFFF00", "#00FF00"
 
-        # --- SOUND LOGIK ---
         def play_system_sound(sound_type="info"):
             safe_play = globals().get("safe_play")
             if safe_play:
-                if sound_type == "update":
-                    safe_play("dialog-information.oga")
-                elif sound_type == "uptodate":
-                    safe_play("complete.oga")
-                elif sound_type == "error":
-                    safe_play("dialog-error.oga")
+                if sound_type == "update": safe_play("dialog-information.oga")
+                elif sound_type == "uptodate": safe_play("complete.oga")
+                elif sound_type == "error": safe_play("dialog-error.oga")
             else:
                 import platform
-
                 try:
                     if platform.system() == "Windows":
                         import winsound
-
                         winsound.MessageBeep()
-                    else:
-                        print("\a")
-                except:
-                    pass
+                    else: print("\a")
+                except: pass
 
         if update_available:
-            upd_title = txt.get("oscam_update_found", "Update verfügbar!")
-            # Text-Symbol für Rakete (Unicode Pfeil nach oben als Alternative, falls Rakete nicht geht)
+            upd_title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
             icon_char = "🚀"
+            # Aufbau: [RAKETE] [ZEIT ROT] [TITEL WEISS] [REVISIONEN]
             status_html = (
-                f'<span style="color:{C_RED}; font-size:18px;"><b>{icon_char}</b></span> '
-                f'<span style="color:{C_RED};"><b>[{timestamp}]</b></span> '
-                f'<span style="color:white;"><b>{upd_title}</b></span> '
-                f'<span style="color:{C_GRAY}; font-size:18px;">(r{old_rev} ➔ r{new_rev})</span>'
+                f'<span style="font-size:{F_SIZE}; color:{C_RED};"><b>{icon_char}</b></span> '
+                f'<span style="font-size:{F_SIZE}; color:#FF0000;"><b>[{timestamp}]</b></span> '
+                f'<span style="font-size:{F_SIZE}; color:white;"><b> {upd_title}</b></span> '
+                f'<span style="font-size:{F_SIZE}; color:{C_GRAY};"> (r{old_rev} ➔ r{new_rev})</span>'
             )
             play_system_sound("update")
         else:
             success_msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
-            # WICHTIG: Hier nutzen wir das 'HEAVY CHECK MARK' (✔), das als Text zählt
             icon_char = "✔"
+            # Aufbau: [HÄKCHEN GRÜN] [ZEIT ROT] [TEXT ORANGE] [REVISION]
             status_html = (
-                f'<span style="color:{C_GREEN}; font-size:20px;"><b>{icon_char}</b></span> '
-                f'<span style="color:{C_RED};"><b>[{timestamp}]</b></span> '
-                f'<span style="color:{C_ORANGE};"><b>{success_msg}</b></span> '
-                f'<span style="color:{C_GRAY}; font-size:18px;">(r{old_rev})</span>'
+                f'<span style="font-size:{F_SIZE}; color:{C_GREEN};"><b>{icon_char}</b></span> '
+                f'<span style="font-size:{F_SIZE}; color:#FF0000;"><b>[{timestamp}]</b></span> '
+                f'<span style="font-size:{F_SIZE}; color:{C_ORANGE};"><b> {success_msg}</b></span> '
+                f'<span style="font-size:{F_SIZE}; color:{C_GRAY};"> (r{old_rev})</span>'
             )
             if new_rev:
                 play_system_sound("uptodate")
@@ -6588,8 +6606,8 @@ class PatchManagerGUI(QWidget):
 
     def run_full_system_check(self, clear_log=False):
         """
-        Vollständiger System-Check: Fette, zweifarbige Zeilen und bunter Footer.
-        Inklusive Prüfung auf Python-Pakete, System-Tools und Sound.
+        Vollständiger System-Check: Einheitliche Emojis für alle Zeilen.
+        VOLL DYNAMISCH: Inklusive Übersetzung für 'requests' und Status-Meldungen.
         """
         if getattr(self, "_checking_active", False):
             return
@@ -6606,13 +6624,11 @@ class PatchManagerGUI(QWidget):
             SZ_BIG, SZ_NORM = "26px", "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
+            # Emoji-Fonts für korrekte bunte Darstellung unter Windows/Linux
+            F_EMOJI = "'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif"
+        
             C_ORANGE, C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = (
-                "#F37804",
-                "#00FF00",
-                "#00ADFF",
-                "#FFFF00",
-                "#FF0000",
-                "#808080",
+                "#F37804", "#00FF00", "#00ADFF", "#FFFF00", "#FF0000", "#808080",
             )
 
             # 1. LOG-FENSTER VORBEREITEN
@@ -6627,22 +6643,34 @@ class PatchManagerGUI(QWidget):
 
             # 2. SPRACHE & VERSION
             lang = getattr(self, "LANG", "de").lower()
-            version = globals().get("APP_VERSION", "3.0.4")
+            version = globals().get("APP_VERSION", "3.0.8")
             txt = getattr(self, "TEXT", {})
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
+            # Hilfsfunktion für einheitliche Zeilen mit Emojis
+            def make_row(icon, label, status, label_col, status_col):
+                return (
+                    f'<div style="line-height:1.2;">'
+                    f'<span style="font-family:{F_EMOJI}; font-size:{SZ_NORM};"> {icon} </span>'
+                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{label_col}"><b>{label.ljust(10)} : </b></span>'
+                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{status_col}"><b>{status}</b></span></div>'
+                )
+
             # --- TITEL ---
-            start_msg = (
-                txt.get("start_check", "Starte System-Check...")
-                if lang == "de"
-                else "Starting System Check..."
-            )
+            start_msg = txt.get("start_check", "Starte System-Check..." if lang == "de" else "Starting System Check...")
             output.append(
                 f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>'
             )
 
-            # --- BLOCK 1: SYSTEM TOOLS (git, patch, zip) ---
+            # --- BLOCK 0: SPRACHE MIT FLAGGE ---
+            # 🇩🇪 für Deutsch, 🇬🇧 für Englisch
+            lang_icon = "🇩🇪" if lang == "de" else "🇬🇧"
+            lang_label = "Sprache" if lang == "de" else "Language"
+            lang_display = "Deutsch" if lang == "de" else "English"
+            output.append(make_row(lang_icon, lang_label, lang_display, C_GREEN, C_BLUE))
+
+            # --- BLOCK 1: SYSTEM TOOLS ---
             tools = ["git"]
             if platform.system() != "Windows":
                 tools += ["patch", "zip"]
@@ -6651,69 +6679,50 @@ class PatchManagerGUI(QWidget):
                 found = shutil.which(name)
                 icon = "✅" if found else "❌"
                 col = C_GREEN if found else C_RED
-                status_txt = (
-                    "OK"
-                    if found
-                    else (txt.get("missing", "FEHLT") if lang == "de" else "MISSING")
-                )
-                output.append(
-                    f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{col}"><b>  {icon} {name.ljust(6)} : </b></span>'
-                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{status_txt}</b></span></div>'
-                )
-
-            # --- BLOCK 2: PYTHON PAKETE (PyQt6, requests) ---
-            py_pkgs = ["PyQt6", "requests"]
-            for pkg in py_pkgs:
-                found = importlib.util.find_spec(pkg) is not None
-                icon = "📦" if found else "❌"
+                status_txt = "OK" if found else (txt.get("missing", "FEHLT" if lang == "de" else "MISSING"))
+                output.append(make_row(icon, name, status_txt, col, C_BLUE))
+ 
+            # --- BLOCK 2: PYTHON PAKETE (Inkl. requests Übersetzung) ---
+            # Format: (Technischer Name, Anzeigename Deutsch, Anzeigename Englisch)
+            py_pkgs = [
+                ("PyQt6", "PyQt6", "PyQt6"),
+                ("requests", "Anfragen" if lang == "de" else "Requests", "Requests")
+            ]
+        
+            for pkg_id, display_de, display_en in py_pkgs:
+                found = importlib.util.find_spec(pkg_id) is not None
+                icon = "✅" if found else "❌"
                 col = C_GREEN if found else C_RED
-                output.append(
-                    f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{col}"><b>  {icon} {pkg.ljust(8)} : </b></span>'
-                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>OK</b></span></div>'
-                )
+                pkg_name = display_de if lang == "de" else display_en
+                status_txt = "OK" if found else (txt.get("missing", "FEHLT" if lang == "de" else "MISSING"))
+                output.append(make_row(icon, pkg_name, status_txt, col, C_BLUE))
 
-            # --- BLOCK 3: SOUND-STATUS (Nutzt deine globale Variable) ---
+            # --- BLOCK 3: SOUND-STATUS ---
             is_sound = globals().get("HAS_SOUND_SUPPORT", False)
             s_icon = "🔊" if is_sound else "🔇"
             s_col = C_GREEN if is_sound else C_YELLOW
-            s_txt = (
-                ("Aktiv" if lang == "de" else "Active")
-                if is_sound
-                else ("Inaktiv" if lang == "de" else "Inactive")
-            )
-            output.append(
-                f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{s_col}"><b>  {s_icon} Sound  : </b></span>'
-                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{s_txt}</b></span></div>'
-            )
+            s_txt = (("Aktiv" if lang == "de" else "Active") if is_sound else ("Inaktiv" if lang == "de" else "Inactive"))
+            output.append(make_row(s_icon, "Sound", s_txt, s_col, C_BLUE))
 
-            # --- BLOCK 4: INTERNET-CHECK ---
-            output.append(
-                f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>'
-            )
+            # --- BLOCK 4: NETZWERK ---
+            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>')
             net_status_key = "Offline"
+            net_label = "Netzwerk" if lang == "de" else "Network"
             try:
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
-                net_txt, net_col, net_icon, net_status_key = (
-                    "Online",
-                    C_GREEN,
-                    "🌐",
-                    "Online",
-                )
+                net_txt, net_col, net_icon, net_status_key = ("Online", C_GREEN, "🌐", "Online")
             except:
-                net_txt, net_col, net_icon = ("Offline", C_RED, "🚫")
+                net_txt = "Offline" if lang == "de" else "Offline"
+                net_col, net_icon = C_RED, "🚫"
 
-            output.append(
-                f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Netzwerk : </b></span>'
-                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{net_txt}</b></span></div>'
-            )
+            output.append(make_row(net_icon, net_label, net_txt, net_col, C_BLUE))
 
             # --- FOOTER ---
-            output.append(
-                f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>'
-            )
+            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>')
+            autor_label = "Autor:" if lang == "de" else "Author:"
             footer = (
                 f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; margin-top: 4px;">'
-                f'<span style="color:{C_RED};"><b>Autor:</b></span> <span style="color:{C_GREEN};"><b>speedy005</b></span> | '
+                f'<span style="color:{C_RED};"><b>{autor_label}</b></span> <span style="color:{C_GREEN};"><b>speedy005</b></span> | '
                 f'<span style="color:{C_BLUE};"><b>Version:</b></span> <span style="color:{C_YELLOW};"><b>{version}</b></span></div>'
             )
             output.append(footer)
@@ -6721,10 +6730,7 @@ class PatchManagerGUI(QWidget):
             # HTML Senden
             self.append_info(widget, "".join(output), "raw")
 
-            # Update-Check triggern
-            if net_status_key == "Online" and hasattr(
-                self, "check_for_update_on_start"
-            ):
+            if net_status_key == "Online" and hasattr(self, "check_for_update_on_start"):
                 QTimer.singleShot(500, self.check_for_update_on_start)
 
         except Exception as e:
@@ -7169,7 +7175,7 @@ class PatchManagerGUI(QWidget):
 
         # Nutze hier deine neue B_HEIGHT (z.B. 60), falls definiert, sonst BUTTON_HEIGHT
         CONTROL_HEIGHT = getattr(self, "B_HEIGHT", 35)
-        controls_layout.addStretch(1)
+        controls_layout.addStretch(0)
         control_style = f"""
         QComboBox, QSpinBox {{
             font-size: 18px;
@@ -7189,7 +7195,7 @@ class PatchManagerGUI(QWidget):
 
             # OPTIONAL: Alle Labels genau 100px breit machen
             # So fangen alle Auswahlboxen (DE, Style etc.) exakt an der gleichen Stelle an.
-            lbl.setFixedWidth(100)
+            lbl.setFixedWidth(85)
 
             lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
             lbl.setStyleSheet(
@@ -7209,7 +7215,7 @@ class PatchManagerGUI(QWidget):
         self.language_box.addItems(["EN", "DE"])
 
         # WICHTIG: Höhe auf B_HEIGHT (60) setzen, Breite auf 100 erhöhen
-        self.language_box.setFixedSize(60, B_HEIGHT)
+        self.language_box.setFixedSize(70, B_HEIGHT)
 
         # Schriftgröße in der Box anpassen (passend zu den Buttons)
         self.language_box.setStyleSheet(
@@ -7268,12 +7274,12 @@ class PatchManagerGUI(QWidget):
         self.commit_label = make_label(self.get_t("commit_count_label", "Commits:"))
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
-        self.commit_spin.setFixedSize(60, CONTROL_HEIGHT)
+        self.commit_spin.setFixedSize(80, CONTROL_HEIGHT)
         saved_commits = self.cfg.get("commit_count", 10)
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
         # Wichtig: Breite auf 100, damit die 30px breiten Buttons Platz haben
-        self.commit_spin.setFixedSize(60, CONTROL_HEIGHT)
+        self.commit_spin.setFixedSize(70, CONTROL_HEIGHT)
 
         self.commit_spin.setStyleSheet(
             """
