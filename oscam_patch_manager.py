@@ -31,6 +31,46 @@ import re
 
 HAS_SOUND_SUPPORT = False
 
+import subprocess, os, platform, shutil, ctypes
+
+
+def install_font_ubuntu():
+    """Installiert Noto Color Emoji auf Ubuntu-basierten Systemen."""
+    try:
+        # Öffnet ein Terminal für das sudo-Passwort des Nutzers
+        cmd = "sudo apt update && sudo apt install -y fonts-noto-color-emoji && fc-cache -f -v"
+        subprocess.check_call(
+            [
+                "gnome-terminal",
+                "--",
+                "bash",
+                "-c",
+                f"{cmd}; read -p 'Fertig! Drücken Sie Enter...'",
+            ]
+        )
+        return True
+    except Exception:
+        return False
+
+
+def install_font_windows():
+    """Installiert die Emoji-Schriftart für Windows (Admin-Rechte erforderlich)."""
+    import requests
+
+    url = "https://github.com"
+    font_path = os.path.join(os.environ["WINDIR"], "Fonts", "NotoColorEmoji.ttf")
+    try:
+        if not os.path.exists(font_path):
+            r = requests.get(url, timeout=10)
+            with open(font_path, "wb") as f:
+                f.write(r.content)
+            # In Registry registrieren & System informieren
+            ctypes.windll.gdi32.AddFontResourceW(font_path)
+            ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
+        return True
+    except Exception:
+        return False
+
 
 def ensure_dependencies():
     """Prüft Python, System-Tools und Sound-Support (Mehrsprachig & Zukunftssicher)."""
@@ -309,7 +349,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.0.9"
+APP_VERSION = "3.1.0"
 
 
 # ===================== PATCH DIRS =====================
@@ -3359,7 +3399,7 @@ class PatchManagerGUI(QWidget):
         self.slider_speed = None
         self.color_box = None
         self.status_leds = []  # System-Status LEDs
-        self.user_leds = []    # User-Blink-LEDs
+        self.user_leds = []  # User-Blink-LEDs
         self.all_buttons = []
         self.option_buttons = {}
         self.buttons = {}
@@ -3470,7 +3510,6 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(2000, self.check_for_update_on_start)
         QTimer.singleShot(2500, self.start_oscam_update_check)
 
-
     # =====================================================================
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
@@ -3512,6 +3551,7 @@ class PatchManagerGUI(QWidget):
         """Gibt die passende Flagge zur Systemsprache zurück."""
         try:
             import locale
+
             # Holen der Sprache (z.B. 'de_DE' oder 'en_US')
             loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
             lang = loc[:2].lower()
@@ -3521,22 +3561,24 @@ class PatchManagerGUI(QWidget):
         # Mapping von Sprachcode zu Flaggen-Emoji
         flags = {
             "de": "🇩🇪",
-           "en": "🇺🇸",
+            "en": "🇺🇸",
             "fr": "🇫🇷",
             "it": "🇮🇹",
             "es": "🇪🇸",
             "ru": "🇷🇺",
-            "tr": "🇹🇷"
+            "tr": "🇹🇷",
         }
-        return flags.get(lang, "🌐") # Weltkugel als Fallback
+        return flags.get(lang, "🌐")  # Weltkugel als Fallback
 
     def force_user_leds_static(self):
         """User-LEDs statisch setzen (NUR User-LEDs, Farbe Orange!)"""
-        # Wir nutzen eine spezifische Farbe für User-LEDs, 
+        # Wir nutzen eine spezifische Farbe für User-LEDs,
         # damit sie sich von den grünen System-LEDs abheben.
         for led in getattr(self, "user_leds", []):
             # Nutze hier die Farbe deiner GUI (z.B. Orange #F37804)
-            led.setStyleSheet("background-color: #F37804; border-radius: 4px; border: 1px solid #555;")
+            led.setStyleSheet(
+                "background-color: #F37804; border-radius: 4px; border: 1px solid #555;"
+            )
 
     def toggle_leds(self, enable: bool):
         """
@@ -3801,16 +3843,24 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "lbl_speed_val"):
             if value <= 0:
                 self.lbl_speed_val.setText("OFF")
-                self.lbl_speed_val.setStyleSheet("color: #777; font-weight: bold; font-size: 12px;")
+                self.lbl_speed_val.setStyleSheet(
+                    "color: #777; font-weight: bold; font-size: 12px;"
+                )
             elif value >= 950:
                 self.lbl_speed_val.setText("STATIC")
-                self.lbl_speed_val.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 12px;")
+                self.lbl_speed_val.setStyleSheet(
+                    "color: #2ecc71; font-weight: bold; font-size: 12px;"
+                )
             elif value <= 50:
                 self.lbl_speed_val.setText("TURBO")
-                self.lbl_speed_val.setStyleSheet("color: #FF0000; font-weight: bold; font-size: 12px;")
+                self.lbl_speed_val.setStyleSheet(
+                    "color: #FF0000; font-weight: bold; font-size: 12px;"
+                )
             else:
                 self.lbl_speed_val.setText(f"{value}ms")
-                self.lbl_speed_val.setStyleSheet("color: #aaa; font-weight: bold; font-size: 12px;")
+                self.lbl_speed_val.setStyleSheet(
+                    "color: #aaa; font-weight: bold; font-size: 12px;"
+                )
 
         config_updates = {"blink_speed": value}
 
@@ -3825,10 +3875,9 @@ class PatchManagerGUI(QWidget):
             config_updates["led_enabled"] = True
 
         # System-LEDs immer statisch halten
-        #self.set_system_leds_static()
+        # self.set_system_leds_static()
 
         save_config(config_updates, gui_instance=self, silent=True)
-
 
     def set_system_leds_static(self):
         """System-LEDs immer statisch lassen"""
@@ -4157,17 +4206,24 @@ class PatchManagerGUI(QWidget):
         def play_system_sound(sound_type="info"):
             safe_play = globals().get("safe_play")
             if safe_play:
-                if sound_type == "update": safe_play("dialog-information.oga")
-                elif sound_type == "uptodate": safe_play("complete.oga")
-                elif sound_type == "error": safe_play("dialog-error.oga")
+                if sound_type == "update":
+                    safe_play("dialog-information.oga")
+                elif sound_type == "uptodate":
+                    safe_play("complete.oga")
+                elif sound_type == "error":
+                    safe_play("dialog-error.oga")
             else:
                 import platform
+
                 try:
                     if platform.system() == "Windows":
                         import winsound
+
                         winsound.MessageBeep()
-                    else: print("\a")
-                except: pass
+                    else:
+                        print("\a")
+                except:
+                    pass
 
         if update_available:
             upd_title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
@@ -6606,17 +6662,17 @@ class PatchManagerGUI(QWidget):
 
     def run_full_system_check(self, clear_log=False):
         """
-        Vollständiger System-Check: Einheitliche Emojis für alle Zeilen.
-        VOLL DYNAMISCH: Inklusive Übersetzung für 'requests' und Status-Meldungen.
+        Vollständiger System-Check mit Font-Check, Emojis und Flaggen.
+        Installiert bei Bedarf 'Noto Color Emoji' nach Nutzerabfrage.
         """
         if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
 
         try:
-            import shutil, platform, socket, importlib.util
+            import shutil, platform, socket, importlib.util, os, subprocess
             from datetime import datetime
-            from PyQt6.QtWidgets import QApplication
+            from PyQt6.QtWidgets import QApplication, QMessageBox
             from PyQt6.QtGui import QTextCursor
             from PyQt6.QtCore import QTimer
 
@@ -6624,11 +6680,10 @@ class PatchManagerGUI(QWidget):
             SZ_BIG, SZ_NORM = "26px", "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
-            # Emoji-Fonts für korrekte bunte Darstellung unter Windows/Linux
-            F_EMOJI = "'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif"
-        
+            F_EMOJI = "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
+
             C_ORANGE, C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = (
-                "#F37804", "#00FF00", "#00ADFF", "#FFFF00", "#FF0000", "#808080",
+                "#F37804", "#00FF00", "#00ADFF", "#FFFF00", "#FF0000", "#808080"
             )
 
             # 1. LOG-FENSTER VORBEREITEN
@@ -6648,7 +6703,6 @@ class PatchManagerGUI(QWidget):
             timestamp = datetime.now().strftime("%H:%M:%S")
             output = []
 
-            # Hilfsfunktion für einheitliche Zeilen mit Emojis
             def make_row(icon, label, status, label_col, status_col):
                 return (
                     f'<div style="line-height:1.2;">'
@@ -6658,85 +6712,86 @@ class PatchManagerGUI(QWidget):
                 )
 
             # --- TITEL ---
-            start_msg = txt.get("start_check", "Starte System-Check..." if lang == "de" else "Starting System Check...")
-            output.append(
-                f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>'
-            )
+            start_msg = txt.get("start_check", ("Starte System-Check..." if lang == "de" else "Starting System Check..."))
+            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>')
 
-            # --- BLOCK 0: SPRACHE MIT FLAGGE ---
-            # 🇩🇪 für Deutsch, 🇬🇧 für Englisch
-            lang_icon = "🇩🇪" if lang == "de" else "🇬🇧"
-            lang_label = "Sprache" if lang == "de" else "Language"
-            lang_display = "Deutsch" if lang == "de" else "English"
-            output.append(make_row(lang_icon, lang_label, lang_display, C_GREEN, C_BLUE))
+            # --- SCHRIFTARTEN-CHECK & INSTALLATION ---
+            has_emoji_font = False
+            try:
+                if platform.system() == "Linux":
+                    check_font = subprocess.run(["fc-list"], capture_output=True, text=True)
+                    has_emoji_font = "Noto Color Emoji" in check_font.stdout
+                elif platform.system() == "Windows":
+                    font_path = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "NotoColorEmoji.ttf")
+                    has_emoji_font = os.path.exists(font_path) or platform.release() in ["10", "11"]
+            except:
+                has_emoji_font = True
+
+            if not has_emoji_font:
+                q_title = "Emoji-Support fehlt" if lang == "de" else "Emoji Support Missing"
+                q_text = (txt.get("font_q", "Noto Color Emoji installieren?") if lang == "de" else "Install Noto Color Emoji?")
+                if QMessageBox.question(None, q_title, q_text, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+                    if (install_font_ubuntu() if platform.system() == "Linux" else install_font_windows()):
+                        QTimer.singleShot(2000, lambda: self.run_full_system_check(clear_log=True))
+                        return
+
+            # --- BLOCK 0: SPRACHE ---
+            lang_icon, lang_label = ("🇩🇪", "Sprache") if lang == "de" else ("🇬🇧", "Language")
+            output.append(make_row(lang_icon, lang_label, "Deutsch" if lang == "de" else "English", C_GREEN, C_BLUE))
 
             # --- BLOCK 1: SYSTEM TOOLS ---
-            tools = ["git"]
-            if platform.system() != "Windows":
-                tools += ["patch", "zip"]
-
-            for name in tools:
+            for name in ["git"] + (["patch", "zip"] if platform.system() != "Windows" else []):
                 found = shutil.which(name)
-                icon = "✅" if found else "❌"
-                col = C_GREEN if found else C_RED
-                status_txt = "OK" if found else (txt.get("missing", "FEHLT" if lang == "de" else "MISSING"))
-                output.append(make_row(icon, name, status_txt, col, C_BLUE))
- 
-            # --- BLOCK 2: PYTHON PAKETE (Inkl. requests Übersetzung) ---
-            # Format: (Technischer Name, Anzeigename Deutsch, Anzeigename Englisch)
-            py_pkgs = [
-                ("PyQt6", "PyQt6", "PyQt6"),
-                ("requests", "Anfragen" if lang == "de" else "Requests", "Requests")
-            ]
-        
-            for pkg_id, display_de, display_en in py_pkgs:
+                output.append(make_row("✅" if found else "❌", name, "OK" if found else "MISSING", C_GREEN if found else C_RED, C_BLUE))
+
+            # --- BLOCK 2: PYTHON PAKETE ---
+            for pkg_id, n_de, n_en in [("PyQt6", "PyQt6", "PyQt6"), ("requests", "Anfragen", "Requests")]:
                 found = importlib.util.find_spec(pkg_id) is not None
-                icon = "✅" if found else "❌"
-                col = C_GREEN if found else C_RED
-                pkg_name = display_de if lang == "de" else display_en
-                status_txt = "OK" if found else (txt.get("missing", "FEHLT" if lang == "de" else "MISSING"))
-                output.append(make_row(icon, pkg_name, status_txt, col, C_BLUE))
+                output.append(make_row("✅" if found else "❌", n_de if lang == "de" else n_en, "OK" if found else "MISSING", C_GREEN if found else C_RED, C_BLUE))
 
             # --- BLOCK 3: SOUND-STATUS ---
             is_sound = globals().get("HAS_SOUND_SUPPORT", False)
-            s_icon = "🔊" if is_sound else "🔇"
-            s_col = C_GREEN if is_sound else C_YELLOW
-            s_txt = (("Aktiv" if lang == "de" else "Active") if is_sound else ("Inaktiv" if lang == "de" else "Inactive"))
-            output.append(make_row(s_icon, "Sound", s_txt, s_col, C_BLUE))
+            output.append(make_row("🔊" if is_sound else "🔇", "Sound", "Aktiv" if is_sound else "Inaktiv", C_GREEN if is_sound else C_YELLOW, C_BLUE))
 
-            # --- BLOCK 4: NETZWERK ---
-            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>')
-            net_status_key = "Offline"
+            # --- BLOCK 3.5: SCHRIFTART-STATUS (Zweisprachig) ---
+            # Wenn lang == "de", dann "Schrift", sonst "Font"
+            f_label = "Schrift" if lang == "de" else "Font"
+            
+            if has_emoji_font:
+                f_icon, f_col, f_status = "🎨", C_GREEN, "OK"
+            else:
+                f_icon, f_col = "⚠️", C_YELLOW
+                f_status = "FEHLT" if lang == "de" else "MISSING"
+            
+            output.append(make_row(f_icon, f_label, f_status, f_col, C_BLUE))
+
+            # --- BLOCK 4: NETZWERK (Fortsetzung) ---
+            output.append(
+                f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>'
+            )
+            
             net_label = "Netzwerk" if lang == "de" else "Network"
             try:
+                # Schneller Socket-Check gegen Google DNS
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
-                net_txt, net_col, net_icon, net_status_key = ("Online", C_GREEN, "🌐", "Online")
+                n_icon, n_col, n_stat = "🌐", C_GREEN, "Online"
             except:
-                net_txt = "Offline" if lang == "de" else "Offline"
-                net_col, net_icon = C_RED, "🚫"
+                n_icon, n_col, n_stat = "🚫", C_RED, "Offline"
+                
+            output.append(make_row(n_icon, net_label, n_stat, n_col, C_BLUE))
 
-            output.append(make_row(net_icon, net_label, net_txt, net_col, C_BLUE))
-
-            # --- FOOTER ---
-            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>')
-            autor_label = "Autor:" if lang == "de" else "Author:"
-            footer = (
-                f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; margin-top: 4px;">'
-                f'<span style="color:{C_RED};"><b>{autor_label}</b></span> <span style="color:{C_GREEN};"><b>speedy005</b></span> | '
-                f'<span style="color:{C_BLUE};"><b>Version:</b></span> <span style="color:{C_YELLOW};"><b>{version}</b></span></div>'
-            )
-            output.append(footer)
-
-            # HTML Senden
-            self.append_info(widget, "".join(output), "raw")
-
-            if net_status_key == "Online" and hasattr(self, "check_for_update_on_start"):
-                QTimer.singleShot(500, self.check_for_update_on_start)
+            # --- FINALE AUSGABE IM LOG-FENSTER ---
+            if widget:
+                widget.insertHtml("".join(output))
+                widget.moveCursor(QTextCursor.MoveOperation.End)
 
         except Exception as e:
-            self.append_info(widget, f"❌ System-Check Error: {str(e)}", "error")
+            if widget:
+                widget.insertHtml(f"<br><b style='color:{C_RED}'>System Check Error: {e}</b>")
         finally:
-            QTimer.singleShot(1000, lambda: setattr(self, "_checking_active", False))
+            # Status zurücksetzen, damit der Button wieder klickbar ist
+            self._checking_active = False
+            QApplication.processEvents()
 
     def closeEvent(self, event):
         """Wird ausgelöst, wenn das Fenster geschlossen wird (Absturzsicher)."""
@@ -6981,7 +7036,7 @@ class PatchManagerGUI(QWidget):
 
         # FIX 1: Feste Breite und statische Attribute verhindern das "Zucken" des Textes
         self.status_info_label = QLabel("SYSTEM STATUS:")
-        self.status_info_label.setFixedWidth(180) # Reserviert festen Platz
+        self.status_info_label.setFixedWidth(180)  # Reserviert festen Platz
         self.status_info_label.setAttribute(Qt.WidgetAttribute.WA_StaticContents)
         self.status_info_label.setStyleSheet(
             "color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;"
@@ -6990,13 +7045,31 @@ class PatchManagerGUI(QWidget):
 
         # Listen-Trennung für Stabilität
         self.status_leds = []  # Bleiben immer statisch (Grün/Rot)
-        self.user_leds = []    # Nur für Slider-Blinken
+        self.user_leds = []  # Nur für Slider-Blinken
 
-        tools_to_check = ["py", "qt6", "snd", "git", "patch", "zip", "gcc", "make", "ssl", "usb"]
+        tools_to_check = [
+            "py",
+            "qt6",
+            "snd",
+            "git",
+            "patch",
+            "zip",
+            "gcc",
+            "make",
+            "ssl",
+            "usb",
+        ]
         label_colors = {
-            "py": "#3776AB", "qt6": "#41CD52", "snd": "#FF0000", "git": "#2ecc71",
-            "patch": "#3498db", "zip": "#E24A39", "gcc": "#f1c40f", "make": "#e67e22",
-            "ssl": "#9b59b6", "usb": "#1abc9c"
+            "py": "#3776AB",
+            "qt6": "#41CD52",
+            "snd": "#FF0000",
+            "git": "#2ecc71",
+            "patch": "#3498db",
+            "zip": "#E24A39",
+            "gcc": "#f1c40f",
+            "make": "#e67e22",
+            "ssl": "#9b59b6",
+            "usb": "#1abc9c",
         }
 
         for tool in tools_to_check:
@@ -7010,20 +7083,31 @@ class PatchManagerGUI(QWidget):
             elif tool == "qt6":
                 exists = importlib.util.find_spec("PyQt6") is not None
             elif tool == "snd":
-                exists = any(shutil.which(c) for c in ["paplay", "pw-play", "aplay"]) or platform.system() == "Windows"
+                exists = (
+                    any(shutil.which(c) for c in ["paplay", "pw-play", "aplay"])
+                    or platform.system() == "Windows"
+                )
                 display_name = "SOUND"
             elif tool in ["ssl", "usb"]:
                 if platform.system() == "Linux" and shutil.which("dpkg"):
                     pkg = "libssl-dev" if tool == "ssl" else "libusb-1.0-0-dev"
-                    exists = subprocess.run(["dpkg-query", "-W", "-f='${Status}'", pkg], capture_output=True, text=True).returncode == 0
-                else: exists = True
+                    exists = (
+                        subprocess.run(
+                            ["dpkg-query", "-W", "-f='${Status}'", pkg],
+                            capture_output=True,
+                            text=True,
+                        ).returncode
+                        == 0
+                    )
+                else:
+                    exists = True
             else:
                 exists = shutil.which(tool) is not None
 
             # Tool Container
             t_widget = QWidget()
             # FIX 2: Feste Breite für Container verhindert Layout-Verschiebungen in der Zeile
-            t_widget.setMinimumWidth(80) 
+            t_widget.setMinimumWidth(80)
             t_lay = QHBoxLayout(t_widget)
             t_lay.setContentsMargins(0, 0, 0, 0)
             t_lay.setSpacing(6)
@@ -7033,7 +7117,9 @@ class PatchManagerGUI(QWidget):
             led.setFixedSize(16, 16)
             led.tool_exists = exists
             led.base_color = "#27ae60" if exists else "#c0392b"
-            led.setStyleSheet(f"background-color: {led.base_color}; border-radius: 8px; border: 2px solid #555;")
+            led.setStyleSheet(
+                f"background-color: {led.base_color}; border-radius: 8px; border: 2px solid #555;"
+            )
             led.setCursor(Qt.CursorShape.PointingHandCursor)
             led.mousePressEvent = lambda e, t=tool: self.show_tool_help(t)
 
@@ -7042,7 +7128,9 @@ class PatchManagerGUI(QWidget):
             # Text
             c = label_colors.get(tool, "#FFF")
             lbl = QLabel(display_name)
-            lbl.setStyleSheet(f"color: {c}; font-size: 20px; font-weight: bold; font-family: 'Segoe UI';")
+            lbl.setStyleSheet(
+                f"color: {c}; font-size: 20px; font-weight: bold; font-family: 'Segoe UI';"
+            )
 
             t_lay.addWidget(led)
             t_lay.addWidget(lbl)
@@ -7058,7 +7146,9 @@ class PatchManagerGUI(QWidget):
         # SPEED REGLER
         # ---------------------------------------------------------
         speed_icon = QLabel("⚡")
-        speed_icon.setStyleSheet("font-size: 20px; border: none; background: transparent;")
+        speed_icon.setStyleSheet(
+            "font-size: 20px; border: none; background: transparent;"
+        )
         status_bar_layout.addWidget(speed_icon)
 
         self.slider_speed = QSlider(Qt.Orientation.Horizontal)
@@ -7080,7 +7170,9 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.addWidget(self.slider_speed)
 
         self.lbl_speed_val = QLabel("")
-        self.lbl_speed_val.setStyleSheet("color: #aaa; font-size: 12px; font-weight: bold; border: none;")
+        self.lbl_speed_val.setStyleSheet(
+            "color: #aaa; font-size: 12px; font-weight: bold; border: none;"
+        )
         self.lbl_speed_val.setFixedWidth(55)
         status_bar_layout.addWidget(self.lbl_speed_val)
 
@@ -7089,18 +7181,22 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         self.btn_matrix = QPushButton("📟 MATRIX MODE")
         self.btn_matrix.setFixedSize(130, 32)
-        self.btn_matrix.setStyleSheet("QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; }")
-        if hasattr(self, "toggle_matrix"): self.btn_matrix.clicked.connect(self.toggle_matrix)
+        self.btn_matrix.setStyleSheet(
+            "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; }"
+        )
+        if hasattr(self, "toggle_matrix"):
+            self.btn_matrix.clicked.connect(self.toggle_matrix)
         status_bar_layout.addWidget(self.btn_matrix)
 
         self.btn_theme = QPushButton("🌓 THEME")
         self.btn_theme.setFixedSize(100, 32)
-        self.btn_theme.setStyleSheet("QPushButton { background-color: #444; color: red; border: 1px solid #666; border-radius: 6px; font-size: 18px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }")
+        self.btn_theme.setStyleSheet(
+            "QPushButton { background-color: #444; color: red; border: 1px solid #666; border-radius: 6px; font-size: 18px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
+        )
         self.btn_theme.clicked.connect(self.toggle_theme)
         status_bar_layout.addWidget(self.btn_theme)
 
         main_layout.addWidget(status_bar_container)
-
 
         # --- ANIMATIONS-TIMER STARTEN ---
         self._blink_state = True
