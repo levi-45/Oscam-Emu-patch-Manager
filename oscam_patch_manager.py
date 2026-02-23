@@ -31,6 +31,7 @@ import re
 
 HAS_SOUND_SUPPORT = False
 
+
 def ensure_dependencies():
     """Prüft Python, System-Tools und Sound-Support (Mehrsprachig & Zukunftssicher)."""
     global HAS_SOUND_SUPPORT
@@ -49,7 +50,7 @@ def ensure_dependencies():
         lang = loc[:2].lower()
     except:
         lang = "en"
-    
+
     # Lokalisierte Texte für die Vorab-Prüfung
     if lang == "de":
         T_PY_MISSING = "Fehlende Python-Pakete:"
@@ -68,12 +69,14 @@ def ensure_dependencies():
 
     # 1. PYTHON PAKETE PRÜFEN
     required_python = ["PyQt6", "requests", "packaging"]
-    missing_python = [pkg for pkg in required_python if importlib.util.find_spec(pkg) is None]
+    missing_python = [
+        pkg for pkg in required_python if importlib.util.find_spec(pkg) is None
+    ]
 
     if missing_python:
         print(f"\n[INFO] {T_PY_MISSING} {', '.join(missing_python)}")
         choice = input(T_PY_PROMPT)
-        if choice.lower() in ['j', 'y']:
+        if choice.lower() in ["j", "y"]:
             for pkg in missing_python:
                 print(f"Installing {pkg}...")
                 subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
@@ -88,10 +91,10 @@ def ensure_dependencies():
     if missing_tools:
         # Da PyQt6 nun sicher vorhanden ist, nutzen wir die GUI für den System-Fehler
         from PyQt6.QtWidgets import QApplication, QMessageBox
-        
+
         # Sicherstellen, dass eine App-Instanz für die Box existiert
         _ = QApplication.instance() or QApplication(sys.argv)
-        
+
         msg = f"{T_SYS_INFO} {', '.join(missing_tools)}\n\n"
         if platform.system() == "Linux":
             msg += f"{T_LINUX_CMD}\nsudo apt update && sudo apt install {' '.join(missing_tools)}"
@@ -113,6 +116,7 @@ def ensure_dependencies():
     else:
         # Auf Windows nutzen wir den Standard-Beep, daher True
         HAS_SOUND_SUPPORT = True
+
 
 from datetime import datetime, timezone
 from PyQt6.QtGui import QFont, QColor, QTextCursor, QIcon
@@ -243,9 +247,10 @@ def safe_play(sound_name):
                 return
             except:
                 pass
-    
+
     # Fallback, wenn Linux ohne paplay oder Windows/Mac
     from PyQt6.QtWidgets import QApplication
+
     QApplication.beep()
 
 
@@ -304,7 +309,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.0.7"
+APP_VERSION = "3.0.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -1476,7 +1481,7 @@ TEXTS = {
         "language_label": "Sprache:",
         "color_label": "Design / Farbe:",
         "commit_count_label": "Commits anzeigen:",
-         # --- Buttons & Tooltips ---
+        # --- Buttons & Tooltips ---
         "modifier_button_text": "👤 Patch Autor",
         "modifier_tooltip_prefix": "Erstellt von:",
         "check_tools_button": "🛠️ Tools prüfen",
@@ -1778,10 +1783,12 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
 
         # --- BLINK-SPEED TIMER UPDATE (KORRIGIERT) ---
         blink_speed = current_cfg.get("blink_speed", 500)
-        
+
         if gui_instance:
-            timer = getattr(gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None))
-            
+            timer = getattr(
+                gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None)
+            )
+
             if timer:
                 # WICHTIG: Wenn wir im Lade-Modus sind ODER Speed >= 950ms -> TIMER STOPPEN
                 if getattr(gui_instance, "is_loading", False) or blink_speed >= 950:
@@ -1805,7 +1812,11 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
             gui_instance.current_config = current_cfg
 
         # 6. Logging (NUR wenn NICHT silent UND NICHT im Lade-Modus)
-        if not silent and gui_instance and not getattr(gui_instance, "is_loading", False):
+        if (
+            not silent
+            and gui_instance
+            and not getattr(gui_instance, "is_loading", False)
+        ):
             if hasattr(gui_instance, "log_message"):
                 is_matrix = current_cfg.get("theme_mode") == "matrix"
                 color = "#00FF41" if is_matrix else "cyan"
@@ -3340,16 +3351,15 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
         import subprocess, platform, shutil, os, re, sys
 
-        # Absoluter Schutz: Verhindert Blink-Starts und Log-Spam während des Setups
-        self.is_loading = True  
-
+        self.is_loading = True  # Schutz vor Timer während Setup
         safe_play("service-login.oga")
 
-        # 2. ATTR-BOOTSTRAP (Attribute vorab definieren)
+        # 2. ATTR-BOOTSTRAP
         self.btn_matrix = None
-        self.slider_speed = None  
+        self.slider_speed = None
         self.color_box = None
-        self.status_leds = []
+        self.status_leds = []  # System-Status LEDs
+        self.user_leds = []    # User-Blink-LEDs
         self.all_buttons = []
         self.option_buttons = {}
         self.buttons = {}
@@ -3360,14 +3370,16 @@ class PatchManagerGUI(QWidget):
         # 3. INFOSCREEN & REDIRECTOR FIX
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
-
         try:
-            # Versuch den Output-Redirector zu setzen
             self.stdout_redir = StreamToGui()
-            self.stdout_redir.callback = lambda msg: self.append_info(self.info_text, msg, "info")
+            self.stdout_redir.callback = lambda msg: self.append_info(
+                self.info_text, msg, "info"
+            )
             sys.stdout = self.stdout_redir
             self.stderr_redir = StreamToGui()
-            self.stderr_redir.callback = lambda msg: self.append_info(self.info_text, msg, "error")
+            self.stderr_redir.callback = lambda msg: self.append_info(
+                self.info_text, msg, "error"
+            )
             sys.stderr = self.stderr_redir
         except Exception:
             pass
@@ -3377,8 +3389,8 @@ class PatchManagerGUI(QWidget):
             self.current_config = load_config()
         except:
             self.current_config = {}
-
         self.cfg = self.current_config
+
         stored_lang = str(self.current_config.get("language", "de")).lower()
         self.LANG = stored_lang if stored_lang in ["en", "de"] else "de"
         self.patch_modifier = self.current_config.get("patch_modifier", "Default")
@@ -3397,7 +3409,7 @@ class PatchManagerGUI(QWidget):
         # 5. HAUPT-UI AUFBAUEN
         self.init_ui()
 
-        # 6. TIMER VORBEREITEN (Nur anlegen, nicht starten!)
+        # 6. TIMER VORBEREITEN (Nur für User-LEDs, nicht starten)
         self.blink_timer = QTimer(self)
         self.blink_timer.timeout.connect(self.animate_status_bar)
 
@@ -3419,36 +3431,38 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "toggle_matrix"):
             self.toggle_matrix(force_state=target_theme)
 
-        # ---------------------------------------------------------
-        # 8. FINALER SLIDER-FIX (KEIN BLINKEN BEIM START)
-        # ---------------------------------------------------------
-        # Wert laden (949 aus deiner Config)
-        current_speed = self.current_config.get("blink_speed", 500)
+        # ----------------------------
+        # 8. FINALER SLIDER- & LED-FIX
+        # ----------------------------
+        current_speed = self.current_config.get("blink_speed", 0)  # Default 0 = OFF
 
+        # Slider initialisieren
         if hasattr(self, "slider_speed") and self.slider_speed:
-            # Schritt A: Signale blockieren
             self.slider_speed.blockSignals(True)
             self.slider_speed.setValue(current_speed)
             self.slider_speed.blockSignals(False)
 
-            # Schritt B: Nur das Label zeichnen (Ohne Timer-Triggern)
             if hasattr(self, "update_label_only"):
-                self.update_label_only(current_speed) 
-            
-            # Schritt C: Erst jetzt die Funktion für manuelle Änderungen verbinden
+                self.update_label_only(current_speed)
+
             if hasattr(self, "update_blink_speed"):
                 self.slider_speed.valueChanged.connect(self.update_blink_speed)
 
-        # Schritt D: Timer explizit stoppen & LEDs auf Dauerlicht setzen
+        # System-Status LEDs immer statisch setzen
+        self.set_system_leds_static()
+
+        # User-LED Timer beim Start nicht aktivieren
         if hasattr(self, "blink_timer"):
             self.blink_timer.stop()
-        if hasattr(self, "force_leds_static"):
-            self.force_leds_static()
 
-        # SETUP FERTIG - Ab hier darf das Tool reagieren
+        # GUI freigeben
         self.is_loading = False
 
-        # 9. POST-INIT CHECKS
+        # User-LEDs einmal initial mit Sliderwert anwenden
+        if hasattr(self, "update_blink_speed"):
+            self.update_blink_speed(current_speed)
+
+        # Post-Init Checks
         if hasattr(self, "update_plugin_button_state"):
             self.update_plugin_button_state()
 
@@ -3461,20 +3475,22 @@ class PatchManagerGUI(QWidget):
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
     def animate_status_bar(self):
-        """Wechselt den Zustand der LEDs für den Blink-Effekt mit Theme-Support."""
+        """Wechselt den Zustand der User-LEDs für den Blink-Effekt mit Theme-Support.
+        System-Status LEDs bleiben immer statisch.
+        """
         # --- 0. NOTBREMSE: Verhindert Blinken beim Start ---
         if getattr(self, "is_loading", False):
             return
 
-        if not hasattr(self, "status_leds") or not self.status_leds:
+        if not hasattr(self, "user_leds") or not self.user_leds:
             return
 
         self._blink_state = not self._blink_state
 
-        # 1. Theme-Check
+        # 1️⃣ Theme-Check
         is_matrix = self.current_config.get("theme_mode") == "matrix"
 
-        # 2. Farben & Rahmen definieren
+        # 2️⃣ Farben & Rahmen definieren
         if self._blink_state:
             # AN-Zustand
             color = "#00FF41" if is_matrix else "cyan"
@@ -3484,14 +3500,36 @@ class PatchManagerGUI(QWidget):
             color = "#002200" if is_matrix else "#222"
             border = "1px solid #004400" if is_matrix else "1px solid #444"
 
-        # 3. Stylesheet anwenden
+        # 3️⃣ Stylesheet auf User-LEDs anwenden
         style = f"background-color: {color}; border-radius: 5px; border: {border};"
-
-        for led in self.status_leds:
+        for led in self.user_leds:
             try:
                 led.setStyleSheet(style)
             except:
                 continue
+
+    def force_user_leds_static(self):
+        """User-LEDs statisch setzen (NUR User-LEDs, Farbe Orange!)"""
+        # Wir nutzen eine spezifische Farbe für User-LEDs, 
+        # damit sie sich von den grünen System-LEDs abheben.
+        for led in getattr(self, "user_leds", []):
+            # Nutze hier die Farbe deiner GUI (z.B. Orange #F37804)
+            led.setStyleSheet("background-color: #F37804; border-radius: 4px; border: 1px solid #555;")
+
+    def toggle_leds(self, enable: bool):
+        """
+        User-LEDs an/aus, Timer starten/stoppen, Config speichern.
+        System-LEDs bleiben statisch.
+        """
+        if hasattr(self, "blink_timer") and self.blink_timer:
+            if enable:
+                self.blink_timer.start(self.slider_speed.value())
+            else:
+                self.blink_timer.stop()
+                self.force_user_leds_static()
+
+        self.current_config["led_enabled"] = enable
+        save_config({"led_enabled": enable}, gui_instance=self)
 
     def show_language_animation(self, lang_code):
         """Animation mit automatischem Fallback für fehlende Emoji-Fonts."""
@@ -3509,7 +3547,9 @@ class PatchManagerGUI(QWidget):
             # EMOJI MODUS (Wenn Schriftart vorhanden)
             display_text = "🇩🇪" if lang_code == "de" else "🇺🇸"
             style = "background: transparent; border: none;"
-            emoji_font.setFamilies(["Noto Color Emoji", "Segoe UI Emoji", "Apple Color Emoji"])
+            emoji_font.setFamilies(
+                ["Noto Color Emoji", "Segoe UI Emoji", "Apple Color Emoji"]
+            )
         else:
             # TEXT MODUS (Fallback für saubere Optik ohne Vierecke)
             if lang_code == "de":
@@ -3542,34 +3582,42 @@ class PatchManagerGUI(QWidget):
         self.flag_label.setStyleSheet(style)
         self.flag_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.flag_label.adjustSize()
-        
+
         # 4. POSITIONIERUNG (Zentriert)
         start_x = (self.width() - self.flag_label.width()) // 2
         start_y = (self.height() - self.flag_label.height()) // 2
-        
+
         # Opacity Effekt für sanftes Ausblenden
         op = QGraphicsOpacityEffect(self.flag_label)
         self.flag_label.setGraphicsEffect(op)
-        
+
         # 5. ANIMATIONEN (Dauer: 1.2 Sekunden)
         # Bewegung nach oben
         self.anim = QPropertyAnimation(self.flag_label, b"geometry")
         self.anim.setDuration(1200)
-        self.anim.setStartValue(QRect(start_x, start_y + 50, self.flag_label.width(), self.flag_label.height()))
-        self.anim.setEndValue(QRect(start_x, start_y - 70, self.flag_label.width(), self.flag_label.height()))
+        self.anim.setStartValue(
+            QRect(
+                start_x, start_y + 50, self.flag_label.width(), self.flag_label.height()
+            )
+        )
+        self.anim.setEndValue(
+            QRect(
+                start_x, start_y - 70, self.flag_label.width(), self.flag_label.height()
+            )
+        )
         self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        
+
         # Fade Out (Verschwinden)
         self.op_anim = QPropertyAnimation(op, b"opacity")
         self.op_anim.setDuration(1200)
         self.op_anim.setStartValue(1.0)
         self.op_anim.setEndValue(0.0)
-        
+
         # 6. START & CLEANUP
         self.flag_label.show()
         self.anim.start()
         self.op_anim.start()
-        
+
         # Nach Abschluss das Label aus dem Speicher löschen
         QTimer.singleShot(1300, self.flag_label.deleteLater)
 
@@ -3580,12 +3628,12 @@ class PatchManagerGUI(QWidget):
         import shutil
 
         lang = getattr(self, "LANG", "de").lower()
-        
+
         # 1. LIVE-CHECK: Ist das Tool installiert?
         path = shutil.which(tool_id)
         # Spezialfälle für PY und QT6, die nicht als binärer Pfad gesucht werden
         is_installed = path is not None or tool_id in ["py", "qt6"]
-        
+
         # Mapping der Installations-Befehle
         commands = {
             "snd": "sudo apt update && sudo apt install pulseaudio-utils",
@@ -3595,12 +3643,12 @@ class PatchManagerGUI(QWidget):
             "gcc": "sudo apt update && sudo apt install build-essential",
             "make": "sudo apt update && sudo apt install make",
             "ssl": "sudo apt update && sudo apt install libssl-dev",
-            "usb": "sudo apt update && sudo apt install libusb-1.0-0-dev"
+            "usb": "sudo apt update && sudo apt install libusb-1.0-0-dev",
         }
 
         cmd = commands.get(tool_id, "N/A")
         title = "Tool Status" if lang == "de" else "Tool Status"
-        
+
         # 2. TEXT-ZUSAMMENSTELLUNG (WEICHE)
         if is_installed:
             # FALL: TOOL IST INSTALLIERT (GRÜN)
@@ -3630,24 +3678,30 @@ class PatchManagerGUI(QWidget):
         box = QMessageBox(self)
         box.setWindowTitle(title)
         # Icon-Weiche: Information bei Grün, Warnung bei Rot
-        box.setIcon(QMessageBox.Icon.Information if is_installed else QMessageBox.Icon.Warning)
+        box.setIcon(
+            QMessageBox.Icon.Information if is_installed else QMessageBox.Icon.Warning
+        )
         box.setText(msg)
-        
+
         # Buttons: Kopieren nur anzeigen, wenn das Tool fehlt
         copy_btn = None
         if not is_installed and cmd != "N/A":
-            copy_btn = box.addButton("Befehl kopieren" if lang == "de" else "Copy Command", QMessageBox.ButtonRole.ActionRole)
-        
+            copy_btn = box.addButton(
+                "Befehl kopieren" if lang == "de" else "Copy Command",
+                QMessageBox.ButtonRole.ActionRole,
+            )
+
         box.addButton(QMessageBox.StandardButton.Ok)
         box.exec()
-        
+
         # 4. LOGIK FÜR DEN KOPIER-BUTTON
         if copy_btn and box.clickedButton() == copy_btn:
             QApplication.clipboard().setText(cmd)
             if hasattr(self, "append_info"):
-                log_msg = f"📋 {tool_id.upper()} " + ("Befehl kopiert" if lang == "de" else "Command copied")
+                log_msg = f"📋 {tool_id.upper()} " + (
+                    "Befehl kopiert" if lang == "de" else "Command copied"
+                )
                 self.append_info(getattr(self, "info_text", None), log_msg, "status")
-
 
     def update_label_only(self, value):
         """Aktualisiert nur den Text und die Farbe des Labels beim Programmstart."""
@@ -3656,16 +3710,16 @@ class PatchManagerGUI(QWidget):
 
         if value >= 950:
             txt = "STATIC"
-            style = "color: #2ecc71; font-weight: bold; font-size: 12px;"
+            style = "color: #2ecc71; font-weight: bold; font-size: 18px;"
         elif value <= 50:
             txt = "TURBO"
-            style = "color: #FF0000; font-weight: bold; font-size: 12px;"
+            style = "color: #FF0000; font-weight: bold; font-size: 18px;"
         else:
             txt = f"{value}ms" if value > 50 else "TURBO"
             # Falls du doch lieber "NORMAL" statt der ms Zahl willst:
             # txt = "NORMAL" if value > 400 else f"{value}ms"
-            style = "color: #aaa; font-weight: bold; font-size: 12px;"
-            
+            style = "color: #aaa; font-weight: bold; font-size: 18px;"
+
         self.lbl_speed_val.setText(txt)
         self.lbl_speed_val.setStyleSheet(style)
 
@@ -3714,21 +3768,21 @@ class PatchManagerGUI(QWidget):
 
     def update_blink_speed(self, value):
         """
-        Aktualisiert Text-Labels, Timer und speichert in die Datei.
-        Verhindert automatisches Blinken beim Programmstart durch 'is_loading' Check.
+        Nur User-LEDs blinken lassen, System-LEDs bleiben statisch.
+        0=OFF, >=950=STATIC, sonst blinkend.
         """
-        # 1. Timer finden (master_timer oder blink_timer)
-        timer = getattr(self, "master_timer", getattr(self, "blink_timer", None))
-        
-        # 2. UI Feedback & Label-Styling
+        timer = getattr(self, "blink_timer", None)
+        if not timer or getattr(self, "is_loading", False):
+            return
+
+        # UI Feedback
         if hasattr(self, "lbl_speed_val"):
-            if value >= 950:
+            if value <= 0:
+                self.lbl_speed_val.setText("OFF")
+                self.lbl_speed_val.setStyleSheet("color: #777; font-weight: bold; font-size: 12px;")
+            elif value >= 950:
                 self.lbl_speed_val.setText("STATIC")
                 self.lbl_speed_val.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 12px;")
-                # Bei STATIC immer sofort stoppen und LEDs fest anzeigen
-                if timer:
-                    timer.stop()
-                self.force_leds_static()
             elif value <= 50:
                 self.lbl_speed_val.setText("TURBO")
                 self.lbl_speed_val.setStyleSheet("color: #FF0000; font-weight: bold; font-size: 12px;")
@@ -3736,32 +3790,34 @@ class PatchManagerGUI(QWidget):
                 self.lbl_speed_val.setText(f"{value}ms")
                 self.lbl_speed_val.setStyleSheet("color: #aaa; font-weight: bold; font-size: 12px;")
 
-        # 3. Blink-Logik (Nur wenn NICHT geladen wird)
-        if not getattr(self, "is_loading", False):
-            if timer and value < 950:
-                timer.setInterval(max(10, value))
-                # Starte den Timer nur, wenn er nicht schon läuft
-                if not timer.isActive():
-                    timer.start()
-            elif timer and value >= 950:
-                timer.stop()
-                self.force_leds_static()
+        config_updates = {"blink_speed": value}
 
-        # 4. Speichern der Konfiguration
-        # Wir speichern nur, wenn die GUI fertig geladen ist
-        if not getattr(self, "is_loading", False):
-            self.current_config["blink_speed"] = value
-            # Prüfen ob Speicherfunktion existiert
-            if "save_config" in globals():
-                save_config({"blink_speed": value}, gui_instance=self, silent=True)
-            elif hasattr(self, "save_config"):
-                self.save_config()
+        if value <= 0 or value >= 950:
+            timer.stop()
+            self.force_user_leds_static()
+            config_updates["led_enabled"] = value > 0
+        else:
+            timer.setInterval(max(10, value))
+            if not timer.isActive():
+                timer.start()
+            config_updates["led_enabled"] = True
+
+        # System-LEDs immer statisch halten
+        #self.set_system_leds_static()
+
+        save_config(config_updates, gui_instance=self, silent=True)
+
+
+    def set_system_leds_static(self):
+        """System-LEDs immer statisch lassen"""
+        for led in getattr(self, "status_leds", []):
+            led.setStyleSheet("background-color: green; border-radius: 4px;")
 
     def force_leds_static(self):
         """Setzt alle LEDs sofort auf ihren dauerhaften Status (kein Blinken)."""
         if hasattr(self, "status_leds"):
             for led in self.status_leds:
-                led.show() # Sicherstellen, dass sie sichtbar sind
+                led.show()  # Sicherstellen, dass sie sichtbar sind
                 # Farbe basierend auf dem Tool-Status wiederherstellen
                 color = "#27ae60" if getattr(led, "tool_exists", False) else "#c0392b"
                 led.setStyleSheet(
@@ -3882,13 +3938,6 @@ class PatchManagerGUI(QWidget):
     def animate_everything(self):
         """Steuert das Blinken von Text und LEDs."""
         self._blink_state = not self._blink_state
-
-        # 1. System Status Label blinken lassen
-        txt_color = "#FF0000" if self._blink_state else "#440000"
-        self.status_info_label.setStyleSheet(
-            f"color: {txt_color}; font-size: 22px; font-weight: bold; border: none; background: transparent;"
-        )
-
         # 2. LEDs blinken lassen (Matrix-Check inklusive)
         is_matrix = "EXIT" in self.btn_matrix.text()
 
@@ -4037,18 +4086,6 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             print(f"Fehler: {e}")
         return None
-
-    def start_oscam_update_check(self):
-        # Aktuellen Stand laden
-        self.current_rev = self.get_local_revision()
-        remote_rev = self.get_latest_remote_revision()
-
-        if remote_rev:
-            # Numerischer Vergleich ist sicherer als String-Vergleich
-            is_new = int(remote_rev) > int(self.current_rev)
-            self.on_update_check_finished(is_new, remote_rev)
-        else:
-            self.on_update_check_finished(False, self.current_rev)
 
     def save_local_revision(self, revision):
         """Speichert die neue Revision in die Datei, damit sie lokal bekannt ist."""
@@ -6569,13 +6606,21 @@ class PatchManagerGUI(QWidget):
             SZ_BIG, SZ_NORM = "26px", "21px"
             F_FAMILY = "'Segoe UI', Tahoma, sans-serif"
             F_MONO = "'Consolas', 'Courier New', monospace"
-            C_ORANGE, C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = "#F37804", "#00FF00", "#00ADFF", "#FFFF00", "#FF0000", "#808080"
+            C_ORANGE, C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = (
+                "#F37804",
+                "#00FF00",
+                "#00ADFF",
+                "#FFFF00",
+                "#FF0000",
+                "#808080",
+            )
 
             # 1. LOG-FENSTER VORBEREITEN
             widget = getattr(self, "info_text", None)
             if widget:
-                if clear_log: widget.clear()
-                else: 
+                if clear_log:
+                    widget.clear()
+                else:
                     widget.moveCursor(QTextCursor.MoveOperation.End)
                     widget.insertHtml("<div style='font-size:4px;'>&nbsp;</div>")
                 QApplication.processEvents()
@@ -6588,8 +6633,14 @@ class PatchManagerGUI(QWidget):
             output = []
 
             # --- TITEL ---
-            start_msg = txt.get("start_check", "Starte System-Check...") if lang == "de" else "Starting System Check..."
-            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>')
+            start_msg = (
+                txt.get("start_check", "Starte System-Check...")
+                if lang == "de"
+                else "Starting System Check..."
+            )
+            output.append(
+                f'<div style="line-height:1.1;"><span style="font-family:{F_FAMILY}; font-size:{SZ_BIG}; color:{C_ORANGE}"><b>{start_msg} [{timestamp}]</b></span></div>'
+            )
 
             # --- BLOCK 1: SYSTEM TOOLS (git, patch, zip) ---
             tools = ["git"]
@@ -6600,9 +6651,15 @@ class PatchManagerGUI(QWidget):
                 found = shutil.which(name)
                 icon = "✅" if found else "❌"
                 col = C_GREEN if found else C_RED
-                status_txt = "OK" if found else (txt.get("missing", "FEHLT") if lang == "de" else "MISSING")
-                output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{col}"><b>  {icon} {name.ljust(6)} : </b></span>'
-                              f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{status_txt}</b></span></div>')
+                status_txt = (
+                    "OK"
+                    if found
+                    else (txt.get("missing", "FEHLT") if lang == "de" else "MISSING")
+                )
+                output.append(
+                    f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{col}"><b>  {icon} {name.ljust(6)} : </b></span>'
+                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{status_txt}</b></span></div>'
+                )
 
             # --- BLOCK 2: PYTHON PAKETE (PyQt6, requests) ---
             py_pkgs = ["PyQt6", "requests"]
@@ -6610,41 +6667,64 @@ class PatchManagerGUI(QWidget):
                 found = importlib.util.find_spec(pkg) is not None
                 icon = "📦" if found else "❌"
                 col = C_GREEN if found else C_RED
-                output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{col}"><b>  {icon} {pkg.ljust(8)} : </b></span>'
-                              f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>OK</b></span></div>')
+                output.append(
+                    f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{col}"><b>  {icon} {pkg.ljust(8)} : </b></span>'
+                    f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>OK</b></span></div>'
+                )
 
             # --- BLOCK 3: SOUND-STATUS (Nutzt deine globale Variable) ---
             is_sound = globals().get("HAS_SOUND_SUPPORT", False)
             s_icon = "🔊" if is_sound else "🔇"
             s_col = C_GREEN if is_sound else C_YELLOW
-            s_txt = ("Aktiv" if lang == "de" else "Active") if is_sound else ("Inaktiv" if lang == "de" else "Inactive")
-            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{s_col}"><b>  {s_icon} Sound  : </b></span>'
-                          f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{s_txt}</b></span></div>')
+            s_txt = (
+                ("Aktiv" if lang == "de" else "Active")
+                if is_sound
+                else ("Inaktiv" if lang == "de" else "Inactive")
+            )
+            output.append(
+                f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{s_col}"><b>  {s_icon} Sound  : </b></span>'
+                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{s_txt}</b></span></div>'
+            )
 
             # --- BLOCK 4: INTERNET-CHECK ---
-            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>')
+            output.append(
+                f'<div style="line-height:1.0; color:{C_LINE}">{"." * 45}</div>'
+            )
             net_status_key = "Offline"
             try:
                 socket.create_connection(("8.8.8.8", 53), timeout=2)
-                net_txt, net_col, net_icon, net_status_key = ("Online", C_GREEN, "🌐", "Online")
+                net_txt, net_col, net_icon, net_status_key = (
+                    "Online",
+                    C_GREEN,
+                    "🌐",
+                    "Online",
+                )
             except:
                 net_txt, net_col, net_icon = ("Offline", C_RED, "🚫")
 
-            output.append(f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Netzwerk : </b></span>'
-                          f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{net_txt}</b></span></div>')
-            
+            output.append(
+                f'<div style="line-height:1.1;"><span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{net_col}"><b>  {net_icon} Netzwerk : </b></span>'
+                f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{C_BLUE}"><b>{net_txt}</b></span></div>'
+            )
+
             # --- FOOTER ---
-            output.append(f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>')
-            footer = (f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; margin-top: 4px;">'
-                      f'<span style="color:{C_RED};"><b>Autor:</b></span> <span style="color:{C_GREEN};"><b>speedy005</b></span> | '
-                      f'<span style="color:{C_BLUE};"><b>Version:</b></span> <span style="color:{C_YELLOW};"><b>{version}</b></span></div>')
+            output.append(
+                f'<div style="line-height:1.0; color:{C_LINE}">{"-" * 45}</div>'
+            )
+            footer = (
+                f'<div style="font-family:{F_FAMILY}; font-size:{SZ_NORM}; margin-top: 4px;">'
+                f'<span style="color:{C_RED};"><b>Autor:</b></span> <span style="color:{C_GREEN};"><b>speedy005</b></span> | '
+                f'<span style="color:{C_BLUE};"><b>Version:</b></span> <span style="color:{C_YELLOW};"><b>{version}</b></span></div>'
+            )
             output.append(footer)
 
             # HTML Senden
             self.append_info(widget, "".join(output), "raw")
 
             # Update-Check triggern
-            if net_status_key == "Online" and hasattr(self, "check_for_update_on_start"):
+            if net_status_key == "Online" and hasattr(
+                self, "check_for_update_on_start"
+            ):
                 QTimer.singleShot(500, self.check_for_update_on_start)
 
         except Exception as e:
@@ -6893,80 +6973,67 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.setContentsMargins(15, 0, 15, 0)
         status_bar_layout.setSpacing(12)
 
+        # FIX 1: Feste Breite und statische Attribute verhindern das "Zucken" des Textes
         self.status_info_label = QLabel("SYSTEM STATUS:")
+        self.status_info_label.setFixedWidth(180) # Reserviert festen Platz
+        self.status_info_label.setAttribute(Qt.WidgetAttribute.WA_StaticContents)
         self.status_info_label.setStyleSheet(
             "color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;"
         )
         status_bar_layout.addWidget(self.status_info_label)
 
-        # Tool-Liste erweitert um 'zip'
+        # Listen-Trennung für Stabilität
+        self.status_leds = []  # Bleiben immer statisch (Grün/Rot)
+        self.user_leds = []    # Nur für Slider-Blinken
+
         tools_to_check = ["py", "qt6", "snd", "git", "patch", "zip", "gcc", "make", "ssl", "usb"]
-        
         label_colors = {
-            "py": "#3776AB", "qt6": "#41CD52", "snd": "#FF0000",
-            "git": "#2ecc71", "patch": "#3498db", "zip": "#E24A39", 
-            "gcc": "#f1c40f", "make": "#e67e22", "ssl": "#9b59b6", "usb": "#1abc9c"
+            "py": "#3776AB", "qt6": "#41CD52", "snd": "#FF0000", "git": "#2ecc71",
+            "patch": "#3498db", "zip": "#E24A39", "gcc": "#f1c40f", "make": "#e67e22",
+            "ssl": "#9b59b6", "usb": "#1abc9c"
         }
-        
-        self.status_leds = []
 
         for tool in tools_to_check:
             exists = False
             display_name = tool.upper()
 
-            # --- SPEZIAL-PRÜFUNGEN ---
+            # --- SYSTEM CHECK ---
             if tool == "py":
                 exists = True
                 display_name = f"PY {sys.version_info.major}.{sys.version_info.minor}"
             elif tool == "qt6":
                 exists = importlib.util.find_spec("PyQt6") is not None
             elif tool == "snd":
-                # Prüft auf paplay ODER pw-play (für neuere Linux Distros)
                 exists = any(shutil.which(c) for c in ["paplay", "pw-play", "aplay"]) or platform.system() == "Windows"
                 display_name = "SOUND"
             elif tool in ["ssl", "usb"]:
                 if platform.system() == "Linux" and shutil.which("dpkg"):
                     pkg = "libssl-dev" if tool == "ssl" else "libusb-1.0-0-dev"
-                    exists = subprocess.run(["dpkg-query", "-W", "-f='${Status}'", pkg], 
-                                          capture_output=True, text=True).returncode == 0
-                else:
-                    exists = True # Fallback für andere OS
+                    exists = subprocess.run(["dpkg-query", "-W", "-f='${Status}'", pkg], capture_output=True, text=True).returncode == 0
+                else: exists = True
             else:
                 exists = shutil.which(tool) is not None
 
             # Tool Container
             t_widget = QWidget()
+            # FIX 2: Feste Breite für Container verhindert Layout-Verschiebungen in der Zeile
+            t_widget.setMinimumWidth(80) 
             t_lay = QHBoxLayout(t_widget)
             t_lay.setContentsMargins(0, 0, 0, 0)
             t_lay.setSpacing(6)
 
-            # LED (16x16) mit Klick-Event bei Fehler
+            # SYSTEM LED (Wird nur EINMAL gefärbt)
             led = QLabel()
             led.setFixedSize(16, 16)
             led.tool_exists = exists
             led.base_color = "#27ae60" if exists else "#c0392b"
-            led.setStyleSheet(
-                f"background-color: {led.base_color}; border-radius: 8px; border: 2px solid #555;"
-            )
-            
-            # Klickbare Hilfe für fehlende Tools (außer py/qt6)
-            # LED (16x16)
-            led = QLabel()
-            led.setFixedSize(16, 16)
-            led.tool_exists = exists
-            led.base_color = "#27ae60" if exists else "#c0392b"
-            led.setStyleSheet(
-                f"background-color: {led.base_color}; border-radius: 8px; border: 2px solid #555;"
-            )
-            
-            # --- JETZT FÜR ALLE LEDs (AUCH GRÜN) ---
+            led.setStyleSheet(f"background-color: {led.base_color}; border-radius: 8px; border: 2px solid #555;")
             led.setCursor(Qt.CursorShape.PointingHandCursor)
-            # Das lambda wird jetzt für jede LED registriert
             led.mousePressEvent = lambda e, t=tool: self.show_tool_help(t)
-            
+
             self.status_leds.append(led)
 
-            # Text (20px)
+            # Text
             c = label_colors.get(tool, "#FFF")
             lbl = QLabel(display_name)
             lbl.setStyleSheet(f"color: {c}; font-size: 20px; font-weight: bold; font-family: 'Segoe UI';")
@@ -6976,6 +7043,10 @@ class PatchManagerGUI(QWidget):
             status_bar_layout.addWidget(t_widget)
 
         status_bar_layout.addStretch()
+
+        # ---------------------------------------------------------
+        # USER-LED entfernt (Punkt gelöscht)
+        self.user_leds = []
 
         # ---------------------------------------------------------
         # SPEED REGLER
@@ -6988,7 +7059,7 @@ class PatchManagerGUI(QWidget):
         self.slider_speed.setFixedWidth(110)
         self.slider_speed.setRange(50, 1000)
         self.slider_speed.setInvertedAppearance(True)
-        
+
         current_speed = self.current_config.get("blink_speed", 500)
         self.slider_speed.setValue(current_speed)
         self.slider_speed.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -6997,8 +7068,6 @@ class PatchManagerGUI(QWidget):
             "QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }"
         )
 
-        if hasattr(self, "update_label_only"):
-            self.update_label_only(current_speed) 
         if hasattr(self, "update_blink_speed"):
             self.slider_speed.valueChanged.connect(self.update_blink_speed)
 
@@ -7014,24 +7083,18 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         self.btn_matrix = QPushButton("📟 MATRIX MODE")
         self.btn_matrix.setFixedSize(130, 32)
-        self.btn_matrix.setStyleSheet(
-            "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } "
-            "QPushButton:hover { background-color: #008F11; color: black; }"
-        )
-        if hasattr(self, "toggle_matrix"):
-            self.btn_matrix.clicked.connect(self.toggle_matrix)
+        self.btn_matrix.setStyleSheet("QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; }")
+        if hasattr(self, "toggle_matrix"): self.btn_matrix.clicked.connect(self.toggle_matrix)
         status_bar_layout.addWidget(self.btn_matrix)
 
         self.btn_theme = QPushButton("🌓 THEME")
         self.btn_theme.setFixedSize(100, 32)
-        self.btn_theme.setStyleSheet(
-            "QPushButton { background-color: #444; color: white; border: 1px solid #666; border-radius: 6px; font-size: 14px; font-weight: bold; } "
-            "QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
-        )
+        self.btn_theme.setStyleSheet("QPushButton { background-color: #444; color: red; border: 1px solid #666; border-radius: 6px; font-size: 18px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }")
         self.btn_theme.clicked.connect(self.toggle_theme)
         status_bar_layout.addWidget(self.btn_theme)
 
         main_layout.addWidget(status_bar_container)
+
 
         # --- ANIMATIONS-TIMER STARTEN ---
         self._blink_state = True
@@ -8222,7 +8285,9 @@ class PatchManagerGUI(QWidget):
 
         # 1. SPRACHE ERMITTELN & SETZEN
         selected = self.language_box.currentText().upper()
-        self.LANG = "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
+        self.LANG = (
+            "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
+        )
 
         # 1.5 FLAGGEN-ANIMATION TRIGGERN
         if hasattr(self, "show_language_animation"):
@@ -8246,7 +8311,9 @@ class PatchManagerGUI(QWidget):
 
         # --- A) HEADER TITEL (LINKS) ---
         if hasattr(self, "header_label"):
-            new_title = lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen")
+            new_title = lang_dict.get(
+                "settings_header", "Settings" if self.LANG == "en" else "Einstellungen"
+            )
             self.header_label.setText(f" {strip_icons(new_title)}")
 
         # --- B) STATUS LABEL (RECHTS) ---
@@ -8259,7 +8326,7 @@ class PatchManagerGUI(QWidget):
                     is_update = int(last_remote) > int(old_rev)
                 except:
                     is_update = "🚀" in curr_status
-                
+
                 if hasattr(self, "on_update_check_finished"):
                     self.on_update_check_finished(is_update, last_remote)
 
@@ -8267,41 +8334,82 @@ class PatchManagerGUI(QWidget):
         labels_map = {
             "lang_label": "language_label",
             "color_label": "color_label",
-            "commit_label": "commit_count_label"
+            "commit_label": "commit_count_label",
         }
         for attr, key in labels_map.items():
             if hasattr(self, attr):
                 default = "Label:"
-                if key == "language_label": default = "Language:" if self.LANG == "en" else "Sprache:"
-                elif key == "color_label": default = "Style:" if self.LANG == "en" else "Farbe:"
-                elif key == "commit_count_label": default = "Commits:"
+                if key == "language_label":
+                    default = "Language:" if self.LANG == "en" else "Sprache:"
+                elif key == "color_label":
+                    default = "Style:" if self.LANG == "en" else "Farbe:"
+                elif key == "commit_count_label":
+                    default = "Commits:"
                 getattr(self, attr).setText(lang_dict.get(key, default))
 
         # --- D) UNIVERSAL-SCANNER: GroupBoxen ---
         for box in self.findChildren(QGroupBox):
             title = box.title()
             if any(word in title for word in ["Einstellungen", "Settings"]):
-                box.setTitle(lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen"))
-            if any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
-                box.setTitle(lang_dict.get("github_config_header", "GitHub Configuration" if self.LANG == "en" else "GitHub Konfiguration"))
+                box.setTitle(
+                    lang_dict.get(
+                        "settings_header",
+                        "Settings" if self.LANG == "en" else "Einstellungen",
+                    )
+                )
+            if any(
+                word in title for word in ["GitHub", "Configuration", "Konfiguration"]
+            ):
+                box.setTitle(
+                    lang_dict.get(
+                        "github_config_header",
+                        (
+                            "GitHub Configuration"
+                            if self.LANG == "en"
+                            else "GitHub Konfiguration"
+                        ),
+                    )
+                )
 
         # --- E) BUTTONS & TOOLTIPS ---
         if hasattr(self, "btn_modifier"):
-            label = strip_icons(lang_dict.get("modifier_button_text", "Patch Author" if self.LANG == "en" else "Patch Autor"))
+            label = strip_icons(
+                lang_dict.get(
+                    "modifier_button_text",
+                    "Patch Author" if self.LANG == "en" else "Patch Autor",
+                )
+            )
             self.btn_modifier.setText(f"👤 {label}")
-            tt_prefix = lang_dict.get("modifier_tooltip_prefix", "Author:" if self.LANG == "en" else "Autor:")
-            self.btn_modifier.setToolTip(f"{tt_prefix} {getattr(self, 'patch_modifier', 'speedy005')}")
+            tt_prefix = lang_dict.get(
+                "modifier_tooltip_prefix", "Author:" if self.LANG == "en" else "Autor:"
+            )
+            self.btn_modifier.setToolTip(
+                f"{tt_prefix} {getattr(self, 'patch_modifier', 'speedy005')}"
+            )
 
         if hasattr(self, "btn_check_tools"):
-            label = strip_icons(lang_dict.get("check_tools_button", "Check Tools" if self.LANG == "en" else "Tools prüfen"))
+            label = strip_icons(
+                lang_dict.get(
+                    "check_tools_button",
+                    "Check Tools" if self.LANG == "en" else "Tools prüfen",
+                )
+            )
             self.btn_check_tools.setText(f"🛠️ {label}")
 
         # --- F) STATUS-LEDs TOOLTIPS AKTUALISIEREN ---
         if hasattr(self, "status_leds") and self.status_leds:
             for led in self.status_leds:
                 if hasattr(led, "tool_exists") and hasattr(led, "tool_name"):
-                    status_txt = lang_dict.get("found", "OK") if led.tool_exists else lang_dict.get("missing", "FEHLT")
-                    help_hint = " (Klick für Hilfe)" if self.LANG == "de" else " (Click for Help)"
+                    status_txt = (
+                        lang_dict.get("found", "OK")
+                        if led.tool_exists
+                        else lang_dict.get("missing", "FEHLT")
+                    )
+                    help_hint = (
+                        " (Klick für Hilfe)"
+                        if self.LANG == "de"
+                        else " (Click for Help)"
+                    )
                     led.setToolTip(f"{led.tool_name.upper()}: {status_txt}{help_hint}")
 
         # 4. UI REFRESH & SOUND TEST
