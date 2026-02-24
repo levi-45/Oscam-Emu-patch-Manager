@@ -356,7 +356,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.1.1"
+APP_VERSION = "3.1.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -3529,7 +3529,7 @@ class PatchManagerGUI(QWidget):
 
         QTimer.singleShot(500, self.show_welcome_info)
         QTimer.singleShot(2000, self.check_for_update_on_start)
-        QTimer.singleShot(4000, self.start_oscam_update_check)
+        QTimer.singleShot(4500, self.start_oscam_update_check)
 
     # =====================================================================
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
@@ -3627,24 +3627,30 @@ class PatchManagerGUI(QWidget):
         # Fallback für get_t falls die Methode nicht existiert
         def _(k, d): return getattr(self, "get_t", lambda x, y: y)(k, d)
 
+        # Sprache sicher ermitteln (Prüft self.lang, self.LANG oder Fallback 'en')
+        current_lang = getattr(self, "lang", getattr(self, "LANG", "en")).lower()
+
         # Texte laden
         T_TITLE = _("patch_dl_title", "Patch Download")
         T_LABEL = _("patch_dl_select", "Wähle einen Patch:")
-        T_WAIT = "🔍 " + _("patch_dl_wait", "Prüfe Versionen...")
+        T_WAIT  = "🔍 " + _("patch_dl_wait", "Prüfe Versionen...")
         T_START = "🌐 " + _("patch_dl_start", "Download: ")
-        T_SAVE = "💾 " + _("patch_dl_save", "Gespeichert: ")
-        T_ERR = "🚨 " + _("error", "Fehler: ")
+        T_SAVE  = "💾 " + _("patch_dl_save", "Gespeichert: ")
+        T_ERR   = "🚨 " + _("error", "Fehler: ")
 
         T_OK = "OK"
-        T_CANCEL = "Abbrechen" if getattr(self, "lang", "en") == "de" else "Cancel"
+        # FIX: Hier wird nun korrekt "Abbrechen" für Deutsch gesetzt
+        T_CANCEL = "Abbrechen" if current_lang == "de" else "Cancel"
 
         self.log(T_WAIT)
 
         # 1. Versionen vorab aus dem Header lesen
         display_items = {}
-        for name, url in ONLINE_PATCHES.items():
+        # Nutzt ONLINE_PATCHES (Sollte global oder als self.ONLINE_PATCHES vorliegen)
+        patch_list = globals().get("ONLINE_PATCHES", getattr(self, "ONLINE_PATCHES", {}))
+        
+        for name, url in patch_list.items():
             try:
-                # Kurzer Timeout, damit die UI bei toten Links nicht einfriert
                 head_res = requests.get(url, headers={"Range": "bytes=0-511"}, timeout=3)
                 v_match = re.search(r"patch version:\s*([\d\.-]+)", head_res.text)
                 version = v_match.group(1) if v_match else "unknown"
@@ -3656,13 +3662,13 @@ class PatchManagerGUI(QWidget):
         if safe_play_func:
             safe_play_func("dialog-information.oga")
 
-        # 2. Auswahlbox
+        # 2. Auswahlbox mit korrekten Button-Texten
         dialog = QInputDialog(self)
         dialog.setWindowTitle(T_TITLE)
         dialog.setLabelText(T_LABEL)
         dialog.setComboBoxItems(list(display_items.keys()))
         dialog.setOkButtonText(T_OK)
-        dialog.setCancelButtonText(T_CANCEL)
+        dialog.setCancelButtonText(T_CANCEL) # Jetzt korrekt lokalisiert
 
         if dialog.exec():
             item = dialog.textValue()
@@ -3675,7 +3681,7 @@ class PatchManagerGUI(QWidget):
                 response.raise_for_status()
 
                 tool_dir = os.path.dirname(os.path.abspath(__file__))
-                # Author-Name säubern für Dateiname
+                # Author-Name säubern
                 author_clean = original_name.split()[0].replace("(", "").lower()
                 file_name = f"{author_clean}_v{version}.patch"
                 local_path = os.path.join(tool_dir, file_name)
@@ -4491,60 +4497,50 @@ class PatchManagerGUI(QWidget):
         from datetime import datetime
         import platform, subprocess, shutil
 
-        timestamp = datetime.now().strftime("%H:%M:%S")  # aktuelle Zeit
+        timestamp = datetime.now().strftime("%H:%M:%S")
 
         # Farben
-        C_TITLE = "#E63946"
-        C_FEATURES = "#F37804"
-        C_GREEN = "#00FF00"
-        C_BLUE = "#00ADFF"
-        C_RED = "#FF0000"
-        C_YELLOW = "#FFFF00"
-        C_GRAY = "#808080"
+        C_TITLE = "#E63946"     # Rot
+        C_FEATURES = "#F37804"  # Orange
+        C_GREEN = "#00FF00"     # Hellgrün
+        C_BLUE = "#00ADFF"      # Hellblau
+        C_RED = "#FF0000"       # Reinrot
+        C_YELLOW = "#FFFF00"    # Gelb
+        C_GRAY = "#808080"      # Grau
 
         def format_line(icon_text, description):
             return f'<span style="color:{C_GREEN};"><b>{icon_text}</b></span> <span style="color:{C_BLUE};"><b>{description}</b></span>'
 
-        # Übersetzungen
+        # Übersetzungen & Features (Inklusive Online Patch)
         if lang == "de":
             title = "OSCam Emu Patch Generator"
             features_label = "Hauptmerkmale:"
-            start_text = "Starte System-Check..."
-            f1 = format_line(
-                "➤ Automatisches Patching:",
-                "Erstellt .patch Dateien direkt vom Streamboard.",
-            )
-            f2 = format_line(
-                "➤ Commit Monitor:", "Echtzeit-Tracking von neuen Änderungen."
-            )
-            f3 = format_line(
-                "➤ Lokalisierung:", "Vollständige Unterstützung für DE/EN."
-            )
-            f4 = format_line("➤ Smart Logging:", "Farblich kodiertes Feedback-System.")
+            start_text = "System-Check aktiv"
+            f1 = format_line("➤ Auto-Patching:", "Erstellt .patch Dateien direkt vom Streamboard.")
+            f2 = format_line("➤ Online-Laden:", "Lädt Emu-Patches direkt von GitHub Quellen.")
+            f3 = format_line("➤ Lokalisierung:", "Vollständige Unterstützung für DE/EN.")
+            f4 = format_line("➤ Smart Logging:", "Farblich kodiertes Echtzeit-Feedback.")
         else:
             title = "OSCam Emu Patch Generator"
             features_label = "Key Features:"
-            start_text = "Starting System Check..."
-            f1 = format_line(
-                "➤ Automated Patching:",
-                "Generates .patch files directly from Streamboard.",
-            )
-            f2 = format_line("➤ Commit Monitor:", "Real-time tracking of new changes.")
+            start_text = "System Check active"
+            f1 = format_line("➤ Auto-Patching:", "Generates .patch files directly from Streamboard.")
+            f2 = format_line("➤ Online Loading:", "Downloads emu patches directly from GitHub.")
             f3 = format_line("➤ Localization:", "Full support for DE/EN.")
-            f4 = format_line("➤ Smart Logging:", "Color-coded feedback system.")
+            f4 = format_line("➤ Smart Logging:", "Color-coded real-time feedback.")
 
-        # Start-Zeile fett, groß, Text orange, Zeit rot
+        # Start-Zeile (Fett, Orange/Rot)
         start_html = f"""
-        <div style="font-size: 28px; line-height:1.3; margin-top:8px; margin-bottom:4px;">
+        <div style="font-size: 24px; line-height:1.3; margin-top:8px; margin-bottom:4px;">
             <b><span style="color:{C_FEATURES};">{start_text} </span>
             <span style="color:{C_RED};">[{timestamp}]</span></b>
         </div>
-        <hr style="color: {C_GRAY}; margin: 2px 0px;">
+        <hr style="color: {C_GRAY}; border: 1px solid #444; margin: 2px 0px;">
        """
 
-        # Footer
+        # Footer (Autor, Version, Lizenz)
         footer_html = f"""
-        <div style="font-size: 24px; margin-top: 2px;">
+        <div style="font-size: 20px; margin-top: 5px;">
             <span style="color:{C_RED};"><b>Autor:</b></span> 
             <span style="color:{C_GREEN};"><b>speedy005</b></span> 
             <span style="color:{C_GRAY};"> | </span>
@@ -4556,13 +4552,13 @@ class PatchManagerGUI(QWidget):
         </div>
         """
 
-        # welcome_html mit zusätzlichem Abstand am Ende (br br)
+        # Komplettes HTML-Paket
         welcome_html = f"""
-        <div style="font-family: 'Segoe UI', Tahoma, sans-serif;">
-            <h2 style="color:{C_TITLE}; margin-top:0px; margin-bottom:0px;">🚀 {title}</h2>
-            <hr style="color: {C_GRAY}; margin: 2px 0px;">
-            <b style="color:{C_FEATURES}; font-size: 24px;">{features_label}</b>
-            <div style="font-size: 24px; line-height: 1.2; margin-top: 2px;">
+        <div style="font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #000000; padding: 10px;">
+            <h2 style="color:{C_TITLE}; margin-top:0px; margin-bottom:0px; font-size: 30px;">🚀 {title}</h2>
+            <hr style="color: {C_GRAY}; border: 1px solid #444; margin: 2px 0px;">
+            <b style="color:{C_FEATURES}; font-size: 22px;">{features_label}</b>
+            <div style="font-size: 22px; line-height: 1.2; margin-top: 4px;">
                 {f1}<br>
                 {f2}<br>
                 {f3}<br>
@@ -4570,44 +4566,37 @@ class PatchManagerGUI(QWidget):
             </div>
             {start_html}
             {footer_html}
-            <br><br>
         </div>
         """
 
         if hasattr(self, "info_text"):
             from PyQt6.QtGui import QTextCursor
-
+            # Cursor ans Ende setzen
             self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+            # Info-Block einfügen
             self.info_text.insertHtml(welcome_html)
-            # Zusätzlicher Block-Abstand für nachfolgende Inhalte
-            self.info_text.insertHtml("<div style='height:20px;'>&nbsp;</div>")
+            # Abstand für nachfolgende System-Checks
+            self.info_text.insertHtml("<div style='margin-top:15px; border-top: 1px dashed #444;'>&nbsp;</div>")
             self.info_text.moveCursor(QTextCursor.MoveOperation.End)
 
         # --- SOUND LOGIK ---
         if globals().get("HAS_SOUND_SUPPORT", False):
-            try:
-                if platform.system() == "Windows":
-                    import winsound
-
-                    winsound.MessageBeep()
-                else:
-                    for cmd in ["paplay", "canberra-gtk-play", "aplay"]:
-                        if shutil.which(cmd):
-                            sound_file = (
-                                "/usr/share/sounds/freedesktop/stereo/service-login.oga"
-                            )
-                            if cmd == "canberra-gtk-play":
-                                subprocess.Popen(
-                                    [cmd, "-i", "service-login"],
-                                    stderr=subprocess.DEVNULL,
-                                )
-                            else:
-                                subprocess.Popen(
-                                    [cmd, sound_file], stderr=subprocess.DEVNULL
-                                )
-                            break
-            except:
-                pass
+            safe_play_func = globals().get("safe_play")
+            if safe_play_func:
+                # Nutzt deine zentrale Sound-Funktion für den Login-Sound
+                safe_play_func("service-login.oga")
+            else:
+                # Fallback auf alte Methode falls safe_play nicht verfügbar
+                try:
+                    if platform.system() == "Windows":
+                        import winsound
+                        winsound.MessageBeep()
+                    else:
+                        for cmd in ["paplay", "canberra-gtk-play", "aplay"]:
+                            if shutil.which(cmd):
+                                subprocess.Popen([cmd, "/usr/share/sounds/freedesktop/stereo/service-login.oga"], stderr=subprocess.DEVNULL)
+                                break
+                except: pass
 
     def display_startup_info(self):
         """Bündelt alle Startinfos in der gewünschten Reihenfolge."""
@@ -6792,7 +6781,7 @@ class PatchManagerGUI(QWidget):
     def run_full_system_check(self, clear_log=False):
         """
         Vollständiger System-Check (Deutsch & Englisch vollständig lokalisiert).
-        Layout: Abstand -> Trennlinie -> Abstand -> Sprache.
+        Layout: Abstand -> Trennlinie -> Abstand -> Sprache -> Tools -> Netzwerk -> Patches.
         """
         if getattr(self, "_checking_active", False):
             return
@@ -6800,24 +6789,14 @@ class PatchManagerGUI(QWidget):
 
         try:
             import shutil, platform, socket, importlib.util, os, subprocess, requests
-            from datetime import datetime
-            from PyQt6.QtWidgets import QApplication, QMessageBox
+            from PyQt6.QtWidgets import QApplication
             from PyQt6.QtGui import QTextCursor
-            from PyQt6.QtCore import QTimer
 
             # --- STYLE KONFIGURATION ---
             SZ_NORM = "21px"
             F_MONO = "'Consolas', 'Courier New', monospace"
-            F_EMOJI = (
-                "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
-            )
-            C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = (
-                "#00FF00",
-                "#00ADFF",
-                "#FFFF00",
-                "#FF0000",
-                "#808080",
-            )
+            F_EMOJI = "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
+            C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = ("#00FF00", "#00ADFF", "#FFFF00", "#FF0000", "#808080")
 
             widget = getattr(self, "info_text", None)
             if widget:
@@ -6826,13 +6805,11 @@ class PatchManagerGUI(QWidget):
                 QApplication.processEvents()
 
             lang = getattr(self, "LANG", "de").lower()
+            is_de = lang == "de"
             output = []
 
-            # Lokalisierungshilfe
-            is_de = lang == "de"
-
             def make_row(icon, label, status, label_col, status_col):
-                padded_label = label.ljust(10).replace(" ", "&nbsp;")
+                padded_label = label.ljust(12).replace(" ", "&nbsp;")
                 return (
                     f'<div style="line-height:1.2;">'
                     f'<span style="font-family:{F_EMOJI}; font-size:{SZ_NORM};"> {icon} </span>'
@@ -6840,109 +6817,41 @@ class PatchManagerGUI(QWidget):
                     f'<span style="font-family:{F_MONO}; font-size:{SZ_NORM}; color:{status_col}"><b>{status}</b></span></div>'
                 )
 
-            # --- 1. ABSTAND VOR DER LINIE ---
+            # --- 1. LAYOUT (TRENNER) ---
             output.append("<div style='height:20px;'></div>")
-
-            # --- 2. TRENNLINIE ---
-            output.append(
-                f'<div style="line-height:1.0; color:{C_LINE}; margin-bottom:5px;">{"-" * 54}</div>'
-            )
-
-            # --- 3. ABSTAND ---
+            output.append(f'<div style="line-height:1.0; color:{C_LINE}; margin-bottom:5px;">{"-" * 54}</div>')
             output.append("<div style='height:30px;'></div>")
 
-            # --- 4. BLOCK 0: SPRACHE ---
+            # --- 2. BLOCK 0: SPRACHE ---
             lang_icon, lang_label = ("🇩🇪", "Sprache") if is_de else ("🇬🇧", "Language")
-            output.append(
-                make_row(
-                    lang_icon,
-                    lang_label,
-                    "Deutsch" if is_de else "English",
-                    C_GREEN,
-                    C_BLUE,
-                )
-            )
+            output.append(make_row(lang_icon, lang_label, "Deutsch" if is_de else "English", C_GREEN, C_BLUE))
 
-            # --- 5. TOOLS & PAKETE ---
+            # --- 3. TOOLS & PAKETE ---
             status_missing = "FEHLT" if is_de else "MISSING"
-
-            for name in ["git"] + (
-                ["patch", "zip"] if platform.system() != "Windows" else []
-            ):
+            for name in ["git"] + (["patch", "zip"] if platform.system() != "Windows" else []):
                 found = shutil.which(name)
-                output.append(
-                    make_row(
-                        "✅" if found else "❌",
-                        name.capitalize(),
-                        "OK" if found else status_missing,
-                        C_GREEN if found else C_RED,
-                        C_BLUE,
-                    )
-                )
+                output.append(make_row("✅" if found else "❌", name.capitalize(), "OK" if found else status_missing, C_GREEN if found else C_RED, C_BLUE))
 
-            for pkg_id, n_de, n_en in [
-                ("PyQt6", "PyQt6", "PyQt6"),
-                ("requests", "Anfragen", "Requests"),
-            ]:
+            for pkg_id, n_de, n_en in [("PyQt6", "PyQt6", "PyQt6"), ("requests", "Anfragen", "Requests")]:
                 found = importlib.util.find_spec(pkg_id) is not None
-                output.append(
-                    make_row(
-                        "📦" if found else "❌",
-                        n_de if is_de else n_en,
-                        "OK" if found else status_missing,
-                        C_GREEN if found else C_RED,
-                        C_BLUE,
-                    )
-                )
+                output.append(make_row("📦" if found else "❌", n_de if is_de else n_en, "OK" if found else status_missing, C_GREEN if found else C_RED, C_BLUE))
 
-            # --- 6. SOUND & FONT ---
+            # --- 4. SOUND & FONT ---
             is_sound = globals().get("HAS_SOUND_SUPPORT", False)
-            sound_stat = (
-                ("Aktiv" if is_sound else "Inaktiv")
-                if is_de
-                else ("Active" if is_sound else "Inactive")
-            )
-            output.append(
-                make_row(
-                    "🔊" if is_sound else "🔇",
-                    "Sound",
-                    sound_stat,
-                    C_GREEN if is_sound else C_YELLOW,
-                    C_BLUE,
-                )
-            )
+            sound_stat = (("Aktiv" if is_sound else "Inaktiv") if is_de else ("Active" if is_sound else "Inactive"))
+            output.append(make_row("🔊" if is_sound else "🔇", "Sound", sound_stat, C_GREEN if is_sound else C_YELLOW, C_BLUE))
 
             has_emoji_font = True
             try:
                 if platform.system() == "Windows":
-                    font_path = os.path.join(
-                        os.environ.get("WINDIR", "C:\\Windows"),
-                        "Fonts",
-                        "NotoColorEmoji.ttf",
-                    )
-                    has_emoji_font = os.path.exists(
-                        font_path
-                    ) or platform.release() in ["10", "11"]
-            except:
-                pass
+                    font_path = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "NotoColorEmoji.ttf")
+                    has_emoji_font = os.path.exists(font_path) or platform.release() in ["10", "11"]
+            except: pass
+            output.append(make_row("🎨" if has_emoji_font else "⚠️", "Schrift" if is_de else "Font", "OK" if has_emoji_font else status_missing, C_GREEN if has_emoji_font else C_YELLOW, C_BLUE))
 
-            f_label = "Schrift" if is_de else "Font"
-            f_stat = "OK" if has_emoji_font else ("FEHLT" if is_de else "MISSING")
-            output.append(
-                make_row(
-                    "🎨" if has_emoji_font else "⚠️",
-                    f_label,
-                    f_stat,
-                    C_GREEN if has_emoji_font else C_YELLOW,
-                    C_BLUE,
-                )
-            )
-
-            # --- 7. NETZWERK & REPOS ---
-            output.append(
-                f'<div style="line-height:1.0; color:{C_LINE}; margin: 10px 0;">{"." * 45}</div>'
-            )
-
+             #--- 5. NETZWERK & PATCH-SYSTEM ---
+            output.append(f'<div style="line-height:1.0; color:{C_LINE}; margin: 10px 0;">{"." * 45}</div>')
+            
             is_online = False
             net_label = "Netzwerk" if is_de else "Network"
             try:
@@ -6953,6 +6862,22 @@ class PatchManagerGUI(QWidget):
                 output.append(make_row("🚫", net_label, "Offline", C_RED, C_RED))
 
             if is_online:
+                # --- PATCH-DOWNLOADER CHECK MIT ANZAHL ---
+                p_label = "Patches Online"
+                # Sucht die Patch-Datenbank in globals oder self
+                patch_db = globals().get("ONLINE_PATCHES") or getattr(self, "ONLINE_PATCHES", {})
+                count = len(patch_db) if patch_db else 0
+                
+                if count > 0:
+                    p_stat = f"Bereit ({count})" if is_de else f"Ready ({count})"
+                    p_col = C_GREEN
+                else:
+                    p_stat = "Leer" if is_de else "Empty"
+                    p_col = C_YELLOW
+                
+                output.append(make_row("🛠️", p_label, p_stat, p_col, C_BLUE))
+
+                # Repository Checks (kurz und bündig)
                 repos = [
                     ("📡", "Streamboard", "https://git.streamboard.tv/common/oscam"),
                     ("🐙", "Emu Mirror", "https://github.com/oscam-mirror/oscam-emu"),
@@ -6960,18 +6885,11 @@ class PatchManagerGUI(QWidget):
                 ]
                 for icon, r_name, url in repos:
                     try:
+                        # Benutze head() für Schnelligkeit
                         r = requests.head(url, timeout=3, allow_redirects=True)
                         status_ok = r.status_code < 400
                         stat_text = "Online" if status_ok else (f"Err {r.status_code}")
-                        output.append(
-                            make_row(
-                                icon,
-                                r_name,
-                                stat_text,
-                                C_GREEN if status_ok else C_RED,
-                                C_BLUE,
-                            )
-                        )
+                        output.append(make_row(icon, r_name, stat_text, C_GREEN if status_ok else C_RED, C_BLUE))
                     except:
                         output.append(make_row(icon, r_name, "Timeout", C_RED, C_BLUE))
 
@@ -6985,28 +6903,19 @@ class PatchManagerGUI(QWidget):
                 try:
                     if platform.system() == "Windows":
                         import winsound
-
                         winsound.MessageBeep()
                     else:
                         for cmd in ["paplay", "canberra-gtk-play", "aplay"]:
                             if shutil.which(cmd):
-                                subprocess.Popen(
-                                    [
-                                        cmd,
-                                        "/usr/share/sounds/freedesktop/stereo/dialog-information.oga",
-                                    ],
-                                    stderr=subprocess.DEVNULL,
-                                )
+                                subprocess.Popen([cmd, "/usr/share/sounds/freedesktop/stereo/dialog-information.oga"], stderr=subprocess.DEVNULL)
                                 break
-                except:
-                    pass
+                except: pass
 
         except Exception as e:
             if widget:
-                widget.insertHtml(f"<br><b style='color:{C_RED}'>Error: {e}</b>")
+                widget.insertHtml(f"<br><b style='color:red;'>Check Error: {str(e)}</b>")
         finally:
             self._checking_active = False
-            QApplication.processEvents()
 
         # =====================
         # INIT UI
@@ -8618,13 +8527,42 @@ class PatchManagerGUI(QWidget):
     def change_language(self):
         """
         Zentrale Steuerung für den Sprachwechsel.
-        Optimiert: Logout-Sound -> UI Update -> Welcome Info -> System-Check.
-        Inklusive Support für den Online-Patch-Button.
+        Optimiert: Logout-Sound -> UI Update -> Progress-Status (Farbe & Text) -> Welcome Info -> System-Check.
         """
         if not hasattr(self, "language_box"):
             return
 
-        # --- NEU: SOFORTIGER BEENDEN-SOUND (LOGOUT-EFFEKT) ---
+        # 1. SPRACHE ERMITTELN
+        selected = self.language_box.currentText().upper()
+        self.LANG = "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
+
+        # --- A) PROGRESSBAR INITIALISIEREN & DESIGN SPEICHERN ---
+        # Dein Standard-Design (Orange-Gold)
+        self.default_pb_style = """
+            QProgressBar {
+                border: 1px solid #444;
+                border-radius: 8px;
+                background-color: #1A1A1A;
+                color: white;
+                text-align: center;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                                  stop:0 #F37804, stop:1 #FFD700);
+                border-radius: 8px;
+            }
+        """
+        # Erfolgs-Design (Smaragd-Grün)
+        self.success_pb_style = self.default_pb_style.replace("#F37804", "#2ecc71").replace("#FFD700", "#27ae60")
+
+        if hasattr(self, "progress_bar"):
+            self.progress_bar.setStyleSheet(self.default_pb_style)
+            self.progress_bar.setValue(10)
+            p_msg = "Sprache wird angepasst..." if self.LANG == "de" else "Adjusting language..."
+            self.progress_bar.setFormat(f"⏳ {p_msg} %p%")
+
+        # --- B) SOUND-EFFEKT (LOGOUT) ---
         safe_play_func = globals().get("safe_play")
         if safe_play_func:
             safe_play_func("service-logout.oga")
@@ -8633,24 +8571,18 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtCore import QTimer
         import re
 
-        # Hilfsfunktion: Entfernt Emojis/Symbole am Anfang eines Strings
         def strip_icons(text):
             return re.sub(r"^[^\w\s]+", "", str(text)).strip()
 
-        # 1. SPRACHE ERMITTELN & SETZEN
-        selected = self.language_box.currentText().upper()
-        self.LANG = (
-            "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
-        )
-
-        # 1.5 FLAGGEN-ANIMATION TRIGGERN
+        # 1.5 ANIMATION & TEXT-RESOURCEN
         if hasattr(self, "show_language_animation"):
             self.show_language_animation(self.LANG)
 
-        # self.TEXT aktualisieren
         all_texts = globals().get("TEXTS", {})
         self.TEXT = all_texts.get(self.LANG, {})
         lang_dict = self.TEXT
+
+        if hasattr(self, "progress_bar"): self.progress_bar.setValue(30)
 
         # 2. KONFIGURATION SPEICHERN
         if hasattr(self, "cfg"):
@@ -8663,162 +8595,89 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "update_language"):
             self.update_language()
 
-        # --- A) HEADER TITEL ---
+        # --- C) HEADER & STATUS ---
         if hasattr(self, "header_label"):
-            new_title = lang_dict.get(
-                "settings_header", "Settings" if self.LANG == "en" else "Einstellungen"
-            )
+            new_title = lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen")
             self.header_label.setText(f" {strip_icons(new_title)}")
 
-        # --- B) STATUS LABEL ---
-        if hasattr(self, "status_label") and self.status_label.text() != "":
-            curr_status = self.status_label.text()
-            if any(x in curr_status for x in ["✅", "🚀", "aktuell", "up to date"]):
-                old_rev = getattr(self, "current_rev", "11943")
-                last_remote = getattr(self, "last_remote_rev", old_rev)
-                if hasattr(self, "on_update_check_finished"):
-                    try:
-                        is_upd = int(last_remote) > int(old_rev)
-                        self.on_update_check_finished(is_upd, last_remote)
-                    except:
-                        pass
-
-        # --- C) LABELS & FORMULAR-TEXTE ---
-        labels_map = {
-            "lang_label": "language_label",
-            "color_label": "color_label",
-            "commit_label": "commit_count_label",
-        }
+        # --- D) LABELS & GROUPBOXEN ---
+        labels_map = {"lang_label": "language_label", "color_label": "color_label", "commit_label": "commit_count_label"}
         for attr, key in labels_map.items():
             if hasattr(self, attr):
                 default = "Language:" if self.LANG == "en" else "Sprache:"
-                if key == "color_label":
-                    default = "Style:" if self.LANG == "en" else "Farbe:"
+                if key == "color_label": default = "Style:" if self.LANG == "en" else "Farbe:"
                 getattr(self, attr).setText(lang_dict.get(key, default))
 
-        # --- D) GROUPBOXEN ---
         for box in self.findChildren(QGroupBox):
             title = box.title()
             if any(word in title for word in ["Einstellungen", "Settings"]):
-                box.setTitle(
-                    lang_dict.get(
-                        "settings_header",
-                        "Settings" if self.LANG == "en" else "Einstellungen",
-                    )
-                )
-            elif any(
-                word in title for word in ["GitHub", "Configuration", "Konfiguration"]
-            ):
-                box.setTitle(
-                    lang_dict.get(
-                        "github_config_header",
-                        (
-                            "GitHub Configuration"
-                            if self.LANG == "en"
-                            else "GitHub Konfiguration"
-                        ),
-                    )
-                )
+                box.setTitle(lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen"))
+            elif any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
+                box.setTitle(lang_dict.get("github_config_header", "GitHub Configuration" if self.LANG == "en" else "GitHub Konfiguration"))
 
-        # --- E) BUTTONS & TOOLTIPS ---
+        if hasattr(self, "progress_bar"): self.progress_bar.setValue(60)
+
+        # --- E) BUTTONS ---
         if hasattr(self, "btn_modifier"):
-            label = strip_icons(
-                lang_dict.get(
-                    "modifier_button_text",
-                    "Patch Author" if self.LANG == "en" else "Patch Autor",
-                )
-            )
+            label = strip_icons(lang_dict.get("modifier_button_text", "Patch Author" if self.LANG == "en" else "Patch Autor"))
             self.btn_modifier.setText(f"👤 {label}")
-            prefix = lang_dict.get(
-                "modifier_tooltip_prefix", "Author:" if self.LANG == "en" else "Autor:"
-            )
-            self.btn_modifier.setToolTip(
-                f"{prefix} {getattr(self, 'patch_modifier', 'speedy005')}"
-            )
 
-        if hasattr(self, "btn_check_tools"):
-            label = strip_icons(
-                lang_dict.get(
-                    "check_tools_button",
-                    "Check Tools" if self.LANG == "en" else "Tools prüfen",
-                )
-            )
-            self.btn_check_tools.setText(f"🛠️ {label}")
-
-        # --- NEU: PATCH ONLINE LADEN BUTTON ---
         if hasattr(self, "btn_patch_online"):
-            patch_label = strip_icons(
-                lang_dict.get(
-                    "patch_online_download",
-                    "Patch Online" if self.LANG == "de" else "Load Patch"
-                )
-            )
+            patch_label = strip_icons(lang_dict.get("patch_online_download", "Patch Online" if self.LANG == "de" else "Load Patch"))
             self.btn_patch_online.setText(f"🌐 {patch_label}")
-            
-            # Tooltip für Online Patch
-            patch_tip = (
-                "Läd den Emu-Patch vom GitHub Server" if self.LANG == "de"
-                else "Downloads the emu patch from GitHub server"
-            )
-            self.btn_patch_online.setToolTip(patch_tip)
+            self.btn_patch_online.setToolTip("Läd den Emu-Patch vom GitHub Server" if self.LANG == "de" else "Downloads the emu patch from GitHub server")
 
-        # --- F) LEDs TOOLTIPS ---
-        if hasattr(self, "status_leds") and self.status_leds:
-            for led in self.status_leds:
-                if hasattr(led, "tool_exists") and hasattr(led, "tool_name"):
-                    status = (
-                        lang_dict.get("found", "OK")
-                        if led.tool_exists
-                        else lang_dict.get("missing", "FEHLT")
-                    )
-                    hint = (
-                        " (Click for Help)"
-                        if self.LANG == "en"
-                        else " (Klick für Hilfe)"
-                    )
-                    led.setToolTip(f"{led.tool_name.upper()}: {status}{hint}")
-
-        # 4. UI REFRESH & INFO-SOUND (LOGIN-EFFEKT)
+        # 4. UI REFRESH & INFO-SOUND
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
         if safe_play_func:
             QTimer.singleShot(200, lambda: safe_play_func("dialog-information.oga"))
 
-        # 5. LOG-BEREICH RADIKAL REINIGEN & VORBEREITEN
+        # 5. LOG-BEREICH VORBEREITEN
         if hasattr(self, "info_text") and self.info_text:
-            self._checking_active = False  # Blockade lösen
+            self._checking_active = False
             self.info_text.clear()
-            wait_msg = (
-                "System-Check wird neu gestartet..."
-                if self.LANG == "de"
-                else "Restarting system check..."
-            )
-            self.info_text.setHtml(
-                f"<div style='margin-top:10px; color:#F37804; font-size:20px; font-family:sans-serif;'><b>⏳ {wait_msg}</b></div>"
-            )
+            wait_msg = "System-Check wird neu gestartet..." if self.LANG == "de" else "Restarting system check..."
+            self.info_text.setHtml(f"<div style='margin-top:10px; color:#F37804; font-size:20px; font-family:sans-serif;'><b>⏳ {wait_msg}</b></div>")
 
         QApplication.processEvents()
 
-        # 6. KOMPLETTE NEUSTART-SEQUENZ (WELCOME + CHECK)
+        # 6. KOMPLETTE NEUSTART-SEQUENZ
         def restart_sequence():
+            if hasattr(self, "progress_bar"):
+                self.progress_bar.setValue(85)
+                mid_msg = "Initialisiere..." if self.LANG == "de" else "Initializing..."
+                self.progress_bar.setFormat(f"⚙️ {mid_msg} %p%")
+
             if hasattr(self, "info_text") and self.info_text:
-                self.info_text.clear()  # Warte-Meldung löschen
+                self.info_text.clear()
 
-            # Zuerst Welcome Info (Header, Features, Footer)
-            if hasattr(self, "show_welcome_info"):
-                self.show_welcome_info()
+            # Welcome & Check ausführen
+            if hasattr(self, "show_welcome_info"): self.show_welcome_info()
+            if hasattr(self, "run_full_system_check"): self.run_full_system_check(clear_log=False)
 
-            # Danach den Check (Sprache, Tools, Repos)
-            if hasattr(self, "run_full_system_check"):
-                # clear_log=False damit Welcome-Teil oben stehen bleibt
-                self.run_full_system_check(clear_log=False)
+            # --- ABSCHLUSS-EFFEKT: GRÜN AUFLEUCHTEN ---
+            if hasattr(self, "progress_bar"):
+                self.progress_bar.setValue(100)
+                final_msg = "System bereit" if self.LANG == "de" else "System ready"
+                self.progress_bar.setFormat(f"✅ {final_msg} - %p%")
+                
+                # Auf Erfolgs-Design (Grün) umschalten
+                self.progress_bar.setStyleSheet(self.success_pb_style)
+                
+                # Nach 3 Sekunden: Reset auf Standard-Look und Text löschen
+                QTimer.singleShot(3000, lambda: [
+                    self.progress_bar.setStyleSheet(self.default_pb_style),
+                    self.progress_bar.setFormat("%p%")
+                ])
 
-        # Delay für sauberen Übergang
+        # Start der Sequenz mit leichtem Delay
         QTimer.singleShot(800, restart_sequence)
 
         if self.layout():
             self.layout().activate()
+
 
     # =====================
     # GITHUB EMU CREDENTIALS
