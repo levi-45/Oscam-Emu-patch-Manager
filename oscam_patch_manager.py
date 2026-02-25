@@ -278,7 +278,6 @@ def check_and_install_dependencies(required_packages):
 # ===================== GLOBALE SOUND-SICHERHEIT=====================
 HAS_PAPLAY = shutil.which("paplay") is not None
 
-
 def safe_play(sound_name):
     """Spielt Sounds nur ab, wenn paplay existiert, sonst Beep."""
     if platform.system() == "Linux":
@@ -299,7 +298,6 @@ def safe_play(sound_name):
     from PyQt6.QtWidgets import QApplication
 
     QApplication.beep()
-
 
 # ===================== VERSION HANDLING =====================
 try:
@@ -330,7 +328,6 @@ except (ImportError, ModuleNotFoundError):
     class InvalidVersion(Exception):
         pass
 
-
 # ===================== ENV SETUP =====================
 # Git Fehler unterdrücken
 if platform.system() == "Windows":
@@ -350,15 +347,12 @@ def ensure_executable_self():
     except Exception as e:
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
-
 # ===================== ZEIT =====================
 now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.1.2"
-
-
+APP_VERSION = "3.1.3"
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -3545,6 +3539,8 @@ class PatchManagerGUI(QWidget):
         if not hasattr(self, "user_leds") or not self.user_leds:
             return
 
+        # Blink-Status umschalten
+        self._blink_state = getattr(self, "_blink_state", False)
         self._blink_state = not self._blink_state
 
         # 1️⃣ Theme-Check
@@ -3568,9 +3564,104 @@ class PatchManagerGUI(QWidget):
             except:
                 continue
 
+    def _play_sys_sound(self, sound_type="standard"):
+        """Spielt System-Sounds für Windows und Linux ohne externe Dateien."""
+        import platform, subprocess, shutil
+
+        try:
+            if platform.system() == "Windows":
+                import winsound
+
+                # Asterisk für Standard, Exclamation für Web/Aktion
+                alias = (
+                    "SystemAsterisk"
+                    if sound_type == "standard"
+                    else "SystemExclamation"
+                )
+                winsound.PlaySound(alias, winsound.SND_ALIAS | winsound.SND_ASYNC)
+            else:
+                # Linux Freedesktop Standards
+                snd = (
+                    "button-pressed.oga"
+                    if sound_type == "standard"
+                    else "dialog-information.oga"
+                )
+                for cmd in ["paplay", "canberra-gtk-play", "aplay"]:
+                    if shutil.which(cmd):
+                        path = f"/usr/share/sounds/freedesktop/stereo/{snd}"
+                        subprocess.Popen([cmd, path], stderr=subprocess.DEVNULL)
+                        break
+        except:
+            pass
+
+    def init_button_signals(self):
+        """Verknüpft Logik und Sound EINMALIG für alle Buttons."""
+        import os, platform, subprocess
+
+        # --- A) INTERNE FUNKTIONS-BUTTONS (Standard Sound) ---
+        standard_map = {
+            "btn_check_tools": self.run_full_system_check,
+            "btn_open_work": lambda: (
+                os.startfile(os.getcwd())
+                if platform.system() == "Windows"
+                else subprocess.run(["xdg-open", "."])
+            ),
+            "btn_open_temp": self.open_temp_folder,
+            "restart_tool_button": self.restart_app,
+            "clean_emu_button": self.clean_emu_data,
+            "patch_emu_git_button": self.run_patch_process,
+            "plugin_update_button": self.check_for_updates,
+            "btn_check_commit": getattr(
+                self, "check_oscam_commit", lambda: None
+            ),  # Falls vorhanden
+            "commits_button": getattr(
+                self, "show_commit_log", lambda: None
+            ),  # Falls vorhanden
+        }
+
+        for btn_name, func in standard_map.items():
+            btn = getattr(self, btn_name, None)
+            if btn:
+                # WICHTIG: Alte Signale trennen, falls init mehrfach gerufen wird
+                try:
+                    btn.clicked.disconnect()
+                except:
+                    pass
+
+                btn.clicked.connect(func)
+                # FIX: Das 's="standard"' friert den Wert für das lambda ein!
+                btn.clicked.connect(
+                    lambda checked, s="standard": self._play_sys_sound(s)
+                )
+
+        # --- B) WEB / REPOSITORY BUTTONS (Web Sound) ---
+        web_map = {
+            "btn_repo_url": self.open_streamboard_url,
+            "github_upload_patch_button": self.open_github_upload,
+            "btn_open_emu": self.open_emu_mirror_url,
+        }
+
+        for btn_name, func in web_map.items():
+            btn = getattr(self, btn_name, None)
+            if btn:
+                try:
+                    btn.clicked.disconnect()
+                except:
+                    pass
+
+                btn.clicked.connect(func)
+                # FIX: Das 's="web"' friert den Wert ein!
+                btn.clicked.connect(lambda checked, s="web": self._play_sys_sound(s))
+
     def setup_online_patch_ui(self, parent_layout):
         """Erstellt die UI für den Online-Download inklusive Sound-Feedback."""
-        from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QComboBox, QPushButton, QLabel
+        from PyQt6.QtWidgets import (
+            QGroupBox,
+            QVBoxLayout,
+            QComboBox,
+            QPushButton,
+            QLabel,
+        )
         import locale
 
         # Spracherkennung
@@ -3579,7 +3670,7 @@ class PatchManagerGUI(QWidget):
             lang = loc[:2].lower()
         except:
             lang = "en"
-        self.lang = lang # Speichern für handle_online_patch_button
+        self.lang = lang  # Speichern für handle_online_patch_button
 
         # Lokalisierung
         if lang == "de":
@@ -3604,7 +3695,7 @@ class PatchManagerGUI(QWidget):
         self.btn_online.setStyleSheet(
             "font-weight: bold; background-color: #2c3e50; color: white;"
         )
-        
+
         # FIX: Hier wurde der Funktionsname korrigiert von download_and_apply... zu handle_online_patch_button
         self.btn_online.clicked.connect(self.handle_online_patch_button)
 
@@ -3625,33 +3716,42 @@ class PatchManagerGUI(QWidget):
         import os, requests, re
 
         # Fallback für get_t falls die Methode nicht existiert
-        def _(k, d): return getattr(self, "get_t", lambda x, y: y)(k, d)
+        def _(k, d):
+            return getattr(self, "get_t", lambda x, y: y)(k, d)
 
-        # Sprache sicher ermitteln (Prüft self.lang, self.LANG oder Fallback 'en')
+        # Sprache sicher ermitteln
         current_lang = getattr(self, "lang", getattr(self, "LANG", "en")).lower()
+        is_de = current_lang == "de"
 
         # Texte laden
         T_TITLE = _("patch_dl_title", "Patch Download")
         T_LABEL = _("patch_dl_select", "Wähle einen Patch:")
-        T_WAIT  = "🔍 " + _("patch_dl_wait", "Prüfe Versionen...")
+        T_WAIT = "🔍 " + _("patch_dl_wait", "Prüfe Versionen...")
         T_START = "🌐 " + _("patch_dl_start", "Download: ")
-        T_SAVE  = "💾 " + _("patch_dl_save", "Gespeichert: ")
-        T_ERR   = "🚨 " + _("error", "Fehler: ")
+        T_SAVE = "💾 " + _("patch_dl_save", "Gespeichert: ")
+        T_ERR = "🚨 " + _("error", "Fehler: ")
 
+        # Button Texte
         T_OK = "OK"
-        # FIX: Hier wird nun korrekt "Abbrechen" für Deutsch gesetzt
-        T_CANCEL = "Abbrechen" if current_lang == "de" else "Cancel"
+        T_CANCEL = "Abbrechen" if is_de else "Cancel"
+
+        # MessageBox Titel/Texte
+        MB_OK_TITLE = "Download erfolgreich" if is_de else "Download OK"
+        MB_ERR_TITLE = "Fehler" if is_de else "Error"
 
         self.log(T_WAIT)
 
         # 1. Versionen vorab aus dem Header lesen
         display_items = {}
-        # Nutzt ONLINE_PATCHES (Sollte global oder als self.ONLINE_PATCHES vorliegen)
-        patch_list = globals().get("ONLINE_PATCHES", getattr(self, "ONLINE_PATCHES", {}))
-        
+        patch_list = globals().get(
+            "ONLINE_PATCHES", getattr(self, "ONLINE_PATCHES", {})
+        )
+
         for name, url in patch_list.items():
             try:
-                head_res = requests.get(url, headers={"Range": "bytes=0-511"}, timeout=3)
+                head_res = requests.get(
+                    url, headers={"Range": "bytes=0-511"}, timeout=3
+                )
                 v_match = re.search(r"patch version:\s*([\d\.-]+)", head_res.text)
                 version = v_match.group(1) if v_match else "unknown"
                 display_items[f"{name} [{version}]"] = (url, version, name)
@@ -3662,13 +3762,13 @@ class PatchManagerGUI(QWidget):
         if safe_play_func:
             safe_play_func("dialog-information.oga")
 
-        # 2. Auswahlbox mit korrekten Button-Texten
+        # 2. Auswahlbox
         dialog = QInputDialog(self)
         dialog.setWindowTitle(T_TITLE)
         dialog.setLabelText(T_LABEL)
         dialog.setComboBoxItems(list(display_items.keys()))
         dialog.setOkButtonText(T_OK)
-        dialog.setCancelButtonText(T_CANCEL) # Jetzt korrekt lokalisiert
+        dialog.setCancelButtonText(T_CANCEL)
 
         if dialog.exec():
             item = dialog.textValue()
@@ -3694,13 +3794,13 @@ class PatchManagerGUI(QWidget):
                 if safe_play_func:
                     safe_play_func("complete.oga")
 
-                QMessageBox.information(self, "Download OK", f"{T_SAVE}\n{local_path}")
+                QMessageBox.information(self, MB_OK_TITLE, f"{T_SAVE}\n{local_path}")
 
             except Exception as e:
                 self.log(f"{T_ERR}{str(e)}")
                 if safe_play_func:
                     safe_play_func("dialog-error.oga")
-                QMessageBox.critical(self, "Error", f"{T_ERR}\n{e}")
+                QMessageBox.critical(self, MB_ERR_TITLE, f"{T_ERR}\n{e}")
 
     def run_patch_process(self, patch_data, is_dry_run=True):
         """Führt den Patch-Befehl per Pipe aus (Simulation oder echt)."""
@@ -3982,41 +4082,48 @@ class PatchManagerGUI(QWidget):
         self.lbl_speed_val.setStyleSheet(style)
 
     def force_leds_static(self):
-        """Setzt die LEDs auf einen statischen Zustand ohne Absturzrisiko."""
-        # 1. Sicherheitscheck: Sind LEDs überhaupt schon da?
+        """Kombinierte LED-Steuerung: Setzt Status-Farben und Design-Stile ohne Blinken."""
+        # 1. Sicherheitscheck
         if not hasattr(self, "status_leds") or not self.status_leds:
             return
 
-        # 2. Sicherheitscheck: Existiert der Button schon?
-        # Wenn nicht, nehmen wir den Wert direkt aus der Config
+        # 2. Design-Modus ermitteln (Matrix oder Standard)
         is_matrix = False
-        if self.btn_matrix is not None:
-            try:
+        try:
+            # Prüft erst den Button-Text, falls vorhanden, sonst die Config
+            if hasattr(self, "btn_matrix") and self.btn_matrix:
                 is_matrix = "EXIT" in self.btn_matrix.text()
-            except:
-                is_matrix = self.current_config.get("theme_mode") == "matrix"
-        else:
-            is_matrix = self.current_config.get("theme_mode") == "matrix"
+            else:
+                is_matrix = self.cfg.get("theme_mode") == "matrix"
+        except:
+            is_matrix = False
 
-        # 3. Farbe setzen
-        color = "#00FF41" if is_matrix else "cyan"
+        # 3. LEDs aktualisieren
         for led in self.status_leds:
             try:
+                led.show()  # Sicherstellen, dass sie sichtbar sind
+
+                # Tool-Status ermitteln (Grün wenn vorhanden, sonst Rot)
+                exists = getattr(led, "tool_exists", False)
+
+                if is_matrix:
+                    # Im Matrix-Modus: Hellgrün für OK, Dunkelgrün/Grau für Fehlend
+                    color = "#00FF41" if exists else "#003311"
+                    border = "1px solid #00FF41"
+                else:
+                    # Im Standard-Modus: Kräftiges Rot/Grün
+                    color = "#27ae60" if exists else "#c0392b"
+                    border = "2px solid #555"
+
                 led.setStyleSheet(
-                    f"background-color: {color}; border-radius: 5px; border: 1px solid #666;"
+                    f"""
+                    background-color: {color}; 
+                    border-radius: 6px; 
+                    border: {border};
+                """
                 )
             except:
                 continue
-
-    def animate_status_bar(self):
-        """Lässt das Status-Label blinken oder animiert es."""
-        if hasattr(self, "status_label"):
-            # Beispiel: Einfaches Blinken
-            current_style = self.status_label.styleSheet()
-            if "opacity: 1" in current_style or not current_style:
-                self.status_label.setStyleSheet("color: yellow; opacity: 0.5;")
-            else:
-                self.status_label.setStyleSheet("color: white; opacity: 1;")
 
     def load_config_from_file(self):
         if os.path.exists(CONFIG_FILE):
@@ -4077,17 +4184,6 @@ class PatchManagerGUI(QWidget):
         """System-LEDs immer statisch lassen"""
         for led in getattr(self, "status_leds", []):
             led.setStyleSheet("background-color: green; border-radius: 4px;")
-
-    def force_leds_static(self):
-        """Setzt alle LEDs sofort auf ihren dauerhaften Status (kein Blinken)."""
-        if hasattr(self, "status_leds"):
-            for led in self.status_leds:
-                led.show()  # Sicherstellen, dass sie sichtbar sind
-                # Farbe basierend auf dem Tool-Status wiederherstellen
-                color = "#27ae60" if getattr(led, "tool_exists", False) else "#c0392b"
-                led.setStyleSheet(
-                    f"background-color: {color}; border-radius: 8px; border: 2px solid #555;"
-                )
 
     def get_matrix_style(self):
         return """
@@ -4500,13 +4596,13 @@ class PatchManagerGUI(QWidget):
         timestamp = datetime.now().strftime("%H:%M:%S")
 
         # Farben
-        C_TITLE = "#E63946"     # Rot
-        C_FEATURES = "#F37804"  # Orange
-        C_GREEN = "#00FF00"     # Hellgrün
-        C_BLUE = "#00ADFF"      # Hellblau
-        C_RED = "#FF0000"       # Reinrot
-        C_YELLOW = "#FFFF00"    # Gelb
-        C_GRAY = "#808080"      # Grau
+        C_TITLE = "#FF0419"  # Rot
+        C_FEATURES = "#F57A08"  # Orange
+        C_GREEN = "#00FF00"  # Hellgrün
+        C_BLUE = "#00ADFF"  # Hellblau
+        C_RED = "#FF0000"  # Reinrot
+        C_YELLOW = "#FFFF00"  # Gelb
+        C_GRAY = "#06EEFA"  # Grau
 
         def format_line(icon_text, description):
             return f'<span style="color:{C_GREEN};"><b>{icon_text}</b></span> <span style="color:{C_BLUE};"><b>{description}</b></span>'
@@ -4516,16 +4612,28 @@ class PatchManagerGUI(QWidget):
             title = "OSCam Emu Patch Generator"
             features_label = "Hauptmerkmale:"
             start_text = "System-Check aktiv"
-            f1 = format_line("➤ Auto-Patching:", "Erstellt .patch Dateien direkt vom Streamboard.")
-            f2 = format_line("➤ Online-Laden:", "Lädt Emu-Patches direkt von GitHub Quellen.")
-            f3 = format_line("➤ Lokalisierung:", "Vollständige Unterstützung für DE/EN.")
-            f4 = format_line("➤ Smart Logging:", "Farblich kodiertes Echtzeit-Feedback.")
+            f1 = format_line(
+                "➤ Auto-Patching:", "Erstellt .patch Dateien direkt vom Streamboard."
+            )
+            f2 = format_line(
+                "➤ Online-Laden:", "Lädt Emu-Patches direkt von GitHub Quellen."
+            )
+            f3 = format_line(
+                "➤ Lokalisierung:", "Vollständige Unterstützung für DE/EN."
+            )
+            f4 = format_line(
+                "➤ Smart Logging:", "Farblich kodiertes Echtzeit-Feedback."
+            )
         else:
             title = "OSCam Emu Patch Generator"
             features_label = "Key Features:"
             start_text = "System Check active"
-            f1 = format_line("➤ Auto-Patching:", "Generates .patch files directly from Streamboard.")
-            f2 = format_line("➤ Online Loading:", "Downloads emu patches directly from GitHub.")
+            f1 = format_line(
+                "➤ Auto-Patching:", "Generates .patch files directly from Streamboard."
+            )
+            f2 = format_line(
+                "➤ Online Loading:", "Downloads emu patches directly from GitHub."
+            )
             f3 = format_line("➤ Localization:", "Full support for DE/EN.")
             f4 = format_line("➤ Smart Logging:", "Color-coded real-time feedback.")
 
@@ -4571,12 +4679,15 @@ class PatchManagerGUI(QWidget):
 
         if hasattr(self, "info_text"):
             from PyQt6.QtGui import QTextCursor
+
             # Cursor ans Ende setzen
             self.info_text.moveCursor(QTextCursor.MoveOperation.End)
             # Info-Block einfügen
             self.info_text.insertHtml(welcome_html)
             # Abstand für nachfolgende System-Checks
-            self.info_text.insertHtml("<div style='margin-top:15px; border-top: 1px dashed #444;'>&nbsp;</div>")
+            self.info_text.insertHtml(
+                "<div style='margin-top:15px; border-top: 1px dashed #444;'>&nbsp;</div>"
+            )
             self.info_text.moveCursor(QTextCursor.MoveOperation.End)
 
         # --- SOUND LOGIK ---
@@ -4590,13 +4701,21 @@ class PatchManagerGUI(QWidget):
                 try:
                     if platform.system() == "Windows":
                         import winsound
+
                         winsound.MessageBeep()
                     else:
                         for cmd in ["paplay", "canberra-gtk-play", "aplay"]:
                             if shutil.which(cmd):
-                                subprocess.Popen([cmd, "/usr/share/sounds/freedesktop/stereo/service-login.oga"], stderr=subprocess.DEVNULL)
+                                subprocess.Popen(
+                                    [
+                                        cmd,
+                                        "/usr/share/sounds/freedesktop/stereo/service-login.oga",
+                                    ],
+                                    stderr=subprocess.DEVNULL,
+                                )
                                 break
-                except: pass
+                except:
+                    pass
 
     def display_startup_info(self):
         """Bündelt alle Startinfos in der gewünschten Reihenfolge."""
@@ -5632,16 +5751,86 @@ class PatchManagerGUI(QWidget):
 
         # Button-Definitionen (NEU: 'online_patch_dl' an 6. Stelle eingefügt)
         button_defs = [
-            ("git_status", "git_status", "#1E90FF", self.show_commits, "white", "SP_FileDialogContentsView"),
-            ("plugin_update", "plugin_update", "#FF8C00", self.plugin_update_button_clicked, "white", "SP_ArrowDown"),
-            ("restart_tool", "restart_tool", "#FF4500", self.restart_application_with_info, "white", "SP_BrowserReload"),
-            ("edit_patch_header", "edit_patch_header", "#32CD32", self.edit_patch_header, "white", "SP_FileDialogDetailedView"),
-            ("github_emu_config", "github_emu_config_button", "#FFA500", self.edit_emu_github_config, "black", "SP_ComputerIcon"),
-            ("github_upload_patch", "github_upload_patch", "#1E90FF", github_upload_patch_file, "white", "SP_ArrowUp"),
-            ("github_upload_emu", "github_upload_emu", "#1E90FF", github_upload_oscam_emu_folder, "white", "SP_ArrowUp"),
-            ("oscam_emu_git_patch", "oscam_emu_git_patch", "#32CD32", patch_oscam_emu_git, "white", "SP_DialogApplyButton"),
-            ("oscam_emu_git_clear", "oscam_emu_git_clear", "#FF4500", self.oscam_emu_git_clear, "white", "SP_TrashIcon"),
-            ("terminal", "Terminal", "#FFA500", self.open_terminal, "black", "SP_ComputerIcon"),
+            (
+                "git_status",
+                "git_status",
+                "#1E90FF",
+                self.show_commits,
+                "white",
+                "SP_FileDialogContentsView",
+            ),
+            (
+                "plugin_update",
+                "plugin_update",
+                "#FF8C00",
+                self.plugin_update_button_clicked,
+                "white",
+                "SP_ArrowDown",
+            ),
+            (
+                "restart_tool",
+                "restart_tool",
+                "#FF4500",
+                self.restart_application_with_info,
+                "white",
+                "SP_BrowserReload",
+            ),
+            (
+                "edit_patch_header",
+                "edit_patch_header",
+                "#32CD32",
+                self.edit_patch_header,
+                "white",
+                "SP_FileDialogDetailedView",
+            ),
+            (
+                "github_emu_config",
+                "github_emu_config_button",
+                "#FFA500",
+                self.edit_emu_github_config,
+                "black",
+                "SP_ComputerIcon",
+            ),
+            (
+                "github_upload_patch",
+                "github_upload_patch",
+                "#1E90FF",
+                github_upload_patch_file,
+                "white",
+                "SP_ArrowUp",
+            ),
+            (
+                "github_upload_emu",
+                "github_upload_emu",
+                "#1E90FF",
+                github_upload_oscam_emu_folder,
+                "white",
+                "SP_ArrowUp",
+            ),
+            (
+                "oscam_emu_git_patch",
+                "oscam_emu_git_patch",
+                "#32CD32",
+                patch_oscam_emu_git,
+                "white",
+                "SP_DialogApplyButton",
+            ),
+            (
+                "oscam_emu_git_clear",
+                "oscam_emu_git_clear",
+                "#FF4500",
+                self.oscam_emu_git_clear,
+                "white",
+                "SP_TrashIcon",
+            ),
+            (
+                "terminal",
+                "Terminal",
+                "#FFA500",
+                self.open_terminal,
+                "black",
+                "SP_ComputerIcon",
+            ),
         ]
 
         container = QWidget()
@@ -5652,17 +5841,19 @@ class PatchManagerGUI(QWidget):
         # Liste für alle Buttons initialisieren, falls nicht vorhanden
         if not hasattr(self, "all_buttons"):
             self.all_buttons = []
-            
+
         self.option_buttons = getattr(self, "option_buttons", {})
         cols_per_row = 5
-        FLACH_HEIGHT = 45
+        FLACH_HEIGHT = 35
 
         for idx, (key, text_key, color, callback, *rest) in enumerate(button_defs):
             current_fg = rest[0] if len(rest) > 0 else "white"
             current_icon = rest[1] if len(rest) > 1 else None
-            
+
             # Falls vorhanden, get_t nutzen, sonst Klartext
-            raw_text = self.get_t(text_key, text_key) if hasattr(self, "get_t") else text_key
+            raw_text = (
+                self.get_t(text_key, text_key) if hasattr(self, "get_t") else text_key
+            )
 
             def create_cb(c, k=key):
                 def wrapper():
@@ -5675,12 +5866,17 @@ class PatchManagerGUI(QWidget):
                         c()
                     else:
                         # Externe Funktionen brauchen die Parameter-Übergabe
-                        callback_func = getattr(self, "upload_progress_with_speed", self.progress_bar.setValue)
+                        callback_func = getattr(
+                            self,
+                            "upload_progress_with_speed",
+                            self.progress_bar.setValue,
+                        )
                         c(
                             gui_instance=self,
                             info_widget=self.info_text,
                             progress_callback=callback_func,
                         )
+
                 return wrapper
 
             # Button über dein Action-System erstellen (inkl. Hover-Effekt)
@@ -5696,7 +5892,9 @@ class PatchManagerGUI(QWidget):
                 radius=getattr(self, "BUTTON_RADIUS", 10),
             )
 
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+            btn.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+            )
             btn.setMinimumHeight(FLACH_HEIGHT)
             btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
 
@@ -6795,8 +6993,16 @@ class PatchManagerGUI(QWidget):
             # --- STYLE KONFIGURATION ---
             SZ_NORM = "21px"
             F_MONO = "'Consolas', 'Courier New', monospace"
-            F_EMOJI = "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
-            C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = ("#00FF00", "#00ADFF", "#FFFF00", "#FF0000", "#808080")
+            F_EMOJI = (
+                "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
+            )
+            C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE = (
+                "#00FF00",
+                "#00ADFF",
+                "#FFFF00",
+                "#FF0000",
+                "#808080",
+            )
 
             widget = getattr(self, "info_text", None)
             if widget:
@@ -6819,39 +7025,99 @@ class PatchManagerGUI(QWidget):
 
             # --- 1. LAYOUT (TRENNER) ---
             output.append("<div style='height:20px;'></div>")
-            output.append(f'<div style="line-height:1.0; color:{C_LINE}; margin-bottom:5px;">{"-" * 54}</div>')
+            output.append(
+                f'<div style="line-height:1.0; color:{C_LINE}; margin-bottom:5px;">{"-" * 54}</div>'
+            )
             output.append("<div style='height:30px;'></div>")
 
             # --- 2. BLOCK 0: SPRACHE ---
             lang_icon, lang_label = ("🇩🇪", "Sprache") if is_de else ("🇬🇧", "Language")
-            output.append(make_row(lang_icon, lang_label, "Deutsch" if is_de else "English", C_GREEN, C_BLUE))
+            output.append(
+                make_row(
+                    lang_icon,
+                    lang_label,
+                    "Deutsch" if is_de else "English",
+                    C_GREEN,
+                    C_BLUE,
+                )
+            )
 
             # --- 3. TOOLS & PAKETE ---
             status_missing = "FEHLT" if is_de else "MISSING"
-            for name in ["git"] + (["patch", "zip"] if platform.system() != "Windows" else []):
+            for name in ["git"] + (
+                ["patch", "zip"] if platform.system() != "Windows" else []
+            ):
                 found = shutil.which(name)
-                output.append(make_row("✅" if found else "❌", name.capitalize(), "OK" if found else status_missing, C_GREEN if found else C_RED, C_BLUE))
+                output.append(
+                    make_row(
+                        "✅" if found else "❌",
+                        name.capitalize(),
+                        "OK" if found else status_missing,
+                        C_GREEN if found else C_RED,
+                        C_BLUE,
+                    )
+                )
 
-            for pkg_id, n_de, n_en in [("PyQt6", "PyQt6", "PyQt6"), ("requests", "Anfragen", "Requests")]:
+            for pkg_id, n_de, n_en in [
+                ("PyQt6", "PyQt6", "PyQt6"),
+                ("requests", "Anfragen", "Requests"),
+            ]:
                 found = importlib.util.find_spec(pkg_id) is not None
-                output.append(make_row("📦" if found else "❌", n_de if is_de else n_en, "OK" if found else status_missing, C_GREEN if found else C_RED, C_BLUE))
+                output.append(
+                    make_row(
+                        "📦" if found else "❌",
+                        n_de if is_de else n_en,
+                        "OK" if found else status_missing,
+                        C_GREEN if found else C_RED,
+                        C_BLUE,
+                    )
+                )
 
             # --- 4. SOUND & FONT ---
             is_sound = globals().get("HAS_SOUND_SUPPORT", False)
-            sound_stat = (("Aktiv" if is_sound else "Inaktiv") if is_de else ("Active" if is_sound else "Inactive"))
-            output.append(make_row("🔊" if is_sound else "🔇", "Sound", sound_stat, C_GREEN if is_sound else C_YELLOW, C_BLUE))
+            sound_stat = (
+                ("Aktiv" if is_sound else "Inaktiv")
+                if is_de
+                else ("Active" if is_sound else "Inactive")
+            )
+            output.append(
+                make_row(
+                    "🔊" if is_sound else "🔇",
+                    "Sound",
+                    sound_stat,
+                    C_GREEN if is_sound else C_YELLOW,
+                    C_BLUE,
+                )
+            )
 
             has_emoji_font = True
             try:
                 if platform.system() == "Windows":
-                    font_path = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "NotoColorEmoji.ttf")
-                    has_emoji_font = os.path.exists(font_path) or platform.release() in ["10", "11"]
-            except: pass
-            output.append(make_row("🎨" if has_emoji_font else "⚠️", "Schrift" if is_de else "Font", "OK" if has_emoji_font else status_missing, C_GREEN if has_emoji_font else C_YELLOW, C_BLUE))
+                    font_path = os.path.join(
+                        os.environ.get("WINDIR", "C:\\Windows"),
+                        "Fonts",
+                        "NotoColorEmoji.ttf",
+                    )
+                    has_emoji_font = os.path.exists(
+                        font_path
+                    ) or platform.release() in ["10", "11"]
+            except:
+                pass
+            output.append(
+                make_row(
+                    "🎨" if has_emoji_font else "⚠️",
+                    "Schrift" if is_de else "Font",
+                    "OK" if has_emoji_font else status_missing,
+                    C_GREEN if has_emoji_font else C_YELLOW,
+                    C_BLUE,
+                )
+            )
 
-             #--- 5. NETZWERK & PATCH-SYSTEM ---
-            output.append(f'<div style="line-height:1.0; color:{C_LINE}; margin: 10px 0;">{"." * 45}</div>')
-            
+            # --- 5. NETZWERK & PATCH-SYSTEM ---
+            output.append(
+                f'<div style="line-height:1.0; color:{C_LINE}; margin: 10px 0;">{"." * 45}</div>'
+            )
+
             is_online = False
             net_label = "Netzwerk" if is_de else "Network"
             try:
@@ -6865,23 +7131,37 @@ class PatchManagerGUI(QWidget):
                 # --- PATCH-DOWNLOADER CHECK MIT ANZAHL ---
                 p_label = "Patches Online"
                 # Sucht die Patch-Datenbank in globals oder self
-                patch_db = globals().get("ONLINE_PATCHES") or getattr(self, "ONLINE_PATCHES", {})
+                patch_db = globals().get("ONLINE_PATCHES") or getattr(
+                    self, "ONLINE_PATCHES", {}
+                )
                 count = len(patch_db) if patch_db else 0
-                
+
                 if count > 0:
                     p_stat = f"Bereit ({count})" if is_de else f"Ready ({count})"
                     p_col = C_GREEN
                 else:
                     p_stat = "Leer" if is_de else "Empty"
                     p_col = C_YELLOW
-                
+
                 output.append(make_row("🛠️", p_label, p_stat, p_col, C_BLUE))
 
                 # Repository Checks (kurz und bündig)
                 repos = [
-                    ("📡", "Streamboard", "https://git.streamboard.tv/common/oscam"),
-                    ("🐙", "Emu Mirror", "https://github.com/oscam-mirror/oscam-emu"),
-                    ("⭐", "Speedy Repo", "https://github.com/speedy005/Oscam-emu"),
+                    (
+                        "📡",
+                        "Streamboard Oscam",
+                        "https://git.streamboard.tv/common/oscam",
+                    ),
+                    (
+                        "🐙",
+                        "Oscam Emu Mirror",
+                        "https://github.com/oscam-mirror/oscam-emu",
+                    ),
+                    (
+                        "⭐",
+                        "speedy Oscam Emu Repo",
+                        "https://github.com/speedy005/Oscam-emu",
+                    ),
                 ]
                 for icon, r_name, url in repos:
                     try:
@@ -6889,7 +7169,15 @@ class PatchManagerGUI(QWidget):
                         r = requests.head(url, timeout=3, allow_redirects=True)
                         status_ok = r.status_code < 400
                         stat_text = "Online" if status_ok else (f"Err {r.status_code}")
-                        output.append(make_row(icon, r_name, stat_text, C_GREEN if status_ok else C_RED, C_BLUE))
+                        output.append(
+                            make_row(
+                                icon,
+                                r_name,
+                                stat_text,
+                                C_GREEN if status_ok else C_RED,
+                                C_BLUE,
+                            )
+                        )
                     except:
                         output.append(make_row(icon, r_name, "Timeout", C_RED, C_BLUE))
 
@@ -6903,17 +7191,27 @@ class PatchManagerGUI(QWidget):
                 try:
                     if platform.system() == "Windows":
                         import winsound
+
                         winsound.MessageBeep()
                     else:
                         for cmd in ["paplay", "canberra-gtk-play", "aplay"]:
                             if shutil.which(cmd):
-                                subprocess.Popen([cmd, "/usr/share/sounds/freedesktop/stereo/dialog-information.oga"], stderr=subprocess.DEVNULL)
+                                subprocess.Popen(
+                                    [
+                                        cmd,
+                                        "/usr/share/sounds/freedesktop/stereo/dialog-information.oga",
+                                    ],
+                                    stderr=subprocess.DEVNULL,
+                                )
                                 break
-                except: pass
+                except:
+                    pass
 
         except Exception as e:
             if widget:
-                widget.insertHtml(f"<br><b style='color:red;'>Check Error: {str(e)}</b>")
+                widget.insertHtml(
+                    f"<br><b style='color:red;'>Check Error: {str(e)}</b>"
+                )
         finally:
             self._checking_active = False
 
@@ -7295,7 +7593,7 @@ class PatchManagerGUI(QWidget):
         # BUTTONS
         # ---------------------------------------------------------
         self.btn_matrix = QPushButton("📟 MATRIX MODE")
-        self.btn_matrix.setFixedSize(130, 32)
+        self.btn_matrix.setFixedSize(130, 35)
         self.btn_matrix.setStyleSheet(
             "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; }"
         )
@@ -7304,7 +7602,7 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.addWidget(self.btn_matrix)
 
         self.btn_theme = QPushButton("🌓 THEME")
-        self.btn_theme.setFixedSize(100, 32)
+        self.btn_theme.setFixedSize(100, 35)
         self.btn_theme.setStyleSheet(
             "QPushButton { background-color: #444; color: red; border: 1px solid #666; border-radius: 6px; font-size: 18px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
         )
@@ -7354,7 +7652,7 @@ class PatchManagerGUI(QWidget):
 
         self.controls_header.setMinimumWidth(220)
         # OPTIMIERUNG: Header-Höhe von 28 auf 45 erhöht für mehr Präsenz
-        self.controls_header.setMinimumHeight(45)
+        self.controls_header.setMinimumHeight(35)
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         bg = current_diff_colors.get("bg", "#3a6ea5")
@@ -7404,9 +7702,8 @@ class PatchManagerGUI(QWidget):
             lbl = QLabel(text)
             lbl.setMinimumHeight(CONTROL_HEIGHT)
 
-            # OPTIONAL: Alle Labels genau 100px breit machen
-            # So fangen alle Auswahlboxen (DE, Style etc.) exakt an der gleichen Stelle an.
-            lbl.setFixedWidth(85)
+            # FIX: Von 85 auf 65 verringert, damit die Boxen näher am Wort kleben
+            lbl.setFixedWidth(65)
 
             lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
             lbl.setStyleSheet(
@@ -7420,112 +7717,76 @@ class PatchManagerGUI(QWidget):
             )
             return lbl
 
-        # --- Sprache-Dropdown Anpassung ---
+        # --- 1. Sprache-Dropdown (Kompakt) ---
         self.lang_label = make_label(self.get_t("language_label", "Sprache:"))
+        self.lang_label.setFixedWidth(85)  # Platz für "Sprache:" ohne Lücke
+
         self.language_box = QComboBox()
         self.language_box.addItems(["EN", "DE"])
-
-        # WICHTIG: Höhe auf B_HEIGHT (60) setzen, Breite auf 100 erhöhen
         self.language_box.setFixedSize(70, B_HEIGHT)
-
-        # Schriftgröße in der Box anpassen (passend zu den Buttons)
         self.language_box.setStyleSheet(
             f"""
             QComboBox {{
-                background-color: #444444;
-                color: white;
-                font-weight: bold;
-                font-size: 20px;
-                border: 2px solid #555555;
-                border-radius: 6px;
-                padding-left: 10px;
+                background-color: #444444; color: white; font-weight: bold; font-size: 20px;
+                border: 2px solid #555555; border-radius: 6px; padding-left: 5px;
             }}
-            QComboBox::drop-down {{
-                border: none;
-            }}
+            QComboBox::drop-down {{ border: none; width: 0px; }}
             QComboBox::down-arrow {{
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #FF0000; /* Roter Pfeil */
+                image: none; border-left: 5px solid transparent; border-right: 5px solid transparent;
+                border-top: 5px solid #FF0000;
             }}
         """
         )
 
+        # Sprach-Logik (Einmalig)
         saved_lang = self.cfg.get("language", "de").lower()
-        if saved_lang == "en":
+        (
             self.language_box.setCurrentIndex(0)
-        else:
-            self.language_box.setCurrentIndex(1)
-
+            if saved_lang == "en"
+            else self.language_box.setCurrentIndex(1)
+        )
         self.language_box.currentIndexChanged.connect(self.change_language)
 
-        saved_lang = self.cfg.get("language", "de").lower()
-
-        if saved_lang == "en":
-            self.language_box.setCurrentIndex(0)  # 0 ist EN
-        else:
-            self.language_box.setCurrentIndex(1)  # 1 ist DE
-
-        self.language_box.currentIndexChanged.connect(self.change_language)
-
+        # --- 2. Farbe/Style (Kompakt) ---
         self.color_label = make_label(self.get_t("color_label", "Farbe:"))
+        self.color_label.setFixedWidth(65)
+        self.color_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+
         self.color_box = QComboBox()
         self.color_box.addItems(list(DIFF_COLORS.keys()))
         saved_color = self.cfg.get("theme_color", "Classics")
         index = self.color_box.findText(saved_color)
-        if index >= 0:
-            self.color_box.setCurrentIndex(index)
-        else:
-            self.color_box.setCurrentIndex(0)
-        self.color_box.setFixedSize(160, CONTROL_HEIGHT)
+        self.color_box.setCurrentIndex(index if index >= 0 else 0)
+        self.color_box.setFixedSize(140, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
         self.color_box.currentIndexChanged.connect(self.change_colors)
 
+        # --- 3. Commits (Kompakt) ---
         self.commit_label = make_label(self.get_t("commit_count_label", "Commits:"))
+        self.commit_label.setFixedWidth(120)  # Reduziert von 160 für weniger Abstand
+        self.commit_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+
         self.commit_spin = QSpinBox()
         self.commit_spin.setRange(1, 20)
-        self.commit_spin.setFixedSize(80, CONTROL_HEIGHT)
-        saved_commits = self.cfg.get("commit_count", 10)
-        self.commit_spin = QSpinBox()
-        self.commit_spin.setRange(1, 20)
-        # Wichtig: Breite auf 100, damit die 30px breiten Buttons Platz haben
-        self.commit_spin.setFixedSize(70, CONTROL_HEIGHT)
+        self.commit_spin.setFixedSize(75, CONTROL_HEIGHT)
+        self.commit_spin.setValue(self.cfg.get("commit_count", 10))
+        self.commit_spin.valueChanged.connect(self.commit_value_changed)
 
         self.commit_spin.setStyleSheet(
             """
             QSpinBox {
-                background-color: #222222;
-                color: #FFFFFF;
-                font-size: 20px;
-                font-weight: bold;
-                border: 2px solid #555555;
-                border-radius: 6px;
+                background-color: #222222; color: #FFFFFF; font-size: 20px; font-weight: bold;
+                border: 2px solid #555555; border-radius: 6px;
             }
-            /* Die seitlichen Klick-Flächen */
             QSpinBox::up-button, QSpinBox::down-button {
-                background-color: #333333;
-                width: 30px;
-                border-left: 1px solid #555555;
+                background-color: #333333; width: 25px; border-left: 1px solid #555555;
             }
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                background-color: #444444;
-            }
-
-            /* Der obere ROTE Pfeil */
-            QSpinBox::up-arrow {
-                width: 0px; height: 0px;
-                border-left: 8px solid transparent;
-                border-right: 8px solid transparent;
-                border-bottom: 8px solid #FF0000; /* REINROT */
-            }
-            /* Der untere ROTE Pfeil */
-            QSpinBox::down-arrow {
-                width: 0px; height: 0px;
-                border-left: 8px solid transparent;
-                border-right: 8px solid transparent;
-                border-top: 8px solid #FF0000; /* REINROT */
-            }
+            QSpinBox::up-arrow { border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 6px solid #FF0000; }
+            QSpinBox::down-arrow { border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #FF0000; }
         """
         )
 
@@ -7644,14 +7905,17 @@ class PatchManagerGUI(QWidget):
         current_lang = getattr(self, "lang", "de")  # Erkennt deine gewählte Sprache
 
         # Texte für Mehrsprachigkeit
-        text_patch_online = "🌐 Patch Online " if current_lang == "de" else "🌐 Load Patch "
+        text_patch_online = (
+            "🌐 Patch Online " if current_lang == "de" else "🌐 Load Patch "
+        )
 
         # --- Neuer Button: Patch Online laden ---
         self.btn_patch_online = QPushButton(text_patch_online)
         self.btn_patch_online.setFixedSize(B_WIDTH, B_HEIGHT)
 
         # Dynamischer Style: Nutzt f-String für die Schriftgröße & exakten Verlauf
-        self.btn_patch_online.setStyleSheet(f"""
+        self.btn_patch_online.setStyleSheet(
+            f"""
             QPushButton {{
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                                                   stop:0 #3498db, stop:1 #2980b9);
@@ -7659,24 +7923,25 @@ class PatchManagerGUI(QWidget):
                 font-weight: bold; 
                 font-size: {self.font_size_buttons}px;
                 border: 1px solid #1c5980;
-                border-radius: 4px;
+                border-radius: 10px;  /* ANGEPASST auf 10px für einheitlichen Look */
             }}
             QPushButton:hover {{
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                                                   stop:0 #5dade2, stop:1 #3498db);
-                border: 2px solid #ffffff; /* Weißer Rand beim Hover für Fokus-Effekt */
+                border: 1px solid #ffffff; /* 1px reicht meistens aus, damit der Button nicht "springt" */
             }}
             QPushButton:pressed {{
-                 background-color: #1c5980;
-                padding-top: 2px; /* Simuliert ein Drücken des Buttons */
+                background-color: #1c5980;
+                padding-top: 2px;
+                border-radius: 10px;  /* Auch hier sicherheitshalber festlegen */
              }}
-         """)
+         """
+        )
 
         # VERKNÜPFUNG: Mit der Logik-Funktion verbinden
         # Stelle sicher, dass die Methode 'handle_online_patch_button' in deiner Klasse existiert!
         self.btn_patch_online.clicked.connect(self.handle_online_patch_button)
-        
-        
+
         # --- Bestehender Button: Commit Check ---
         self.btn_check_commit = QPushButton("🔄 Commit Check")
         self.btn_check_commit.setIconSize(QSize(I_SIZE, I_SIZE))
@@ -7802,8 +8067,8 @@ class PatchManagerGUI(QWidget):
 
         grid_layout.addWidget(self.commit_spin, 1, 5)
         grid_layout.setColumnStretch(5, 1)
-        
-        grid_layout.addWidget(self.btn_patch_online, 0, 9) 
+
+        grid_layout.addWidget(self.btn_patch_online, 0, 9)
         grid_layout.addWidget(self.btn_check_tools, 1, 6)
         grid_layout.addWidget(self.btn_modifier, 1, 7)
         grid_layout.addWidget(self.btn_repo_url, 1, 8)
@@ -7820,10 +8085,37 @@ class PatchManagerGUI(QWidget):
         ]:
             btn.setMinimumWidth(145)
 
+        # --- 1. SPALTEN-STRETCH REINIGEN & FIXIEREN ---
+
+        # Zuerst ALLE Spalten auf 0 setzen (kein automatisches Ausdehnen)
+        for i in range(grid_layout.columnCount()):
+            grid_layout.setColumnStretch(i, 0)
+
+        # DER TRICK: Nur Spalte 6 (die Lücke zwischen Boxen und Buttons) bekommt Stretch 1.
+        # Das schiebt alles links (0-5) nach LINKS und alles rechts (7-10) nach RECHTS.
+        grid_layout.setColumnStretch(6, 1)
+
+        # --- 2. KOMPAKTHEIT DER BOXEN ERZWINGEN ---
+        # Damit die Boxen nicht breiter werden als nötig
+        self.language_box.setFixedWidth(70)
+        self.color_box.setFixedWidth(130)
+        self.commit_spin.setFixedWidth(70)
+
+        # --- 3. LABEL-ABSTÄNDE KORRIGIEREN ---
+        # Wir begrenzen die Breite der Labels, damit die Boxen näher am Text kleben
+        self.lang_label.setFixedWidth(90)  # Platz für "Sprache:"
+        self.color_label.setFixedWidth(65)  # Platz für "Style:"
+        self.commit_label.setFixedWidth(135)  # Platz für "Anzahl Commits:"
+
+        # --- 4. FINALE INTEGRATION ---
+        # Gitter-Abstände minimieren
+        grid_layout.setSpacing(10)
+
+        # Layout zum Kasten hinzufügen
         controls_group_layout.addLayout(grid_layout)
         main_layout.addWidget(controls_group)
 
-        # --- Untere Sektion ---
+        # --- UNTERE SEKTION (Dein restlicher Code) ---
         self.setup_option_buttons(main_layout)
         self.grid_container = QWidget()
         self.layout_grid_buttons = QGridLayout(self.grid_container)
@@ -8124,21 +8416,21 @@ class PatchManagerGUI(QWidget):
         # Farben zentral definieren
         text_color = current_diff_colors.get("fg", "#FFFFFF")
         bg_color = current_diff_colors["bg"]
-        hover_color = current_diff_colors.get("hover", bg_color)
-        active_color = current_diff_colors.get("active", bg_color)
+        hover_color = current_diff_colors.get("hover", "#444444")
+        active_color = current_diff_colors.get("active", "#666666")
 
-        # 1. Standard Button Style - JETZT MIT 45px HÖHE
+        # 1. Standard Button Style - ZURÜCK AUF 25px HÖHE
         button_style = f"""
             QPushButton {{
                 background-color: {bg_color};
                 color: {text_color};
                 border-radius: 10px;
                 font-weight: bold;
-                padding: 6px;
+                padding: 2px 6px;  /* Weniger Padding oben/unten für schmalere Buttons */
                 font-size: 13px;
                 border: none;
-                height: 25px;      /* Festgelegte Höhe für Stylesheet */
-                min-height: 25px;   /* Garantiert die 45px aus deinem Setup */
+                height: 35px;      /* Festgelegte Höhe */
+                min-height: 35px;
             }}
             QPushButton:hover {{
                 background-color: {hover_color};
@@ -8149,7 +8441,7 @@ class PatchManagerGUI(QWidget):
             }}
         """
 
-        # A) Liste aller Funktions-Buttons
+        # A) Haupt-Buttons stylen
         main_buttons = [
             "edit_header_button",
             "commits_button",
@@ -8176,24 +8468,16 @@ class PatchManagerGUI(QWidget):
                 except RuntimeError:
                     continue
 
-        # B) NEU: Speziell für die Option Buttons aus setup_option_buttons
+        # B) Option Buttons (Dropdowns/Wähler) stylen
         if hasattr(self, "option_buttons"):
             for btn_tuple in self.option_buttons.values():
                 try:
-                    # Da du (btn, text_key) speicherst, nehmen wir den ersten Index
+                    # Index [0] da btn_tuple oft (Button, TextKey) ist
                     btn_tuple[0].setStyleSheet(button_style)
-                except (RuntimeError, TypeError, IndexError):
+                except (RuntimeError, AttributeError, IndexError, TypeError):
                     continue
 
-        # C) Grid Buttons (alte Liste falls noch vorhanden)
-        if hasattr(self, "buttons"):
-            for btn in self.buttons.values():
-                try:
-                    btn.setStyleSheet(button_style)
-                except RuntimeError:
-                    continue
-
-        # 2. Progressbar
+        # 2. Progressbar Style
         pb = getattr(self, "progress_bar", None)
         if pb:
             try:
@@ -8204,7 +8488,7 @@ class PatchManagerGUI(QWidget):
             except RuntimeError:
                 pass
 
-        # 3. Header
+        # 3. Header Style
         header = getattr(self, "controls_header", None)
         if header:
             try:
@@ -8214,9 +8498,8 @@ class PatchManagerGUI(QWidget):
             except RuntimeError:
                 pass
 
-        # 5. Labels
-        target_labels = ["lang_label", "color_label", "commit_label"]
-        for lbl_name in target_labels:
+        # 4. Labels stylen
+        for lbl_name in ["lang_label", "color_label", "commit_label"]:
             lbl = getattr(self, lbl_name, None)
             if lbl:
                 try:
@@ -8226,35 +8509,12 @@ class PatchManagerGUI(QWidget):
                 except RuntimeError:
                     pass
 
-        # 4. Hauptfenster Style
+        # 5. Hauptfenster Hintergrund
         try:
             self.setStyleSheet("background-color: #2F2F2F;")
             self.repaint()
         except RuntimeError:
             pass
-
-    def set_progress_style(self, mode="default"):
-        """Wechselt die Farbe der Progressbar: default=Orange, upload=Blau."""
-        color_chunk = "#F37804" if mode == "default" else "#00ADFF"
-        color_end = "#FFD700" if mode == "default" else "#00FFFF"
-
-        self.progress_bar.setStyleSheet(
-            f"""
-            QProgressBar {{
-                border: 2px solid #444;
-                border-radius: 10px;
-                text-align: center;
-                background-color: #1A1A1A;
-                color: white;
-                font-weight: bold;
-            }}
-            QProgressBar::chunk {{
-                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                                  stop:0 {color_chunk}, stop:1 {color_end});
-                border-radius: 8px;
-            }}
-        """
-        )
 
     def setup_grid_buttons(self):
         """
@@ -8356,7 +8616,7 @@ class PatchManagerGUI(QWidget):
 
         self.buttons = {}
         cols = 3
-        FIXED_HEIGHT = 45
+        FIXED_HEIGHT = 35
 
         # ---------- Buttons erzeugen ----------
         for idx, (key, func) in enumerate(grid_actions):
@@ -8534,7 +8794,9 @@ class PatchManagerGUI(QWidget):
 
         # 1. SPRACHE ERMITTELN
         selected = self.language_box.currentText().upper()
-        self.LANG = "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
+        self.LANG = (
+            "en" if any(x in selected for x in ["EN", "ENG", "ENGLISH"]) else "de"
+        )
 
         # --- A) PROGRESSBAR INITIALISIEREN & DESIGN SPEICHERN ---
         # Dein Standard-Design (Orange-Gold)
@@ -8554,12 +8816,18 @@ class PatchManagerGUI(QWidget):
             }
         """
         # Erfolgs-Design (Smaragd-Grün)
-        self.success_pb_style = self.default_pb_style.replace("#F37804", "#2ecc71").replace("#FFD700", "#27ae60")
+        self.success_pb_style = self.default_pb_style.replace(
+            "#F37804", "#2ecc71"
+        ).replace("#FFD700", "#27ae60")
 
         if hasattr(self, "progress_bar"):
             self.progress_bar.setStyleSheet(self.default_pb_style)
             self.progress_bar.setValue(10)
-            p_msg = "Sprache wird angepasst..." if self.LANG == "de" else "Adjusting language..."
+            p_msg = (
+                "Sprache wird angepasst..."
+                if self.LANG == "de"
+                else "Adjusting language..."
+            )
             self.progress_bar.setFormat(f"⏳ {p_msg} %p%")
 
         # --- B) SOUND-EFFEKT (LOGOUT) ---
@@ -8582,7 +8850,8 @@ class PatchManagerGUI(QWidget):
         self.TEXT = all_texts.get(self.LANG, {})
         lang_dict = self.TEXT
 
-        if hasattr(self, "progress_bar"): self.progress_bar.setValue(30)
+        if hasattr(self, "progress_bar"):
+            self.progress_bar.setValue(30)
 
         # 2. KONFIGURATION SPEICHERN
         if hasattr(self, "cfg"):
@@ -8597,35 +8866,73 @@ class PatchManagerGUI(QWidget):
 
         # --- C) HEADER & STATUS ---
         if hasattr(self, "header_label"):
-            new_title = lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen")
+            new_title = lang_dict.get(
+                "settings_header", "Settings" if self.LANG == "en" else "Einstellungen"
+            )
             self.header_label.setText(f" {strip_icons(new_title)}")
 
         # --- D) LABELS & GROUPBOXEN ---
-        labels_map = {"lang_label": "language_label", "color_label": "color_label", "commit_label": "commit_count_label"}
+        labels_map = {
+            "lang_label": "language_label",
+            "color_label": "color_label",
+            "commit_label": "commit_count_label",
+        }
         for attr, key in labels_map.items():
             if hasattr(self, attr):
                 default = "Language:" if self.LANG == "en" else "Sprache:"
-                if key == "color_label": default = "Style:" if self.LANG == "en" else "Farbe:"
+                if key == "color_label":
+                    default = "Style:" if self.LANG == "en" else "Farbe:"
                 getattr(self, attr).setText(lang_dict.get(key, default))
 
         for box in self.findChildren(QGroupBox):
             title = box.title()
             if any(word in title for word in ["Einstellungen", "Settings"]):
-                box.setTitle(lang_dict.get("settings_header", "Settings" if self.LANG == "en" else "Einstellungen"))
-            elif any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
-                box.setTitle(lang_dict.get("github_config_header", "GitHub Configuration" if self.LANG == "en" else "GitHub Konfiguration"))
+                box.setTitle(
+                    lang_dict.get(
+                        "settings_header",
+                        "Settings" if self.LANG == "en" else "Einstellungen",
+                    )
+                )
+            elif any(
+                word in title for word in ["GitHub", "Configuration", "Konfiguration"]
+            ):
+                box.setTitle(
+                    lang_dict.get(
+                        "github_config_header",
+                        (
+                            "GitHub Configuration"
+                            if self.LANG == "en"
+                            else "GitHub Konfiguration"
+                        ),
+                    )
+                )
 
-        if hasattr(self, "progress_bar"): self.progress_bar.setValue(60)
+        if hasattr(self, "progress_bar"):
+            self.progress_bar.setValue(60)
 
         # --- E) BUTTONS ---
         if hasattr(self, "btn_modifier"):
-            label = strip_icons(lang_dict.get("modifier_button_text", "Patch Author" if self.LANG == "en" else "Patch Autor"))
+            label = strip_icons(
+                lang_dict.get(
+                    "modifier_button_text",
+                    "Patch Author" if self.LANG == "en" else "Patch Autor",
+                )
+            )
             self.btn_modifier.setText(f"👤 {label}")
 
         if hasattr(self, "btn_patch_online"):
-            patch_label = strip_icons(lang_dict.get("patch_online_download", "Patch Online" if self.LANG == "de" else "Load Patch"))
+            patch_label = strip_icons(
+                lang_dict.get(
+                    "patch_online_download",
+                    "Patch Online" if self.LANG == "de" else "Load Patch",
+                )
+            )
             self.btn_patch_online.setText(f"🌐 {patch_label}")
-            self.btn_patch_online.setToolTip("Läd den Emu-Patch vom GitHub Server" if self.LANG == "de" else "Downloads the emu patch from GitHub server")
+            self.btn_patch_online.setToolTip(
+                "Läd den Emu-Patch vom GitHub Server"
+                if self.LANG == "de"
+                else "Downloads the emu patch from GitHub server"
+            )
 
         # 4. UI REFRESH & INFO-SOUND
         if hasattr(self, "repaint_ui_colors"):
@@ -8638,8 +8945,14 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "info_text") and self.info_text:
             self._checking_active = False
             self.info_text.clear()
-            wait_msg = "System-Check wird neu gestartet..." if self.LANG == "de" else "Restarting system check..."
-            self.info_text.setHtml(f"<div style='margin-top:10px; color:#F37804; font-size:20px; font-family:sans-serif;'><b>⏳ {wait_msg}</b></div>")
+            wait_msg = (
+                "System-Check wird neu gestartet..."
+                if self.LANG == "de"
+                else "Restarting system check..."
+            )
+            self.info_text.setHtml(
+                f"<div style='margin-top:10px; color:#F37804; font-size:20px; font-family:sans-serif;'><b>⏳ {wait_msg}</b></div>"
+            )
 
         QApplication.processEvents()
 
@@ -8654,30 +8967,34 @@ class PatchManagerGUI(QWidget):
                 self.info_text.clear()
 
             # Welcome & Check ausführen
-            if hasattr(self, "show_welcome_info"): self.show_welcome_info()
-            if hasattr(self, "run_full_system_check"): self.run_full_system_check(clear_log=False)
+            if hasattr(self, "show_welcome_info"):
+                self.show_welcome_info()
+            if hasattr(self, "run_full_system_check"):
+                self.run_full_system_check(clear_log=False)
 
             # --- ABSCHLUSS-EFFEKT: GRÜN AUFLEUCHTEN ---
             if hasattr(self, "progress_bar"):
                 self.progress_bar.setValue(100)
                 final_msg = "System bereit" if self.LANG == "de" else "System ready"
                 self.progress_bar.setFormat(f"✅ {final_msg} - %p%")
-                
+
                 # Auf Erfolgs-Design (Grün) umschalten
                 self.progress_bar.setStyleSheet(self.success_pb_style)
-                
+
                 # Nach 3 Sekunden: Reset auf Standard-Look und Text löschen
-                QTimer.singleShot(3000, lambda: [
-                    self.progress_bar.setStyleSheet(self.default_pb_style),
-                    self.progress_bar.setFormat("%p%")
-                ])
+                QTimer.singleShot(
+                    3000,
+                    lambda: [
+                        self.progress_bar.setStyleSheet(self.default_pb_style),
+                        self.progress_bar.setFormat("%p%"),
+                    ],
+                )
 
         # Start der Sequenz mit leichtem Delay
         QTimer.singleShot(800, restart_sequence)
 
         if self.layout():
             self.layout().activate()
-
 
     # =====================
     # GITHUB EMU CREDENTIALS
@@ -9174,19 +9491,15 @@ class PatchManagerGUI(QWidget):
         # Bestätigt das Schließen des Fensters
         event.accept()
 
-
 # ===================== __main__ =====================
 if __name__ == "__main__":
     # ⚡ 1. Macht das Script ausführbar
     ensure_executable_self()
-
     # 🛠️ 2. ALLES PRÜFEN: Python-Pakete UND System-Tools (git, patch)
     # Diese Funktion enthält den Code, den wir oben besprochen haben.
     # Sie installiert Python-Sachen nach und bricht bei fehlendem Git ab.
     ensure_dependencies()
-
     # --- AB HIER SIND ALLE TOOLS GARANTIERT VORHANDEN ---
-
     # 3. Standard-Imports (PyQt6 ist jetzt sicher da)
     import sys
     import os
@@ -9194,7 +9507,6 @@ if __name__ == "__main__":
 
     # ⚠️ Verhindert Accessibility-Warnungen unter Linux
     os.environ["NO_AT_BRIDGE"] = "1"
-
     # 4. Jetzt erst die GUI-Komponenten laden
     # Falls diese in einer separaten Datei liegen:
     try:
@@ -9211,20 +9523,17 @@ if __name__ == "__main__":
     except ImportError:
         # Falls die GUI-Klassen im selben File stehen, entfällt dieser Import
         pass
-
+    
     # 5. Verzeichnisse sicherstellen
     ensure_dir(PLUGIN_DIR)
     ensure_dir(ICON_DIR)
     ensure_dir(TEMP_REPO)
-
     # 6. Konfiguration laden & Texte vervollständigen
     load_config()
     fill_missing_keys(TEXTS)
-
     # 7. QApplication & GUI starten
     app = QApplication(sys.argv)
     window = PatchManagerGUI()
     window.showMaximized()
-
     # 8. Event-Loop starten
     sys.exit(app.exec())
