@@ -82,3 +82,5 @@ Technical Notes:
 
 
 ![Screenshot](https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/master/oscam-patch-generator.png)
+
+![Besucher](https://hits.seeyoufarm.com)
