@@ -356,7 +356,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.1.7"
+APP_VERSION = "3.1.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -4653,12 +4653,10 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtCore import QTimer
         from PyQt6.QtWidgets import QApplication
 
-        # Sprache ermitteln
         lang = getattr(self, "LANG", "de").lower()
         is_de = lang == "de"
-
-        # ProgressBar abrufen
         pbar = getattr(self, "progress_bar", None)
+        btn_online = getattr(self, "btn_patch_online", None)  # Dein neuer Button
 
         # Prüfen, ob wir gerade im System-Style (Light) sind
         if not self.styleSheet():
@@ -4666,73 +4664,65 @@ class PatchManagerGUI(QWidget):
             self.setStyleSheet(self.get_matrix_style())
             self.theme_button.setText("☀️ Light Mode")
 
-            # Sound abspielen
-            if "safe_play" in globals():
-                safe_play("dialog-information.oga")
-
-            # ProgressBar Regenbogen-Effekt
-            if pbar:
-                rainbow = (
-                    "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                    "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                    "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF)"
-                )
-                pbar.setStyleSheet(
+            # 1. STYLE FÜR ONLINE-BUTTON (Orange/Gold Schema)
+            if btn_online:
+                btn_online.setStyleSheet(
                     f"""
-                    QProgressBar {{
-                        text-align: center;
-                        font-weight: 900;
-                        border: 2px solid #222;
-                        border-radius: 6px;
-                        background-color: #111;
-                        color: black;
-                        font-size: 11pt;
+                    QPushButton {{
+                        background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #F37804, stop:1 #8B4513);
+                        color: white; font-weight: 700; border: 1px solid #444; border-radius: 10px;
+                        font-size: {getattr(self, 'font_size_buttons', 12)}px;
                     }}
-                    QProgressBar::chunk {{
-                        background: {rainbow};
-                        border-radius: 4px;
-                    }}
+                    QPushButton:hover {{ background-color: #FFA500; border: 1px solid #ffffff; }}
                 """
                 )
 
+            # 2. PROGRESSBAR (Regenbogen + Schwarze Schrift)
+            if pbar:
+                rainbow = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1 #8B00FF)"
+                pbar.setStyleSheet(
+                    f"""
+                    QProgressBar {{ text-align: center; font-weight: 700; border: 2px solid #222; border-radius: 6px; background-color: #111; color: black; font-size: 11pt; }}
+                    QProgressBar::chunk {{ background: {rainbow}; border-radius: 4px; }}
+                """
+                )
                 msg = "Matrix Mode aktiviert" if is_de else "Matrix Mode activated"
                 pbar.setValue(100)
                 pbar.setFormat(msg)
-                pbar.setTextVisible(True)
-
                 if hasattr(self, "pbar_idle"):
                     QTimer.singleShot(3000, self.pbar_idle)
 
         else:
             # --- WECHSEL ZU SYSTEM STYLE (LIGHT) ---
-            self.setStyleSheet("")  # Setzt auf System-Standard zurück
+            self.setStyleSheet("")  # Reset
             self.theme_button.setText("📟 Matrix Mode")
 
-            if pbar:
-                # Im Light Mode die ProgressBar wieder schlicht machen
-                pbar.setStyleSheet(
-                    """
-                    QProgressBar {
-                        text-align: center;
-                        border: 1px solid #AAA;
-                        border-radius: 5px;
-                        background-color: #DDD;
-                        color: black;
-                    }  
-                    QProgressBar::chunk {
-                        background-color: #4CAF50;
-                    }
+            # 1. STYLE FÜR ONLINE-BUTTON (Blau Schema)
+            if btn_online:
+                btn_online.setStyleSheet(
+                    f"""
+                    QPushButton {{
+                        background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #3498db, stop:1 #2980b9);
+                        color: white; font-weight: 700; border: 1px solid #1c5980; border-radius: 10px;
+                        font-size: {getattr(self, 'font_size_buttons', 12)}px;
+                    }}
+                    QPushButton:hover {{ background-color: #5dade2; border: 1px solid #ffffff; }}
                 """
                 )
 
+            # 2. PROGRESSBAR (Schlicht)
+            if pbar:
+                pbar.setStyleSheet(
+                    "QProgressBar { text-align: center; font-weight: 700; border: 1px solid #AAA; border-radius: 5px; background-color: #DDD; color: black; } QProgressBar::chunk { background-color: #4CAF50; }"
+                )
                 msg = "System Style aktiviert" if is_de else "System Style activated"
                 pbar.setValue(100)
                 pbar.setFormat(msg)
-
                 if hasattr(self, "pbar_idle"):
                     QTimer.singleShot(3000, self.pbar_idle)
 
-        # UI-Update erzwingen
+        if "safe_play" in globals():
+            safe_play("dialog-information.oga")
         QApplication.processEvents()
 
     def animate_everything(self):
@@ -5209,7 +5199,7 @@ class PatchManagerGUI(QWidget):
                 )
 
     def change_colors(self):
-        """Aktualisiert das Farbschema und speichert es zentral über save_config."""
+        """Aktualisiert das Farbschema, spielt Sound ab und speichert via save_config."""
         global current_diff_colors, current_color_name
 
         # 1️⃣ Aktuelle Farbe ermitteln
@@ -5218,15 +5208,15 @@ class PatchManagerGUI(QWidget):
         else:
             current_color_name = self.cfg.get("color", "Classics")
 
-        # 2️⃣ Basis-Farben holen (Fallback auf Classics)
+        # 2️⃣ Basis-Farben holen
         base_colors = DIFF_COLORS.get(
             current_color_name,
             DIFF_COLORS.get("Classics", {"bg": "#FFFFFF", "fg": "#000000"}),
         )
         bg = base_colors.get("bg", "#FFFFFF")
-        fg = base_colors.get("fg", "#FFFFFF")  # Textfarbe extrahieren
+        fg = base_colors.get("fg", "#FFFFFF")
 
-        # 3️⃣ Farben für UI vorbereiten (Hover/Active Nuancen)
+        # 3️⃣ Farben für UI vorbereiten
         current_diff_colors = {
             **base_colors,
             "hover": base_colors.get(
@@ -5239,6 +5229,11 @@ class PatchManagerGUI(QWidget):
             ),
         }
 
+        # 🔊 SOUND-EFFEKT BEIM FARBWECHSEL
+        # Wir nutzen 'dialog-information.oga' oder 'complete.oga' für das Feedback
+        if "safe_play" in globals():
+            safe_play("dialog-information.oga")
+
         # 4️⃣ Farben im UI anwenden
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
@@ -5250,15 +5245,18 @@ class PatchManagerGUI(QWidget):
             )
 
         if hasattr(self, "header_label"):
+            # FIX: font-weight 700 statt bold zur Vermeidung von 1001-Fehlern
             self.header_label.setStyleSheet(
-                f"color: {fg}; font-weight: bold; font-size: 20px; background: transparent;"
+                f"color: {fg}; font-weight: 700; font-size: 20px; background: transparent;"
             )
 
-        # 5️⃣ Zentral Speichern über deine neue save_config
+        # 5️⃣ Zentral Speichern
         if not getattr(self, "is_loading", False):
             if self.cfg.get("color") != current_color_name:
                 self.cfg["color"] = current_color_name
-                save_config(self.cfg, gui_instance=self, silent=True)
+                # save_config ruft intern meistens auch log/pbar auf
+                if "save_config" in globals():
+                    save_config(self.cfg, gui_instance=self, silent=True)
 
     def log_message(self, message):
         """Zentrale Funktion: Zeit in ROT, Inhalt in CYAN - sauber untereinander."""
@@ -8826,43 +8824,52 @@ class PatchManagerGUI(QWidget):
         self.font_size_buttons = 12  # Hier die gewünschte Schriftgröße in Pixeln ändern
         current_lang = getattr(self, "lang", "de")  # Erkennt deine gewählte Sprache
 
-        # Texte für Mehrsprachigkeit
-        text_patch_online = (
-            "🌐 Patch Online " if current_lang == "de" else "🌐 Load Patch "
-        )
+        # 1. FARBSCHEMA ERMITTELN (Passend zu deinem toggle_theme)
+        is_dark = "#2F2F2F" in self.styleSheet() or not self.styleSheet()
 
-        # --- Neuer Button: Patch Online laden ---
+        if is_dark:
+            # MATRIX / DARK COLORS (Orange/Gold)
+            c1, c2, b_color = "#F37804", "#8B4513", "#444"
+        else:
+            # LIGHT / SYSTEM COLORS (Blau)
+            c1, c2, b_color = "#3498db", "#2980b9", "#1c5980"
+
+        # 2. TEXTE FÜR MEHRSPRACHIGKEIT
+        lang = getattr(self, "LANG", "de").lower()
+        text_patch_online = "🌐 Patch Online " if lang == "de" else "🌐 Load Patch "
+
+        # 3. BUTTON ERSTELLEN
         self.btn_patch_online = QPushButton(text_patch_online)
         self.btn_patch_online.setFixedSize(B_WIDTH, B_HEIGHT)
 
-        # Dynamischer Style: Nutzt f-String für die Schriftgröße & exakten Verlauf
+        # 4. DYNAMISCHES STYLESHEET (Mit Variablen und Font-Fix 700)
         self.btn_patch_online.setStyleSheet(
             f"""
             QPushButton {{
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                                                  stop:0 #3498db, stop:1 #2980b9);
+                                                  stop:0 {c1}, stop:1 {c2});
                 color: white; 
-                font-weight: bold; 
+                font-weight: 700; 
                 font-size: {self.font_size_buttons}px;
-                border: 1px solid #1c5980;
-                border-radius: 10px;  /* ANGEPASST auf 10px für einheitlichen Look */
+                border: 1px solid {b_color};
+                border-radius: 10px;
             }}
             QPushButton:hover {{
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                                                  stop:0 #5dade2, stop:1 #3498db);
-                border: 1px solid #ffffff; /* 1px reicht meistens aus, damit der Button nicht "springt" */
+                                                  stop:0 {c2}, stop:1 {c1});
+                border: 1px solid #ffffff;
             }}
             QPushButton:pressed {{
-                background-color: #1c5980;
+                background-color: {b_color};
                 padding-top: 2px;
-                border-radius: 10px;  /* Auch hier sicherheitshalber festlegen */
-             }}
-         """
+                border-radius: 10px;
+            }}
+        """
         )
 
-        # VERKNÜPFUNG: Mit der Logik-Funktion verbinden
-        # Stelle sicher, dass die Methode 'handle_online_patch_button' in deiner Klasse existiert!
-        self.btn_patch_online.clicked.connect(self.handle_online_patch_button)
+        # 5. VERKNÜPFUNG
+        if hasattr(self, "handle_online_patch_button"):
+            self.btn_patch_online.clicked.connect(self.handle_online_patch_button)
 
         # --- Bestehender Button: Commit Check ---
         self.btn_check_commit = QPushButton("🔄 Commit Check")
@@ -9428,17 +9435,17 @@ class PatchManagerGUI(QWidget):
         hover_color = current_diff_colors.get("hover", "#444444")
         active_color = current_diff_colors.get("active", "#666666")
 
-        # 1. Standard Button Style - ZURÜCK AUF 25px HÖHE
+        # 1. Standard Button Style - FIX: 700 statt bold gegen QFont-Fehler
         button_style = f"""
             QPushButton {{
                 background-color: {bg_color};
                 color: {text_color};
                 border-radius: 10px;
-                font-weight: bold;
-                padding: 2px 6px;  /* Weniger Padding oben/unten für schmalere Buttons */
+                font-weight: 700;  /* FIX: Verhindert 1001-Warnung */
+                padding: 2px 6px;
                 font-size: 13px;
                 border: none;
-                height: 35px;      /* Festgelegte Höhe */
+                height: 35px;
                 min-height: 35px;
             }}
             QPushButton:hover {{
@@ -9446,74 +9453,75 @@ class PatchManagerGUI(QWidget):
                 border: 1px solid {text_color};
             }}
             QPushButton:pressed {{
-                background-color: {active_color};
+               background-color: {active_color};
             }}
         """
 
-        # A) Haupt-Buttons stylen
-        main_buttons = [
-            "edit_header_button",
-            "commits_button",
-            "clean_emu_button",
-            "patch_emu_git_button",
-            "github_upload_patch_button",
-            "plugin_update_button",
-            "restart_tool_button",
-            "btn_check_tools",
-            "btn_check_commit",
-            "btn_modifier",
-            "btn_repo_url",
-            "btn_open_work",
-            "btn_open_temp",
-            "btn_open_emu",
-        ]
+        # A) ALLE Buttons im Fenster automatisch finden und stylen
+        # Das verhindert, dass einzelne Buttons (wie die linken 4) blau bleiben.
+        all_widgets = self.findChildren(QPushButton)
+        
+        for btn in all_widgets:
+            # Wir überspringen Buttons, die ein spezielles Icon-Design haben (optional)
+            # oder wir stylen einfach alle gnadenlos durch:
+            try:
+                # 1. Alte Effekte entfernen
+                btn.setGraphicsEffect(None)
+                
+                # 2. Den einheitlichen Button-Style anwenden
+                # FIX: 700 statt bold gegen den 1001-Fehler im Terminal
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {bg_color};
+                        color: {text_color};
+                        border-radius: 10px;
+                        font-weight: 700; 
+                        padding: 2px 6px;
+                        font-size: 13px;
+                        border: 1px solid #444; /* Dezenter Rahmen */
+                        height: 35px;
+                        min-height: 35px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {hover_color};
+                        border: 1px solid {text_color};
+                    }}
+                    QPushButton:pressed {{
+                        background-color: {active_color};
+                        padding-top: 2px;
+                    }}
+                """)
+            except RuntimeError:
+                continue
 
-        for btn_name in main_buttons:
-            btn = getattr(self, btn_name, None)
-            if btn:
-                try:
-                    btn.setGraphicsEffect(None)
-                    btn.setStyleSheet(button_style)
-                except RuntimeError:
-                    continue
-
-        # B) Option Buttons (Dropdowns/Wähler) stylen
-        if hasattr(self, "option_buttons"):
-            for btn_tuple in self.option_buttons.values():
-                try:
-                    # Index [0] da btn_tuple oft (Button, TextKey) ist
-                    btn_tuple[0].setStyleSheet(button_style)
-                except (RuntimeError, AttributeError, IndexError, TypeError):
-                    continue
-
-        # 2. Progressbar Style
+        # B) ProgressBar Style (Standard-Zustand)
         pb = getattr(self, "progress_bar", None)
         if pb:
             try:
-                pb.setStyleSheet(
-                    f"QProgressBar {{ border: 1px solid {bg_color}; border-radius: 7px; background-color: #1a1a1a; text-align: center; color: red; }}"
-                    f"QProgressBar::chunk {{ background-color: {bg_color}; }}"
-                )
+                # Nur stylen, wenn sie NICHT gerade im Regenbogen-Modus (Aktion) ist
+                # Falls sie gerade läuft, lassen wir den Regenbogen-Style aus zip_patch/backup_old_patch
+                if pb.value() == 0 or pb.value() == 100:
+                    pb.setStyleSheet(
+                        f"QProgressBar {{ border: 1px solid {bg_color}; border-radius: 7px; background-color: #1a1a1a; text-align: center; color: {text_color}; font-weight: 700; }}"
+                        f"QProgressBar::chunk {{ background-color: {bg_color}; border-radius: 6px; }}"
+                    )
             except RuntimeError:
                 pass
 
-        # 3. Header Style
-        header = getattr(self, "controls_header", None)
-        if header:
-            try:
-                header.setStyleSheet(
-                    f"background-color: {bg_color}; color: {text_color}; font-weight: bold; border-radius: 6px; padding-left: 10px;"
-                )
-            except RuntimeError:
-                pass
-
-        # 4. Labels stylen
-        for lbl_name in ["lang_label", "color_label", "commit_label"]:
+        # C) Labels & Header
+        for lbl_name in [
+            "lang_label",
+            "color_label",
+            "commit_label",
+            "controls_header",
+        ]:
             lbl = getattr(self, lbl_name, None)
             if lbl:
                 try:
+                    # Header bekommt bg_color, normale Labels bleiben transparent
+                    bg = bg_color if lbl_name == "controls_header" else "transparent"
                     lbl.setStyleSheet(
-                        f"color: {text_color}; font-weight: bold; font-size: 18px; background: transparent;"
+                        f"color: {text_color}; font-weight: 700; font-size: 18px; background: {bg}; border-radius: 6px;"
                     )
                 except RuntimeError:
                     pass
@@ -9521,7 +9529,9 @@ class PatchManagerGUI(QWidget):
         # 5. Hauptfenster Hintergrund
         try:
             self.setStyleSheet("background-color: #2F2F2F;")
-            self.repaint()
+            # Falls pbar_idle existiert, rufen wir es auf, um den edlen Gold-Modus zu laden
+            if hasattr(self, "pbar_idle") and (not pb or pb.value() == 0):
+                self.pbar_idle()
         except RuntimeError:
             pass
 
