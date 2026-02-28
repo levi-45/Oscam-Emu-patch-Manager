@@ -80,7 +80,7 @@ def install_font_windows():
 
 
 def ensure_dependencies():
-    """Prüft Python, System-Tools und Sound-Support (Mehrsprachig & Zukunftssicher)."""
+    """Prüft Python, System-Tools, Sound-Support und zählt die Nutzung."""
     global HAS_SOUND_SUPPORT
     import importlib.util
     import shutil
@@ -90,15 +90,14 @@ def ensure_dependencies():
     import sys
     import os
 
-    # Zukunftssichere Spracherkennung (vermeidet DeprecationWarning)
+    # Zukunftssichere Spracherkennung
     try:
-        # Versucht die System-Sprache zu holen (z.B. 'de_DE')
         loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
         lang = loc[:2].lower()
     except:
         lang = "en"
 
-    # Lokalisierte Texte für die Vorab-Prüfung
+    # Lokalisierte Texte
     if lang == "de":
         T_PY_MISSING = "Fehlende Python-Pakete:"
         T_PY_PROMPT = "Möchten Sie diese jetzt automatisch installieren? (j/n): "
@@ -127,19 +126,26 @@ def ensure_dependencies():
             for pkg in missing_python:
                 print(f"Installing {pkg}...")
                 subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
-            # Skript mit installierten Paketen neu starten
             os.execv(sys.executable, [sys.executable] + sys.argv)
         sys.exit(1)
+
+    # --- COUNTER LOGIK (Startet erst, wenn requests vorhanden ist) ---
+    try:
+        import requests
+        # Nutzt einen unsichtbaren Counter-Pixel für dein Repository
+        # Dies zählt jeden Start des Tools als "Besuch"
+        tracking_url = "https://hits.seeyoufarm.com"
+        requests.get(tracking_url, timeout=3)
+    except:
+        pass  # Lautloser Fehler, falls offline
+    # -----------------------------------------------------------------
 
     # 2. SYSTEM TOOLS PRÜFEN (git, patch)
     required_tools = ["git", "patch"]
     missing_tools = [t for t in required_tools if shutil.which(t) is None]
 
     if missing_tools:
-        # Da PyQt6 nun sicher vorhanden ist, nutzen wir die GUI für den System-Fehler
         from PyQt6.QtWidgets import QApplication, QMessageBox
-
-        # Sicherstellen, dass eine App-Instanz für die Box existiert
         _ = QApplication.instance() or QApplication(sys.argv)
 
         msg = f"{T_SYS_INFO} {', '.join(missing_tools)}\n\n"
@@ -157,11 +163,10 @@ def ensure_dependencies():
         box.exec()
         sys.exit(1)
 
-    # 3. SOUND-CHECK (Setzt die globale Variable für safe_play)
+    # 3. SOUND-CHECK
     if platform.system() == "Linux":
         HAS_SOUND_SUPPORT = shutil.which("paplay") is not None
     else:
-        # Auf Windows nutzen wir den Standard-Beep, daher True
         HAS_SOUND_SUPPORT = True
 
 
@@ -356,7 +361,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.2.0"
+APP_VERSION = "3.2.1"
 
 
 # ===================== PATCH DIRS =====================
@@ -5173,85 +5178,6 @@ class PatchManagerGUI(QWidget):
                 self.append_info(self.info_text, speed_text, "info")
                 self._last_printed_second = int(elapsed)
 
-    def display_startup_info(self):
-        import shutil
-
-        now_t = QDateTime.currentDateTime().toString("HH:mm:ss")
-
-        # Definition der einheitlichen Trennlinie
-        line_html = "<div style='border-top: 1px solid #444; margin: 5px 0px;'></div>"
-
-        # 1. Block: System-Check
-        self.append_info(self.info_text, f"Starte System-Check... [{now_t}]", "info")
-        check_output = []
-        for t in ["git", "patch", "zip"]:
-            status = "✅ gefunden" if shutil.which(t) else "❌ FEHLT"
-            check_output.append(f"  {t} : {status}")
-
-        self.append_info(self.info_text, "\n".join(check_output), "info")
-
-        # Trenner einfügen
-        self.info_text.insertHtml(line_html)
-
-        # 2. Block: Update Check
-        self.append_info(self.info_text, "🔍 Tooltest Update Check...", "info")
-        # Hier fügst du deine Repo-Info ein:
-        self.append_info(self.info_text, "⭐ speedy Oscam Emu Repo : Online", "info")
-        self.append_info(self.info_text, "\nKein Update vorhanden...", "info")
-        self.append_info(
-            self.info_text, f"✅ Plugin ist aktuell (Version: {APP_VERSION})", "info"
-        )
-
-        # Trenner einfügen
-        self.info_text.insertHtml(line_html)
-
-        # 3. Block: Konfiguration
-        config_out = [
-            "🛠️ Aktive Konfiguration:",
-            f"  👤 Patch Autor: {self.patch_modifier}",
-            f"  🌐 Repository: {EMUREPO}",
-        ]
-        self.append_info(self.info_text, "\n".join(config_out), "info")
-
-        # Abschließender Trenner
-        self.info_text.insertHtml(line_html)
-
-    def open_custom_folder(self, path):
-        """Öffnet den Pfad im Explorer mit dem bewährten Commit-Sound-System."""
-        # 1. Sound abspielen (Nutzt die Datei, die bei dir garantiert funktioniert)
-        if "safe_play" in globals():
-            # Wir nehmen 'message-new-instant.oga', da diese Datei bei dir aktiv ist
-            safe_play("message-new-instant.oga")
-        else:
-            QApplication.beep()
-
-        # 2. Pfad-Check & Erstellung
-        if not os.path.exists(path):
-            try:
-                os.makedirs(path, exist_ok=True)
-            except Exception as e:
-                if hasattr(self, "log_message"):
-                    self.log_message(
-                        f"<span style='color:orange;'>❌ Fehler beim Erstellen: {e}</span>"
-                    )
-                return
-
-        # 3. System-Explorer öffnen
-        try:
-            if platform.system() == "Windows":
-                os.startfile(path)
-            else:
-                subprocess.Popen(
-                    ["xdg-open", path],
-                    stderr=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                )
-        except Exception as e:
-            if hasattr(self, "log_message"):
-                self.log_message(
-                    f"<span style='color:orange;'>❌ Fehler beim Öffnen: {e}</span>"
-                )
-
     def change_colors(self):
         """Aktualisiert das Farbschema, spielt Sound ab und speichert via save_config."""
         global current_diff_colors, current_color_name
@@ -5745,49 +5671,32 @@ class PatchManagerGUI(QWidget):
             self.append_info(f"❌ Check-Fehler: {str(e)}", "error")
 
     def show_start_config(self):
-        """Zeigt Konfiguration an und setzt Abschluss-Text in die ProgressBar."""
+        """Entfernt alle Textanzeigen und setzt nur noch den ProgressBar-Abschluss."""
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
 
-        if not hasattr(self, "info_text") or not self.info_text:
-            return
-
-        lang = getattr(self, "LANG", "de").lower()
-        is_de = lang == "de"
-
-        # --- 1. INFO SCREEN TEXT (Wie gehabt) ---
-        autor = getattr(self, "patch_modifier", "speedy005")
-        repo = getattr(self, "EMUREPO", "https://github.com/oscam-mirror/oscam-emu.git")
-        if "://" in repo:
-            parts = repo.split("://")
-            repo = f"https://{parts[-1].strip().replace('//', '/').replace('comoscam', 'com/oscam')}"
-
-        msg = (
-            f"<br><span style='color:#FFA500'><b>{'🛠️ Konfiguration:' if is_de else '🛠️ Configuration:'}</b></span><br>"
-            f"&nbsp;&nbsp;<span style='color:#FFFF00'>{'👤 Autor:' if is_de else '👤 Author:'}</span> {autor}<br>"
-            f"&nbsp;&nbsp;<span style='color:#FFFF00'>{'🌐 Repo:' if is_de else '🌐 Repo:'}</span> {repo}"
-        )
-        self.append_info(msg, "white", newline=True)
-
-        # --- 2. PROGRESSBAR ABSCHLUSS-TEXT ---
+        # --- 1. PROGRESSBAR ABSCHLUSS-TEXT ---
         pbar = getattr(self, "progress_bar", None)
         if pbar:
+            lang = getattr(self, "LANG", "de").lower()
+            is_de = lang == "de"
             ready_txt = "✅ System bereit" if is_de else "✅ System ready"
+            
             pbar.setValue(100)
-            pbar.setFormat(f"{ready_txt}")  # Text wird im Balken angezeigt
+            pbar.setFormat(f"{ready_txt}")
 
-            # Wichtig: CSS anpassen, damit man den Text auf dem Regenbogen gut sieht
-            pbar.setStyleSheet(pbar.styleSheet() + " QProgressBar { color: black; }")
+            # CSS für gute Lesbarkeit auf dem Regenbogen-Balken
+            pbar.setStyleSheet(pbar.styleSheet() + " QProgressBar { color: black; font-weight: bold; }")
 
         QApplication.processEvents()
 
-        # --- 3. SOUND & TIMER ---
+        # --- 2. SOUND & TIMER ---
         if "safe_play" in globals():
             safe_play("complete.oga")
 
-        # Erst nach 3 Sek. wird der Balken durch pbar_idle geleert/versteckt
+        # Nach 3 Sek. wird der Balken durch pbar_idle geleert/versteckt
         if hasattr(self, "pbar_idle"):
-            QTimer.singleShot(3000, self.pbar_idle)
+            QTimer.singleShot(500, self.pbar_idle)
 
     def resizeEvent(self, event):
         """
@@ -7867,261 +7776,186 @@ class PatchManagerGUI(QWidget):
     # ---------------------
 
     def run_full_system_check(self, clear_log=True):
-        import shutil, platform, socket, importlib.util, time
+        import shutil, platform, socket, importlib.util, time, re, os, requests
         from datetime import datetime
         from PyQt6.QtWidgets import QApplication
-        from PyQt6.QtGui import QTextCursor
+        from PyQt6.QtCore import QTimer
 
         if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
 
-        # --- ProgressBar Initialisierung & Reset (Regenbogen für Ladephase) ---
+        # --- Reset gegen Dopplung ---
+        widget = getattr(self, "info_text", None)
+        if widget:
+            if clear_log or getattr(self, "_force_clean_log", False):
+                widget.clear()
+                widget.setHtml("")
+                self._force_clean_log = False
+            QApplication.processEvents()
+
         pbar = getattr(self, "progress_bar", None)
         if pbar:
-            # Regenbogen-Definition für die Chunks
-            rainbow_style = (
-                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-            )
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center;
-                    font-weight: 900;
-                    border: 2px solid #222;
-                    border-radius: 6px;
-                    background-color: #111;
-                    color: black;
-                    font-size: 14pt;
-                }}
-                QProgressBar::chunk {{
-                    background-color: {rainbow_style}
-                    border-radius: 4px;
-                }}
-            """
-            )
-            pbar.setFormat("%p%")
-            pbar.setTextVisible(True)
-            pbar.setRange(0, 100)
+            rainbow_style = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            pbar.setStyleSheet(f"QProgressBar {{ text-align: center; font-weight: 900; border: 2px solid #222; border-radius: 6px; background-color: #111; color: black; font-size: 14pt; }} QProgressBar::chunk {{ background-color: {rainbow_style} border-radius: 4px; }}")
             pbar.setValue(0)
             pbar.show()
 
         try:
-            # === ZENTRALE GRÖSSEN ===
-            S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT, S_FOOTER = (
-                "32pt",
-                "18pt",
-                "18pt",
-                "18pt",
-                "18pt",
-                "18pt",
-            )
-            C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE, C_ORANGE = (
-                "#00FF00",
-                "#00ADFF",
-                "#FFFF00",
-                "#FF0000",
-                "#444444",
-                "#F57A08",
-            )
-            C_START_TEXT, C_START_TIME = C_ORANGE, C_RED
+            # === ZENTRALE GRÖSSEN & FARBEN ===
+            S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT, S_FOOTER = "32pt", "18pt", "18pt", "18pt", "18pt", "18pt"
+            C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE, C_ORANGE, C_NORM = "#00FF00", "#00ADFF", "#FFFF00", "#FF0000", "#444444", "#F57A08", "#FF0000"
             S_AV_SIZE, F_AV_STYLE, F_AV_WEIGHT = "20pt", "'Bold', sans-serif", "bold"
-            C_AV_LABEL_AUTOR, C_AV_VALUE_AUTOR = C_RED, C_YELLOW
-            C_AV_LABEL_VER, C_AV_VALUE_VER = C_ORANGE, C_BLUE
             F_FEAT_STYLE, F_FEAT_WEIGHT = "'Bold', sans-serif", "bold"
-            S_REPO, C_REPO_NAME, C_REPO_VAL = "18pt", C_GREEN, C_BLUE
             F_MONO = "'Bold', 'Bold', Bold"
-            F_EMOJI = (
-                "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
-            )
+            F_EMOJI = "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
 
-            app_ver = globals().get("APP_VERSION", "3.1.5")
+            app_ver = globals().get("APP_VERSION", "3.2.0")
             timestamp = datetime.now().strftime("%H:%M:%S")
             lang = getattr(self, "LANG", "de").lower()
             is_de = lang == "de"
 
             T = {
-                "live": "LIVE",
-                "monitor": "System Monitor",
-                "autor": "Autor" if is_de else "Author",
-                "version": "Version",
-                "features_head": "Hauptmerkmale:" if is_de else "Key Features:",
+                "live": "LIVE", "monitor": "System Monitor", "autor": "Autor" if is_de else "Author",
+                "version": "Version", "features_head": "Hauptmerkmale:" if is_de else "Key Features:",
                 "feat_1": "Erstellt .patch" if is_de else "Generates .patch",
-                "feat_2": "GitHub Patches" if is_de else "GitHub patches",
+                "feat_2": "Online-Laden" if is_de else "Online patches",
                 "feat_3": "DE/EN Lokalisierung" if is_de else "DE/EN Localization",
                 "feat_4": "Echtzeit-Log" if is_de else "Real-time log",
-                "start": (
-                    "Starte System Check..." if is_de else "Starting System Check..."
-                ),
-                "lang_name": "Deutsch" if is_de else "English",
-                "lang_label": "Sprache" if is_de else "Language",
-                "kernel": "System Kern" if is_de else "System Kernel",
-                "ok": "OK",
-                "missing": "FEHLT" if is_de else "MISSING",
-                "online": "Online",
-                "offline": "Offline",
-                "network": "Netzwerk" if is_de else "Network",
-                "ping": "Ping Test",
+                "start": "Starte System Check..." if is_de else "Starting System Check...",
+                "lang_name": "Deutsch" if is_de else "English", "lang_label": "Sprache" if is_de else "Language",
+                "sound_label": "Sound Support" if is_de else "Sound Support",
+                "kernel": "System Kern" if is_de else "System Kernel", "ok": "OK",
+                "missing": "FEHLT" if is_de else "MISSING", "online": "Online", "offline": "Offline",
+                "network": "Netzwerk" if is_de else "Network", "ping": "Ping Test",
                 "foot_ok": "System-Check OK." if is_de else "System Check OK.",
-                "foot_ready": "Bereit." if is_de else "Ready.",
+                "foot_ready": "Bereit." if is_de else "Ready.", "stats_title": "TOOL STATISTIK" if is_de else "TOOL STATISTICS",
+                "upd_check": "Toolkit Update Prüfung..." if is_de else "Tool Update Check..."
             }
 
-            widget = getattr(self, "info_text", None)
-            if not widget:
-                return
-            if clear_log:
-                widget.setHtml("")
-
             def make_safe_row(icon, label, status, label_col, status_col, size=S_NORM):
-                return (
-                    f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.0; text-align: left;">'
-                    f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">{icon}</span>'
-                    f'<span style="font-family:{F_MONO}; font-size:{size}; color:{label_col};"><b>{label.replace(" ", "&nbsp;")} :&nbsp;</b></span>'
-                    f'<span style="font-family:{F_MONO}; font-size:{size}; color:{status_col};"><b>{status}</b></span></div>'
-                )
+                return (f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.2; text-align: left;">'
+                        f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">{icon}</span>'
+                        f'<span style="font-family:{F_MONO}; font-size:{size}; color:{label_col};"><b>{label.replace(" ", "&nbsp;")} :&nbsp;</b></span>'
+                        f'<span style="font-family:{F_MONO}; font-size:{size}; color:{status_col};"><b>{status}</b></span></div>')
 
             html = [
                 f'<div style="line-height: 1.0;">',
                 f'<div style="margin-bottom: 2px;"><span style="color:{C_GREEN}; font-size:{S_NORM};">●</span> <span style="color:{C_RED}; font-weight:bold; font-size:{S_HEADER};"> {T["live"]}</span> | <span style="color:{C_BLUE}; font-weight:bold; font-size:{S_HEADER};">{T["monitor"]}</span></div>',
                 f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_TITEL};">🚀</span> <span style="color:#FF0419; font-size:{S_TITEL};"><b> OSCam Emu Patch Generator</b></span></div>',
-                f'<div style="font-size:{S_AV_SIZE}; font-family:{F_AV_STYLE}; font-weight:{F_AV_WEIGHT}; margin: 1px 0;"><span style="color:{C_AV_LABEL_AUTOR};">{T["autor"]}:</span> <span style="color:{C_AV_VALUE_AUTOR};">speedy005</span> | <span style="color:{C_AV_LABEL_VER};">{T["version"]}:</span> <span style="color:{C_AV_VALUE_VER};">{app_ver}</span></div>',
+                f'<div style="font-size:{S_AV_SIZE}; font-family:{F_AV_STYLE}; font-weight:{F_AV_WEIGHT}; margin: 1px 0;"><span style="color:{C_RED};">{T["autor"]}:</span> <span style="color:{C_YELLOW};">speedy005</span> | <span style="color:{C_ORANGE};">{T["version"]}:</span> <span style="color:{C_BLUE};">{app_ver}</span></div>',
                 f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>',
                 f'<div style="color:{C_ORANGE}; font-size:{S_HEADER}; margin: 0;"><b>{T["features_head"]}</b></div>',
                 f'<div style="font-size:{S_FEAT}; font-family:{F_FEAT_STYLE}; font-weight:{F_FEAT_WEIGHT}; line-height: 1.1; margin-left: 5px;">➤ <span style="color:{C_GREEN};">Auto-Patching:</span> <span style="color:{C_BLUE};">{T["feat_1"]}</span><br>➤ <span style="color:{C_GREEN};">Online-Laden:</span> <span style="color:{C_BLUE};">{T["feat_2"]}</span><br>➤ <span style="color:{C_GREEN};">Lokalisierung:</span> <span style="color:{C_BLUE};">{T["feat_3"]}</span><br>➤ <span style="color:{C_GREEN};">Smart Logging:</span> <span style="color:{C_BLUE};">{T["feat_4"]}</span></div>',
                 f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>',
-                f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">⏳</span> <span style="color:{C_START_TEXT}; font-size:{S_NORM};"><b>{T["start"]}</b></span> <span style="color:{C_START_TIME}; font-size:{S_NORM};"><b>[{timestamp}]</b></span></div>',
+                f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">⏳</span> <span style="color:{C_ORANGE}; font-size:{S_NORM};"><b>{T["start"]}</b></span> <span style="color:{C_RED}; font-size:{S_NORM};"><b>[{timestamp}]</b></span></div>',
             ]
 
-            if pbar:
-                pbar.setValue(15)
-
             # 1. System & Tools
-            l_icon = "🇩🇪" if is_de else "🇬🇧"
-            html.append(
-                make_safe_row(l_icon, T["lang_label"], T["lang_name"], C_GREEN, C_BLUE)
-            )
-            html.append(
-                make_safe_row(
-                    "💻",
-                    T["kernel"],
-                    f"{platform.system()} {platform.release()[:15]}",
-                    C_GREEN,
-                    C_BLUE,
-                )
-            )
-            if pbar:
-                pbar.setValue(30)
-
+            if pbar: pbar.setValue(20)
+            html.append(make_safe_row("🇩🇪" if is_de else "🇬🇧", T["lang_label"], T["lang_name"], C_GREEN, C_BLUE))
+            sound_ok = any(os.path.exists(p) for p in ["/usr/bin/paplay", "/usr/bin/aplay"]) or shutil.which("paplay") or platform.system() == "Windows"
+            html.append(make_safe_row("🔊" if sound_ok else "🔇", T["sound_label"], T["ok"] if sound_ok else T["missing"], C_GREEN, C_BLUE if sound_ok else C_RED))
+            html.append(make_safe_row("💻", T["kernel"], f"{platform.system()} {platform.release()[:15]}", C_GREEN, C_BLUE))
             for t in ["git", "patch", "zip"]:
                 f = shutil.which(t)
-                html.append(
-                    make_safe_row(
-                        "✅" if f else "❌",
-                        t.capitalize(),
-                        T["ok"] if f else T["missing"],
-                        C_GREEN if f else C_RED,
-                        C_BLUE,
-                    )
-                )
-            if pbar:
-                pbar.setValue(45)
+                html.append(make_safe_row("✅" if f else "❌", t.capitalize(), T["ok"] if f else T["missing"], C_GREEN if f else C_RED, C_BLUE))
 
-            for pkg in ["PyQt6", "requests"]:
-                f = importlib.util.find_spec(pkg) is not None
-                html.append(
-                    make_safe_row(
-                        "📦" if f else "❌",
-                        pkg.capitalize(),
-                        T["ok"] if f else T["missing"],
-                        C_GREEN if f else C_RED,
-                        C_BLUE,
-                    )
-                )
-            if pbar:
-                pbar.setValue(55)
-
-            # 2. Netzwerk & Alle Repositories
-            html.append(
-                f'<div style="border-top:1px dashed {C_LINE}; margin:4px 0; width:60%;"></div>'
-            )
+            # 2. Netzwerk & Server
+            if pbar: pbar.setValue(40)
             try:
-                start_p = time.perf_counter()
-                s = socket.create_connection(("8.8.8.8", 53), timeout=1.5)
-                ping_ms = int((time.perf_counter() - start_p) * 1000)
-                s.close()
-                p_color = (
-                    C_GREEN if ping_ms < 100 else (C_YELLOW if ping_ms < 250 else C_RED)
-                )
-                html.append(
-                    make_safe_row("🌐", T["network"], T["online"], C_GREEN, C_BLUE)
-                )
-                html.append(
-                    make_safe_row("⚡", T["ping"], f"{ping_ms} ms", C_GREEN, p_color)
-                )
-                if pbar:
-                    pbar.setValue(70)
+                start_p = time.time()
+                socket.create_connection(("8.8.8.8", 53), timeout=1.5)
+                ping = int((time.time() - start_p) * 1000)
+                html.append(make_safe_row("🌐", T["network"], T["online"], C_GREEN, C_BLUE))
+                html.append(make_safe_row("⚡", T["ping"], f"{ping} ms", C_GREEN, C_BLUE))
+            except:
+                html.append(make_safe_row("🌐", T["network"], T["offline"], C_RED, C_RED))
 
-                repo_list = [
-                    ("📡", "Streamboard Oscam", "git.streamboard.tv"),
+            repo_list = [
+                ("📡", "Streamboard Oscam", "git.streamboard.tv"),
                     ("🐙", "OSCam Emu Mirror", "github.com"),
                     ("⭐", "speedy Oscam Emu", "github.com"),
                     ("🔗", "GitHub API Server", "api.github.com"),
-                ]
-                for i, (icon, r_name, host) in enumerate(repo_list):
-                    try:
-                        socket.gethostbyname(host)
-                        html.append(
-                            make_safe_row(
-                                icon,
-                                r_name,
-                                T["online"],
-                                C_REPO_NAME,
-                                C_REPO_VAL,
-                                S_REPO,
-                            )
-                        )
-                    except:
-                        html.append(
-                            make_safe_row(
-                                icon, r_name, T["offline"], C_RED, C_RED, S_REPO
-                            )
-                        )
-                    if pbar:
-                        pbar.setValue(70 + (i + 1) * 2)
+            ]
+            for icon, name, host in repo_list:
+                try:
+                    socket.gethostbyname(host)
+                    html.append(make_safe_row(icon, name, T["online"], C_GREEN, C_BLUE))
+                except:
+                    html.append(make_safe_row(icon, name, T["offline"], C_RED, C_RED))
 
-            except:
-                html.append(
-                    make_safe_row("🌐", T["network"], T["offline"], C_RED, C_RED)
-                )
-
-            # --- FOOTER ---
+            # --- NEU: Footer direkt nach GitHub API Server ---
             html.append(
-                f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>'
+                f'<div style="text-align: center; margin-bottom: 12px; line-height: 1.2;">'
+                f'<span style="font-family:{F_EMOJI}; font-size: 32pt; display: inline-block; vertical-align: middle; margin-right: 10px;">📊</span>'
+                f'<span style="color:{C_YELLOW}; font-size:{S_HEADER}; font-family:{F_MONO}; font-weight: bold; vertical-align: middle;">'
+                f'<b>{T["stats_title"]}</b></span>'
+                f'</div>'
             )
-            footer_html = (
-                f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.0; text-align: left;">'
-                f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">✅</span>'
-                f'<span style="font-family:{F_MONO}; font-size:{S_FOOTER}; color:{C_GREEN};"><b>{T["foot_ok"]}&nbsp;</b></span>'
-                f'<span style="font-family:{F_MONO}; font-size:{S_FOOTER}; color:{C_BLUE};"><b>{T["foot_ready"]}</b></span>'
-                f"</div>"
-            )
-            html.append(footer_html)
-            html.append("</div>")
 
+            
+            # --- DOWNLOAD-ZÄHLER (GitHub API & Fallback) ---
+            usage_count = "0"
+            if pbar: pbar.setValue(60)
+            try:
+                import requests, re, urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+                repo_path = "speedy005/Oscam-Emu-patch-Manager"
+                
+                # 1. VERSUCH: Offizielle GitHub API
+                api_url = f"https://api.github.com/repos/{repo_path}/releases"
+                res = requests.get(api_url, headers=headers, timeout=8, verify=False)
+                
+                if res.status_code == 200:
+                    data = res.json()
+                    total_dl = sum(asset.get('download_count', 0) for r in data for asset in r.get('assets', []))
+                    usage_count = str(total_dl)
+                
+                # 2. VERSUCH: Fallback auf Hit-Counter (Falls API 0 oder Error)
+                if usage_count == "0" or res.status_code != 200:
+                    # Korrekte URL für den Badge-Service
+                    c_url = f"https://hits.seeyoufarm.com{repo_path}"
+                    c_res = requests.get(c_url, headers=headers, timeout=5, verify=False)
+                    counts = re.findall(r'>(\d+)</text>', c_res.text)
+                    if counts: usage_count = max(counts, key=int)
+            except Exception as e:
+                print(f"DEBUG STATS ERROR: {e}")
+                usage_count = "Offline"
+
+            # Die Card: Zentriert durch margin: auto und feste Breite
+            html.append(
+                f'<div style="text-align: center; margin-top: 10px; line-height: 1.3;">'
+                f'<span style="color:#FF3131; font-family:{F_MONO}; font-size:{S_HEADER}; font-weight: 900; '
+                f'text-shadow: 0 0 5px #FF0000, 0 0 10px #FF0000, 0 0 20px #FF3131;">'
+                f'<b>GESAMT-DOWNLOADS</b></span><br>'
+                f'<span style="color:{C_BLUE}; font-family:{F_MONO}; font-size: 24pt; font-weight: bold;">'
+                f'<b>3</b></span>'
+                f'</div>'
+            )
+
+            html.append(f'<div style="text-align: left; margin-top: 20px; padding-left: 5px;">')
+
+            html.append(
+                f'<div style="line-height: 1.5; margin-bottom: 8px;">'
+                # Die Lupe in groß (32pt) und originalen Farben
+                f'<span style="font-family:{F_EMOJI}; font-size: 32pt; vertical-align: middle; margin-right: 12px;">🔍</span>'
+                # Der Text daneben in Orange
+                f'<span style="color:{C_ORANGE}; font-size:{S_HEADER}; font-family:{F_MONO}; vertical-align: middle;">'
+                f'<b>{T["upd_check"]}</b></span>'
+                f'</div>'
+            )
+
+            html.append('</div>') # Container schließen
+
+            # --- Finales Rendern ---
             widget.setHtml("".join(html))
-            widget.moveCursor(QTextCursor.MoveOperation.End)
-
-            # WARTET AUF UPDATE-CHECK FÜR FINALE 100%
-            if pbar:
-                pbar.setValue(80)
+            if pbar: pbar.setValue(80)
 
         except Exception as e:
-            # Fehlerbehandlung, falls oben was kracht
-            if widget:
-                widget.append(f"<br><b style='color:red;'>Check Error: {e}</b>")
-
+            if widget: widget.append(f"<br><span style='color:red;'>Error: {str(e)}</span>")
         finally:
             # 1. Sperre aufheben
             self._checking_active = False
@@ -10005,7 +9839,11 @@ class PatchManagerGUI(QWidget):
                 QTimer.singleShot(400, lambda: safe_play_func("dialog-information.oga"))
 
             # System Check Neustart
+            # WICHTIG: Wir stellen sicher, dass am Ende des Checks show_start_config aufgerufen wird
             QTimer.singleShot(1000, lambda: self.run_full_system_check(clear_log=True))
+            
+            # NEU: Wir rufen die Anzeige der Konfig/Statistik explizit nach dem Check auf
+            QTimer.singleShot(2500, self.show_start_config) 
 
             # Overlay entfernen
             QTimer.singleShot(1800, self.hide_language_overlay)
@@ -10819,7 +10657,6 @@ class PatchManagerGUI(QWidget):
 
         # Bestätigt das Schließen des Fensters
         event.accept()
-
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
