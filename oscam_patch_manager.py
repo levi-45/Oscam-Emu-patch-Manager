@@ -356,7 +356,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.1.8"
+APP_VERSION = "3.2.0"
 
 
 # ===================== PATCH DIRS =====================
@@ -1826,11 +1826,10 @@ fill_missing_keys(TEXTS)
 
 def save_config(cfg_updates, gui_instance=None, silent=False):
     """
-    Speichert Config-Updates, ohne bestehende Werte zu löschen.
-    Verhindert automatisches Blinken beim Programmstart durch is_loading Check.
+    Speichert Config-Updates und synchronisiert Timer, ProgressBar sowie Sounds.
     """
     try:
-        # 1. Bestehende Config laden, um nichts zu überschreiben
+        # 1. Bestehende Config laden
         current_cfg = {}
         if os.path.exists(CONFIG_FILE):
             try:
@@ -1839,63 +1838,63 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
             except:
                 current_cfg = {}
 
-        # 2. Die neuen Updates in die bestehende Config mergen
+        # 2. Mergen
         current_cfg.update(cfg_updates)
 
-        # 3. System-Werte synchronisieren
-        patch_author = current_cfg.get("patch_modifier", "speedy005")
-        repo_url = current_cfg.get("EMUREPO", "")
-        globals()["PATCH_MODIFIER"] = patch_author
-        globals()["EMUREPO"] = repo_url
-
-        # --- BLINK-SPEED TIMER UPDATE (KORRIGIERT) ---
+        # 3. System-Werte & Timer synchronisieren
         blink_speed = current_cfg.get("blink_speed", 500)
-
         if gui_instance:
-            timer = getattr(
-                gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None)
-            )
-
+            timer = getattr(gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None))
             if timer:
-                # WICHTIG: Wenn wir im Lade-Modus sind ODER Speed >= 950ms -> TIMER STOPPEN
                 if getattr(gui_instance, "is_loading", False) or blink_speed >= 950:
                     timer.stop()
-                    # Alle LEDs auf statisch leuchten setzen
                     if hasattr(gui_instance, "force_leds_static"):
                         gui_instance.force_leds_static()
                 else:
-                    # NUR starten, wenn wir NICHT mehr laden und der User einen Speed gewählt hat
                     timer.setInterval(max(10, blink_speed))
                     if not timer.isActive():
                         timer.start()
 
-        # 4. Alles zusammen speichern
-        abs_config_path = os.path.abspath(CONFIG_FILE)
-        with open(abs_config_path, "w", encoding="utf-8") as f:
+        # 4. Speichern
+        with open(os.path.abspath(CONFIG_FILE), "w", encoding="utf-8") as f:
             json.dump(current_cfg, f, indent=4, ensure_ascii=False)
 
-        # 5. UI-Instanz synchronisieren (WICHTIG!)
-        if gui_instance:
+        # 5. UI & Feedback (NUR wenn nicht im Lade-Modus und nicht silent)
+        if gui_instance and not getattr(gui_instance, "is_loading", False):
             gui_instance.current_config = current_cfg
+            
+            if not silent:
+                # --- SOUND ABSPIELEN ---
+                if "safe_play" in globals():
+                    safe_play("dialog-information.oga")
 
-        # 6. Logging (NUR wenn NICHT silent UND NICHT im Lade-Modus)
-        if (
-            not silent
-            and gui_instance
-            and not getattr(gui_instance, "is_loading", False)
-        ):
-            if hasattr(gui_instance, "log_message"):
-                is_matrix = current_cfg.get("theme_mode") == "matrix"
-                color = "#00FF41" if is_matrix else "cyan"
-                gui_instance.log_message(
-                    f"<span style='color:{color};'><b>✅ Einstellungen gespeichert</b></span>"
-                )
+                # --- PROGRESSBAR ERFOLG ANZEIGEN ---
+                pbar = getattr(gui_instance, "progress_bar", None)
+                if pbar:
+                    lang = getattr(gui_instance, "LANG", "de").lower()
+                    msg = "✅ Einstellungen gespeichert" if lang == "de" else "✅ Settings saved"
+                    
+                    # Kurz auf 100% setzen mit Erfolgstext
+                    pbar.setValue(100)
+                    pbar.setFormat(msg)
+                    
+                    # Nach 3 Sekunden zurück zu "Was bauen wir heute?"
+                    if hasattr(gui_instance, "pbar_idle"):
+                        from PyQt6.QtCore import QTimer
+                        QTimer.singleShot(3000, gui_instance.pbar_idle)
+
+                # --- LOG MESSAGE ---
+                if hasattr(gui_instance, "log_message"):
+                    is_matrix = current_cfg.get("theme_mode") == "matrix"
+                    color = "#00FF41" if is_matrix else "cyan"
+                    # FIX: font-weight 700 im HTML-Style für das Log
+                    gui_instance.log_message(
+                        f"<span style='color:{color}; font-weight:700;'><b>{msg}</b></span>"
+                    )
 
     except Exception as e:
         if gui_instance and hasattr(gui_instance, "log_message"):
-            gui_instance.log_message(
-                f"<span style='color:orange;'>❌ Fehler: {e}</span>"
-            )
+            gui_instance.log_message(f"<span style='color:orange;'>❌ Fehler: {e}</span>")
 
 
 # ===================== CONFIG =====================
@@ -3818,38 +3817,70 @@ class PatchManagerGUI(QWidget):
                 continue
 
     def pbar_idle(self):
-        """Setzt die ProgressBar auf den lockeren 'Was bauen wir heute?'-Modus zurück."""
+        """
+        Setzt die ProgressBar auf den lockeren 'Was bauen wir heute?'-Modus zurück.
+        Berücksichtigt das aktuell gewählte Farbschema (Matrix, Light oder Gold).
+        """
         pbar = getattr(self, "progress_bar", None)
         if not pbar:
             return
 
+        # 1. Sprache & Text ermitteln
         is_de = getattr(self, "LANG", "de").lower() == "de"
-        # Der lockere Text mit Emoji
-        idle_msg = (
-            "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?"
-        )
+        idle_msg = "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?"
 
-        # Zurück zum edlen Orange/Gold-Style (Standard)
-        default_style = """
-            QProgressBar { 
-                border: 2px solid #444; 
-                border-radius: 8px; 
-                background-color: #1A1A1A; 
-                color: #FFD700; 
-                text-align: center; 
-                font-weight: 700;  /* Extra fett */
-                font-size: 20px;   /* Etwas größer für bessere Wirkung */
-                min-height: 30px;  /* Gibt der Bar genug Platz für die 20px Schrift */
-                padding: 2px;
-            }
-            QProgressBar::chunk { 
-                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F37804, stop:1 #FFD700); 
-                border-radius: 6px; 
-            }
-        """
-        pbar.setStyleSheet(default_style)
+        # 2. Aktuellen Mode erkennen (Matrix, Light oder Standard)
+        # Wir prüfen das Stylesheet des Hauptfensters oder die aktuelle Farbbox
+        current_style = self.styleSheet()
+        is_matrix = "Matrix" in str(getattr(self, "current_color_name", "")) or "#00FF00" in current_style
+        is_light = "#F5F5F5" in current_style or not current_style
+
+        # 3. Stylesheets definieren
+        if is_matrix:
+            # --- MATRIX MODE (Grüner Scanner) ---
+           style = """
+                QProgressBar { 
+                    border: 2px solid #00FF00; border-radius: 8px; background-color: #001100; 
+                    color: #00FF00; text-align: center; font-weight: 700; font-size: 18px; 
+                    min-height: 35px; padding: 2px;
+                }  
+                QProgressBar::chunk { 
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #003300, stop:0.5 #00FF00, stop:1 #003300); 
+                    border-radius: 6px; 
+                }
+            """
+        elif is_light:
+            # --- LIGHT MODE (Dezent Blau/Grau) ---
+            style = """
+                QProgressBar { 
+                    border: 2px solid #BBB; border-radius: 8px; background-color: #EEE; 
+                    color: #222; text-align: center; font-weight: 700; font-size: 18px; 
+                    min-height: 35px; padding: 2px;
+                }
+                QProgressBar::chunk { 
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3498db, stop:1 #2980b9); 
+                    border-radius: 6px; 
+                } 
+            """
+        else:
+            # --- EDLER GOLD/ORANGE STYLE (Dein Standard) ---
+            style = """
+                QProgressBar { 
+                    border: 2px solid #444; border-radius: 8px; background-color: #1A1A1A; 
+                    color: #FFD700; text-align: center; font-weight: 700; font-size: 20px; 
+                    min-height: 35px; padding: 2px;
+                }
+                QProgressBar::chunk { 
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F37804, stop:1 #FFD700); 
+                    border-radius: 6px; 
+                }
+            """
+
+        # 4. Werte anwenden
+        pbar.setStyleSheet(style)
         pbar.setValue(0)
         pbar.setFormat(idle_msg)
+        pbar.setTextVisible(True)
 
     def export_log(self):
         """Speichert Log als Textdatei mit Sound beim Start und beim Erfolg."""
@@ -4554,7 +4585,7 @@ class PatchManagerGUI(QWidget):
         return """
             QWidget { background-color: #0D0D0D; color: #00FF41; font-family: 'Segoe UI', 'Ubuntu', sans-serif; }
             QGroupBox { border: 2px solid #008F11; border-radius: 8px; margin-top: 1ex; font-weight: bold; }
-            QTextEdit { background-color: #000000; border: 1px solid #00FF41; color: #00FF41; font-family: 'Consolas', monospace; font-size: 13px; }
+            QTextEdit { background-color: #000000; border: 1px solid #00FF41; color: #00FF41; font-family: 'Consolas', monospace; font-size: 20px; }
             QPushButton { background-color: #1A1A1A; color: #00FF41; border: 1px solid #008F11; border-radius: 4px; padding: 6px; font-weight: bold; }
             QPushButton:hover { background-color: #008F11; color: #000000; }
             QLabel { color: #00FF41; }
@@ -4589,7 +4620,7 @@ class PatchManagerGUI(QWidget):
             matrix_qss = """
                 QWidget { background-color: #000000; color: #00FF41; font-family: 'Segoe UI', 'Consolas'; }
                 QGroupBox { border: 2px solid #008F11; border-radius: 8px; margin-top: 1ex; font-weight: bold; color: #00FF41; }
-                QTextEdit { background-color: #050505; border: 1px solid #00FF41; color: #00FF41; font-family: 'Consolas'; font-size: 13px; }
+                QTextEdit { background-color: #050505; border: 1px solid #00FF41; color: #00FF41; font-family: 'Consolas'; font-size: 20px; }
                 QPushButton { background-color: #111; color: #00FF41; border: 1px solid #008F11; border-radius: 5px; padding: 5px; font-weight: bold; }
                 QPushButton:hover { background-color: #008F11; color: #000; border: 1px solid #00FF41; }
                 QLabel { color: #00FF41; background: transparent; border: none; }
@@ -4777,28 +4808,42 @@ class PatchManagerGUI(QWidget):
         return container
 
     def toggle_theme(self):
-        # Prüfen, ob wir gerade im Dark Mode sind
-        is_dark = "#2F2F2F" in self.styleSheet()
+        """
+        Schaltet zwischen Light, Dark und Matrix Mode um, aktualisiert die UI 
+        und speichert die Auswahl dauerhaft in der Config-Datei.
+        """
+        import json
+        # Aktuellen Modus aus den globalen Variablen holen (geladen durch load_config)
+        current_mode = globals().get("THEME_MODE", "standard")
         lang = getattr(self, "LANG", "de").lower()
 
-        if is_dark:
-            # --- LIGHT MODE SETTINGS ---
+        # 1. Logik für den Wechsel (Rotation: Standard -> Dark -> Matrix -> zurück)
+        if current_mode == "standard":
+            new_mode = "dark"
+        elif current_mode == "dark":
+            new_mode = "matrix"
+        else:
+            new_mode = "standard"
+
+        # 2. Globale Variable sofort aktualisieren
+        globals()["THEME_MODE"] = new_mode
+
+        # 3. THEMEN ANWENDEN
+        if new_mode == "standard":
+            # --- LIGHT MODE ---
             self.setStyleSheet("background-color: #F5F5F5; color: #222;")
             self.info_text.setStyleSheet(
-                "background-color: #FFFFFF; color: #222; border: 1px solid #CCC; border-radius: 5px;"
+                    "background-color: #FFFFFF; color: #222; border: 1px solid #CCC; border-radius: 5px;"
             )
-
             if hasattr(self, "header_widget"):
                 self.header_widget.setStyleSheet(
                     "background-color: #E0E0E0; border: 1px solid #BBB; border-radius: 10px;"
                 )
-
             self.btn_theme.setStyleSheet(
-                "background-color: #DDD; color: #222; border: 1px solid #BBB; border-radius: 4px; font-size: 10px;"
+                    "background-color: #DDD; color: #222; border: 1px solid #BBB; border-radius: 4px; font-size: 10px;"
             )
             self.btn_theme.setText("☀️ Light Mode")
-
-            # ProgressBar im Light Mode dezent zurücksetzen
+        
             pbar = getattr(self, "progress_bar", None)
             if pbar:
                 pbar.setStyleSheet(
@@ -4806,24 +4851,21 @@ class PatchManagerGUI(QWidget):
                 )
                 pbar.setFormat("Helles Design" if lang == "de" else "Light Mode")
 
-        else:
-            # --- DARK MODE SETTINGS ---
+        elif new_mode == "dark":
+            # --- DARK MODE ---
             self.setStyleSheet("background-color: #2F2F2F; color: #EEE;")
             self.info_text.setStyleSheet(
                 "background-color: #000000; color: #FFFFFF; border: 1px solid #444; border-radius: 5px;"
             )
-
             if hasattr(self, "header_widget"):
                 self.header_widget.setStyleSheet(
                     "background-color: #2F2F2F; border: 1px solid #444; border-radius: 10px;"
                 )
-
             self.btn_theme.setStyleSheet(
                 "background-color: #3D3D3D; color: #EEE; border: 1px solid #555; border-radius: 4px; font-size: 10px;"
             )
             self.btn_theme.setText("🌓 Dark Mode")
-
-            # --- PROGRESSBAR REGENBOGEN (Wie im Terminal) ---
+        
             pbar = getattr(self, "progress_bar", None)
             if pbar:
                 rainbow = (
@@ -4832,37 +4874,49 @@ class PatchManagerGUI(QWidget):
                     "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF)"
                 )
                 pbar.setStyleSheet(
-                    f"""
-                    QProgressBar {{
-                        text-align: center;
-                        font-weight: 700;
-                        border: 2px solid #222;
-                        border-radius: 6px;
-                        background-color: #111;
-                        color: black;
-                        font-size: 11pt;
-                    }}
-                    QProgressBar::chunk {{
-                        background: {rainbow};
-                        border-radius: 4px;
-                    }}
-                """
+                    f"QProgressBar {{ text-align: center; border: 2px solid #222; border-radius: 6px; background-color: #111; color: black; font-weight: bold; }}"
+                    f"QProgressBar::chunk {{ background: {rainbow}; border-radius: 4px; }}"
                 )
+                pbar.setFormat("Dunkles Design" if lang == "de" else "Dark Mode")
 
-                pbar.setValue(100)
-                from PyQt6.QtCore import QTimer
-
-                if hasattr(self, "pbar_idle"):
-                    QTimer.singleShot(3000, self.pbar_idle)
-
-                # Zweisprachiger Text
-                f_text = (
-                    "Dunkles Design aktiviert"
-                    if lang == "de"
-                    else "Dark Mode activated"
+        elif new_mode == "matrix":
+            # --- MATRIX MODE ---
+            # Klassisches Hacker-Grün auf Schwarz
+            self.setStyleSheet("background-color: #000000; color: #00FF00;")
+            self.info_text.setStyleSheet(
+                "background-color: #000000; color: #00FF00; border: 1px solid #00FF00; border-radius: 5px; font-family: 'Courier New';"
+            )
+            if hasattr(self, "header_widget"):
+                self.header_widget.setStyleSheet(
+                    "background-color: #000000; border: 1px solid #00FF00; border-radius: 10px;"
                 )
-                pbar.setFormat(f_text)
-                pbar.setTextVisible(True)
+            self.btn_theme.setStyleSheet(
+                "background-color: #000000; color: #00FF00; border: 1px solid #00FF00; border-radius: 4px; font-size: 10px;"
+            )
+            self.btn_theme.setText("📟 Matrix Mode")
+        
+            pbar = getattr(self, "progress_bar", None)
+            if pbar:
+                pbar.setStyleSheet(
+                    "QProgressBar { text-align: center; border: 1px solid #00FF00; border-radius: 5px; background-color: #000; color: #00FF00; }"
+                    "QProgressBar::chunk { background-color: #008800; }"
+                )
+                pbar.setFormat("SYSTEM MATRIX..." if lang == "de" else "MATRIX ACTIVE")
+
+        # 4. SPEICHERN IN DATEI (Persistenz)
+        try:
+            # Nutzt die CONFIG_FILE Konstante aus dem globalen Scope
+            config_path = globals().get("CONFIG_FILE", "config.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            
+                cfg["theme_mode"] = new_mode
+            
+                with open(config_path, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"⚠️ Fehler beim Speichern des Themes: {e}")
 
     import os
     import re
