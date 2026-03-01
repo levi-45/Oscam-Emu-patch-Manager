@@ -8237,29 +8237,35 @@ class PatchManagerGUI(QWidget):
             html.append(
                 f'<div style="text-align:center; margin-top:15px; line-height:1.4; padding:15px; '
                 f'border:2px solid {C_LINE}; border-radius:12px; background-color:#111;">'
+
                 # Titel 📊
                 f'<div style="font-size:{S_HEADER}; font-family:{F_MONO}; font-weight:bold; color:#FF3131; margin-bottom:12px;">'
-                f'<span style="font-family:{F_EMOJI};">📊</span> {T["stats_title"]}</div>'
+                f'<span style="font-family:{F_EMOJI}; font-size:{S_HEADER};">📊</span> {T["stats_title"]}</div>'
+
                 # GitHub Downloads 🐙
                 f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:18pt;">🐙</span> '
                 f'<span style="color:{C_GREEN};">GitHub Downloads:</span> '
                 f'<span style="color:{C_BLUE};">{git_count}</span></div>'
+
                 # Lokale Installationen 💾
                 f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:18pt;">💾</span> '
                 f'<span style="color:{C_ORANGE};">Lokale Installationen:</span> '
                 f'<span style="color:{C_BLUE};">{install_count}</span></div>'
+
                 # Gesamt 📊
                 f'<div style="font-size:20pt; font-weight:bold; margin-top:8px;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:20pt;">📊</span> '
                 f'<span style="color:{C_YELLOW};">Gesamt:</span> '
                 f'<span style="color:{C_BLUE};">{usage_count}</span></div>'
-                # Optional: Fortschrittsbalken
+
+                # Fortschrittsbalken
                 f'<div style="width:100%; background-color:#333; border-radius:6px; margin-top:10px;">'
                 f'<div style="width:{min(100, int(usage_count))}%; height:14px; background-color:{C_ORANGE}; border-radius:6px;"></div>'
-                f"</div>"
-                f"</div>"
+                f'</div>'
+
+                f'</div>'
             )
 
             widget.setHtml("".join(html))
