@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.2.1"
+APP_VERSION = "3.2.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -581,489 +581,71 @@ NEVER_DELETE = [
 
 # ===================== COLORS =====================
 DIFF_COLORS = {
-    "Acid": {
-        "bg": "#1D1D1D",
-        "fg": "#DFFF00",
-        "hover": "#BFFF00",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Aero": {
-        "bg": "#00B8D4",
-        "fg": "#FFFFFF",
-        "hover": "#00E5FF",
-        "active": "#0091EA",
-        "window_bg": "#2F2F2F",
-    },
-    "Afterglow": {
-        "bg": "#2C2C2C",
-        "fg": "#E57373",
-        "hover": "#FF8A65",
-        "active": "#D32F2F",
-        "window_bg": "#2F2F2F",
-    },
-    "Alien": {
-        "bg": "#00FF41",
-        "fg": "#000000",
-        "hover": "#008F11",
-        "active": "#003B00",
-        "window_bg": "#2F2F2F",
-    },
-    "Amethyst": {
-        "bg": "#9C27B0",
-        "fg": "#E1BEE7",
-        "hover": "#BA68C8",
-        "active": "#7B1FA2",
-        "window_bg": "#2F2F2F",
-    },
-    "Anthrazit": {
-        "bg": "#2F2F2F",
-        "fg": "#FFFFFF",
-        "hover": "#3D3D3D",
-        "active": "#242424",
-        "window_bg": "#2F2F2F",
-    },
-    "Arctic": {
-        "bg": "#000000",
-        "fg": "#00D2FF",
-        "hover": "#0081FF",
-        "active": "#00458B",
-        "window_bg": "#2F2F2F",
-    },
-    "Asphalt": {
-        "bg": "#263238",
-        "fg": "#ECEFF1",
-        "hover": "#37474F",
-        "active": "#102027",
-        "window_bg": "#2F2F2F",
-    },
-    "Atomic": {
-        "bg": "#1A1A1A",
-        "fg": "#7FFF00",
-        "hover": "#32CD32",
-        "active": "#006400",
-        "window_bg": "#2F2F2F",
-    },
-    "Aurora": {
-        "bg": "#004D40",
-        "fg": "#80CBC4",
-        "hover": "#00897B",
-        "active": "#002420",
-        "window_bg": "#2F2F2F",
-    },
-    "Blackout": {
-        "bg": "#000000",
-        "fg": "#444444",
-        "hover": "#222222",
-        "active": "#111111",
-        "window_bg": "#2F2F2F",
-    },
-    "Blaze": {
-        "bg": "#E65100",
-        "fg": "#FFCC80",
-        "hover": "#EF6C00",
-        "active": "#BF360C",
-        "window_bg": "#2F2F2F",
-    },
-    "BloodMoon": {
-        "bg": "#330000",
-        "fg": "#FF0000",
-        "hover": "#660000",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Bordeaux": {
-        "bg": "#800000",
-        "fg": "#FFFFFF",
-        "hover": "#A52A2A",
-        "active": "#5D0000",
-        "window_bg": "#2F2F2F",
-    },
-    "Bubblegum": {
-        "bg": "#F06292",
-        "fg": "#F8BBD0",
-        "hover": "#F48FB1",
-        "active": "#C2185B",
-        "window_bg": "#2F2F2F",
-    },
-    "Bumblebee": {
-        "bg": "#FFCC00",
-        "fg": "#000000",
-        "hover": "#000000",
-        "active": "#333300",
-        "window_bg": "#2F2F2F",
-    },
-    "Candy": {
-        "bg": "#FF80AB",
-        "fg": "#FCE4EC",
-        "hover": "#F06292",
-        "active": "#C2185B",
-        "window_bg": "#2F2F2F",
-    },
-    "Carbon": {
-        "bg": "#232323",
-        "fg": "#E0E0E0",
-        "hover": "#111111",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Classics": {
-        "bg": "#3a6ea5",
-        "fg": "#FFFFFF",
-        "hover": "#4a7eb5",
-        "active": "#2a5e95",
-        "window_bg": "#2F2F2F",
-    },
-    "Coffee": {
-        "bg": "#4E342E",
-        "fg": "#D7CCC8",
-        "hover": "#5D4037",
-        "active": "#3E2723",
-        "window_bg": "#2F2F2F",
-    },
-    "Copper": {
-        "bg": "#3E2723",
-        "fg": "#D84315",
-        "hover": "#BF360C",
-        "active": "#260E04",
-        "window_bg": "#2F2F2F",
-    },
-    "Cosmos": {
-        "bg": "#130f40",
-        "fg": "#f093fb",
-        "hover": "#30336b",
-        "active": "#130f40",
-        "window_bg": "#2F2F2F",
-    },
-    "Crimson": {
-        "bg": "#000000",
-        "fg": "#DC143C",
-        "hover": "#800000",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Cyberpunk": {
-        "bg": "#000000",
-        "fg": "#00FFFF",
-        "hover": "#F305FF",
-        "active": "#FF0055",
-        "window_bg": "#2F2F2F",
-    },
-    "DeepBlack": {
-        "bg": "#1A1A1A",
-        "fg": "#FFD700",
-        "hover": "#333333",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "DeepSea": {
-        "bg": "#001219",
-        "fg": "#94D2BD",
-        "hover": "#0A9396",
-        "active": "#005F73",
-        "window_bg": "#2F2F2F",
-    },
-    "Dracula": {
-        "bg": "#282A36",
-        "fg": "#BD93F9",
-        "hover": "#44475A",
-        "active": "#191A21",
-        "window_bg": "#2F2F2F",
-    },
-    "Electric": {
-        "bg": "#0000FF",
-        "fg": "#FFFF00",
-        "hover": "#00FFFF",
-        "active": "#00008B",
-        "window_bg": "#2F2F2F",
-    },
-    "Emerald": {
-        "bg": "#2E7D32",
-        "fg": "#FFFFFF",
-        "hover": "#388E3C",
-        "active": "#1B5E20",
-        "window_bg": "#2F2F2F",
-    },
-    "Forest": {
-        "bg": "#1B5E20",
-        "fg": "#E8F5E9",
-        "hover": "#2E7D32",
-        "active": "#0D5302",
-        "window_bg": "#2F2F2F",
-    },
-    "Frost": {
-        "bg": "#000000",
-        "fg": "#A5F2F3",
-        "hover": "#FFFFFF",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Galaxy": {
-        "bg": "#0D001A",
-        "fg": "#9D50BB",
-        "hover": "#6E48AA",
-        "active": "#300055",
-        "window_bg": "#2F2F2F",
-    },
-    "Ghost": {
-        "bg": "#F5F5F5",
-        "fg": "#212121",
-        "hover": "#E0E0E0",
-        "active": "#BDBDBD",
-        "window_bg": "#2F2F2F",
-    },
-    "Gold": {
-        "bg": "#FFD700",
-        "fg": "#000000",
-        "hover": "#FFEA70",
-        "active": "#DAA520",
-        "window_bg": "#2F2F2F",
-    },
-    "Graphite": {
-        "bg": "#424242",
-        "fg": "#B0BEC5",
-        "hover": "#616161",
-        "active": "#212121",
-        "window_bg": "#2F2F2F",
-    },
-    "Hazard": {
-        "bg": "#000000",
-        "fg": "#FFFF00",
-        "hover": "#444400",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "HotPink": {
-        "bg": "#FF69B4",
-        "fg": "#FFFFFF",
-        "hover": "#FF1493",
-        "active": "#C71585",
-        "window_bg": "#2F2F2F",
-    },
-    "HyperSpace": {
-        "bg": "#000000",
-        "fg": "#FFFFFF",
-        "hover": "#1A1A1A",
-        "active": "#FFFFFF",
-        "window_bg": "#2F2F2F",
-    },
-    "Iceberg": {
-        "bg": "#E1F5FE",
-        "fg": "#01579B",
-        "hover": "#FFFFFF",
-        "active": "#B3E5FC",
-        "window_bg": "#2F2F2F",
-    },
-    "Inferno": {
-        "bg": "#212121",
-        "fg": "#FF4500",
-        "hover": "#FF8C00",
-        "active": "#8B0000",
-        "window_bg": "#2F2F2F",
-    },
-    "Jungle": {
-        "bg": "#1B5E20",
-        "fg": "#C8E6C9",
-        "hover": "#2E7D32",
-        "active": "#003300",
-        "window_bg": "#2F2F2F",
-    },
-    "Lava": {
-        "bg": "#4E0000",
-        "fg": "#FF3300",
-        "hover": "#FF6600",
-        "active": "#220000",
-        "window_bg": "#2F2F2F",
-    },
-    "Magma": {
-        "bg": "#000000",
-        "fg": "#FF0000",
-        "hover": "#660000",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Matrix_Pro": {
-        "bg": "#000000",
-        "fg": "#00FF41",
-        "hover": "#003B00",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Midnight": {
-        "bg": "#1A1A1A",
-        "fg": "#F7F7F7",
-        "hover": "#333333",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "MidnightBlue": {
-        "bg": "#1A237E",
-        "fg": "#C5CAE9",
-        "hover": "#283593",
-        "active": "#0D1137",
-        "window_bg": "#2F2F2F",
-    },
-    "Misty": {
-        "bg": "#90A4AE",
-        "fg": "#ECEFF1",
-        "hover": "#B0BEC5",
-        "active": "#546E7A",
-        "window_bg": "#2F2F2F",
-    },
-    "Neon": {
-        "bg": "#000000",
-        "fg": "#00FF00",
-        "hover": "#003300",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Nordic": {
-        "bg": "#2E3440",
-        "fg": "#D8DEE9",
-        "hover": "#3B4252",
-        "active": "#242933",
-        "window_bg": "#2F2F2F",
-    },
-    "Nuclear": {
-        "bg": "#1A1A1A",
-        "fg": "#CCFF00",
-        "hover": "#333333",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Obsidian": {
-        "bg": "#1B1B1B",
-        "fg": "#E0E0E0",
-        "hover": "#444444",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Ocean": {
-        "bg": "#006064",
-        "fg": "#FFFFFF",
-        "hover": "#00838F",
-        "active": "#004D40",
-        "window_bg": "#2F2F2F",
-    },
-    "Olive": {
-        "bg": "#556B2F",
-        "fg": "#FFFFFF",
-        "hover": "#6B8E23",
-        "active": "#3E4E21",
-        "window_bg": "#2F2F2F",
-    },
-    "Orange": {
-        "bg": "#EF6C00",
-        "fg": "#FFFFFF",
-        "hover": "#F57C00",
-        "active": "#E65100",
-        "window_bg": "#2F2F2F",
-    },
-    "Phoenix": {
-        "bg": "#000000",
-        "fg": "#FF4E00",
-        "hover": "#FFD700",
-        "active": "#8B0000",
-        "window_bg": "#2F2F2F",
-    },
-    "Plasma": {
-        "bg": "#000000",
-        "fg": "#7F00FF",
-        "hover": "#3F007F",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Purple": {
-        "bg": "#6A1B9A",
-        "fg": "#FFFFFF",
-        "hover": "#7B1FA2",
-        "active": "#4A148C",
-        "window_bg": "#2F2F2F",
-    },
-    "RoyalBlue": {
-        "bg": "#002366",
-        "fg": "#FFFFFF",
-        "hover": "#003399",
-        "active": "#001a4d",
-        "window_bg": "#2F2F2F",
-    },
-    "Ruby": {
-        "bg": "#C62828",
-        "fg": "#FFFFFF",
-        "hover": "#D32F2F",
-        "active": "#B71C1C",
-        "window_bg": "#2F2F2F",
-    },
-    "Silver": {
-        "bg": "#B0B0B0",
-        "fg": "#000000",
-        "hover": "#C0C0C0",
-        "active": "#A0A0A0",
-        "window_bg": "#2F2F2F",
-    },
-    "SkyBlue": {
-        "bg": "#0288D1",
-        "fg": "#FFFFFF",
-        "hover": "#039BE5",
-        "active": "#01579B",
-        "window_bg": "#2F2F2F",
-    },
-    "Solar": {
-        "bg": "#FBC02D",
-        "fg": "#3E2723",
-        "hover": "#FDD835",
-        "active": "#F57F17",
-        "window_bg": "#2F2F2F",
-    },
-    "Standard": {
-        "bg": "#444444",
-        "fg": "#FFFFFF",
-        "hover": "#555555",
-        "active": "#333333",
-        "window_bg": "#2F2F2F",
-    },
-    "Steel": {
-        "bg": "#455A64",
-        "fg": "#FFFFFF",
-        "hover": "#546E7A",
-        "active": "#37474F",
-        "window_bg": "#2F2F2F",
-    },
-    "Titan": {
-        "bg": "#263238",
-        "fg": "#CFD8DC",
-        "hover": "#546E7A",
-        "active": "#102027",
-        "window_bg": "#2F2F2F",
-    },
-    "Toxic_Glow": {
-        "bg": "#0D0D0D",
-        "fg": "#ADFF2F",
-        "hover": "#32CD32",
-        "active": "#006400",
-        "window_bg": "#2F2F2F",
-    },
-    "Turquoise": {
-        "bg": "#00CED1",
-        "fg": "#FFFFFF",
-        "hover": "#40E0D0",
-        "active": "#008B8B",
-        "window_bg": "#2F2F2F",
-    },
-    "Ultraviolet": {
-        "bg": "#120021",
-        "fg": "#BF00FF",
-        "hover": "#FF00FF",
-        "active": "#000000",
-        "window_bg": "#2F2F2F",
-    },
-    "Vaporwave": {
-        "bg": "#2D004B",
-        "fg": "#FF71CE",
-        "hover": "#01CDFE",
-        "active": "#05FFA1",
-        "window_bg": "#2F2F2F",
-    },
+    "Acid": {"bg": "#1D1D1D", "fg": "#DFFF00", "hover": "#BFFF00", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Aero": {"bg": "#00B8D4", "fg": "#FFFFFF", "hover": "#00E5FF", "active": "#0091EA", "window_bg": "#2F2F2F"},
+    "Afterglow": {"bg": "#2C2C2C", "fg": "#E57373", "hover": "#FF8A65", "active": "#D32F2F", "window_bg": "#2F2F2F"},
+    "Alien": {"bg": "#00FF41", "fg": "#000000", "hover": "#008F11", "active": "#003B00", "window_bg": "#2F2F2F"},
+    "Amethyst": {"bg": "#9C27B0", "fg": "#E1BEE7", "hover": "#BA68C8", "active": "#7B1FA2", "window_bg": "#2F2F2F"},
+    "Anthrazit": {"bg": "#2F2F2F", "fg": "#FFFFFF", "hover": "#3D3D3D", "active": "#242424", "window_bg": "#2F2F2F"},
+    "Arctic": {"bg": "#000000", "fg": "#00D2FF", "hover": "#0081FF", "active": "#00458B", "window_bg": "#2F2F2F"},
+    "Asphalt": {"bg": "#263238", "fg": "#ECEFF1", "hover": "#37474F", "active": "#102027", "window_bg": "#2F2F2F"},
+    "Atomic": {"bg": "#1A1A1A", "fg": "#7FFF00", "hover": "#32CD32", "active": "#006400", "window_bg": "#2F2F2F"},
+    "Aurora": {"bg": "#004D40", "fg": "#80CBC4", "hover": "#00897B", "active": "#002420", "window_bg": "#2F2F2F"},
+    "Biohazard": {"bg": "#003300", "fg": "#39FF14", "hover": "#00FF41", "active": "#001100", "window_bg": "#2F2F2F"},
+    "Blackout": {"bg": "#000000", "fg": "#444444", "hover": "#222222", "active": "#111111", "window_bg": "#2F2F2F"},
+    "Blaze": {"bg": "#E65100", "fg": "#FFCC80", "hover": "#EF6C00", "active": "#BF360C", "window_bg": "#2F2F2F"},
+    "BloodMoon": {"bg": "#330000", "fg": "#FF0000", "hover": "#660000", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Bordeaux": {"bg": "#800000", "fg": "#FFFFFF", "hover": "#A52A2A", "active": "#5D0000", "window_bg": "#2F2F2F"},
+    "Bubblegum": {"bg": "#F06292", "fg": "#F8BBD0", "hover": "#F48FB1", "active": "#C2185B", "window_bg": "#2F2F2F"},
+    "Bumblebee": {"bg": "#FFCC00", "fg": "#000000", "hover": "#000000", "active": "#333300", "window_bg": "#2F2F2F"},
+    "Candy": {"bg": "#FF80AB", "fg": "#FCE4EC", "hover": "#F06292", "active": "#C2185B", "window_bg": "#2F2F2F"},
+    "Carbon": {"bg": "#232323", "fg": "#E0E0E0", "hover": "#111111", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Classics": {"bg": "#3a6ea5", "fg": "#FFFFFF", "hover": "#4a7eb5", "active": "#2a5e95", "window_bg": "#2F2F2F"},
+    "Coffee": {"bg": "#4E342E", "fg": "#D7CCC8", "hover": "#5D4037", "active": "#3E2723", "window_bg": "#2F2F2F"},
+    "Copper": {"bg": "#3E2723", "fg": "#D84315", "hover": "#BF360C", "active": "#260E04", "window_bg": "#2F2F2F"},
+    "Cosmos": {"bg": "#130f40", "fg": "#f093fb", "hover": "#30336b", "active": "#130f40", "window_bg": "#2F2F2F"},
+    "Crimson": {"bg": "#000000", "fg": "#DC143C", "hover": "#800000", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Cyberpunk": {"bg": "#000000", "fg": "#00FFFF", "hover": "#F305FF", "active": "#FF0055", "window_bg": "#2F2F2F"},
+    "DeepBlack": {"bg": "#1A1A1A", "fg": "#FFD700", "hover": "#333333", "active": "#000000", "window_bg": "#2F2F2F"},
+    "DeepSea": {"bg": "#001219", "fg": "#94D2BD", "hover": "#0A9396", "active": "#005F73", "window_bg": "#2F2F2F"},
+    "DeepSpace": {"bg": "#0B0D17", "fg": "#00D4FF", "hover": "#005F73", "active": "#001219", "window_bg": "#2F2F2F"},
+    "Dracula": {"bg": "#282A36", "fg": "#BD93F9", "hover": "#44475A", "active": "#191A21", "window_bg": "#2F2F2F"},
+    "Electric": {"bg": "#0000FF", "fg": "#FFFF00", "hover": "#00FFFF", "active": "#00008B", "window_bg": "#2F2F2F"},
+    "Emerald": {"bg": "#2E7D32", "fg": "#FFFFFF", "hover": "#388E3C", "active": "#1B5E20", "window_bg": "#2F2F2F"},
+    "Forest": {"bg": "#1B5E20", "fg": "#E8F5E9", "hover": "#2E7D32", "active": "#0D5302", "window_bg": "#2F2F2F"},
+    "Frost": {"bg": "#000000", "fg": "#A5F2F3", "hover": "#FFFFFF", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Fusion": {"bg": "#2A0845", "fg": "#FFCC00", "hover": "#6441A5", "active": "#1A052D", "window_bg": "#2F2F2F"},
+    "Galaxy": {"bg": "#0D001A", "fg": "#9D50BB", "hover": "#6E48AA", "active": "#300055", "window_bg": "#2F2F2F"},
+    "Ghost": {"bg": "#F5F5F5", "fg": "#212121", "hover": "#E0E0E0", "active": "#BDBDBD", "window_bg": "#2F2F2F"},
+    "Glitch": {"bg": "#000000", "fg": "#FF00FF", "hover": "#00FFFF", "active": "#FFFFFF", "window_bg": "#2F2F2F"},
+    "Gold": {"bg": "#FFD700", "fg": "#000000", "hover": "#FFEA70", "active": "#DAA520", "window_bg": "#2F2F2F"},
+    "Graphite": {"bg": "#424242", "fg": "#B0BEC5", "hover": "#616161", "active": "#212121", "window_bg": "#2F2F2F"},
+    "Hazard": {"bg": "#000000", "fg": "#FFFF00", "hover": "#444400", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Horizon": {"bg": "#1C1C1C", "fg": "#FF4E50", "hover": "#F9D423", "active": "#D33030", "window_bg": "#2F2F2F"},
+    "HotPink": {"bg": "#FF69B4", "fg": "#FFFFFF", "hover": "#FF1493", "active": "#C71585", "window_bg": "#2F2F2F"},
+    "HyperSpace": {"bg": "#000000", "fg": "#FFFFFF", "hover": "#1A1A1A", "active": "#FFFFFF", "window_bg": "#2F2F2F"},
+    "Iceberg": {"bg": "#E1F5FE", "fg": "#01579B", "hover": "#FFFFFF", "active": "#B3E5FC", "window_bg": "#2F2F2F"},
+    "Inferno": {"bg": "#212121", "fg": "#FF4500", "hover": "#FF8C00", "active": "#8B0000", "window_bg": "#2F2F2F"},
+    "Iridium": {"bg": "#101010", "fg": "#E0E0E0", "hover": "#FF0055", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Jungle": {"bg": "#1B5E20", "fg": "#C8E6C9", "hover": "#2E7D32", "active": "#003300", "window_bg": "#2F2F2F"},
+    "Kryptonite": {"bg": "#0A0F0A", "fg": "#9DFF00", "hover": "#4DFF00", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Laser": {"bg": "#000000", "fg": "#FF003C", "hover": "#9D00FF", "active": "#45001A", "window_bg": "#2F2F2F"},
+    "Lava": {"bg": "#4E0000", "fg": "#FF3300", "hover": "#FF6600", "active": "#220000", "window_bg": "#2F2F2F"},
+    "Magma": {"bg": "#000000", "fg": "#FF0000", "hover": "#660000", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Matrix_Pro": {"bg": "#000000", "fg": "#00FF41", "hover": "#003B00", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Midnight": {"bg": "#1A1A1A", "fg": "#F7F7F7", "hover": "#333333", "active": "#000000", "window_bg": "#2F2F2F"},
+    "MidnightBlue": {"bg": "#1A237E", "fg": "#C5CAE9", "hover": "#283593", "active": "#0D1137", "window_bg": "#2F2F2F"},
+    "Misty": {"bg": "#90A4AE", "fg": "#ECEFF1", "hover": "#B0BEC5", "active": "#546E7A", "window_bg": "#2F2F2F"},
+    "Nebula": {"bg": "#1A0033", "fg": "#00FFD1", "hover": "#7000FF", "active": "#0D001A", "window_bg": "#2F2F2F"},
+    "Neon": {"bg": "#000000", "fg": "#00FF00", "hover": "#003300", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Nordic": {"bg": "#2E3440", "fg": "#D8DEE9", "hover": "#3B4252", "active": "#242933", "window_bg": "#2F2F2F"},
+    "Nuclear": {"bg": "#1A1A1A", "fg": "#CCFF00", "hover": "#333333", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Obsidian": {"bg": "#050505", "fg": "#555555", "hover": "#EAFF00", "active": "#222222", "window_bg": "#2F2F2F"},
+    "Overdrive": {"bg": "#120000", "fg": "#FF8000", "hover": "#FF0000", "active": "#000000", "window_bg": "#2F2F2F"},
+    "Plasma": {"bg": "#000022", "fg": "#3D5AFE", "hover": "#8C9EFF", "active": "#1A237E", "window_bg": "#2F2F2F"},
+    "Riddler": {"bg": "#000000", "fg": "#19FF19", "hover": "#6B00B3", "active": "#002200", "window_bg": "#2F2F2F"},
+    "Supernova": {"bg": "#000000", "fg": "#FFFFFF", "hover": "#FFEA00", "active": "#FF3D00", "window_bg": "#2F2F2F"},
+    "Vaporwave": {"bg": "#2D004F", "fg": "#00FFA3", "hover": "#FF44CC", "active": "#120021", "window_bg": "#2F2F2F"},
 }
 
 current_diff_colors = DIFF_COLORS["Classics"]
@@ -3832,6 +3414,26 @@ class PatchManagerGUI(QWidget):
             except:
                 continue
 
+    def apply_global_button_style(self, text_color="#EAFF00"):
+        """Setzt die Schriftfarbe für ALLE Buttons in der GUI zentral."""
+        style = f"""
+            QPushButton {{
+                color: {text_color};
+                font-weight: bold;
+                background-color: #3d3d3d;
+                border: 1px solid #555;
+                border-radius: 8px;
+                padding: 5px;
+            }}
+            QPushButton:hover {{
+                background-color: #4d4d4d;
+                border: 1px solid #00ADFF;
+            }}
+        """
+        # Dies überschreibt die Button-Styles im gesamten Fenster
+        self.setStyleSheet(self.styleSheet() + style)
+
+
     def pbar_idle(self):
         """
         Setzt die ProgressBar auf den lockeren 'Was bauen wir heute?'-Modus zurück.
@@ -5017,90 +4619,89 @@ class PatchManagerGUI(QWidget):
             self.on_update_check_finished(False, self.current_rev)
 
     def on_update_check_finished(self, update_available, new_rev):
-        """Aktualisiert das UI: Icon zuerst, Zeit Rot, Mega-Scanner-Effekt + Finales Schwarz."""
+        """Aktualisiert das UI: Icons, Neon-Branding, Scanner-Effekt + neongrünes Revisions-Blinken."""
         from datetime import datetime
         import os
         from PyQt6.QtCore import QVariantAnimation, QTimer
 
-        # --- DEINE EINSTELLUNG FÜR DIE SCHRIFTGRÖSSE ---
-        F_SIZE = "22px"
-        # -----------------------------------------------
+        # --- ZENTRALE STYLING EINSTELLUNGEN ---
+        F_SIZE = "24px"
+        C_NEON_YELLOW = "#EAFF00"  # Erfolg / Aktuell
+        C_NEON_PINK = "#FF00FF"    # Update gefunden
+        C_NEON_GREEN = "#00FF00"   # Blink-Farbe für Revision
+        C_WHITE = "#FFFFFF"
+        F_EMOJI = "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
+        # --------------------------------------
 
         txt = getattr(self, "TEXT", {})
         timestamp = datetime.now().strftime("%H:%M:%S")
         old_rev = getattr(self, "current_rev", "11943")
         self.last_remote_rev = new_rev
 
-        C_RED, C_ORANGE, C_GRAY, C_GREEN = "#FF0000", "#F37804", "#FFFF00", "#00FF00"
-
-        # ... (Sound-Funktion bleibt gleich) ...
         def play_system_sound(sound_type="info"):
             safe_play = globals().get("safe_play")
             if safe_play:
-                sounds = {
-                    "update": "dialog-information.oga",
-                    "uptodate": "complete.oga",
-                    "error": "dialog-error.oga",
-                    "beep": "bell.oga",
-                }
+                sounds = {"update": "dialog-information.oga", "uptodate": "complete.oga", "beep": "bell.oga"}
                 safe_play(sounds.get(sound_type, "complete.oga"))
             else:
                 import subprocess, shutil
-
-                player = next(
-                    (p for p in ["paplay", "pw-play", "aplay"] if shutil.which(p)), None
-                )
+                player = next((p for p in ["paplay", "pw-play", "aplay"] if shutil.which(p)), None)
                 if player:
-                    s_path = (
-                        "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
-                    )
-                    subprocess.Popen(
-                        [player, s_path],
-                        stderr=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                    )
+                    s_path = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
+                    subprocess.Popen([player, s_path], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
         if update_available:
+            # --- FALL: UPDATE GEFUNDEN ---
             upd_title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
             status_html = (
-                f'<span style="font-size:{F_SIZE}; color:{C_RED};"><b>🚀</b></span> '
-                f'<span style="font-size:{F_SIZE}; color:#FF0000;"><b>[{timestamp}]</b></span> '
-                f'<span style="font-size:{F_SIZE}; color:white;"><b> {upd_title}</b></span> '
-                f'<span style="font-size:{F_SIZE}; color:{C_GRAY};"> (r{old_rev} ➔ r{new_rev})</span>'
+                f'<span style="font-family:{F_EMOJI}; font-size:{F_SIZE}; vertical-align: middle;">🚀</span> '
+                f'<span style="font-size:{F_SIZE}; color:{C_NEON_PINK}; vertical-align: middle;"><b>[{timestamp}]</b></span> '
+                f'<span style="font-size:{F_SIZE}; color:{C_WHITE}; vertical-align: middle;"><b> {upd_title}</b></span> '
+                f'<span style="font-size:{F_SIZE}; color:#AAAAAA; vertical-align: middle;"> (r{old_rev} ➔ r{new_rev})</span>'
             )
+            if hasattr(self, "status_label"):
+                self.status_label.setText(status_html)
             play_system_sound("update")
         else:
+            # --- FALL: AKTUELL (Mit Neongrün-Blinken für Revision) ---
             success_msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
-            status_html = (
-                f'<span style="font-size:{F_SIZE}; color:{C_GREEN};"><b>✔</b></span> '
-                f'<span style="font-size:{F_SIZE}; color:#FF0000;"><b>[{timestamp}]</b></span> '
-                f'<span style="font-size:{F_SIZE}; color:{C_ORANGE};"><b> {success_msg}</b></span> '
-                f'<span style="font-size:{F_SIZE}; color:{C_GRAY};"> (r{old_rev})</span>'
-            )
+            
+            def set_status_ui(rev_color, opacity=1.0):
+                html = (
+                    f'<span style="font-family:{F_EMOJI}; font-size:{F_SIZE}; vertical-align: middle;">✅</span> '
+                    f'<span style="font-size:{F_SIZE}; color:{C_NEON_YELLOW}; vertical-align: middle;"><b>[{timestamp}]</b></span> '
+                    f'<span style="font-size:{F_SIZE}; color:{C_NEON_YELLOW}; vertical-align: middle;"><b> {success_msg}</b></span> '
+                    f'<span style="font-size:{F_SIZE}; color:{rev_color}; opacity:{opacity}; vertical-align: middle;"><b> (r{old_rev})</b></span>'
+                )
+                if hasattr(self, "status_label"):
+                    self.status_label.setText(html)
+
+            # Initialer Zustand & Sounds
+            set_status_ui(C_NEON_GREEN)
+            if hasattr(self, "status_label"): self.status_label.show()
             play_system_sound("uptodate" if new_rev else "error")
 
-        if hasattr(self, "status_label"):
-            self.status_label.setText(status_html)
-            self.status_label.show()
+            # Blink-Sequenz (3 Mal blinken)
+            # Delays: 300(Aus), 600(An), 900(Aus), 1200(An), 1500(Aus), 1800(Finale)
+            for i, delay in enumerate([300, 600, 900, 1200, 1500, 1800]):
+                if i == 5: # Letzter Schritt: Finales dezentes Gelb
+                    QTimer.singleShot(delay, lambda: set_status_ui(C_NEON_YELLOW, opacity=0.7))
+                else:
+                    color = "transparent" if i % 2 == 0 else C_NEON_GREEN
+                    QTimer.singleShot(delay, lambda c=color: set_status_ui(c))
 
-        # --- PROGRESSBAR FINALE (REGENBOGEN-SCANNER + SCHWARZER TEXT) ---
+        # --- PROGRESSBAR FINALE ---
         pbar = getattr(self, "progress_bar", None)
         if pbar:
             pbar.setValue(100)
-            from PyQt6.QtCore import QTimer
-
-            # Nach 3 Sekunden (3000ms) zurücksetzen
-            QTimer.singleShot(3500, self.pbar_idle)
+            if hasattr(self, "pbar_idle"):
+                QTimer.singleShot(4000, self.pbar_idle)
+            
             lang = getattr(self, "LANG", "de").lower()
-            f_text = (
-                "Fertig geladen, Tool einsatzbereit"
-                if lang == "de"
-                else "Loading finished, tool ready for use"
-            )
+            f_text = "Tool einsatzbereit" if lang == "de" else "Tool ready for use"
             pbar.setFormat(f_text)
             pbar.setTextVisible(True)
 
-            # Basis-Design (Extrastarke Schrift: 15pt, Weight 900)
             base_style = (
                 "QProgressBar { text-align: center; font-weight: 900; border: 2px solid #222; "
                 "border-radius: 6px; background-color: #111; font-size: 15pt; color: black; }"
@@ -5116,29 +4717,19 @@ class PatchManagerGUI(QWidget):
                 pos = val if val <= 0.5 else 1.0 - val
                 pos *= 2
                 p1, p2, p3 = max(0, pos - 0.3), pos, min(1, pos + 0.3)
-
                 gradient = (
                     f"qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                    f"stop:0 #111, "
-                    f"stop:{p1} #FF0000, "  # Rot
-                    f"stop:{p2} #00FF00, "  # Grün (Mitte)
-                    f"stop:{p3} #0000FF, "  # Blau
-                    f"stop:1 #111);"
+                    f"stop:0 #111, stop:{p1} {C_NEON_PINK}, stop:{p2} {C_NEON_YELLOW}, stop:{p3} #00FFFF, stop:1 #111);"
                 )
-
-                # Blinken zwischen Schwarz und Transparent
-                txt_color = "black" if val > 0.2 and val < 0.8 else "transparent"
+                txt_color = "black" if 0.2 < val < 0.8 else "transparent"
                 pbar.setStyleSheet(
                     base_style + f"QProgressBar {{ color: {txt_color}; }} "
-                    f"QProgressBar::chunk {{ background-color: {gradient} border-radius: 4px; }}"
+                    f"QProgressBar::chunk {{ background-color: {gradient}; border-radius: 4px; }}"
                 )
 
-            self._scanner_anim.currentLoopChanged.connect(
-                lambda: play_system_sound("beep")
-            )
             self._scanner_anim.valueChanged.connect(update_scanner)
+            self._scanner_anim.currentLoopChanged.connect(lambda: play_system_sound("beep"))
 
-            # Finaler Zustand: Statischer Regenbogen mit SCHWARZEM Text
             def on_done():
                 final_rainbow = (
                     "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
@@ -5196,24 +4787,25 @@ class PatchManagerGUI(QWidget):
                 self._last_printed_second = int(elapsed)
 
     def change_colors(self):
-        """Aktualisiert das Farbschema, spielt Sound ab und speichert via save_config."""
+        """Aktualisiert das Farbschema, passt alle GUI-Buttons an und speichert via save_config."""
         global current_diff_colors, current_color_name
 
-        # 1️⃣ Aktuelle Farbe ermitteln
+        # 1️⃣ Aktuelle Farbe aus der ComboBox oder Config ermitteln
         if hasattr(self, "color_box") and self.color_box.currentText():
             current_color_name = self.color_box.currentText()
         else:
-            current_color_name = self.cfg.get("color", "Classics")
+            current_color_name = getattr(self, "cfg", {}).get("color", "Classics")
 
-        # 2️⃣ Basis-Farben holen
+        # 2️⃣ Basis-Farben aus dem DIFF_COLORS Dictionary holen
+        # DIFF_COLORS muss global definiert sein (z.B. {"Neon": {"bg": "#222", "fg": "#EAFF00"}, ...})
         base_colors = DIFF_COLORS.get(
             current_color_name,
-            DIFF_COLORS.get("Classics", {"bg": "#FFFFFF", "fg": "#000000"}),
+            DIFF_COLORS.get("Classics", {"bg": "#2F2F2F", "fg": "#FFFFFF"}),
         )
-        bg = base_colors.get("bg", "#FFFFFF")
-        fg = base_colors.get("fg", "#FFFFFF")
+        bg = base_colors.get("bg", "#2F2F2F")
+        fg = base_colors.get("fg", "#EAFF00") # Hier steckt dein Neongelb drin!
 
-        # 3️⃣ Farben für UI vorbereiten
+        # 3️⃣ Farben für UI-Logik vorbereiten
         current_diff_colors = {
             **base_colors,
             "hover": base_colors.get(
@@ -5227,33 +4819,55 @@ class PatchManagerGUI(QWidget):
         }
 
         # 🔊 SOUND-EFFEKT BEIM FARBWECHSEL
-        # Wir nutzen 'dialog-information.oga' oder 'complete.oga' für das Feedback
         if "safe_play" in globals():
             safe_play("dialog-information.oga")
 
-        # 4️⃣ Farben im UI anwenden
+        # 4️⃣ FARBEN IM UI ANWENDEN (Buttons, Header, Labels)
+        
+        # --- ZENTRALES BUTTON-STYLING (Wichtig für die Schriftfarbe!) ---
+        # Dies sorgt dafür, dass alle Buttons die Farbe 'fg' (z.B. Neongelb) annehmen
+        button_style = f"""
+            QPushButton {{
+                color: {fg} !important;
+                background-color: #3d3d3d;
+                border: 1px solid #555;
+                border-radius: 8px;
+                padding: 6px;
+                font-weight: 700;
+                font-size: 13pt;
+            }}
+            QPushButton:hover {{
+                background-color: #4d4d4d;
+                border: 1px solid {fg};
+                color: white !important;
+            }}
+        """
+        # Auf das Hauptfenster anwenden
+        self.setStyleSheet(self.styleSheet() + button_style)
+
+        # Zusätzliche UI-Elemente live umfärben
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
-        # --- FIX: EINSTELLUNGEN-HEADER LIVE UMFÄRBEN ---
+        # Einstellungs-Header (falls vorhanden)
         if hasattr(self, "header_container"):
             self.header_container.setStyleSheet(
-                f"background-color: {bg}; border-radius: 8px;"
+                f"background-color: {bg}; border-radius: 8px; border: 1px solid #444;"
             )
 
         if hasattr(self, "header_label"):
-            # FIX: font-weight 700 statt bold zur Vermeidung von 1001-Fehlern
+            # Nutzt font-weight 700 zur Vermeidung von Qt-Warnungen
             self.header_label.setStyleSheet(
                 f"color: {fg}; font-weight: 700; font-size: 20px; background: transparent;"
             )
 
-        # 5️⃣ Zentral Speichern
+        # 5️⃣ ZENTRAL SPEICHERN
         if not getattr(self, "is_loading", False):
-            if self.cfg.get("color") != current_color_name:
-                self.cfg["color"] = current_color_name
-                # save_config ruft intern meistens auch log/pbar auf
+            config = getattr(self, "cfg", {})
+            if config.get("color") != current_color_name:
+                config["color"] = current_color_name
                 if "save_config" in globals():
-                    save_config(self.cfg, gui_instance=self, silent=True)
+                    save_config(config, gui_instance=self, silent=True)
 
     def log_message(self, message):
         """Zentrale Funktion: Zeit in ROT, Inhalt in CYAN - sauber untereinander."""
@@ -8115,10 +7729,13 @@ class PatchManagerGUI(QWidget):
         # Setzt das gesamte Fenster auf Dunkelgrau
         self.setStyleSheet("background-color: #2F2F2F;")
 
+        # ---------------------------------------------------------
+        # Header-Bereich (NEON-FIX)
+        # ---------------------------------------------------------
         header_widget = QFrame()
         header_widget.setMinimumHeight(40)
 
-        # Header Styles
+        # HIER REIN: Wir definieren explizit, wie Buttons IM Header aussehen
         header_widget.setStyleSheet(
             """
             QFrame {
@@ -8129,8 +7746,23 @@ class PatchManagerGUI(QWidget):
             QLabel {
                 background-color: transparent;
                 border: none;
+                font-weight: bold;
             }
-        """
+            /* DAS IST DER ENTSCHEIDENDE FIX FÜR DIE BUTTONS IM HEADER */
+            QPushButton {
+                color: #EAFF00 !important; /* ENDLICH NEONGELB */
+                background-color: #3d3d3d;
+                border: 1px solid #555;
+                border-radius: 8px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+                border: 1px solid #EAFF00;
+                color: white !important;
+            }
+            """
         )
 
         header_layout = QHBoxLayout(header_widget)
@@ -8209,40 +7841,49 @@ class PatchManagerGUI(QWidget):
         lang = getattr(self, "LANG", "de").lower()
         log_text = "Log speichern" if lang == "de" else "Save Log"
 
-        # --- 1. Log-Button (JETZT LINKS VOM TEXT) ---
+        # --- 1. Log-Button (Zuerst definieren!) ---
+        lang = getattr(self, "LANG", "de").lower()
+        log_text = "Log speichern" if lang == "de" else "Save Log"
+        
+        # VARIABLE ERSTELLEN
         self.log_button = QPushButton(f" {log_text}")
         self.log_button.setMinimumHeight(45)
         self.log_button.setMinimumWidth(160)
         self.log_button.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
 
-        # Style für den Button
+        # JETZT DAS STYLING (Direkt-Neon)
         self.log_button.setStyleSheet(
             """
             QPushButton {
                 background-color: #3d3d3d;
-                color: red;
+                color: #EAFF00; /* NEONGELB */
                 border: 1px solid #555;
                 border-radius: 8px;
                 padding: 5px;
+                font-weight: bold;
             }
             QPushButton:hover {
                 background-color: #4d4d4d;
-                border: 1px solid #00ADFF;
+                color: #FFFFFF;
+                border: 1px solid #EAFF00;
             }
-        """
+            """
         )
 
+        # JETZT DAS ICON (Nachdem die Variable existiert)
         icon_log = self.style().standardIcon(
             QApplication.style().StandardPixmap.SP_DriveHDIcon
         )
         self.log_button.setIcon(icon_log)
         self.log_button.setIconSize(QSize(24, 24))
 
+        # JETZT CONNECT (Falls die Funktion existiert)
         if hasattr(self, "export_log"):
             self.log_button.clicked.connect(self.export_log)
 
-        # Button zuerst hinzufügen (da Alignment nach Rechts, rutscht er nach "innen")
+        # ZULETZT DEM LAYOUT HINZUFÜGEN
         right_header_layout.addWidget(self.log_button)
+
 
         # --- 2. Version & Autor (JETZT GANZ RECHTS AUSSEN) ---
         version_text_container = QWidget()
@@ -8292,7 +7933,7 @@ class PatchManagerGUI(QWidget):
         self.loading_layout.addWidget(self.loading_label)
         # Header dem Hauptlayout hinzufügen
         main_layout.addWidget(header_widget)
-
+        self.apply_global_button_style("#EAFF00")
         # ---------------------------------------------------------
         # INFO + PROGRESS
         # ---------------------------------------------------------
@@ -8562,8 +8203,8 @@ class PatchManagerGUI(QWidget):
         self.controls_header.setMinimumHeight(35)
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        bg = current_diff_colors.get("bg", "#3a6ea5")
-        fg = current_diff_colors.get("fg", "#FFFFFF")
+        bg = current_diff_colors.get("bg", "#2F2F2F") # Dunkelgrauer Hintergrund
+        fg = current_diff_colors.get("fg", "#EAFF00") # NEONGELBE SCHRIFT
 
         self.controls_header.setStyleSheet(
             f"""
@@ -9081,7 +8722,27 @@ class PatchManagerGUI(QWidget):
         self.commit_spin.valueChanged.connect(self.collect_and_save)
 
         # 5. System-Check mit kleiner Verzögerung starten
-        # QTimer.singleShot(2000, self.run_full_system_check)
+        # Wir definieren das Design zentral für ALLE Buttons der App
+        neon_style = """
+            QPushButton {
+                background-color: #3d3d3d !important;
+                color: #EAFF00 !important;
+                border: 1px solid #555 !important;
+                border-radius: 8px !important;
+                padding: 5px !important;
+                font-weight: bold !important;
+                font-size: 12pt !important;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d !important;
+                border: 1px solid #EAFF00 !important;
+                color: white !important;
+            }
+        """
+        
+        # Dieser Befehl zwingt die gesamte App zum neuen Design
+        self.setStyleSheet(self.styleSheet() + neon_style)
+
 
     # =====================
     # BUTTON & COLOR HANDLING
