@@ -86,6 +86,5 @@ Technical Notes:
 ![Besucher](https://hits.seeyoufarm.com)
 
 Run this command in your terminal:
-bash
 
 curl -sSL https://raw.githubusercontent.com | bash
