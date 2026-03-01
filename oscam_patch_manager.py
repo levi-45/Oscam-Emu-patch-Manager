@@ -7994,6 +7994,7 @@ class PatchManagerGUI(QWidget):
 
     def run_full_system_check(self, clear_log=True):
         import shutil, platform, socket, importlib.util, time
+        import urllib3
         from datetime import datetime
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtGui import QTextCursor
@@ -8287,7 +8288,80 @@ class PatchManagerGUI(QWidget):
                 html.append(
                     make_safe_row("🌐", T["network"], T["offline"], C_RED, C_RED)
                 )
+            # --- TOOL STATISTIK ---
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            total_stats = 0
+            headers = {"User-Agent": "Mozilla/5.0"}
 
+            # 1️⃣ GitHub Downloads
+            git_count = 0
+            repo = "speedy005/Oscam-Emu-patch-Manager"
+            headers = {"User-Agent": "Python-Requests"}
+
+            try:
+                res_git = requests.get(
+                    f"https://api.github.com/repos/{repo}/releases",
+                    headers=headers,
+                    timeout=10,
+                )
+                if res_git.status_code == 200:
+                    releases = res_git.json()
+                    if isinstance(releases, list) and releases:
+                        for release in releases:
+                            release_name = release.get("name") or release.get("tag_name", "unknown")
+                            assets = release.get("assets", [])
+                            if not isinstance(assets, list):
+                                continue
+                            for asset in assets:
+                                name = asset.get("name", "unknown")
+                                downloads = asset.get("download_count", 0)
+                                git_count += int(downloads)
+            except Exception as e:
+                print(f"DEBUG: GitHub Exception: {e}")
+
+            total_stats += git_count
+
+            # 2️⃣ Lokaler Counter
+            try:
+                tool_dir = os.path.dirname(os.path.abspath(__file__))
+            except NameError:
+                tool_dir = os.getcwd()
+
+            counter_file = os.path.join(tool_dir, "install_counter.txt")
+            if not os.path.exists(counter_file) or os.stat(counter_file).st_size == 0:
+                with open(counter_file, "w") as f:
+                    f.write("0")
+
+            with open(counter_file, "r") as f:
+                try:
+                    install_count = int(f.read().strip())
+                except:
+                    install_count = 0
+
+            install_count += 1
+            with open(counter_file, "w") as f:
+                f.write(str(install_count))
+
+            total_stats += install_count
+            usage_count = str(total_stats)
+
+            html.append(
+                f'<div style="text-align:center; margin-top:15px; line-height:1.4; padding:15px; border:2px solid {C_LINE}; border-radius:12px;">'
+                f'<div style="font-size:{S_HEADER}; font-weight:bold; color:#FF0419; margin-bottom:8px;">📊 TOOL STATISTIK</div>'
+                f'<div style="font-size:18pt; margin:4px 0;">'
+                f'<span style="font-family:{F_EMOJI};">🐙</span> '
+                f'<span style="color:{C_GREEN}; font-weight:bold;">GitHub Downloads:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span></div>'
+                f'<div style="font-size:18pt; margin:4px 0;">'
+                f'<span style="font-family:{F_EMOJI};">💾</span> '
+                f'<span style="color:{C_ORANGE}; font-weight:bold;">Lokale Installationen:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span></div>'
+                f'<div style="font-size:18pt; margin:4px 0;">'
+                f'<span style="font-family:{F_EMOJI};">📊</span> '
+                f'<span style="color:{C_YELLOW}; font-weight:bold;">Gesamt:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{usage_count}</span></div>'
+                f'</div>'
+            )
             # --- FOOTER ---
             html.append(
                 f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>'
