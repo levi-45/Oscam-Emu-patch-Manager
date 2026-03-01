@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.2.8"
+APP_VERSION = "3.3.0"
 
 
 # ===================== PATCH DIRS =====================
@@ -7993,59 +7993,77 @@ class PatchManagerGUI(QWidget):
     # ---------------------
 
     def run_full_system_check(self, clear_log=True):
-        import shutil, platform, socket, time, os, requests, urllib3
+        import shutil, platform, socket, importlib.util, time
         from datetime import datetime
         from PyQt6.QtWidgets import QApplication
-        from PyQt6.QtCore import QTimer
+        from PyQt6.QtGui import QTextCursor
 
         if getattr(self, "_checking_active", False):
             return
         self._checking_active = True
 
-        # --- Reset gegen Dopplung ---
-        widget = getattr(self, "info_text", None)
-        if widget:
-            if clear_log or getattr(self, "_force_clean_log", False):
-                widget.clear()
-                widget.setHtml("")
-                self._force_clean_log = False
-            QApplication.processEvents()
-
+        # --- ProgressBar Initialisierung & Reset (Regenbogen für Ladephase) ---
         pbar = getattr(self, "progress_bar", None)
         if pbar:
-            rainbow_style = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-            pbar.setStyleSheet(
-                f"QProgressBar {{ text-align: center; font-weight: 900; border: 2px solid #222; border-radius: 6px; background-color: #111; color: black; font-size: 15pt; }} QProgressBar::chunk {{ background-color: {rainbow_style} border-radius: 4px; }}"
+            # Regenbogen-Definition für die Chunks
+            rainbow_style = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
             )
+            pbar.setStyleSheet(
+                f"""
+                QProgressBar {{
+                    text-align: center;
+                    font-weight: 900;
+                    border: 2px solid #222;
+                    border-radius: 6px;
+                    background-color: #111;
+                    color: black;
+                    font-size: 14pt;
+                }}
+                QProgressBar::chunk {{
+                    background-color: {rainbow_style}
+                    border-radius: 4px;
+                }}
+            """
+            )
+            pbar.setFormat("%p%")
+            pbar.setTextVisible(True)
+            pbar.setRange(0, 100)
             pbar.setValue(0)
             pbar.show()
 
         try:
-            # === ZENTRALE GRÖSSEN & FARBEN ===
-            S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT = (
+            # === ZENTRALE GRÖSSEN ===
+            S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT, S_FOOTER = (
                 "32pt",
                 "18pt",
                 "18pt",
                 "18pt",
                 "18pt",
+                "18pt",
             )
-            C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE, C_ORANGE, C_NORM = (
+            C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE, C_ORANGE = (
                 "#00FF00",
                 "#00ADFF",
                 "#FFFF00",
                 "#FF0000",
                 "#444444",
                 "#F57A08",
-                "#FF0000",
             )
+            C_START_TEXT, C_START_TIME = C_ORANGE, C_RED
             S_AV_SIZE, F_AV_STYLE, F_AV_WEIGHT = "20pt", "'Bold', sans-serif", "bold"
+            C_AV_LABEL_AUTOR, C_AV_VALUE_AUTOR = C_RED, C_YELLOW
+            C_AV_LABEL_VER, C_AV_VALUE_VER = C_ORANGE, C_BLUE
             F_FEAT_STYLE, F_FEAT_WEIGHT = "'Bold', sans-serif", "bold"
+            S_REPO, C_REPO_NAME, C_REPO_VAL = "18pt", C_GREEN, C_BLUE
             F_MONO = "'Bold', 'Bold', Bold"
             F_EMOJI = (
                 "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
             )
 
-            app_ver = globals().get("APP_VERSION", "3.2.0")
+            app_ver = globals().get("APP_VERSION", "3.1.5")
             timestamp = datetime.now().strftime("%H:%M:%S")
             lang = getattr(self, "LANG", "de").lower()
             is_de = lang == "de"
@@ -8057,7 +8075,7 @@ class PatchManagerGUI(QWidget):
                 "version": "Version",
                 "features_head": "Hauptmerkmale:" if is_de else "Key Features:",
                 "feat_1": "Erstellt .patch" if is_de else "Generates .patch",
-                "feat_2": "Online-Laden" if is_de else "Online patches",
+                "feat_2": "GitHub Patches" if is_de else "GitHub patches",
                 "feat_3": "DE/EN Lokalisierung" if is_de else "DE/EN Localization",
                 "feat_4": "Echtzeit-Log" if is_de else "Real-time log",
                 "start": (
@@ -8065,7 +8083,6 @@ class PatchManagerGUI(QWidget):
                 ),
                 "lang_name": "Deutsch" if is_de else "English",
                 "lang_label": "Sprache" if is_de else "Language",
-                "sound_label": "Sound Support",
                 "kernel": "System Kern" if is_de else "System Kernel",
                 "ok": "OK",
                 "missing": "FEHLT" if is_de else "MISSING",
@@ -8075,15 +8092,17 @@ class PatchManagerGUI(QWidget):
                 "ping": "Ping Test",
                 "foot_ok": "System-Check OK." if is_de else "System Check OK.",
                 "foot_ready": "Bereit." if is_de else "Ready.",
-                "stats_title": "TOOL STATISTIK" if is_de else "TOOL STATISTICS",
-                "upd_check": (
-                    "Toolkit Update Prüfung..." if is_de else "Tool Update Check..."
-                ),
             }
+
+            widget = getattr(self, "info_text", None)
+            if not widget:
+                return
+            if clear_log:
+                widget.setHtml("")
 
             def make_safe_row(icon, label, status, label_col, status_col, size=S_NORM):
                 return (
-                    f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.2; text-align: left;">'
+                    f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.0; text-align: left;">'
                     f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">{icon}</span>'
                     f'<span style="font-family:{F_MONO}; font-size:{size}; color:{label_col};"><b>{label.replace(" ", "&nbsp;")} :&nbsp;</b></span>'
                     f'<span style="font-family:{F_MONO}; font-size:{size}; color:{status_col};"><b>{status}</b></span></div>'
@@ -8091,67 +8110,39 @@ class PatchManagerGUI(QWidget):
 
             html = [
                 f'<div style="line-height: 1.0;">',
-                f'<div style="margin-bottom: 2px;"><span style="color:{C_GREEN}; font-size:{S_NORM};">●</span> <span style="color:{C_RED}; font-weight:bold; font-size:{S_HEADER};"> {T["live"]}</span> | <span style="color:{C_BLUE}; font-weight:bold; font-size:{S_HEADER};">{T["monitor"]}</span></div>',
-                f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_TITEL};">🚀</span> <span style="color:#FF0419; font-size:{S_TITEL};"><b> OSCam Emu Patch Generator</b></span></div>',
+                # LIVE / Monitor
+                f'<div style="margin-bottom: 2px;"><span style="color:{C_GREEN}; font-size:{S_NORM};">●</span> '
+                f'<span style="color:{C_RED}; font-weight:bold; font-size:{S_HEADER};"> {T["live"]}</span> | '
+                f'<span style="color:{C_BLUE}; font-weight:bold; font-size:{S_HEADER};">{T["monitor"]}</span></div>',
+                # OSCam Emu Patch Generator Titel
+                f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_TITEL};">🚀</span> '
+                f'<span style="color:#FF0419; font-size:{S_TITEL};"><b> OSCam Emu Patch Generator</b></span></div>',
+                # Autor & Version
+                f'<div style="font-size:{S_AV_SIZE}; font-family:{F_AV_STYLE}; font-weight:{F_AV_WEIGHT}; margin: 1px 0;">'
+                f'<span style="color:{C_AV_LABEL_AUTOR};">{T["autor"]}:</span> <span style="color:{C_AV_VALUE_AUTOR};">speedy005</span> | '
+                f'<span style="color:{C_AV_LABEL_VER};">{T["version"]}:</span> <span style="color:{C_AV_VALUE_VER};">{app_ver}</span></div>',
+                f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>',
+                # Features
+                f'<div style="color:{C_ORANGE}; font-size:{S_HEADER}; margin: 0;"><b>{T["features_head"]}</b></div>',
+                f'<div style="font-size:{S_FEAT}; font-family:{F_FEAT_STYLE}; font-weight:{F_FEAT_WEIGHT}; line-height: 1.1; margin-left: 5px;">'
+                f'➤ <span style="color:{C_GREEN};">Auto-Patching:</span> <span style="color:{C_BLUE};">{T["feat_1"]}</span><br>'
+                f'➤ <span style="color:{C_GREEN};">Online-Laden:</span> <span style="color:{C_BLUE};">{T["feat_2"]}</span><br>'
+                f'➤ <span style="color:{C_GREEN};">Lokalisierung:</span> <span style="color:{C_BLUE};">{T["feat_3"]}</span><br>'
+                f'➤ <span style="color:{C_GREEN};">Smart Logging:</span> <span style="color:{C_BLUE};">{T["feat_4"]}</span></div>',
+                f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>',
+                # Startzeit
+                f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">⏳</span> '
+                f'<span style="color:{C_START_TEXT}; font-size:{S_NORM};"><b>{T["start"]}</b></span> '
+                f'<span style="color:{C_START_TIME}; font-size:{S_NORM};"><b>[{timestamp}]</b></span></div>',
             ]
 
-            # --- System Checks ---
             if pbar:
-                pbar.setValue(20)
+                pbar.setValue(15)
+
+            # 1. System & Tools
+            l_icon = "🇩🇪" if is_de else "🇬🇧"
             html.append(
-                make_safe_row(
-                    "🇩🇪" if is_de else "🇬🇧",
-                    T["lang_label"],
-                    T["lang_name"],
-                    C_GREEN,
-                    C_BLUE,
-                )
-            )
-            import shutil
-            import subprocess
-
-            # 🔊 Sound Support prüfen
-            paplay_path = shutil.which("paplay")
-            aplay_path = shutil.which("aplay")
-            sound_ok = False
-            sound_text = ""
-
-            if paplay_path:
-                sound_ok = True
-                try:
-                    version = subprocess.check_output(
-                        [paplay_path, "--version"], stderr=subprocess.STDOUT
-                    )
-                    version = version.decode().strip()
-                    sound_text = f"paplay {version}"
-                except Exception:
-                    sound_text = "paplay"
-            elif aplay_path:
-                sound_ok = True
-                try:
-                    version = subprocess.check_output(
-                        [aplay_path, "--version"], stderr=subprocess.STDOUT
-                    )
-                    version = version.decode().strip().splitlines()[0]
-                    sound_text = f"aplay {version}"
-                except Exception:
-                    sound_text = "aplay"
-            else:
-                sound_text = "FEHLT"
-
-            status_color = C_BLUE if sound_ok else C_RED
-            display_text = (
-                f"{sound_text} : OK" if sound_ok else "🔇 Sound Support : FEHLT"
-            )
-
-            html.append(
-                make_safe_row(
-                    "🔊",
-                    T["sound_label"],
-                    display_text,
-                    C_GREEN,
-                    status_color,
-                )
+                make_safe_row(l_icon, T["lang_label"], T["lang_name"], C_GREEN, C_BLUE)
             )
             html.append(
                 make_safe_row(
@@ -8162,207 +8153,172 @@ class PatchManagerGUI(QWidget):
                     C_BLUE,
                 )
             )
-            # 🐍 PyQt6 Check mit Versionsanzeige
-            try:
-                from PyQt6 import QtCore
+            if pbar:
+                pbar.setValue(30)
 
-                pyqt_version = QtCore.PYQT_VERSION_STR  # korrekte PyQt6 Version
-                pyqt_status = f"{pyqt_version} : OK"
-                pyqt_color = C_BLUE
-            except ImportError:
-                pyqt_status = "Nicht installiert"
-                pyqt_color = C_RED
-
-            html.append(
-                make_safe_row(
-                    "🎨",
-                    "PyQt6",
-                    pyqt_status,
-                    C_GREEN,  # Label "PyQt6" grün
-                    pyqt_color,  # Status blau oder rot
-                )
-            )
             for t in ["git", "patch", "zip"]:
-                f = shutil.which(t)
-                version_str = ""
-                if f:
+                path = shutil.which(t)
+                if path:
                     try:
-                        if t == "git":
-                            version_str = subprocess.check_output(
-                                [t, "--version"], text=True
-                            ).strip()
-                        elif t == "patch":
-                            version_str = subprocess.check_output(
-                                [t, "--version"], text=True, stderr=subprocess.STDOUT
-                            ).strip()
-                        elif t == "zip":
-                            version_str = subprocess.check_output(
-                                [t, "-v"], text=True, stderr=subprocess.STDOUT
-                            ).splitlines()[0]
+                        # Versionsinfo abrufen
+                        info = (
+                            subprocess.getoutput(f"{t} --version")
+                            .strip()
+                            .replace("\n", " ")
+                        )
                     except Exception:
-                        version_str = ""
-                status_text = (
-                    f"{version_str} : OK"
-                    if version_str
-                    else T["ok"] if f else T["missing"]
-                )
-                status_color = C_BLUE if f else C_RED
+                        info = path  # fallback: Pfad
+                    ok = True
+                else:
+                    info = "nicht gefunden"
+                    ok = False
+
                 html.append(
                     make_safe_row(
-                        "✅" if f else "❌",
+                        "✅" if ok else "❌",
                         t.capitalize(),
+                        f"{'OK' if ok else 'FEHLT'} – {info}",
+                        C_GREEN if ok else C_RED,
+                        C_BLUE if ok else C_RED,
+                    )
+                )
+            if pbar:
+                pbar.setValue(45)
+
+            for pkg in ["PyQt6", "requests"]:
+                spec = importlib.util.find_spec(pkg)
+                ok = spec is not None
+
+                if ok:
+                    try:
+                        module = importlib.import_module(pkg)
+                        if pkg == "PyQt6":
+                            from PyQt6 import QtCore
+
+                            version = QtCore.QT_VERSION_STR
+                        else:
+                            version = getattr(module, "__version__", "unknown")
+                    except Exception:
+                        version = "unknown"
+                    status_text = f"OK – {version}"
+                else:
+                    status_text = "FEHLT"
+
+                html.append(
+                    make_safe_row(
+                        "📦" if ok else "❌",
+                        pkg.capitalize(),
                         status_text,
-                        C_GREEN if f else C_RED,
-                        status_color,
+                        C_GREEN if ok else C_RED,
+                        C_BLUE if ok else C_RED,
                     )
                 )
 
-            # --- Netzwerk Checks ---
-            if pbar:
-                pbar.setValue(40)
+            # 2. Netzwerk & Alle Repositories
+            html.append(
+                f'<div style="border-top:1px dashed {C_LINE}; margin:4px 0; width:60%;"></div>'
+            )
             try:
-                # Verbindung zu Google DNS prüfen
+                start_p = time.perf_counter()
                 s = socket.create_connection(("8.8.8.8", 53), timeout=1.5)
-                local_ip = s.getsockname()[0]  # Eigene IP ermitteln
+                ping_ms = int((time.perf_counter() - start_p) * 1000)
+                local_ip = s.getsockname()[0]  # Lokale IP holen
                 s.close()
-                network_status = f"Online : <span style='color:red;'>{local_ip}</span>"
-                html.append(
-                    make_safe_row("🌐", T["network"], network_status, C_GREEN, C_BLUE)
+
+                p_color = (
+                    C_GREEN if ping_ms < 100 else (C_YELLOW if ping_ms < 250 else C_RED)
                 )
+
+                # Netzwerkstatus mit roter IP
+                html.append(
+                    make_safe_row(
+                        "🌐",
+                        T["network"],
+                        f"Online : <span style='color:red;'>{local_ip}</span>",
+                        C_GREEN,
+                        C_BLUE,
+                    )
+                )
+                html.append(
+                    make_safe_row(
+                        "⚡",
+                        T["ping"],
+                        f"{ping_ms} ms",
+                        C_GREEN,
+                        p_color,
+                    )
+                )
+            except Exception:
+                html.append(
+                    make_safe_row("🌐", T["network"], T["offline"], C_RED, C_RED)
+                )
+                if pbar:
+                    pbar.setValue(70)
+
+                repo_list = [
+                    ("📡", "Streamboard Oscam", "git.streamboard.tv"),
+                    ("🐙", "OSCam Emu Mirror", "github.com"),
+                    ("⭐", "speedy Oscam Emu", "github.com"),
+                    ("🔗", "GitHub API Server", "api.github.com"),
+                ]
+                for i, (icon, r_name, host) in enumerate(repo_list):
+                    try:
+                        socket.gethostbyname(host)
+                        html.append(
+                            make_safe_row(
+                                icon,
+                                r_name,
+                                T["online"],
+                                C_REPO_NAME,
+                                C_REPO_VAL,
+                                S_REPO,
+                            )
+                        )
+                    except:
+                        html.append(
+                            make_safe_row(
+                                icon, r_name, T["offline"], C_RED, C_RED, S_REPO
+                            )
+                        )
+                    if pbar:
+                        pbar.setValue(70 + (i + 1) * 2)
+
             except:
                 html.append(
                     make_safe_row("🌐", T["network"], T["offline"], C_RED, C_RED)
                 )
 
-            # --- Server Check ---
-            repo_list = [
-                ("📡", "Streamboard Oscam", "git.streamboard.tv"),
-                ("🐙", "OSCam Emu Mirror", "github.com"),
-                ("⭐", "speedy Oscam Emu", "github.com"),
-                ("🔗", "GitHub API Server", "api.github.com"),
-            ]
-            for icon, name, host in repo_list:
-                try:
-                    socket.gethostbyname(host)
-                    html.append(make_safe_row(icon, name, T["online"], C_GREEN, C_BLUE))
-                except:
-                    html.append(make_safe_row(icon, name, T["offline"], C_RED, C_RED))
-
-            # --- TOOL STATISTIK ---
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            total_stats = 0
-            headers = {"User-Agent": "Mozilla/5.0"}
-
-            # 1️⃣ GitHub Downloads
-            git_count = 0
-            repo = "speedy005/Oscam-Emu-patch-Manager"
-            headers = {"User-Agent": "Python-Requests"}
-
-            try:
-                res_git = requests.get(
-                    f"https://api.github.com/repos/{repo}/releases",
-                    headers=headers,
-                    timeout=10,
-                )
-                if res_git.status_code == 200:
-                    releases = res_git.json()
-                    if isinstance(releases, list) and releases:
-                        for release in releases:
-                            release_name = release.get("name") or release.get(
-                                "tag_name", "unknown"
-                            )
-                            assets = release.get("assets", [])
-                            if not isinstance(assets, list):
-                                continue
-                            for asset in assets:
-                                name = asset.get("name", "unknown")
-                                downloads = asset.get("download_count", 0)
-                                print(
-                                    f"DEBUG: Release '{release_name}' | Asset '{name}' → Downloads: {downloads}"
-                                )
-                                git_count += int(downloads)
-                    else:
-                        print(
-                            "DEBUG: Keine Releases gefunden oder API liefert leere Liste."
-                        )
-                else:
-                    print(f"DEBUG: GitHub API Status: {res_git.status_code}")
-            except Exception as e:
-                print(f"DEBUG: GitHub Exception: {e}")
-
-            print(f"DEBUG: Gesamt GitHub Downloads = {git_count}")
-
-            # 2️⃣ Lokaler Counter
-            try:
-                tool_dir = os.path.dirname(os.path.abspath(__file__))
-            except NameError:
-                tool_dir = os.getcwd()
-            counter_file = os.path.join(tool_dir, "install_counter.txt")
-            if not os.path.exists(counter_file) or os.stat(counter_file).st_size == 0:
-                with open(counter_file, "w") as f:
-                    f.write("0")
-            with open(counter_file, "r") as f:
-                try:
-                    install_count = int(f.read().strip())
-                except:
-                    install_count = 0
-            install_count += 1
-            with open(counter_file, "w") as f:
-                f.write(str(install_count))
-            total_stats += install_count
-
-            usage_count = str(total_stats)
-
-            # --- TOOL STATISTIK ---
-            T.update(
-                {
-                    "github_downloads": (
-                        "GitHub Downloads" if not is_de else "GitHub Downloads"
-                    ),
-                    "local_installs": (
-                        "Local Installs" if not is_de else "Lokale Installationen"
-                    ),
-                    "total": "Total" if not is_de else "Gesamt",
-                }
-            )
-
+            # --- FOOTER ---
             html.append(
-                f'<div style="text-align:center; margin-top:15px; line-height:1.4; padding:15px; '
-                f'border:2px solid {C_LINE}; border-radius:12px;">'
-                # Titel 📊 knallrot
-                f'<div style="font-size:{S_HEADER}; font-family:{F_MONO}; font-weight:bold; color:#FF0419; margin-bottom:12px;">'
-                f'<span style="font-family:{F_EMOJI}; font-size:{S_HEADER};">📊</span> {T["stats_title"]}</div>'
-                # GitHub Downloads 🐙
-                f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
-                f'<span style="font-family:{F_EMOJI}; font-size:18pt;">🐙</span> '
-                f'<span style="color:{C_GREEN};">{T["github_downloads"]}:</span> '
-                f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span></div>'
-                # Lokale Installationen 💾
-                f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
-                f'<span style="font-family:{F_EMOJI}; font-size:18pt;">💾</span> '
-                f'<span style="color:{C_ORANGE};">{T["local_installs"]}:</span> '
-                f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span></div>'
-                # Gesamt 📊
-                f'<div style="font-size:20pt; font-weight:bold; margin-top:8px;">'
-                f'<span style="font-family:{F_EMOJI}; font-size:20pt;">📊</span> '
-                f'<span style="color:{C_YELLOW};">{T["total"]}:</span> '
-                f'<span style="color:{C_BLUE}; font-weight:bold;">{usage_count}</span></div>'
-                # Fortschrittsbalken
-                f'<div style="width:100%; background-color:#333; border-radius:6px; margin-top:10px;">'
-                f'<div style="width:{min(100, int(usage_count))}%; height:14px; background-color:{C_ORANGE}; border-radius:6px;"></div>'
-                f"</div>"
+                f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>'
+            )
+            footer_html = (
+                f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.0; text-align: left;">'
+                f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">✅</span>'
+                f'<span style="font-family:{F_MONO}; font-size:{S_FOOTER}; color:{C_GREEN};"><b>{T["foot_ok"]}&nbsp;</b></span>'
+                f'<span style="font-family:{F_MONO}; font-size:{S_FOOTER}; color:{C_BLUE};"><b>{T["foot_ready"]}</b></span>'
                 f"</div>"
             )
+            html.append(footer_html)
+            html.append("</div>")
 
             widget.setHtml("".join(html))
+            widget.moveCursor(QTextCursor.MoveOperation.End)
+
+            # WARTET AUF UPDATE-CHECK FÜR FINALE 100%
             if pbar:
                 pbar.setValue(80)
 
         except Exception as e:
+            # Fehlerbehandlung, falls oben was kracht
             if widget:
-                widget.append(f"<br><span style='color:red;'>Error: {str(e)}</span>")
+                widget.append(f"<br><b style='color:red;'>Check Error: {e}</b>")
+
         finally:
+            # 1. Sperre aufheben
             self._checking_active = False
+
+            # 2. GUI zwingen, den neuen Status (z.B. ProgressBar Text) sofort anzuzeigen
             QApplication.processEvents()
 
         # =====================
