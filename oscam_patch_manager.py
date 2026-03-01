@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.3.0"
+APP_VERSION = "3.3.1"
 
 
 # ===================== PATCH DIRS =====================
@@ -8293,33 +8293,22 @@ class PatchManagerGUI(QWidget):
             total_stats = 0
             headers = {"User-Agent": "Mozilla/5.0"}
 
-            # 1️⃣ GitHub Downloads
+            import requests
+
             git_count = 0
             repo = "speedy005/Oscam-Emu-patch-Manager"
             headers = {"User-Agent": "Python-Requests"}
 
             try:
-                res_git = requests.get(
-                    f"https://api.github.com/repos/{repo}/releases",
-                    headers=headers,
-                    timeout=10,
-                )
-                if res_git.status_code == 200:
-                    releases = res_git.json()
-                    if isinstance(releases, list) and releases:
-                        for release in releases:
-                            release_name = release.get("name") or release.get("tag_name", "unknown")
-                            assets = release.get("assets", [])
-                            if not isinstance(assets, list):
-                                continue
-                            for asset in assets:
-                                name = asset.get("name", "unknown")
-                                downloads = asset.get("download_count", 0)
-                                git_count += int(downloads)
+                res = requests.get(f"https://api.github.com/repos/{repo}/releases", headers=headers, timeout=10)
+                if res.status_code == 200:
+                    releases = res.json()
+                    for release in releases:
+                        assets = release.get("assets", [])
+                        for asset in assets:
+                            git_count += int(asset.get("download_count", 0))
             except Exception as e:
                 print(f"DEBUG: GitHub Exception: {e}")
-
-            total_stats += git_count
 
             # 2️⃣ Lokaler Counter
             try:
