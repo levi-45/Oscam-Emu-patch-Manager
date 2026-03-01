@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.2.6"
+APP_VERSION = "3.2.7"
 
 
 # ===================== PATCH DIRS =====================
@@ -8242,10 +8242,10 @@ class PatchManagerGUI(QWidget):
 
             html.append(
                 f'<div style="text-align:center; margin-top:15px; line-height:1.4; padding:15px; '
-                f'border:2px solid {C_LINE}; border-radius:12px; background-color:#111;">'
+                f'border:2px solid {C_LINE}; border-radius:12px;">'
 
-                # Titel 📊
-                f'<div style="font-size:{S_HEADER}; font-family:{F_MONO}; font-weight:bold; color:#FF3131; margin-bottom:12px;">'
+                # Titel 📊 knallrot
+                f'<div style="font-size:{S_HEADER}; font-family:{F_MONO}; font-weight:bold; color:#FF0419; margin-bottom:12px;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:{S_HEADER};">📊</span> {T["stats_title"]}</div>'
 
                 # GitHub Downloads 🐙
