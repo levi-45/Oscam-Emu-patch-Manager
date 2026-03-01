@@ -1,11 +1,11 @@
 # Änderungen für oscam_patch_manager.py
-Letzte Aktualisierung: 01.03.2026 13:57
+Letzte Aktualisierung: 01.03.2026 15:17
 
 ---
 
 ## 🔧 Änderungen am Script
 
-* Update oscam_patch_manager.py (5134d6e)
+* Update oscam_patch_manager.py (5dac4e7)
 ---
 
 ## 📊 Aktueller Tool-Status
