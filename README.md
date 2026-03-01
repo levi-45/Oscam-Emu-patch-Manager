@@ -85,6 +85,20 @@ Technical Notes:
 
 ![Besucher](https://hits.seeyoufarm.com)
 
+## 📥 Installation
+
+Du kannst das Tool ganz einfach mit einem einzigen Befehl im Terminal installieren. Dabei werden automatisch alle benötigten Abhängigkeiten (Python, PyQt6, Requests) geprüft und eingerichtet.
+
+Kopiere diesen Befehl in dein Terminal:
+
+```bash
+curl -sSL https://raw.githubusercontent.com | bash
+
+## 📥 Installation
+
+You can install the tool effortlessly with a single terminal command. The installer automatically checks for dependencies (Python3, PyQt6, Requests) and sets everything up for you.
+
 Run this command in your terminal:
 
+```bash
 curl -sSL https://raw.githubusercontent.com | bash
