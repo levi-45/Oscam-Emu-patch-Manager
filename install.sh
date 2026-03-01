@@ -31,13 +31,12 @@ cd "$INSTALL_DIR"
 echo -e "${GREEN}📥 Lade Tool von GitHub Release...${NC}"
 curl -L "https://github.com/speedy005/Oscam-Emu-patch-Manager/releases/download/first/oscam_patch_manager.py" -o oscam_patch_manager.py
 
-# --- DOWNLOAD-ZÄHLER REGISTRIEREN ---
-# Erhöht den Zähler für deine Installationen (exakt abgestimmt auf dein Python-Tool)
+# --- DOWNLOAD-ZÄHLER REGISTRIEREN (KORRIGIERT) ---
+# Erhöht den Zähler JEDES MAL, wenn dieses Skript ausgeführt wird
 curl -s "https://hits.seeyoufarm.com" > /dev/null 2>&1
 
 # 4. ABHÄNGIGKEITEN INSTALLIEREN
 echo -e "${GREEN}📦 Installiere Python-Module (PyQt6, requests)...${NC}"
-# Nutzt --break-system-packages für moderne Linux-Distros (Debian 12+, Ubuntu 23+)
 python3 -m pip install PyQt6 requests packaging --break-system-packages 2>/dev/null || python3 -m pip install PyQt6 requests packaging
 
 # 5. RECHTE SETZEN
