@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.2.2"
+APP_VERSION = "3.2.3"
 
 
 # ===================== PATCH DIRS =====================
@@ -3414,6 +3414,147 @@ class PatchManagerGUI(QWidget):
             except:
                 continue
 
+    def open_terminal(self, **kwargs):
+        """Öffnet Terminal (leer oder mit sudo s3 menu), spielt Sound ab und zeigt Regenbogen-Progress."""
+        import subprocess
+        import platform
+        import shutil
+        import os
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QTimer
+
+        # --- 1. PARAMETER AUS KWARGS HOLEN ---
+        s3_path = kwargs.get("s3_path")
+        use_sudo = kwargs.get("use_sudo", False)  # NEU: Sudo-Abfrage
+        
+        lang = getattr(self, "LANG", "de").lower()
+        is_de = lang == "de"
+        
+        if s3_path:
+            msg = "S3 Menü (Sudo) wird geladen..." if is_de else "Loading S3 Menu (Sudo)..."
+        else:
+            msg = "Terminal wird geöffnet..." if is_de else "Opening Terminal..."
+
+        # --- 2. PROGRESSBAR INITIALISIEREN (Regenbogen) ---
+        pbar = getattr(self, "progress_bar", None)
+        if pbar:
+            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF)")
+            pbar.setStyleSheet(
+                f"QProgressBar {{ text-align: center; font-weight: 900; border: 2px solid #222; "
+                f"border-radius: 6px; background-color: #111; color: black; font-size: 11pt; }} "
+                f"QProgressBar::chunk {{ background: {rainbow}; border-radius: 4px; }}"
+            )
+            pbar.setFormat(f"{msg} %p%")
+            pbar.setValue(10)
+            pbar.show()
+            QApplication.processEvents()
+
+        try:
+            # --- 3. SOUND & PROGRESS ---
+            safe_play_func = globals().get("safe_play")
+            if safe_play_func: safe_play_func("dialog-information.oga")
+            if pbar: pbar.setValue(50)
+
+            # --- 4. BEFEHL ZUSAMMENBAUEN (Optimiert für Passwort-Abfrage) ---
+            system = platform.system()
+            terminal_opened = False
+            exec_cmd = ""
+
+            if s3_path:
+                work_dir = os.path.dirname(s3_path)
+                if use_sudo:
+                    # 'sudo -v' erzwingt die Passwort-Eingabe im Terminal.
+                    # Erst bei Erfolg (&&) wird das s3 Menü mit sudo gestartet.
+                    exec_cmd = f"cd {work_dir} && sudo -v && sudo ./s3 menu"
+                else:
+                    exec_cmd = f"cd {work_dir} && ./s3 menu"
+
+            # --- 5. TERMINAL STARTEN (LINUX FOKUS) ---
+            if system == "Linux":
+                terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm", "lxterminal"]
+                for term in terminals:
+                    if shutil.which(term):
+                        if exec_cmd:
+                            # 'exec bash' sorgt dafür, dass das Fenster nach s3 offen bleibt
+                            if term == "gnome-terminal":
+                                subprocess.Popen([term, "--", "bash", "-c", f"{exec_cmd}; exec bash"])
+                            else:
+                                subprocess.Popen([term, "-e", f"bash -c '{exec_cmd}; exec bash'"])
+                        else:
+                            subprocess.Popen([term])
+                        terminal_opened = True
+                        break
+            
+            elif system == "Windows":
+                cmd_args = ["cmd", "/K", exec_cmd] if exec_cmd else ["cmd"]
+                subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                terminal_opened = True
+
+            if not terminal_opened:
+                raise FileNotFoundError("Kein Terminal-Emulator gefunden.")
+
+            # --- 6. ABSCHLUSS ---
+            if pbar:
+                pbar.setValue(100)
+                if hasattr(self, "pbar_idle"):
+                    QTimer.singleShot(3000, self.pbar_idle)
+
+        except Exception as e:
+            if pbar:
+                pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
+                pbar.setFormat(f"❌ Error: {str(e)}")
+            if hasattr(self, "info_text") and self.info_text:
+                self.info_text.append(f'<span style="color:red;"><b>❌ Fehler:</b> {str(e)}</span>')
+
+        finally:
+            QApplication.processEvents()
+
+    def start_s3_menu(self):
+        """Sucht s3 und startet das Terminal mit 'sudo ./s3 menu'."""
+        import os, shutil
+        s3_exec = None
+        search_list = ["/opt/s3_neu/s3", "/opt/s3/s3", os.path.expanduser("~/s3/s3"), shutil.which("s3")]
+
+        for path in search_list:
+            if path and os.path.exists(path) and os.access(path, os.X_OK):
+                s3_exec = path
+                break
+
+        if s3_exec:
+            # Hier zwingen wir den Sudo-Modus für Simplebuild 3
+            self.open_terminal(s3_path=s3_exec, use_sudo=True)
+        else:
+            if hasattr(self, "info_text"):
+                self.info_text.append('<br><span style="color:red;"><b>❌ Fehler:</b> s3 Startdatei nicht gefunden!</span>')
+            self.open_terminal()
+
+    def find_s3_executable(self):
+        """Sucht automatisch nach der s3-Startdatei an bekannten Orten."""
+        import os, shutil
+        
+        # 1. Prüfen, ob s3 global im System-PATH bekannt ist
+        system_path = shutil.which("s3")
+        if system_path:
+            return system_path
+
+        # 2. Liste der wahrscheinlichsten Verzeichnisse (wird nacheinander abgeklappert)
+        search_dirs = [
+            "/opt/s3_neu",
+            "/opt/s3",
+            os.path.expanduser("~/s3"),
+            os.path.expanduser("~/simplebuild"),
+            "/var/lib/s3"
+        ]
+
+        for d in search_dirs:
+            full_path = os.path.join(d, "s3")
+            if os.path.exists(full_path) and os.access(full_path, os.X_OK):
+                return full_path
+
+        return None # Nichts gefunden
+
     def apply_global_button_style(self, text_color="#EAFF00"):
         """Setzt die Schriftfarbe für ALLE Buttons in der GUI zentral."""
         style = f"""
@@ -5388,17 +5529,25 @@ class PatchManagerGUI(QWidget):
             self.loading_overlay.setGeometry(self.rect())
 
     def open_terminal(self, **kwargs):
-        """Öffnet ein leeres Terminal, spielt Sound ab und zeigt Regenbogen-Progress."""
+        """Öffnet Terminal (leer oder mit s3 menu), spielt Sound ab und zeigt Regenbogen-Progress."""
         import subprocess
         import platform
         import shutil
+        import os
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
 
-        # 1. SPRACHE & TEXT ERMITTELN
+        # 1. PRÜFEN: SOLL S3 MENÜ GESTARTET WERDEN?
+        # Wir suchen nach 's3_path' in den übergebenen Argumenten
+        s3_path = kwargs.get("s3_path")
+        
         lang = getattr(self, "LANG", "de").lower()
         is_de = lang == "de"
-        msg = "Terminal wird geöffnet..." if is_de else "Opening Terminal..."
+        
+        if s3_path:
+            msg = "S3 Menü wird geladen..." if is_de else "Loading S3 Menu..."
+        else:
+            msg = "Terminal wird geöffnet..." if is_de else "Opening Terminal..."
 
         # 2. PROGRESSBAR INITIALISIEREN (Regenbogen + Schwarze Schrift)
         pbar = getattr(self, "progress_bar", None)
@@ -5409,21 +5558,9 @@ class PatchManagerGUI(QWidget):
                 "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF)"
             )
             pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center;
-                    font-weight: bold;
-                    border: 2px solid #222;
-                    border-radius: 6px;
-                    background-color: #111;
-                    color: black;
-                    font-size: 11pt;
-                }}
-                QProgressBar::chunk {{
-                    background: {rainbow};
-                    border-radius: 4px;
-                }}
-            """
+                f"QProgressBar {{ text-align: center; font-weight: 900; border: 2px solid #222; "
+                f"border-radius: 6px; background-color: #111; color: black; font-size: 11pt; }} "
+                f"QProgressBar::chunk {{ background: {rainbow}; border-radius: 4px; }}"
             )
             pbar.setFormat(f"{msg} %p%")
             pbar.setValue(10)
@@ -5436,47 +5573,47 @@ class PatchManagerGUI(QWidget):
             if safe_play_func:
                 safe_play_func("dialog-information.oga")
 
-            if pbar:
-                pbar.setValue(50)
-                QApplication.processEvents()
+            if pbar: pbar.setValue(50)
 
             # 4. TERMINAL STARTEN
             system = platform.system()
             terminal_opened = False
 
+            # Befehl vorbereiten
+            if s3_path:
+                work_dir = os.path.dirname(s3_path)
+                # Der Befehl wechselt in den Ordner und startet ./s3 menu
+                exec_cmd = f"cd {work_dir} && ./s3 menu"
+            else:
+                exec_cmd = ""
+
             if system == "Windows":
-                subprocess.Popen(["cmd"], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                # Bei Windows: cmd /K führt Befehl aus und bleibt offen
+                cmd_args = ["cmd", "/K", exec_cmd] if exec_cmd else ["cmd"]
+                subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
                 terminal_opened = True
 
             elif system == "Linux":
-                terminals = [
-                    "gnome-terminal",
-                    "konsole",
-                    "xfce4-terminal",
-                    "xterm",
-                    "lxterminal",
-                ]
+                terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm", "lxterminal"]
                 for term in terminals:
                     if shutil.which(term):
-                        subprocess.Popen([term])
+                        if exec_cmd:
+                            # Kompatible Syntax für die meisten Linux-Terminals
+                            if term == "gnome-terminal":
+                                subprocess.Popen([term, "--", "bash", "-c", f"{exec_cmd}; exec bash"])
+                            else:
+                                subprocess.Popen([term, "-e", f"bash -c '{exec_cmd}; exec bash'"])
+                        else:
+                            subprocess.Popen([term])
                         terminal_opened = True
                         break
 
-                if not terminal_opened and shutil.which("x-terminal-emulator"):
-                    subprocess.Popen(["x-terminal-emulator"])
-                    terminal_opened = True
-
             if not terminal_opened:
-                raise FileNotFoundError(
-                    "Kein Terminal-Emulator gefunden."
-                    if is_de
-                    else "No terminal emulator found."
-                )
+                raise FileNotFoundError("Kein Terminal-Emulator gefunden.")
 
             # 5. ABSCHLUSS PROGRESS
             if pbar:
                 pbar.setValue(100)
-                # Nach 3 Sekunden (3000ms) zurücksetzen (pbar_idle muss existieren)
                 if hasattr(self, "pbar_idle"):
                     QTimer.singleShot(3000, self.pbar_idle)
 
@@ -5484,11 +5621,8 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
                 pbar.setFormat(f"❌ Error: {str(e)}")
-
             if hasattr(self, "info_text") and self.info_text:
-                self.info_text.append(
-                    f'<span style="color:red;"><b>❌ Terminal-Fehler:</b> {str(e)}</span>'
-                )
+                self.info_text.append(f'<span style="color:red;"><b>❌ Fehler:</b> {str(e)}</span>')
 
         finally:
             QApplication.processEvents()
@@ -5916,12 +6050,12 @@ class PatchManagerGUI(QWidget):
                 "SP_TrashIcon",
             ),
             (
-                "terminal",
-                "Terminal",
-                "#FFA500",
-                self.open_terminal,
+                "s3_menu",
+                " s3_simplebuild",
+                "#EAFF00",          # Dein hammerhartes Neongelb
+                self.start_s3_menu, # Die neue Detektiv-Funktion
                 "black",
-                "SP_ComputerIcon",
+                "SP_FileDialogDetailedView", # Ein passendes Listen/Config Icon
             ),
         ]
 
