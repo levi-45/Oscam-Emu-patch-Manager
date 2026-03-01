@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.2.5"
+APP_VERSION = "3.2.6"
 
 
 # ===================== PATCH DIRS =====================
@@ -8233,7 +8233,13 @@ class PatchManagerGUI(QWidget):
 
             usage_count = str(total_stats)
 
-            # --- GUI Anzeige ---
+            # --- TOOL STATISTIK ---
+            T.update({
+                "github_downloads": "GitHub Downloads" if not is_de else "GitHub Downloads",
+                "local_installs": "Local Installs" if not is_de else "Lokale Installationen",
+                "total": "Total" if not is_de else "Gesamt"
+            })
+
             html.append(
                 f'<div style="text-align:center; margin-top:15px; line-height:1.4; padding:15px; '
                 f'border:2px solid {C_LINE}; border-radius:12px; background-color:#111;">'
@@ -8245,20 +8251,20 @@ class PatchManagerGUI(QWidget):
                 # GitHub Downloads 🐙
                 f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:18pt;">🐙</span> '
-                f'<span style="color:{C_GREEN};">GitHub Downloads:</span> '
-                f'<span style="color:{C_BLUE};">{git_count}</span></div>'
+                f'<span style="color:{C_GREEN};">{T["github_downloads"]}:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span></div>'
 
                 # Lokale Installationen 💾
                 f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:18pt;">💾</span> '
-                f'<span style="color:{C_ORANGE};">Lokale Installationen:</span> '
-                f'<span style="color:{C_BLUE};">{install_count}</span></div>'
+                f'<span style="color:{C_ORANGE};">{T["local_installs"]}:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span></div>'
 
                 # Gesamt 📊
                 f'<div style="font-size:20pt; font-weight:bold; margin-top:8px;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:20pt;">📊</span> '
-                f'<span style="color:{C_YELLOW};">Gesamt:</span> '
-                f'<span style="color:{C_BLUE};">{usage_count}</span></div>'
+                f'<span style="color:{C_YELLOW};">{T["total"]}:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{usage_count}</span></div>'
 
                 # Fortschrittsbalken
                 f'<div style="width:100%; background-color:#333; border-radius:6px; margin-top:10px;">'
