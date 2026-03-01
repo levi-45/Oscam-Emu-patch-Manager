@@ -7993,7 +7993,7 @@ class PatchManagerGUI(QWidget):
     # ---------------------
 
     def run_full_system_check(self, clear_log=True):
-        import shutil, platform, socket, importlib.util, time, re, os, requests
+        import shutil, platform, socket, time, os, requests, urllib3
         from datetime import datetime
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
@@ -8022,9 +8022,8 @@ class PatchManagerGUI(QWidget):
 
         try:
             # === ZENTRALE GRÖSSEN & FARBEN ===
-            S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT, S_FOOTER = (
+            S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT = (
                 "32pt",
-                "18pt",
                 "18pt",
                 "18pt",
                 "18pt",
@@ -8066,7 +8065,7 @@ class PatchManagerGUI(QWidget):
                 ),
                 "lang_name": "Deutsch" if is_de else "English",
                 "lang_label": "Sprache" if is_de else "Language",
-                "sound_label": "Sound Support" if is_de else "Sound Support",
+                "sound_label": "Sound Support",
                 "kernel": "System Kern" if is_de else "System Kernel",
                 "ok": "OK",
                 "missing": "FEHLT" if is_de else "MISSING",
@@ -8094,15 +8093,9 @@ class PatchManagerGUI(QWidget):
                 f'<div style="line-height: 1.0;">',
                 f'<div style="margin-bottom: 2px;"><span style="color:{C_GREEN}; font-size:{S_NORM};">●</span> <span style="color:{C_RED}; font-weight:bold; font-size:{S_HEADER};"> {T["live"]}</span> | <span style="color:{C_BLUE}; font-weight:bold; font-size:{S_HEADER};">{T["monitor"]}</span></div>',
                 f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_TITEL};">🚀</span> <span style="color:#FF0419; font-size:{S_TITEL};"><b> OSCam Emu Patch Generator</b></span></div>',
-                f'<div style="font-size:{S_AV_SIZE}; font-family:{F_AV_STYLE}; font-weight:{F_AV_WEIGHT}; margin: 1px 0;"><span style="color:{C_RED};">{T["autor"]}:</span> <span style="color:{C_YELLOW};">speedy005</span> | <span style="color:{C_ORANGE};">{T["version"]}:</span> <span style="color:{C_BLUE};">{app_ver}</span></div>',
-                f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>',
-                f'<div style="color:{C_ORANGE}; font-size:{S_HEADER}; margin: 0;"><b>{T["features_head"]}</b></div>',
-                f'<div style="font-size:{S_FEAT}; font-family:{F_FEAT_STYLE}; font-weight:{F_FEAT_WEIGHT}; line-height: 1.1; margin-left: 5px;">➤ <span style="color:{C_GREEN};">Auto-Patching:</span> <span style="color:{C_BLUE};">{T["feat_1"]}</span><br>➤ <span style="color:{C_GREEN};">Online-Laden:</span> <span style="color:{C_BLUE};">{T["feat_2"]}</span><br>➤ <span style="color:{C_GREEN};">Lokalisierung:</span> <span style="color:{C_BLUE};">{T["feat_3"]}</span><br>➤ <span style="color:{C_GREEN};">Smart Logging:</span> <span style="color:{C_BLUE};">{T["feat_4"]}</span></div>',
-                f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>',
-                f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">⏳</span> <span style="color:{C_ORANGE}; font-size:{S_NORM};"><b>{T["start"]}</b></span> <span style="color:{C_RED}; font-size:{S_NORM};"><b>[{timestamp}]</b></span></div>',
             ]
 
-            # 1. System & Tools
+            # --- System Checks ---
             if pbar:
                 pbar.setValue(20)
             html.append(
@@ -8149,7 +8142,7 @@ class PatchManagerGUI(QWidget):
                     )
                 )
 
-            # 2. Netzwerk & Server
+            # --- Netzwerk Checks ---
             if pbar:
                 pbar.setValue(40)
             try:
@@ -8167,6 +8160,7 @@ class PatchManagerGUI(QWidget):
                     make_safe_row("🌐", T["network"], T["offline"], C_RED, C_RED)
                 )
 
+            # --- Server Check ---
             repo_list = [
                 ("📡", "Streamboard Oscam", "git.streamboard.tv"),
                 ("🐙", "OSCam Emu Mirror", "github.com"),
@@ -8180,103 +8174,84 @@ class PatchManagerGUI(QWidget):
                 except:
                     html.append(make_safe_row(icon, name, T["offline"], C_RED, C_RED))
 
-            # --- NEU: Footer direkt nach GitHub API Server ---
-            html.append(
-                f'<div style="text-align: center; margin-bottom: 12px; line-height: 1.2;">'
-                f'<span style="font-family:{F_EMOJI}; font-size: 32pt; display: inline-block; vertical-align: middle; margin-right: 10px;">📊</span>'
-                f'<span style="color:{C_YELLOW}; font-size:{S_HEADER}; font-family:{F_MONO}; font-weight: bold; vertical-align: middle;">'
-                f'<b>{T["stats_title"]}</b></span>'
-                f"</div>"
-            )
-
-            import requests, os, urllib3
-
+            # --- TOOL STATISTIK ---
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
             total_stats = 0
-            repo = "speedy005/Oscam-Emu-patch-Manager"
             headers = {"User-Agent": "Mozilla/5.0"}
 
-            # 1️⃣ GitHub-Downloads
+            # 1️⃣ GitHub Downloads
+            git_count = 0
             try:
                 res_git = requests.get(
                     f"https://api.github.com/repos/{repo}/releases",
                     headers=headers,
                     timeout=10,
                 )
-                git_count = 0
-                if res_git.status_code == 200:
-                    for release in res_git.json():
-                        for asset in release.get("assets", []):
-                            git_count += asset.get("download_count", 0)
-                print(f"DEBUG: GitHub Downloads gesamt: {git_count}")
-                total_stats += git_count
-            except Exception as e:
-                print(f"DEBUG: GitHub Fehler: {e}")
 
-            # 2️⃣ Lokaler Install-Counter robust
+                if res_git.status_code == 200:
+                    releases = res_git.json()
+                    if isinstance(releases, list):
+                        for release in releases:
+                            assets = release.get("assets", [])
+                            if not isinstance(assets, list):
+                                continue
+                            for asset in assets:
+                                git_count += int(asset.get("download_count", 0))
+                print(f"DEBUG: GitHub Downloads = {git_count}")
+
+            except Exception as e:
+                print(f"DEBUG: GitHub Exception: {e}")
+
+            # 2️⃣ Lokaler Counter
             try:
-                # Tool-Ordner ermitteln
                 tool_dir = os.path.dirname(os.path.abspath(__file__))
             except NameError:
-                # Fallback, falls __file__ nicht definiert ist (z.B. in manchen IDEs)
                 tool_dir = os.getcwd()
-
             counter_file = os.path.join(tool_dir, "install_counter.txt")
-
-            # Datei prüfen und initialisieren
             if not os.path.exists(counter_file) or os.stat(counter_file).st_size == 0:
                 with open(counter_file, "w") as f:
                     f.write("0")
-
-            # Zähler auslesen und erhöhen
             with open(counter_file, "r") as f:
                 try:
                     install_count = int(f.read().strip())
                 except:
                     install_count = 0
-
             install_count += 1
-
             with open(counter_file, "w") as f:
                 f.write(str(install_count))
-
-            print(f"DEBUG: Lokale Installationen: {install_count}")
             total_stats += install_count
 
-            # 3️⃣ Gesamt
             usage_count = str(total_stats)
-            print("USAGE COUNT (GitHub + lokal):", usage_count)
 
-            # Die Card: Zentriert durch margin: auto und feste Breite
+            # --- GUI Anzeige ---
             html.append(
-                f'<div style="text-align: center; margin-top: 10px; line-height: 1.3;">'
-                f'<span style="color:#FF3131; font-family:{F_MONO}; font-size:{S_HEADER}; font-weight: 900; '
-                f'text-shadow: 0 0 5px #FF0000, 0 0 10px #FF0000, 0 0 20px #FF3131;">'
-                f"<b>GESAMT-DOWNLOADS</b></span><br>"
-                f'<span style="color:{C_BLUE}; font-family:{F_MONO}; font-size: 24pt; font-weight: bold;">'
-                f"<b>{usage_count}</b></span>"
+                f'<div style="text-align:center; margin-top:15px; line-height:1.4; padding:15px; '
+                f'border:2px solid {C_LINE}; border-radius:12px; background-color:#111;">'
+                # Titel 📊
+                f'<div style="font-size:{S_HEADER}; font-family:{F_MONO}; font-weight:bold; color:#FF3131; margin-bottom:12px;">'
+                f'<span style="font-family:{F_EMOJI};">📊</span> {T["stats_title"]}</div>'
+                # GitHub Downloads 🐙
+                f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
+                f'<span style="font-family:{F_EMOJI}; font-size:18pt;">🐙</span> '
+                f'<span style="color:{C_GREEN};">GitHub Downloads:</span> '
+                f'<span style="color:{C_BLUE};">{git_count}</span></div>'
+                # Lokale Installationen 💾
+                f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
+                f'<span style="font-family:{F_EMOJI}; font-size:18pt;">💾</span> '
+                f'<span style="color:{C_ORANGE};">Lokale Installationen:</span> '
+                f'<span style="color:{C_BLUE};">{install_count}</span></div>'
+                # Gesamt 📊
+                f'<div style="font-size:20pt; font-weight:bold; margin-top:8px;">'
+                f'<span style="font-family:{F_EMOJI}; font-size:20pt;">📊</span> '
+                f'<span style="color:{C_YELLOW};">Gesamt:</span> '
+                f'<span style="color:{C_BLUE};">{usage_count}</span></div>'
+                # Optional: Fortschrittsbalken
+                f'<div style="width:100%; background-color:#333; border-radius:6px; margin-top:10px;">'
+                f'<div style="width:{min(100, int(usage_count))}%; height:14px; background-color:{C_ORANGE}; border-radius:6px;"></div>'
+                f"</div>"
                 f"</div>"
             )
 
-            html.append(
-                f'<div style="text-align: left; margin-top: 20px; padding-left: 5px;">'
-            )
-
-            html.append(
-                f'<div style="line-height: 1.5; margin-bottom: 8px;">'
-                # Die Lupe in groß (32pt) und originalen Farben
-                f'<span style="font-family:{F_EMOJI}; font-size: 32pt; vertical-align: middle; margin-right: 12px;">🔍</span>'
-                # Der Text daneben in Orange
-                f'<span style="color:{C_ORANGE}; font-size:{S_HEADER}; font-family:{F_MONO}; vertical-align: middle;">'
-                f'<b>{T["upd_check"]}</b></span>'
-                f"</div>"
-            )
-
-            html.append("</div>")  # Container schließen
-
-            # --- Finales Rendern ---
-            # --- Finales Rendern ---
             widget.setHtml("".join(html))
             if pbar:
                 pbar.setValue(80)
