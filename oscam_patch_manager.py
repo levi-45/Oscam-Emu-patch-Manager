@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.2.3"
+APP_VERSION = "3.2.4"
 
 
 # ===================== PATCH DIRS =====================
@@ -581,71 +581,461 @@ NEVER_DELETE = [
 
 # ===================== COLORS =====================
 DIFF_COLORS = {
-    "Acid": {"bg": "#1D1D1D", "fg": "#DFFF00", "hover": "#BFFF00", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Aero": {"bg": "#00B8D4", "fg": "#FFFFFF", "hover": "#00E5FF", "active": "#0091EA", "window_bg": "#2F2F2F"},
-    "Afterglow": {"bg": "#2C2C2C", "fg": "#E57373", "hover": "#FF8A65", "active": "#D32F2F", "window_bg": "#2F2F2F"},
-    "Alien": {"bg": "#00FF41", "fg": "#000000", "hover": "#008F11", "active": "#003B00", "window_bg": "#2F2F2F"},
-    "Amethyst": {"bg": "#9C27B0", "fg": "#E1BEE7", "hover": "#BA68C8", "active": "#7B1FA2", "window_bg": "#2F2F2F"},
-    "Anthrazit": {"bg": "#2F2F2F", "fg": "#FFFFFF", "hover": "#3D3D3D", "active": "#242424", "window_bg": "#2F2F2F"},
-    "Arctic": {"bg": "#000000", "fg": "#00D2FF", "hover": "#0081FF", "active": "#00458B", "window_bg": "#2F2F2F"},
-    "Asphalt": {"bg": "#263238", "fg": "#ECEFF1", "hover": "#37474F", "active": "#102027", "window_bg": "#2F2F2F"},
-    "Atomic": {"bg": "#1A1A1A", "fg": "#7FFF00", "hover": "#32CD32", "active": "#006400", "window_bg": "#2F2F2F"},
-    "Aurora": {"bg": "#004D40", "fg": "#80CBC4", "hover": "#00897B", "active": "#002420", "window_bg": "#2F2F2F"},
-    "Biohazard": {"bg": "#003300", "fg": "#39FF14", "hover": "#00FF41", "active": "#001100", "window_bg": "#2F2F2F"},
-    "Blackout": {"bg": "#000000", "fg": "#444444", "hover": "#222222", "active": "#111111", "window_bg": "#2F2F2F"},
-    "Blaze": {"bg": "#E65100", "fg": "#FFCC80", "hover": "#EF6C00", "active": "#BF360C", "window_bg": "#2F2F2F"},
-    "BloodMoon": {"bg": "#330000", "fg": "#FF0000", "hover": "#660000", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Bordeaux": {"bg": "#800000", "fg": "#FFFFFF", "hover": "#A52A2A", "active": "#5D0000", "window_bg": "#2F2F2F"},
-    "Bubblegum": {"bg": "#F06292", "fg": "#F8BBD0", "hover": "#F48FB1", "active": "#C2185B", "window_bg": "#2F2F2F"},
-    "Bumblebee": {"bg": "#FFCC00", "fg": "#000000", "hover": "#000000", "active": "#333300", "window_bg": "#2F2F2F"},
-    "Candy": {"bg": "#FF80AB", "fg": "#FCE4EC", "hover": "#F06292", "active": "#C2185B", "window_bg": "#2F2F2F"},
-    "Carbon": {"bg": "#232323", "fg": "#E0E0E0", "hover": "#111111", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Classics": {"bg": "#3a6ea5", "fg": "#FFFFFF", "hover": "#4a7eb5", "active": "#2a5e95", "window_bg": "#2F2F2F"},
-    "Coffee": {"bg": "#4E342E", "fg": "#D7CCC8", "hover": "#5D4037", "active": "#3E2723", "window_bg": "#2F2F2F"},
-    "Copper": {"bg": "#3E2723", "fg": "#D84315", "hover": "#BF360C", "active": "#260E04", "window_bg": "#2F2F2F"},
-    "Cosmos": {"bg": "#130f40", "fg": "#f093fb", "hover": "#30336b", "active": "#130f40", "window_bg": "#2F2F2F"},
-    "Crimson": {"bg": "#000000", "fg": "#DC143C", "hover": "#800000", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Cyberpunk": {"bg": "#000000", "fg": "#00FFFF", "hover": "#F305FF", "active": "#FF0055", "window_bg": "#2F2F2F"},
-    "DeepBlack": {"bg": "#1A1A1A", "fg": "#FFD700", "hover": "#333333", "active": "#000000", "window_bg": "#2F2F2F"},
-    "DeepSea": {"bg": "#001219", "fg": "#94D2BD", "hover": "#0A9396", "active": "#005F73", "window_bg": "#2F2F2F"},
-    "DeepSpace": {"bg": "#0B0D17", "fg": "#00D4FF", "hover": "#005F73", "active": "#001219", "window_bg": "#2F2F2F"},
-    "Dracula": {"bg": "#282A36", "fg": "#BD93F9", "hover": "#44475A", "active": "#191A21", "window_bg": "#2F2F2F"},
-    "Electric": {"bg": "#0000FF", "fg": "#FFFF00", "hover": "#00FFFF", "active": "#00008B", "window_bg": "#2F2F2F"},
-    "Emerald": {"bg": "#2E7D32", "fg": "#FFFFFF", "hover": "#388E3C", "active": "#1B5E20", "window_bg": "#2F2F2F"},
-    "Forest": {"bg": "#1B5E20", "fg": "#E8F5E9", "hover": "#2E7D32", "active": "#0D5302", "window_bg": "#2F2F2F"},
-    "Frost": {"bg": "#000000", "fg": "#A5F2F3", "hover": "#FFFFFF", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Fusion": {"bg": "#2A0845", "fg": "#FFCC00", "hover": "#6441A5", "active": "#1A052D", "window_bg": "#2F2F2F"},
-    "Galaxy": {"bg": "#0D001A", "fg": "#9D50BB", "hover": "#6E48AA", "active": "#300055", "window_bg": "#2F2F2F"},
-    "Ghost": {"bg": "#F5F5F5", "fg": "#212121", "hover": "#E0E0E0", "active": "#BDBDBD", "window_bg": "#2F2F2F"},
-    "Glitch": {"bg": "#000000", "fg": "#FF00FF", "hover": "#00FFFF", "active": "#FFFFFF", "window_bg": "#2F2F2F"},
-    "Gold": {"bg": "#FFD700", "fg": "#000000", "hover": "#FFEA70", "active": "#DAA520", "window_bg": "#2F2F2F"},
-    "Graphite": {"bg": "#424242", "fg": "#B0BEC5", "hover": "#616161", "active": "#212121", "window_bg": "#2F2F2F"},
-    "Hazard": {"bg": "#000000", "fg": "#FFFF00", "hover": "#444400", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Horizon": {"bg": "#1C1C1C", "fg": "#FF4E50", "hover": "#F9D423", "active": "#D33030", "window_bg": "#2F2F2F"},
-    "HotPink": {"bg": "#FF69B4", "fg": "#FFFFFF", "hover": "#FF1493", "active": "#C71585", "window_bg": "#2F2F2F"},
-    "HyperSpace": {"bg": "#000000", "fg": "#FFFFFF", "hover": "#1A1A1A", "active": "#FFFFFF", "window_bg": "#2F2F2F"},
-    "Iceberg": {"bg": "#E1F5FE", "fg": "#01579B", "hover": "#FFFFFF", "active": "#B3E5FC", "window_bg": "#2F2F2F"},
-    "Inferno": {"bg": "#212121", "fg": "#FF4500", "hover": "#FF8C00", "active": "#8B0000", "window_bg": "#2F2F2F"},
-    "Iridium": {"bg": "#101010", "fg": "#E0E0E0", "hover": "#FF0055", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Jungle": {"bg": "#1B5E20", "fg": "#C8E6C9", "hover": "#2E7D32", "active": "#003300", "window_bg": "#2F2F2F"},
-    "Kryptonite": {"bg": "#0A0F0A", "fg": "#9DFF00", "hover": "#4DFF00", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Laser": {"bg": "#000000", "fg": "#FF003C", "hover": "#9D00FF", "active": "#45001A", "window_bg": "#2F2F2F"},
-    "Lava": {"bg": "#4E0000", "fg": "#FF3300", "hover": "#FF6600", "active": "#220000", "window_bg": "#2F2F2F"},
-    "Magma": {"bg": "#000000", "fg": "#FF0000", "hover": "#660000", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Matrix_Pro": {"bg": "#000000", "fg": "#00FF41", "hover": "#003B00", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Midnight": {"bg": "#1A1A1A", "fg": "#F7F7F7", "hover": "#333333", "active": "#000000", "window_bg": "#2F2F2F"},
-    "MidnightBlue": {"bg": "#1A237E", "fg": "#C5CAE9", "hover": "#283593", "active": "#0D1137", "window_bg": "#2F2F2F"},
-    "Misty": {"bg": "#90A4AE", "fg": "#ECEFF1", "hover": "#B0BEC5", "active": "#546E7A", "window_bg": "#2F2F2F"},
-    "Nebula": {"bg": "#1A0033", "fg": "#00FFD1", "hover": "#7000FF", "active": "#0D001A", "window_bg": "#2F2F2F"},
-    "Neon": {"bg": "#000000", "fg": "#00FF00", "hover": "#003300", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Nordic": {"bg": "#2E3440", "fg": "#D8DEE9", "hover": "#3B4252", "active": "#242933", "window_bg": "#2F2F2F"},
-    "Nuclear": {"bg": "#1A1A1A", "fg": "#CCFF00", "hover": "#333333", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Obsidian": {"bg": "#050505", "fg": "#555555", "hover": "#EAFF00", "active": "#222222", "window_bg": "#2F2F2F"},
-    "Overdrive": {"bg": "#120000", "fg": "#FF8000", "hover": "#FF0000", "active": "#000000", "window_bg": "#2F2F2F"},
-    "Plasma": {"bg": "#000022", "fg": "#3D5AFE", "hover": "#8C9EFF", "active": "#1A237E", "window_bg": "#2F2F2F"},
-    "Riddler": {"bg": "#000000", "fg": "#19FF19", "hover": "#6B00B3", "active": "#002200", "window_bg": "#2F2F2F"},
-    "Supernova": {"bg": "#000000", "fg": "#FFFFFF", "hover": "#FFEA00", "active": "#FF3D00", "window_bg": "#2F2F2F"},
-    "Vaporwave": {"bg": "#2D004F", "fg": "#00FFA3", "hover": "#FF44CC", "active": "#120021", "window_bg": "#2F2F2F"},
+    "Acid": {
+        "bg": "#1D1D1D",
+        "fg": "#DFFF00",
+        "hover": "#BFFF00",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Aero": {
+        "bg": "#00B8D4",
+        "fg": "#FFFFFF",
+        "hover": "#00E5FF",
+        "active": "#0091EA",
+        "window_bg": "#2F2F2F",
+    },
+    "Afterglow": {
+        "bg": "#2C2C2C",
+        "fg": "#E57373",
+        "hover": "#FF8A65",
+        "active": "#D32F2F",
+        "window_bg": "#2F2F2F",
+    },
+    "Alien": {
+        "bg": "#00FF41",
+        "fg": "#000000",
+        "hover": "#008F11",
+        "active": "#003B00",
+        "window_bg": "#2F2F2F",
+    },
+    "Amethyst": {
+        "bg": "#9C27B0",
+        "fg": "#E1BEE7",
+        "hover": "#BA68C8",
+        "active": "#7B1FA2",
+        "window_bg": "#2F2F2F",
+    },
+    "Anthrazit": {
+        "bg": "#2F2F2F",
+        "fg": "#FFFFFF",
+        "hover": "#3D3D3D",
+        "active": "#242424",
+        "window_bg": "#2F2F2F",
+    },
+    "Arctic": {
+        "bg": "#000000",
+        "fg": "#00D2FF",
+        "hover": "#0081FF",
+        "active": "#00458B",
+        "window_bg": "#2F2F2F",
+    },
+    "Asphalt": {
+        "bg": "#263238",
+        "fg": "#ECEFF1",
+        "hover": "#37474F",
+        "active": "#102027",
+        "window_bg": "#2F2F2F",
+    },
+    "Atomic": {
+        "bg": "#1A1A1A",
+        "fg": "#7FFF00",
+        "hover": "#32CD32",
+        "active": "#006400",
+        "window_bg": "#2F2F2F",
+    },
+    "Aurora": {
+        "bg": "#004D40",
+        "fg": "#80CBC4",
+        "hover": "#00897B",
+        "active": "#002420",
+        "window_bg": "#2F2F2F",
+    },
+    "Biohazard": {
+        "bg": "#003300",
+        "fg": "#39FF14",
+        "hover": "#00FF41",
+        "active": "#001100",
+        "window_bg": "#2F2F2F",
+    },
+    "Blackout": {
+        "bg": "#000000",
+        "fg": "#444444",
+        "hover": "#222222",
+        "active": "#111111",
+        "window_bg": "#2F2F2F",
+    },
+    "Blaze": {
+        "bg": "#E65100",
+        "fg": "#FFCC80",
+        "hover": "#EF6C00",
+        "active": "#BF360C",
+        "window_bg": "#2F2F2F",
+    },
+    "BloodMoon": {
+        "bg": "#330000",
+        "fg": "#FF0000",
+        "hover": "#660000",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Bordeaux": {
+        "bg": "#800000",
+        "fg": "#FFFFFF",
+        "hover": "#A52A2A",
+        "active": "#5D0000",
+        "window_bg": "#2F2F2F",
+    },
+    "Bubblegum": {
+        "bg": "#F06292",
+        "fg": "#F8BBD0",
+        "hover": "#F48FB1",
+        "active": "#C2185B",
+        "window_bg": "#2F2F2F",
+    },
+    "Bumblebee": {
+        "bg": "#FFCC00",
+        "fg": "#000000",
+        "hover": "#000000",
+        "active": "#333300",
+        "window_bg": "#2F2F2F",
+    },
+    "Candy": {
+        "bg": "#FF80AB",
+        "fg": "#FCE4EC",
+        "hover": "#F06292",
+        "active": "#C2185B",
+        "window_bg": "#2F2F2F",
+    },
+    "Carbon": {
+        "bg": "#232323",
+        "fg": "#E0E0E0",
+        "hover": "#111111",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Classics": {
+        "bg": "#3a6ea5",
+        "fg": "#FFFFFF",
+        "hover": "#4a7eb5",
+        "active": "#2a5e95",
+        "window_bg": "#2F2F2F",
+    },
+    "Coffee": {
+        "bg": "#4E342E",
+        "fg": "#D7CCC8",
+        "hover": "#5D4037",
+        "active": "#3E2723",
+        "window_bg": "#2F2F2F",
+    },
+    "Copper": {
+        "bg": "#3E2723",
+        "fg": "#D84315",
+        "hover": "#BF360C",
+        "active": "#260E04",
+        "window_bg": "#2F2F2F",
+    },
+    "Cosmos": {
+        "bg": "#130f40",
+        "fg": "#f093fb",
+        "hover": "#30336b",
+        "active": "#130f40",
+        "window_bg": "#2F2F2F",
+    },
+    "Crimson": {
+        "bg": "#000000",
+        "fg": "#DC143C",
+        "hover": "#800000",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Cyberpunk": {
+        "bg": "#000000",
+        "fg": "#00FFFF",
+        "hover": "#F305FF",
+        "active": "#FF0055",
+        "window_bg": "#2F2F2F",
+    },
+    "DeepBlack": {
+        "bg": "#1A1A1A",
+        "fg": "#FFD700",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "DeepSea": {
+        "bg": "#001219",
+        "fg": "#94D2BD",
+        "hover": "#0A9396",
+        "active": "#005F73",
+        "window_bg": "#2F2F2F",
+    },
+    "DeepSpace": {
+        "bg": "#0B0D17",
+        "fg": "#00D4FF",
+        "hover": "#005F73",
+        "active": "#001219",
+        "window_bg": "#2F2F2F",
+    },
+    "Dracula": {
+        "bg": "#282A36",
+        "fg": "#BD93F9",
+        "hover": "#44475A",
+        "active": "#191A21",
+        "window_bg": "#2F2F2F",
+    },
+    "Electric": {
+        "bg": "#0000FF",
+        "fg": "#FFFF00",
+        "hover": "#00FFFF",
+        "active": "#00008B",
+        "window_bg": "#2F2F2F",
+    },
+    "Emerald": {
+        "bg": "#2E7D32",
+        "fg": "#FFFFFF",
+        "hover": "#388E3C",
+        "active": "#1B5E20",
+        "window_bg": "#2F2F2F",
+    },
+    "Forest": {
+        "bg": "#1B5E20",
+        "fg": "#E8F5E9",
+        "hover": "#2E7D32",
+        "active": "#0D5302",
+        "window_bg": "#2F2F2F",
+    },
+    "Frost": {
+        "bg": "#000000",
+        "fg": "#A5F2F3",
+        "hover": "#FFFFFF",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Fusion": {
+        "bg": "#2A0845",
+        "fg": "#FFCC00",
+        "hover": "#6441A5",
+        "active": "#1A052D",
+        "window_bg": "#2F2F2F",
+    },
+    "Galaxy": {
+        "bg": "#0D001A",
+        "fg": "#9D50BB",
+        "hover": "#6E48AA",
+        "active": "#300055",
+        "window_bg": "#2F2F2F",
+    },
+    "Ghost": {
+        "bg": "#F5F5F5",
+        "fg": "#212121",
+        "hover": "#E0E0E0",
+        "active": "#BDBDBD",
+        "window_bg": "#2F2F2F",
+    },
+    "Glitch": {
+        "bg": "#000000",
+        "fg": "#FF00FF",
+        "hover": "#00FFFF",
+        "active": "#FFFFFF",
+        "window_bg": "#2F2F2F",
+    },
+    "Gold": {
+        "bg": "#FFD700",
+        "fg": "#000000",
+        "hover": "#FFEA70",
+        "active": "#DAA520",
+        "window_bg": "#2F2F2F",
+    },
+    "Graphite": {
+        "bg": "#424242",
+        "fg": "#B0BEC5",
+        "hover": "#616161",
+        "active": "#212121",
+        "window_bg": "#2F2F2F",
+    },
+    "Hazard": {
+        "bg": "#000000",
+        "fg": "#FFFF00",
+        "hover": "#444400",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Horizon": {
+        "bg": "#1C1C1C",
+        "fg": "#FF4E50",
+        "hover": "#F9D423",
+        "active": "#D33030",
+        "window_bg": "#2F2F2F",
+    },
+    "HotPink": {
+        "bg": "#FF69B4",
+        "fg": "#FFFFFF",
+        "hover": "#FF1493",
+        "active": "#C71585",
+        "window_bg": "#2F2F2F",
+    },
+    "HyperSpace": {
+        "bg": "#000000",
+        "fg": "#FFFFFF",
+        "hover": "#1A1A1A",
+        "active": "#FFFFFF",
+        "window_bg": "#2F2F2F",
+    },
+    "Iceberg": {
+        "bg": "#E1F5FE",
+        "fg": "#01579B",
+        "hover": "#FFFFFF",
+        "active": "#B3E5FC",
+        "window_bg": "#2F2F2F",
+    },
+    "Inferno": {
+        "bg": "#212121",
+        "fg": "#FF4500",
+        "hover": "#FF8C00",
+        "active": "#8B0000",
+        "window_bg": "#2F2F2F",
+    },
+    "Iridium": {
+        "bg": "#101010",
+        "fg": "#E0E0E0",
+        "hover": "#FF0055",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Jungle": {
+        "bg": "#1B5E20",
+        "fg": "#C8E6C9",
+        "hover": "#2E7D32",
+        "active": "#003300",
+        "window_bg": "#2F2F2F",
+    },
+    "Kryptonite": {
+        "bg": "#0A0F0A",
+        "fg": "#9DFF00",
+        "hover": "#4DFF00",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Laser": {
+        "bg": "#000000",
+        "fg": "#FF003C",
+        "hover": "#9D00FF",
+        "active": "#45001A",
+        "window_bg": "#2F2F2F",
+    },
+    "Lava": {
+        "bg": "#4E0000",
+        "fg": "#FF3300",
+        "hover": "#FF6600",
+        "active": "#220000",
+        "window_bg": "#2F2F2F",
+    },
+    "Magma": {
+        "bg": "#000000",
+        "fg": "#FF0000",
+        "hover": "#660000",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Matrix_Pro": {
+        "bg": "#000000",
+        "fg": "#00FF41",
+        "hover": "#003B00",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Midnight": {
+        "bg": "#1A1A1A",
+        "fg": "#F7F7F7",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "MidnightBlue": {
+        "bg": "#1A237E",
+        "fg": "#C5CAE9",
+        "hover": "#283593",
+        "active": "#0D1137",
+        "window_bg": "#2F2F2F",
+    },
+    "Misty": {
+        "bg": "#90A4AE",
+        "fg": "#ECEFF1",
+        "hover": "#B0BEC5",
+        "active": "#546E7A",
+        "window_bg": "#2F2F2F",
+    },
+    "Nebula": {
+        "bg": "#1A0033",
+        "fg": "#00FFD1",
+        "hover": "#7000FF",
+        "active": "#0D001A",
+        "window_bg": "#2F2F2F",
+    },
+    "Neon": {
+        "bg": "#000000",
+        "fg": "#00FF00",
+        "hover": "#003300",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Nordic": {
+        "bg": "#2E3440",
+        "fg": "#D8DEE9",
+        "hover": "#3B4252",
+        "active": "#242933",
+        "window_bg": "#2F2F2F",
+    },
+    "Nuclear": {
+        "bg": "#1A1A1A",
+        "fg": "#CCFF00",
+        "hover": "#333333",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Obsidian": {
+        "bg": "#050505",
+        "fg": "#555555",
+        "hover": "#EAFF00",
+        "active": "#222222",
+        "window_bg": "#2F2F2F",
+    },
+    "Overdrive": {
+        "bg": "#120000",
+        "fg": "#FF8000",
+        "hover": "#FF0000",
+        "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Plasma": {
+        "bg": "#000022",
+        "fg": "#3D5AFE",
+        "hover": "#8C9EFF",
+        "active": "#1A237E",
+        "window_bg": "#2F2F2F",
+    },
+    "Riddler": {
+        "bg": "#000000",
+        "fg": "#19FF19",
+        "hover": "#6B00B3",
+        "active": "#002200",
+        "window_bg": "#2F2F2F",
+    },
+    "Supernova": {
+        "bg": "#000000",
+        "fg": "#FFFFFF",
+        "hover": "#FFEA00",
+        "active": "#FF3D00",
+        "window_bg": "#2F2F2F",
+    },
+    "Vaporwave": {
+        "bg": "#2D004F",
+        "fg": "#00FFA3",
+        "hover": "#FF44CC",
+        "active": "#120021",
+        "window_bg": "#2F2F2F",
+    },
 }
 
 current_diff_colors = DIFF_COLORS["Classics"]
@@ -3426,21 +3816,27 @@ class PatchManagerGUI(QWidget):
         # --- 1. PARAMETER AUS KWARGS HOLEN ---
         s3_path = kwargs.get("s3_path")
         use_sudo = kwargs.get("use_sudo", False)  # NEU: Sudo-Abfrage
-        
+
         lang = getattr(self, "LANG", "de").lower()
         is_de = lang == "de"
-        
+
         if s3_path:
-            msg = "S3 Menü (Sudo) wird geladen..." if is_de else "Loading S3 Menu (Sudo)..."
+            msg = (
+                "S3 Menü (Sudo) wird geladen..."
+                if is_de
+                else "Loading S3 Menu (Sudo)..."
+            )
         else:
             msg = "Terminal wird geöffnet..." if is_de else "Opening Terminal..."
 
         # --- 2. PROGRESSBAR INITIALISIEREN (Regenbogen) ---
         pbar = getattr(self, "progress_bar", None)
         if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF)")
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF)"
+            )
             pbar.setStyleSheet(
                 f"QProgressBar {{ text-align: center; font-weight: 900; border: 2px solid #222; "
                 f"border-radius: 6px; background-color: #111; color: black; font-size: 11pt; }} "
@@ -3454,8 +3850,10 @@ class PatchManagerGUI(QWidget):
         try:
             # --- 3. SOUND & PROGRESS ---
             safe_play_func = globals().get("safe_play")
-            if safe_play_func: safe_play_func("dialog-information.oga")
-            if pbar: pbar.setValue(50)
+            if safe_play_func:
+                safe_play_func("dialog-information.oga")
+            if pbar:
+                pbar.setValue(50)
 
             # --- 4. BEFEHL ZUSAMMENBAUEN (Optimiert für Passwort-Abfrage) ---
             system = platform.system()
@@ -3473,20 +3871,30 @@ class PatchManagerGUI(QWidget):
 
             # --- 5. TERMINAL STARTEN (LINUX FOKUS) ---
             if system == "Linux":
-                terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm", "lxterminal"]
+                terminals = [
+                    "gnome-terminal",
+                    "konsole",
+                    "xfce4-terminal",
+                    "xterm",
+                    "lxterminal",
+                ]
                 for term in terminals:
                     if shutil.which(term):
                         if exec_cmd:
                             # 'exec bash' sorgt dafür, dass das Fenster nach s3 offen bleibt
                             if term == "gnome-terminal":
-                                subprocess.Popen([term, "--", "bash", "-c", f"{exec_cmd}; exec bash"])
+                                subprocess.Popen(
+                                    [term, "--", "bash", "-c", f"{exec_cmd}; exec bash"]
+                                )
                             else:
-                                subprocess.Popen([term, "-e", f"bash -c '{exec_cmd}; exec bash'"])
+                                subprocess.Popen(
+                                    [term, "-e", f"bash -c '{exec_cmd}; exec bash'"]
+                                )
                         else:
                             subprocess.Popen([term])
                         terminal_opened = True
                         break
-            
+
             elif system == "Windows":
                 cmd_args = ["cmd", "/K", exec_cmd] if exec_cmd else ["cmd"]
                 subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
@@ -3506,7 +3914,9 @@ class PatchManagerGUI(QWidget):
                 pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
                 pbar.setFormat(f"❌ Error: {str(e)}")
             if hasattr(self, "info_text") and self.info_text:
-                self.info_text.append(f'<span style="color:red;"><b>❌ Fehler:</b> {str(e)}</span>')
+                self.info_text.append(
+                    f'<span style="color:red;"><b>❌ Fehler:</b> {str(e)}</span>'
+                )
 
         finally:
             QApplication.processEvents()
@@ -3514,8 +3924,14 @@ class PatchManagerGUI(QWidget):
     def start_s3_menu(self):
         """Sucht s3 und startet das Terminal mit 'sudo ./s3 menu'."""
         import os, shutil
+
         s3_exec = None
-        search_list = ["/opt/s3_neu/s3", "/opt/s3/s3", os.path.expanduser("~/s3/s3"), shutil.which("s3")]
+        search_list = [
+            "/opt/s3_neu/s3",
+            "/opt/s3/s3",
+            os.path.expanduser("~/s3/s3"),
+            shutil.which("s3"),
+        ]
 
         for path in search_list:
             if path and os.path.exists(path) and os.access(path, os.X_OK):
@@ -3527,13 +3943,15 @@ class PatchManagerGUI(QWidget):
             self.open_terminal(s3_path=s3_exec, use_sudo=True)
         else:
             if hasattr(self, "info_text"):
-                self.info_text.append('<br><span style="color:red;"><b>❌ Fehler:</b> s3 Startdatei nicht gefunden!</span>')
+                self.info_text.append(
+                    '<br><span style="color:red;"><b>❌ Fehler:</b> s3 Startdatei nicht gefunden!</span>'
+                )
             self.open_terminal()
 
     def find_s3_executable(self):
         """Sucht automatisch nach der s3-Startdatei an bekannten Orten."""
         import os, shutil
-        
+
         # 1. Prüfen, ob s3 global im System-PATH bekannt ist
         system_path = shutil.which("s3")
         if system_path:
@@ -3545,7 +3963,7 @@ class PatchManagerGUI(QWidget):
             "/opt/s3",
             os.path.expanduser("~/s3"),
             os.path.expanduser("~/simplebuild"),
-            "/var/lib/s3"
+            "/var/lib/s3",
         ]
 
         for d in search_dirs:
@@ -3553,7 +3971,7 @@ class PatchManagerGUI(QWidget):
             if os.path.exists(full_path) and os.access(full_path, os.X_OK):
                 return full_path
 
-        return None # Nichts gefunden
+        return None  # Nichts gefunden
 
     def apply_global_button_style(self, text_color="#EAFF00"):
         """Setzt die Schriftfarbe für ALLE Buttons in der GUI zentral."""
@@ -3573,7 +3991,6 @@ class PatchManagerGUI(QWidget):
         """
         # Dies überschreibt die Button-Styles im gesamten Fenster
         self.setStyleSheet(self.styleSheet() + style)
-
 
     def pbar_idle(self):
         """
@@ -4768,10 +5185,12 @@ class PatchManagerGUI(QWidget):
         # --- ZENTRALE STYLING EINSTELLUNGEN ---
         F_SIZE = "24px"
         C_NEON_YELLOW = "#EAFF00"  # Erfolg / Aktuell
-        C_NEON_PINK = "#FF00FF"    # Update gefunden
-        C_NEON_GREEN = "#00FF00"   # Blink-Farbe für Revision
+        C_NEON_PINK = "#FF00FF"  # Update gefunden
+        C_NEON_GREEN = "#00FF00"  # Blink-Farbe für Revision
         C_WHITE = "#FFFFFF"
-        F_EMOJI = "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
+        F_EMOJI = (
+            "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
+        )
         # --------------------------------------
 
         txt = getattr(self, "TEXT", {})
@@ -4782,14 +5201,27 @@ class PatchManagerGUI(QWidget):
         def play_system_sound(sound_type="info"):
             safe_play = globals().get("safe_play")
             if safe_play:
-                sounds = {"update": "dialog-information.oga", "uptodate": "complete.oga", "beep": "bell.oga"}
+                sounds = {
+                    "update": "dialog-information.oga",
+                    "uptodate": "complete.oga",
+                    "beep": "bell.oga",
+                }
                 safe_play(sounds.get(sound_type, "complete.oga"))
             else:
                 import subprocess, shutil
-                player = next((p for p in ["paplay", "pw-play", "aplay"] if shutil.which(p)), None)
+
+                player = next(
+                    (p for p in ["paplay", "pw-play", "aplay"] if shutil.which(p)), None
+                )
                 if player:
-                    s_path = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
-                    subprocess.Popen([player, s_path], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                    s_path = (
+                        "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
+                    )
+                    subprocess.Popen(
+                        [player, s_path],
+                        stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                    )
 
         if update_available:
             # --- FALL: UPDATE GEFUNDEN ---
@@ -4806,7 +5238,7 @@ class PatchManagerGUI(QWidget):
         else:
             # --- FALL: AKTUELL (Mit Neongrün-Blinken für Revision) ---
             success_msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
-            
+
             def set_status_ui(rev_color, opacity=1.0):
                 html = (
                     f'<span style="font-family:{F_EMOJI}; font-size:{F_SIZE}; vertical-align: middle;">✅</span> '
@@ -4819,14 +5251,17 @@ class PatchManagerGUI(QWidget):
 
             # Initialer Zustand & Sounds
             set_status_ui(C_NEON_GREEN)
-            if hasattr(self, "status_label"): self.status_label.show()
+            if hasattr(self, "status_label"):
+                self.status_label.show()
             play_system_sound("uptodate" if new_rev else "error")
 
             # Blink-Sequenz (3 Mal blinken)
             # Delays: 300(Aus), 600(An), 900(Aus), 1200(An), 1500(Aus), 1800(Finale)
             for i, delay in enumerate([300, 600, 900, 1200, 1500, 1800]):
-                if i == 5: # Letzter Schritt: Finales dezentes Gelb
-                    QTimer.singleShot(delay, lambda: set_status_ui(C_NEON_YELLOW, opacity=0.7))
+                if i == 5:  # Letzter Schritt: Finales dezentes Gelb
+                    QTimer.singleShot(
+                        delay, lambda: set_status_ui(C_NEON_YELLOW, opacity=0.7)
+                    )
                 else:
                     color = "transparent" if i % 2 == 0 else C_NEON_GREEN
                     QTimer.singleShot(delay, lambda c=color: set_status_ui(c))
@@ -4837,7 +5272,7 @@ class PatchManagerGUI(QWidget):
             pbar.setValue(100)
             if hasattr(self, "pbar_idle"):
                 QTimer.singleShot(4000, self.pbar_idle)
-            
+
             lang = getattr(self, "LANG", "de").lower()
             f_text = "Tool einsatzbereit" if lang == "de" else "Tool ready for use"
             pbar.setFormat(f_text)
@@ -4869,7 +5304,9 @@ class PatchManagerGUI(QWidget):
                 )
 
             self._scanner_anim.valueChanged.connect(update_scanner)
-            self._scanner_anim.currentLoopChanged.connect(lambda: play_system_sound("beep"))
+            self._scanner_anim.currentLoopChanged.connect(
+                lambda: play_system_sound("beep")
+            )
 
             def on_done():
                 final_rainbow = (
@@ -4944,7 +5381,7 @@ class PatchManagerGUI(QWidget):
             DIFF_COLORS.get("Classics", {"bg": "#2F2F2F", "fg": "#FFFFFF"}),
         )
         bg = base_colors.get("bg", "#2F2F2F")
-        fg = base_colors.get("fg", "#EAFF00") # Hier steckt dein Neongelb drin!
+        fg = base_colors.get("fg", "#EAFF00")  # Hier steckt dein Neongelb drin!
 
         # 3️⃣ Farben für UI-Logik vorbereiten
         current_diff_colors = {
@@ -4964,7 +5401,7 @@ class PatchManagerGUI(QWidget):
             safe_play("dialog-information.oga")
 
         # 4️⃣ FARBEN IM UI ANWENDEN (Buttons, Header, Labels)
-        
+
         # --- ZENTRALES BUTTON-STYLING (Wichtig für die Schriftfarbe!) ---
         # Dies sorgt dafür, dass alle Buttons die Farbe 'fg' (z.B. Neongelb) annehmen
         button_style = f"""
@@ -5540,10 +5977,10 @@ class PatchManagerGUI(QWidget):
         # 1. PRÜFEN: SOLL S3 MENÜ GESTARTET WERDEN?
         # Wir suchen nach 's3_path' in den übergebenen Argumenten
         s3_path = kwargs.get("s3_path")
-        
+
         lang = getattr(self, "LANG", "de").lower()
         is_de = lang == "de"
-        
+
         if s3_path:
             msg = "S3 Menü wird geladen..." if is_de else "Loading S3 Menu..."
         else:
@@ -5573,7 +6010,8 @@ class PatchManagerGUI(QWidget):
             if safe_play_func:
                 safe_play_func("dialog-information.oga")
 
-            if pbar: pbar.setValue(50)
+            if pbar:
+                pbar.setValue(50)
 
             # 4. TERMINAL STARTEN
             system = platform.system()
@@ -5594,15 +6032,25 @@ class PatchManagerGUI(QWidget):
                 terminal_opened = True
 
             elif system == "Linux":
-                terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm", "lxterminal"]
+                terminals = [
+                    "gnome-terminal",
+                    "konsole",
+                    "xfce4-terminal",
+                    "xterm",
+                    "lxterminal",
+                ]
                 for term in terminals:
                     if shutil.which(term):
                         if exec_cmd:
                             # Kompatible Syntax für die meisten Linux-Terminals
                             if term == "gnome-terminal":
-                                subprocess.Popen([term, "--", "bash", "-c", f"{exec_cmd}; exec bash"])
+                                subprocess.Popen(
+                                    [term, "--", "bash", "-c", f"{exec_cmd}; exec bash"]
+                                )
                             else:
-                                subprocess.Popen([term, "-e", f"bash -c '{exec_cmd}; exec bash'"])
+                                subprocess.Popen(
+                                    [term, "-e", f"bash -c '{exec_cmd}; exec bash'"]
+                                )
                         else:
                             subprocess.Popen([term])
                         terminal_opened = True
@@ -5622,7 +6070,9 @@ class PatchManagerGUI(QWidget):
                 pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
                 pbar.setFormat(f"❌ Error: {str(e)}")
             if hasattr(self, "info_text") and self.info_text:
-                self.info_text.append(f'<span style="color:red;"><b>❌ Fehler:</b> {str(e)}</span>')
+                self.info_text.append(
+                    f'<span style="color:red;"><b>❌ Fehler:</b> {str(e)}</span>'
+                )
 
         finally:
             QApplication.processEvents()
@@ -6052,10 +6502,10 @@ class PatchManagerGUI(QWidget):
             (
                 "s3_menu",
                 " s3_simplebuild",
-                "#EAFF00",          # Dein hammerhartes Neongelb
-                self.start_s3_menu, # Die neue Detektiv-Funktion
+                "#EAFF00",  # Dein hammerhartes Neongelb
+                self.start_s3_menu,  # Die neue Detektiv-Funktion
                 "black",
-                "SP_FileDialogDetailedView", # Ein passendes Listen/Config Icon
+                "SP_FileDialogDetailedView",  # Ein passendes Listen/Config Icon
             ),
         ]
 
@@ -7739,44 +8189,64 @@ class PatchManagerGUI(QWidget):
                 f"</div>"
             )
 
-            # --- DOWNLOAD-ZÄHLER (GitHub API & Fallback) ---
-            usage_count = "0"
-            if pbar:
-                pbar.setValue(60)
+            import requests, os, urllib3
+
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+            total_stats = 0
+            repo = "speedy005/Oscam-Emu-patch-Manager"
+            headers = {"User-Agent": "Mozilla/5.0"}
+
+            # 1️⃣ GitHub-Downloads
             try:
-                import requests, re, urllib3
-
-                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-                repo_path = "speedy005/Oscam-Emu-patch-Manager"
-
-                # 1. VERSUCH: Offizielle GitHub API
-                api_url = f"https://api.github.com/repos/{repo_path}/releases"
-                res = requests.get(api_url, headers=headers, timeout=8, verify=False)
-
-                if res.status_code == 200:
-                    data = res.json()
-                    total_dl = sum(
-                        asset.get("download_count", 0)
-                        for r in data
-                        for asset in r.get("assets", [])
-                    )
-                    usage_count = str(total_dl)
-
-                # 2. VERSUCH: Fallback auf Hit-Counter (Falls API 0 oder Error)
-                if usage_count == "0" or res.status_code != 200:
-                    # Korrekte URL für den Badge-Service
-                    c_url = f"https://hits.seeyoufarm.com{repo_path}"
-                    c_res = requests.get(
-                        c_url, headers=headers, timeout=5, verify=False
-                    )
-                    counts = re.findall(r">(\d+)</text>", c_res.text)
-                    if counts:
-                        usage_count = max(counts, key=int)
+                res_git = requests.get(
+                    f"https://api.github.com/repos/{repo}/releases",
+                    headers=headers,
+                    timeout=10,
+                )
+                git_count = 0
+                if res_git.status_code == 200:
+                    for release in res_git.json():
+                        for asset in release.get("assets", []):
+                            git_count += asset.get("download_count", 0)
+                print(f"DEBUG: GitHub Downloads gesamt: {git_count}")
+                total_stats += git_count
             except Exception as e:
-                print(f"DEBUG STATS ERROR: {e}")
-                usage_count = "Offline"
+                print(f"DEBUG: GitHub Fehler: {e}")
+
+            # 2️⃣ Lokaler Install-Counter robust
+            try:
+                # Tool-Ordner ermitteln
+                tool_dir = os.path.dirname(os.path.abspath(__file__))
+            except NameError:
+                # Fallback, falls __file__ nicht definiert ist (z.B. in manchen IDEs)
+                tool_dir = os.getcwd()
+
+            counter_file = os.path.join(tool_dir, "install_counter.txt")
+
+            # Datei prüfen und initialisieren
+            if not os.path.exists(counter_file) or os.stat(counter_file).st_size == 0:
+                with open(counter_file, "w") as f:
+                    f.write("0")
+
+            # Zähler auslesen und erhöhen
+            with open(counter_file, "r") as f:
+                try:
+                    install_count = int(f.read().strip())
+                except:
+                    install_count = 0
+
+            install_count += 1
+
+            with open(counter_file, "w") as f:
+                f.write(str(install_count))
+
+            print(f"DEBUG: Lokale Installationen: {install_count}")
+            total_stats += install_count
+
+            # 3️⃣ Gesamt
+            usage_count = str(total_stats)
+            print("USAGE COUNT (GitHub + lokal):", usage_count)
 
             # Die Card: Zentriert durch margin: auto und feste Breite
             html.append(
@@ -7785,7 +8255,7 @@ class PatchManagerGUI(QWidget):
                 f'text-shadow: 0 0 5px #FF0000, 0 0 10px #FF0000, 0 0 20px #FF3131;">'
                 f"<b>GESAMT-DOWNLOADS</b></span><br>"
                 f'<span style="color:{C_BLUE}; font-family:{F_MONO}; font-size: 24pt; font-weight: bold;">'
-                f"<b>3</b></span>"
+                f"<b>{usage_count}</b></span>"
                 f"</div>"
             )
 
@@ -7808,10 +8278,12 @@ class PatchManagerGUI(QWidget):
             # --- Finales Rendern ---
             # --- Finales Rendern ---
             widget.setHtml("".join(html))
-            if pbar: pbar.setValue(80)
+            if pbar:
+                pbar.setValue(80)
 
         except Exception as e:
-            if widget: widget.append(f"<br><span style='color:red;'>Error: {str(e)}</span>")
+            if widget:
+                widget.append(f"<br><span style='color:red;'>Error: {str(e)}</span>")
         finally:
             self._checking_active = False
             QApplication.processEvents()
@@ -7978,7 +8450,7 @@ class PatchManagerGUI(QWidget):
         # --- 1. Log-Button (Zuerst definieren!) ---
         lang = getattr(self, "LANG", "de").lower()
         log_text = "Log speichern" if lang == "de" else "Save Log"
-        
+
         # VARIABLE ERSTELLEN
         self.log_button = QPushButton(f" {log_text}")
         self.log_button.setMinimumHeight(45)
@@ -8017,7 +8489,6 @@ class PatchManagerGUI(QWidget):
 
         # ZULETZT DEM LAYOUT HINZUFÜGEN
         right_header_layout.addWidget(self.log_button)
-
 
         # --- 2. Version & Autor (JETZT GANZ RECHTS AUSSEN) ---
         version_text_container = QWidget()
@@ -8337,8 +8808,8 @@ class PatchManagerGUI(QWidget):
         self.controls_header.setMinimumHeight(35)
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        bg = current_diff_colors.get("bg", "#2F2F2F") # Dunkelgrauer Hintergrund
-        fg = current_diff_colors.get("fg", "#EAFF00") # NEONGELBE SCHRIFT
+        bg = current_diff_colors.get("bg", "#2F2F2F")  # Dunkelgrauer Hintergrund
+        fg = current_diff_colors.get("fg", "#EAFF00")  # NEONGELBE SCHRIFT
 
         self.controls_header.setStyleSheet(
             f"""
@@ -8873,10 +9344,9 @@ class PatchManagerGUI(QWidget):
                 color: white !important;
             }
         """
-        
+
         # Dieser Befehl zwingt die gesamte App zum neuen Design
         self.setStyleSheet(self.styleSheet() + neon_style)
-
 
     # =====================
     # BUTTON & COLOR HANDLING
