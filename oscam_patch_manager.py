@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.2.7"
+APP_VERSION = "3.2.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -8107,38 +8107,113 @@ class PatchManagerGUI(QWidget):
                     C_BLUE,
                 )
             )
-            sound_ok = (
-                any(os.path.exists(p) for p in ["/usr/bin/paplay", "/usr/bin/aplay"])
-                or shutil.which("paplay")
-                or platform.system() == "Windows"
+            import shutil
+            import subprocess
+
+            # 🔊 Sound Support prüfen
+            paplay_path = shutil.which("paplay")
+            aplay_path = shutil.which("aplay")
+            sound_ok = False
+            sound_text = ""
+
+            if paplay_path:
+                sound_ok = True
+                try:
+                    version = subprocess.check_output(
+                        [paplay_path, "--version"], stderr=subprocess.STDOUT
+                    )
+                    version = version.decode().strip()
+                    sound_text = f"paplay {version}"
+                except Exception:
+                    sound_text = "paplay"
+            elif aplay_path:
+                sound_ok = True
+                try:
+                    version = subprocess.check_output(
+                        [aplay_path, "--version"], stderr=subprocess.STDOUT
+                    )
+                    version = version.decode().strip().splitlines()[0]
+                    sound_text = f"aplay {version}"
+                except Exception:
+                    sound_text = "aplay"
+            else:
+                sound_text = "FEHLT"
+
+            status_color = C_BLUE if sound_ok else C_RED
+            display_text = (
+                f"{sound_text} : OK" if sound_ok else "🔇 Sound Support : FEHLT"
             )
+
             html.append(
                 make_safe_row(
-                    "🔊" if sound_ok else "🔇",
+                    "🔊",
                     T["sound_label"],
-                    T["ok"] if sound_ok else T["missing"],
+                    display_text,
                     C_GREEN,
-                    C_BLUE if sound_ok else C_RED,
+                    status_color,
                 )
             )
             html.append(
                 make_safe_row(
                     "💻",
                     T["kernel"],
-                    f"{platform.system()} {platform.release()[:15]}",
+                    f"{platform.system()} {platform.release()}",
                     C_GREEN,
                     C_BLUE,
                 )
             )
+            # 🐍 PyQt6 Check mit Versionsanzeige
+            try:
+                from PyQt6 import QtCore
+
+                pyqt_version = QtCore.PYQT_VERSION_STR  # korrekte PyQt6 Version
+                pyqt_status = f"{pyqt_version} : OK"
+                pyqt_color = C_BLUE
+            except ImportError:
+                pyqt_status = "Nicht installiert"
+                pyqt_color = C_RED
+
+            html.append(
+                make_safe_row(
+                    "🎨",
+                    "PyQt6",
+                    pyqt_status,
+                    C_GREEN,  # Label "PyQt6" grün
+                    pyqt_color,  # Status blau oder rot
+                )
+            )
             for t in ["git", "patch", "zip"]:
                 f = shutil.which(t)
+                version_str = ""
+                if f:
+                    try:
+                        if t == "git":
+                            version_str = subprocess.check_output(
+                                [t, "--version"], text=True
+                            ).strip()
+                        elif t == "patch":
+                            version_str = subprocess.check_output(
+                                [t, "--version"], text=True, stderr=subprocess.STDOUT
+                            ).strip()
+                        elif t == "zip":
+                            version_str = subprocess.check_output(
+                                [t, "-v"], text=True, stderr=subprocess.STDOUT
+                            ).splitlines()[0]
+                    except Exception:
+                        version_str = ""
+                status_text = (
+                    f"{version_str} : OK"
+                    if version_str
+                    else T["ok"] if f else T["missing"]
+                )
+                status_color = C_BLUE if f else C_RED
                 html.append(
                     make_safe_row(
                         "✅" if f else "❌",
                         t.capitalize(),
-                        T["ok"] if f else T["missing"],
+                        status_text,
                         C_GREEN if f else C_RED,
-                        C_BLUE,
+                        status_color,
                     )
                 )
 
@@ -8146,14 +8221,13 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setValue(40)
             try:
-                start_p = time.time()
-                socket.create_connection(("8.8.8.8", 53), timeout=1.5)
-                ping = int((time.time() - start_p) * 1000)
+                # Verbindung zu Google DNS prüfen
+                s = socket.create_connection(("8.8.8.8", 53), timeout=1.5)
+                local_ip = s.getsockname()[0]  # Eigene IP ermitteln
+                s.close()
+                network_status = f"Online : <span style='color:red;'>{local_ip}</span>"
                 html.append(
-                    make_safe_row("🌐", T["network"], T["online"], C_GREEN, C_BLUE)
-                )
-                html.append(
-                    make_safe_row("⚡", T["ping"], f"{ping} ms", C_GREEN, C_BLUE)
+                    make_safe_row("🌐", T["network"], network_status, C_GREEN, C_BLUE)
                 )
             except:
                 html.append(
@@ -8194,17 +8268,23 @@ class PatchManagerGUI(QWidget):
                     releases = res_git.json()
                     if isinstance(releases, list) and releases:
                         for release in releases:
-                            release_name = release.get("name") or release.get("tag_name", "unknown")
+                            release_name = release.get("name") or release.get(
+                                "tag_name", "unknown"
+                            )
                             assets = release.get("assets", [])
                             if not isinstance(assets, list):
                                 continue
                             for asset in assets:
                                 name = asset.get("name", "unknown")
                                 downloads = asset.get("download_count", 0)
-                                print(f"DEBUG: Release '{release_name}' | Asset '{name}' → Downloads: {downloads}")
+                                print(
+                                    f"DEBUG: Release '{release_name}' | Asset '{name}' → Downloads: {downloads}"
+                                )
                                 git_count += int(downloads)
                     else:
-                        print("DEBUG: Keine Releases gefunden oder API liefert leere Liste.")
+                        print(
+                            "DEBUG: Keine Releases gefunden oder API liefert leere Liste."
+                        )
                 else:
                     print(f"DEBUG: GitHub API Status: {res_git.status_code}")
             except Exception as e:
@@ -8234,44 +8314,44 @@ class PatchManagerGUI(QWidget):
             usage_count = str(total_stats)
 
             # --- TOOL STATISTIK ---
-            T.update({
-                "github_downloads": "GitHub Downloads" if not is_de else "GitHub Downloads",
-                "local_installs": "Local Installs" if not is_de else "Lokale Installationen",
-                "total": "Total" if not is_de else "Gesamt"
-            })
+            T.update(
+                {
+                    "github_downloads": (
+                        "GitHub Downloads" if not is_de else "GitHub Downloads"
+                    ),
+                    "local_installs": (
+                        "Local Installs" if not is_de else "Lokale Installationen"
+                    ),
+                    "total": "Total" if not is_de else "Gesamt",
+                }
+            )
 
             html.append(
                 f'<div style="text-align:center; margin-top:15px; line-height:1.4; padding:15px; '
                 f'border:2px solid {C_LINE}; border-radius:12px;">'
-
                 # Titel 📊 knallrot
                 f'<div style="font-size:{S_HEADER}; font-family:{F_MONO}; font-weight:bold; color:#FF0419; margin-bottom:12px;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:{S_HEADER};">📊</span> {T["stats_title"]}</div>'
-
                 # GitHub Downloads 🐙
                 f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:18pt;">🐙</span> '
                 f'<span style="color:{C_GREEN};">{T["github_downloads"]}:</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span></div>'
-
                 # Lokale Installationen 💾
                 f'<div style="font-size:18pt; font-weight:bold; margin:6px 0;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:18pt;">💾</span> '
                 f'<span style="color:{C_ORANGE};">{T["local_installs"]}:</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span></div>'
-
                 # Gesamt 📊
                 f'<div style="font-size:20pt; font-weight:bold; margin-top:8px;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:20pt;">📊</span> '
                 f'<span style="color:{C_YELLOW};">{T["total"]}:</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{usage_count}</span></div>'
-
                 # Fortschrittsbalken
                 f'<div style="width:100%; background-color:#333; border-radius:6px; margin-top:10px;">'
                 f'<div style="width:{min(100, int(usage_count))}%; height:14px; background-color:{C_ORANGE}; border-radius:6px;"></div>'
-                f'</div>'
-
-                f'</div>'
+                f"</div>"
+                f"</div>"
             )
 
             widget.setHtml("".join(html))
