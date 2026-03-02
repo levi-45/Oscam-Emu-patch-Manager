@@ -8039,11 +8039,11 @@ class PatchManagerGUI(QWidget):
             # === ZENTRALE GRÖSSEN ===
             S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT, S_FOOTER = (
                 "32pt",
-                "18pt",
-                "18pt",
-                "18pt",
-                "18pt",
-                "18pt",
+                "20pt",
+                "20pt",
+                "20pt",
+                "20pt",
+                "20pt",
             )
             C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE, C_ORANGE = (
                 "#00FF00",
@@ -8054,12 +8054,12 @@ class PatchManagerGUI(QWidget):
                 "#F57A08",
             )
             C_START_TEXT, C_START_TIME = C_ORANGE, C_RED
-            S_AV_SIZE, F_AV_STYLE, F_AV_WEIGHT = "20pt", "'Bold', sans-serif", "bold"
+            S_AV_SIZE, F_AV_STYLE, F_AV_WEIGHT = "22pt", "'Bold', sans-serif", "bold"
             C_AV_LABEL_AUTOR, C_AV_VALUE_AUTOR = C_RED, C_YELLOW
             C_AV_LABEL_VER, C_AV_VALUE_VER = C_ORANGE, C_BLUE
             F_FEAT_STYLE, F_FEAT_WEIGHT = "'Bold', sans-serif", "bold"
-            S_REPO, C_REPO_NAME, C_REPO_VAL = "18pt", C_GREEN, C_BLUE
-            F_MONO = "'Bold', 'Bold', Bold"
+            S_REPO, C_REPO_NAME, C_REPO_VAL = "20pt", C_GREEN, C_BLUE
+            F_MONO = "'Arial Black', 'Segoe UI', sans-serif"
             F_EMOJI = (
                 "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
             )
@@ -8110,31 +8110,46 @@ class PatchManagerGUI(QWidget):
                 )
 
             html = [
-                f'<div style="line-height: 1.0;">',
+                f'<div style="line-height:1.0;">',
+    
                 # LIVE / Monitor
-                f'<div style="margin-bottom: 2px;"><span style="color:{C_GREEN}; font-size:{S_NORM};">●</span> '
-                f'<span style="color:{C_RED}; font-weight:bold; font-size:{S_HEADER};"> {T["live"]}</span> | '
-                f'<span style="color:{C_BLUE}; font-weight:bold; font-size:{S_HEADER};">{T["monitor"]}</span></div>',
+                f'<div style="margin-bottom:2px;">'
+                f'<span style="color:{C_GREEN}; font-size:26pt; display:inline-block; width:32px;">●</span>'
+                f'<span style="color:{C_RED}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:20pt; font-weight:bold;"> {T["live"]}</span> | '
+                f'<span style="color:{C_BLUE}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:20pt; font-weight:bold;">{T["monitor"]}</span>'
+                f'</div>',
+    
                 # OSCam Emu Patch Generator Titel
-                f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_TITEL};">🚀</span> '
-                f'<span style="color:#FF0419; font-size:{S_TITEL};"><b> OSCam Emu Patch Generator</b></span></div>',
+                f'<div style="margin:0;">'
+                f'<span style="font-family:{F_EMOJI}; font-size:32pt;">🚀</span> '
+                f'<span style="color:#FF0419; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:32pt; font-weight:bold;">OSCam Emu Patch Generator</span>'
+                f'</div>',
+    
                 # Autor & Version
-                f'<div style="font-size:{S_AV_SIZE}; font-family:{F_AV_STYLE}; font-weight:{F_AV_WEIGHT}; margin: 1px 0;">'
+                f'<div style="font-size:{S_AV_SIZE}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-weight:bold; margin:1px 0;">'
                 f'<span style="color:{C_AV_LABEL_AUTOR};">{T["autor"]}:</span> <span style="color:{C_AV_VALUE_AUTOR};">speedy005</span> | '
-                f'<span style="color:{C_AV_LABEL_VER};">{T["version"]}:</span> <span style="color:{C_AV_VALUE_VER};">{app_ver}</span></div>',
-                f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>',
+                f'<span style="color:{C_AV_LABEL_VER};">{T["version"]}:</span> <span style="color:{C_AV_VALUE_VER};">{app_ver}</span>'
+                f'</div>',
+    
+                f'<div style="border-top:1px solid {C_LINE}; margin:3px 0;"></div>',
+    
                 # Features
-                f'<div style="color:{C_ORANGE}; font-size:{S_HEADER}; margin: 0;"><b>{T["features_head"]}</b></div>',
-                f'<div style="font-size:{S_FEAT}; font-family:{F_FEAT_STYLE}; font-weight:{F_FEAT_WEIGHT}; line-height: 1.1; margin-left: 5px;">'
+                f'<div style="color:{C_ORANGE}; font-size:{S_HEADER}; margin:0; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-weight:bold;"><b>{T["features_head"]}</b></div>',
+                f'<div style="font-size:{S_FEAT}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-weight:bold; line-height:1.1; margin-left:5px;">'
                 f'➤ <span style="color:{C_GREEN};">Auto-Patching:</span> <span style="color:{C_BLUE};">{T["feat_1"]}</span><br>'
                 f'➤ <span style="color:{C_GREEN};">Online-Laden:</span> <span style="color:{C_BLUE};">{T["feat_2"]}</span><br>'
                 f'➤ <span style="color:{C_GREEN};">Lokalisierung:</span> <span style="color:{C_BLUE};">{T["feat_3"]}</span><br>'
-                f'➤ <span style="color:{C_GREEN};">Smart Logging:</span> <span style="color:{C_BLUE};">{T["feat_4"]}</span></div>',
-                f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>',
+                f'➤ <span style="color:{C_GREEN};">Smart Logging:</span> <span style="color:{C_BLUE};">{T["feat_4"]}</span>'
+                f'</div>',
+    
+                f'<div style="border-top:1px solid {C_LINE}; margin:3px 0;"></div>',
+    
                 # Startzeit
-                f'<div style="margin: 0;"><span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">⏳</span> '
-                f'<span style="color:{C_START_TEXT}; font-size:{S_NORM};"><b>{T["start"]}</b></span> '
-                f'<span style="color:{C_START_TIME}; font-size:{S_NORM};"><b>[{timestamp}]</b></span></div>',
+                f'<div style="margin:0;">'
+                f'<span style="font-family:{F_EMOJI}; font-size:26pt; display:inline-block; width:42px;">⏳</span> '
+                f'<span style="color:{C_START_TEXT}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:{S_NORM}; font-weight:bold;">{T["start"]}</span> '
+                f'<span style="color:{C_START_TIME}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:{S_NORM}; font-weight:bold;">[{timestamp}]</span>'
+                f'</div>',
             ]
 
             if pbar:
@@ -8165,16 +8180,22 @@ class PatchManagerGUI(QWidget):
                 path = shutil.which(t)
                 if path:
                     try:
+                        # Gesamte Version-Ausgabe holen
                         info_raw = subprocess.getoutput(f"{t} --version").strip()
-                        first_line = info_raw.splitlines()[0]
 
-                        # Robustere Regex: erste Zahl mit Punkten oder einzelnen Zahlen
-                        match = re.search(r"\d+(?:\.\d+)+|\d+", first_line)
-                        version = match.group(0) if match else "unbekannt"
-                        info = f"Version {version}"
+                        # Alle Zeilen durchsuchen, bis wir die erste Zahl mit Punkten finden
+                        version = "unbekannt"
+                        for line in info_raw.splitlines():
+                            match = re.search(r"\d+(?:\.\d+)+|\d+", line)
+                            if match:
+                                version = match.group(0)
+                                break
+
+                        info = f"Version {version}"  # z.B. "Version 2.7.6"
+                        ok = True
                     except Exception:
                         info = path
-                    ok = True
+                        ok = True
                 else:
                     info = "nicht gefunden"
                     ok = False
