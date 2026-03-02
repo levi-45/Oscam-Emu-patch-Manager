@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.3.7"
+APP_VERSION = "3.3.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -3831,10 +3831,10 @@ class PatchManagerGUI(QWidget):
 
         # Styling: Rot (#FF0000), Schriftstärke 900 (Extra Bold)
         self.info_text.setHtml(
-            f"<div style='margin: 20px; font-family: sans-serif;'>"
-            f"<b style='color:#FF0000; font-size:22pt; font-weight:900;'>{init_msg}</b>"
-            f"</div>"
-        )
+                f"<div style='margin: 20px; font-family: sans-serif; text-align: center;'>"
+                f"<b style='color:#FF0000; font-size:22pt; font-weight:900;'>{init_msg}</b>"
+                f"</div>"
+            )
 
         # 1. Willkommens-Info (500ms)
         # QTimer.singleShot(500, self.show_welcome_info)
@@ -8187,8 +8187,8 @@ class PatchManagerGUI(QWidget):
 
             def make_safe_row(icon, label, status, label_col, status_col, size=S_NORM):
                 return (
-                    f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.0; text-align: left;">'
-                    f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display: inline-block; width: 42px;">{icon}</span>'
+                    f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.2; text-align: center;">'
+                    f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI};">{icon} </span>'
                     f'<span style="font-family:{F_MONO}; font-size:{size}; color:{label_col};"><b>{label.replace(" ", "&nbsp;")} :&nbsp;</b></span>'
                     f'<span style="font-family:{F_MONO}; font-size:{size}; color:{status_col};"><b>{status}</b></span></div>'
                 )
@@ -8196,30 +8196,33 @@ class PatchManagerGUI(QWidget):
             html = []
 
             # --- Live Header ---
+            # Hier text-align: center hinzufügen
             html.append(
-                f'<div style="line-height:1.0;">'
+                f'<div style="line-height:1.0; text-align: center;">' 
                 f'<div style="margin-bottom:2px;">'
-                f'<span style="color:{C_GREEN}; font-size:26pt; display:inline-block; width:32px;">●</span>'
+                f'<span style="color:{C_GREEN}; font-size:26pt; display:inline-block;">●</span>'
                 f'<span style="color:{C_RED}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:20pt; font-weight:bold;"> {T["live"]}</span> | '
                 f'<span style="color:{C_BLUE}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:20pt; font-weight:bold;">{T["monitor"]}</span>'
                 f"</div>"
             )
 
             # OSCam Titel, Autor, Version
+            # Auch hier text-align: center nutzen
             html.append(
-                f'<div style="margin:0;">'
+                f'<div style="margin:0; text-align: center;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:32pt;">🚀</span> '
                 f"<span style=\"color:#FF0419; font-family:'Arial Black','Segoe UI Black',sans-serif; font-size:32pt; font-weight:bold;\">OSCam Emu Patch Generator</span>"
                 f"</div>"
             )
 
             html.append(
-                f"<div style=\"font-size:{S_AV_SIZE}; font-family:'Arial Black','Segoe UI Black',sans-serif; font-weight:bold; margin:1px 0;\">"
+                f"<div style=\"font-size:{S_AV_SIZE}; font-family:'Arial Black','Segoe UI Black',sans-serif; font-weight:bold; margin:1px 0; text-align: center;\">"
                 f'<span style="color:{C_AV_LABEL_AUTOR};">{T["autor"]}:</span> <span style="color:{C_AV_VALUE_AUTOR};">speedy005</span> | '
                 f'<span style="color:{C_AV_LABEL_VER};">{T["version"]}:</span> <span style="color:{C_AV_VALUE_VER};">{app_ver}</span>'
                 f"</div>"
             )
 
+            
             html.append(
                 f'<div style="border-top:1px solid {C_LINE}; margin:3px 0;"></div>'
             )
@@ -8473,8 +8476,8 @@ class PatchManagerGUI(QWidget):
                 f'<div style="border-top:1px solid {C_LINE}; margin:3px 0;"></div>'
             )
             footer_html = (
-                f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.0; text-align: left;">'
-                f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI}; display:inline-block; width:42px;">✅</span>'
+                f'<div style="white-space: nowrap; margin: 0; padding: 0; line-height: 1.0; text-align: center;">'
+                f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI};">✅ </span>'
                 f'<span style="font-family:{F_MONO}; font-size:{S_FOOTER}; color:{C_GREEN};"><b>{T["foot_ok"]}&nbsp;</b></span>'
                 f'<span style="font-family:{F_MONO}; font-size:{S_FOOTER}; color:{C_BLUE};"><b>{T["foot_ready"]}</b></span>'
                 f"</div>"
@@ -10300,23 +10303,26 @@ class PatchManagerGUI(QWidget):
                 if save_func:
                     save_func(self.cfg, gui_instance=self, silent=True)
 
-            # --- F) INFO TEXT RESET ---
+            # --- F) INFO TEXT RESET (MITTIG) ---
             if hasattr(self, "info_text") and self.info_text:
                 self.info_text.clear()
                 wait_msg = lang_dict.get("restarting_check", "System-Check wird neu gestartet..." if is_de else "Restarting system check...")
+                # Zentrierung eingebaut:
                 self.info_text.setHtml(
-                    f"<div style='margin-top:10px; color:#F37804; font-size:15pt; font-family:sans-serif;'><b>⏳ {wait_msg}</b></div>"
+                    f"<div style='margin-top:50px; text-align: center; color:#F37804; font-family:sans-serif;'>"
+                    f"<b style='font-size:18pt;'>⏳ {wait_msg}</b>"
+                    f"</div>"
                 )
 
             # --- G) TIMER-KETTE FÜR FINALE ---
             if safe_play_func:
                 QTimer.singleShot(400, lambda: safe_play_func("dialog-information.oga"))
 
-            # System Check Neustart
+            # System Check Neustart (Das schreibt Autor & Version bereits neu!)
             QTimer.singleShot(1000, lambda: self.run_full_system_check(clear_log=True))
 
-            # Statistik/Konfig-Box mit den neuen TEXTS neu zeichnen
-            QTimer.singleShot(2500, self.show_start_config)
+            # HINWEIS: show_start_config wurde entfernt, um doppelten Autor/Header zu vermeiden,
+            # da run_full_system_check das Fenster bereits komplett neu aufbaut.
 
             # Overlay entfernen
             QTimer.singleShot(1800, self.hide_language_overlay)
@@ -10338,11 +10344,6 @@ class PatchManagerGUI(QWidget):
             # Blockierung zeitverzögert lösen
             QTimer.singleShot(2000, lambda: setattr(self, "_block_language_change", False))
             QApplication.processEvents()
-
-    def hide_language_overlay(self):
-        """Entfernt den Lade-Schleier vom Bildschirm."""
-        if hasattr(self, "loading_overlay"):
-            self.loading_overlay.hide()
 
     # =====================
     # GITHUB EMU CREDENTIALS
