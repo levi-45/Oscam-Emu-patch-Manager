@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.3.4"
+APP_VERSION = "3.3.5"
 
 
 # ===================== PATCH DIRS =====================
@@ -1302,6 +1302,18 @@ TEXTS = {
         "no": "No",
         "save": "Save",
         # patch ordner leeren
+        # Statistik
+        "STATS_TITLE": "TOOL STATISTICS",
+        "STATS_GITHUB": "GitHub:",
+        "STATS_LOCAL": "Local:",
+        "STATS_TOTAL": "Total:",
+        # ... deine anderen Einträge ...
+        "foot_ok": "OK",
+        "foot_ready": "Ready",
+        "stats_title": "TOOL STATISTICS",
+        "stats_github": "GitHub:",
+        "stats_local": "Local:",
+        "stats_total": "Total:",
         "temp_repo_deleted": "Temp repository deleted: {path}",
         "patch_file_deleted": "Patch file deleted: {path}",
         "temp_repo_already_deleted": "Temporary repository not found (already clean): {path}",
@@ -1727,6 +1739,17 @@ TEXTS = {
         "patch_version_from_header": "✅ Patch-Version aus Header: {patch_version}",
         "patch_create_failed": "❌ Patch-Erstellung fehlgeschlagen: {error}",
         "git_patch_success": "✅ Git Patch erfolgreich erstellt! Revision: {rev}",
+        #Statistik 
+        "STATS_TITLE": "TOOL STATISTIK",
+        "STATS_GITHUB": "GitHub:",
+        "STATS_LOCAL": "Lokal:",
+        "STATS_TOTAL": "Gesamt:",
+        "foot_ok": "OK",
+        "foot_ready": "Bereit",
+        "stats_title": "TOOL STATISTIK",
+        "stats_github": "GitHub:",
+        "stats_local": "Lokal:",
+        "stats_total": "Gesamt:",
         # Patch ordner leeren
         "temp_patch_git_already_deleted": "Patch-Git-Ordner war bereits gelöscht oder nicht vorhanden.",
         "patch_file_deleted": "Patch-Datei wurde erfolgreich entfernt: {path}",
@@ -8356,27 +8379,30 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setValue(85)
             # Statistik HTML
+            current_lang = getattr(self, "LANG", self.cfg.get("language", "EN").lower()).lower()
+            T = TEXTS.get(current_lang, TEXTS["en"]) # <-- HIER: current_lang statt LANG benutzen!
+
             html.append(
                 f'<div style="border:2px solid #FF0419; border-radius:20px; padding:25px; margin-top:20px; '
                 f'background:transparent; text-align:center; font-family:sans-serif;">'
                 f'<div style="font-size:28pt; font-weight:bold; margin-bottom:20px;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">📊</span> "
-                f'<span style="color:#FF0419;">TOOL STATISTIK</span>'
+                f'<span style="color:#FF0419;">{T.get("stats_title", "STATISTICS")}</span>'
                 f"</div>"
                 f'<div style="font-size:24pt; margin:10px 0;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">🐙</span> "
-                f'<span style="color:#00FF00; font-weight:bold;">GitHub:</span> '
+                f'<span style="color:#00FF00; font-weight:bold;">{T.get("stats_github", "GitHub:")}</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span>'
                 f"</div>"
                 f'<div style="font-size:24pt; margin:10px 0;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">💾</span> "
-                f'<span style="color:#F57A08; font-weight:bold;">Lokal:</span> '
+                f'<span style="color:#F57A08; font-weight:bold;">{T.get("stats_local", "Local:")}</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span>'
                 f"</div>"
                 f'<div style="height:1px; background:#444; margin:15px auto; width:60%;"></div>'
                 f'<div style="font-size:26pt; font-weight:bold;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">📊</span> "
-                f'<span style="color:#FFFF00;">Gesamt:</span> '
+                f'<span style="color:#FFFF00;">{T.get("stats_total", "Total:")}</span> ' # <--- HIER WAR DER FEHLER
                 f'<span style="color:{C_BLUE}; font-weight:900;">{usage_count}</span>'
                 f"</div>"
                 f"</div>"
@@ -10209,9 +10235,21 @@ class PatchManagerGUI(QWidget):
 
         # Intern setzen
         self.LANG = "de" if target_is_de else "en"
+        # Globale Variable LANG ebenfalls synchronisieren, falls vorhanden
+        if "LANG" in globals():
+            globals()["LANG"] = self.LANG
+            
         is_de = self.LANG == "de"
-        wait_text = "Sprache wird angepasst..." if is_de else "Switching language..."
-        ok_text = "✅ Sprache angepasst" if is_de else "✅ Language updated"
+
+        # TEXTS Dictionary laden
+        all_texts = globals().get("TEXTS", {})
+        # Wir setzen self.TEXT als Referenz auf das aktuelle Sprachpaket
+        self.TEXT = all_texts.get(self.LANG, all_texts.get("en", {}))
+        lang_dict = self.TEXT
+
+        # Texte für Overlays und Progressbar (Sicherer Zugriff via .get)
+        wait_text = lang_dict.get("loading_commits", "Sprache wird angepasst..." if is_de else "Switching language...")
+        ok_text = f"✅ {lang_dict.get('foot_ok', 'OK')}"
 
         if hasattr(self, "loading_overlay"):
             self.loading_overlay.setGeometry(self.rect())
@@ -10233,11 +10271,6 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "show_language_animation"):
                 self.show_language_animation(self.LANG)
 
-            # TEXTS Dictionary laden
-            all_texts = globals().get("TEXTS", {})
-            self.TEXT = all_texts.get(self.LANG, {})
-            lang_dict = self.TEXT
-
             # --- C) PROGRESSBAR START ---
             if hasattr(self, "progress_bar") and self.progress_bar:
                 self.progress_bar.setValue(20)
@@ -10249,64 +10282,36 @@ class PatchManagerGUI(QWidget):
 
             # Dynamische Anpassung der Einstellungs-Labels
             if hasattr(self, "commit_label") and self.commit_label:
-                self.commit_label.setText(
-                    lang_dict.get("commit_count_label", "Commits:")
-                )
-                self.commit_label.setFixedWidth(
-                    self.commit_label.sizeHint().width() + 10
-                )
+                self.commit_label.setText(lang_dict.get("commit_count_label", "Commits:"))
+                self.commit_label.setFixedWidth(self.commit_label.sizeHint().width() + 10)
 
             if hasattr(self, "color_label") and self.color_label:
-                new_color = lang_dict.get(
-                    "color_label", "Farbe:" if is_de else "Color:"
-                )
-                self.color_label.setText(new_color)
+                self.color_label.setText(lang_dict.get("color_label", "Farbe:" if is_de else "Color:"))
                 self.color_label.setFixedWidth(self.color_label.sizeHint().width() + 10)
 
             if hasattr(self, "log_button") and self.log_button:
-                self.log_button.setText(
-                    lang_dict.get(
-                        "log_button_text", " Log speichern" if is_de else " Save Log"
-                    )
-                )
+                self.log_button.setText(lang_dict.get("log_button_text", " Log speichern" if is_de else " Save Log"))
 
             if hasattr(self, "header_label") and self.header_label:
-                new_title = lang_dict.get(
-                    "settings_header", "Einstellungen" if is_de else "Settings"
-                )
+                new_title = lang_dict.get("settings_header", "Einstellungen" if is_de else "Settings")
                 self.header_label.setText(f" {strip_icons(new_title)}")
 
             # Buttons im Hauptmenü
             if hasattr(self, "btn_modifier") and self.btn_modifier:
-                label = strip_icons(
-                    lang_dict.get(
-                        "modifier_button_text",
-                        "Patch Autor" if is_de else "Patch Author",
-                    )
-                )
+                label = strip_icons(lang_dict.get("modifier_button_text", "Patch Autor" if is_de else "Patch Author"))
                 self.btn_modifier.setText(f"👤 {label}")
 
             if hasattr(self, "btn_patch_online") and self.btn_patch_online:
-                p_label = strip_icons(
-                    lang_dict.get(
-                        "patch_online_download",
-                        "Patch Online" if is_de else "Load Patch",
-                    )
-                )
+                p_label = strip_icons(lang_dict.get("online_patch_dl", "Patch Online" if is_de else "Load Patch"))
                 self.btn_patch_online.setText(f"🌐 {p_label}")
 
             # Groupboxen
             for box in self.findChildren(QGroupBox):
                 title = box.title()
                 if any(word in title for word in ["Einstellungen", "Settings"]):
-                    box.setTitle("Einstellungen" if is_de else "Settings")
-                elif any(
-                    word in title
-                    for word in ["GitHub", "Configuration", "Konfiguration"]
-                ):
-                    box.setTitle(
-                        "GitHub Konfiguration" if is_de else "GitHub Configuration"
-                    )
+                    box.setTitle(lang_dict.get("settings_header", "Settings"))
+                elif any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
+                    box.setTitle(lang_dict.get("github_config_header", "GitHub Configuration"))
 
             # --- E) CONFIG SPEICHERN ---
             if hasattr(self, "cfg"):
@@ -10318,14 +10323,7 @@ class PatchManagerGUI(QWidget):
             # --- F) INFO TEXT RESET ---
             if hasattr(self, "info_text") and self.info_text:
                 self.info_text.clear()
-                wait_msg = lang_dict.get(
-                    "restarting_check",
-                    (
-                        "System-Check wird neu gestartet..."
-                        if is_de
-                        else "Restarting system check..."
-                    ),
-                )
+                wait_msg = lang_dict.get("restarting_check", "System-Check wird neu gestartet..." if is_de else "Restarting system check...")
                 self.info_text.setHtml(
                     f"<div style='margin-top:10px; color:#F37804; font-size:15pt; font-family:sans-serif;'><b>⏳ {wait_msg}</b></div>"
                 )
@@ -10335,10 +10333,9 @@ class PatchManagerGUI(QWidget):
                 QTimer.singleShot(400, lambda: safe_play_func("dialog-information.oga"))
 
             # System Check Neustart
-            # WICHTIG: Wir stellen sicher, dass am Ende des Checks show_start_config aufgerufen wird
             QTimer.singleShot(1000, lambda: self.run_full_system_check(clear_log=True))
 
-            # NEU: Wir rufen die Anzeige der Konfig/Statistik explizit nach dem Check auf
+            # Statistik/Konfig-Box mit den neuen TEXTS neu zeichnen
             QTimer.singleShot(2500, self.show_start_config)
 
             # Overlay entfernen
@@ -10349,7 +10346,6 @@ class PatchManagerGUI(QWidget):
                 QTimer.singleShot(1200, lambda: self.progress_bar.setValue(100))
                 QTimer.singleShot(1400, lambda: self.progress_bar.setFormat(ok_text))
 
-                # Nutzt die zentrale pbar_idle für den Reset nach 3 Sekunden
                 if hasattr(self, "pbar_idle"):
                     QTimer.singleShot(3000, self.pbar_idle)
                 else:
@@ -10359,10 +10355,8 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             print(f"❌ Fehler beim Sprachwechsel: {e}")
         finally:
-            # Blockierung zeitverzögert lösen für UI-Stabilität
-            QTimer.singleShot(
-                2000, lambda: setattr(self, "_block_language_change", False)
-            )
+            # Blockierung zeitverzögert lösen
+            QTimer.singleShot(2000, lambda: setattr(self, "_block_language_change", False))
             QApplication.processEvents()
 
     def hide_language_overlay(self):
