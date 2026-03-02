@@ -7745,10 +7745,11 @@ class PatchManagerGUI(QWidget):
     ):
         """
         Geprüfter Update-Callback mit Regenbogen-Progress und schwarzem Text (DE/EN).
+        Zentrierte Log-Ausgabe und korrekte URL-Verarbeitung.
         """
         from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
         from PyQt6.QtGui import QTextCursor
-        import requests, time
+        import requests, time, re
 
         # --- 1. SPRACHE & PROGRESSBAR SETUP ---
         lang_key = getattr(self, "LANG", "de").lower()
@@ -7757,7 +7758,6 @@ class PatchManagerGUI(QWidget):
         pbar = getattr(self, "progress_bar", None)
 
         if pbar:
-            # Regenbogen-Style mit SCHWARZER Schrift
             rainbow = (
                 "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
                 "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
@@ -7766,19 +7766,11 @@ class PatchManagerGUI(QWidget):
             pbar.setStyleSheet(
                 f"""
                 QProgressBar {{
-                    text-align: center;
-                    font-weight: bold;
-                    border: 2px solid #222;
-                    border-radius: 6px;
-                    background-color: #111;
-                    color: black;            /* SCHWARZE SCHRIFT */
-                    font-size: 11pt;
+                    text-align: center; font-weight: bold; border: 2px solid #222;
+                    border-radius: 6px; background-color: #111; color: black; font-size: 11pt;
                 }}
-                QProgressBar::chunk {{
-                    background-color: {rainbow};
-                    border-radius: 4px;
-                }}
-            """
+                QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
+                """
             )
             msg_check = "Prüfe auf Updates..." if is_de else "Checking for updates..."
             pbar.setFormat(f"{msg_check} %p%")
@@ -7786,147 +7778,107 @@ class PatchManagerGUI(QWidget):
             pbar.show()
             QApplication.processEvents()
 
-        # Version-Klasse (Fallback falls packaging fehlt)
+        # Version-Klasse (Fallback)
         try:
             from packaging.version import Version
         except ImportError:
-
             class Version:
                 def __init__(self, v):
-                    self.v = [
-                        int(x)
-                        for x in str(v).replace("v", "").strip().split(".")
-                        if x.strip().isdigit()
-                    ]
-
-                def __gt__(self, other):
-                    return self.v > other.v
-
-                def __lt__(self, other):
-                    return self.v < other.v
-
-                def __eq__(self, other):
-                    return self.v == other.v
+                    # Robustes Splitten der Versionsnummer
+                    self.v = [int(x) for x in re.findall(r'\d+', str(v))]
+                def __gt__(self, other): return self.v > other.v
+                def __lt__(self, other): return self.v < other.v
+                def __eq__(self, other): return self.v == other.v
 
         def log(text_key, level="info", **kwargs):
-            colors = {
-                "success": "green",
-                "warning": "orange",
-                "error": "red",
-                "info": "blue",
-            }
+            colors = {"success": "#00FF00", "warning": "orange", "error": "red", "info": "#00ADFF"}
             color = colors.get(level, "gray")
-            text_template = TEXTS.get(lang_key, TEXTS.get("en", {})).get(
-                text_key, text_key
-            )
+            
+            # Text aus dem globalen TEXTS Dictionary holen
+            lang_dict = globals().get("TEXTS", {}).get(lang_key, globals().get("TEXTS", {}).get("en", {}))
+            text_template = lang_dict.get(text_key, text_key)
+            
             try:
-                safe_kwargs = {
-                    "current": APP_VERSION,
-                    "latest": getattr(self, "latest_version", "???"),
-                }
+                safe_kwargs = {"current": globals().get("APP_VERSION", "3.3.7"), "latest": getattr(self, "latest_version", "???")}
                 safe_kwargs.update(kwargs)
                 text = text_template.format(**safe_kwargs)
             except:
                 text = text_template
 
             if isinstance(widget, QTextEdit):
-                widget.append(f'<span style="color:{color}">{text}</span>')
+                # ZENTRIERTE AUSGABE im Log
+                widget.append(f'<div style="text-align:center;"><span style="color:{color}"><b>{text}</b></span></div>')
                 widget.moveCursor(QTextCursor.MoveOperation.End)
                 QApplication.processEvents()
 
         log("update_check_start", "info")
-        if pbar:
-            pbar.setValue(20)
+        if pbar: pbar.setValue(20)
 
+        # --- 2. KORREKTE URL DEFINITION ---
+        # WICHTIG: Die URL muss komplett sein!
+        # 1. URL zur Versionsdatei (WICHTIG: Nutze die version.txt für den Check)
+        version_url_base = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/version.txt"
+        
         try:
-            # URL mit Zeitstempel gegen Cache
-            version_url = f"https://raw.githubusercontent.com{int(time.time())}"
-            resp = requests.get(version_url, timeout=10)
+            # Cache-Buster anhängen
+            v_url = f"{version_url_base}?nocache={int(time.time())}"
+            
+            resp = requests.get(v_url, timeout=10)
+            resp.header = {'User-Agent': 'Mozilla/5.0'}
             resp.raise_for_status()
 
+            # Version aus der TXT holen und säubern
             latest_str = resp.text.strip().lower().replace("v", "").strip()
-            current_str = APP_VERSION.strip().lower().replace("v", "").strip()
-
+            
+            # Die aktuelle Version aus deinem laufenden Script
+            current_str = globals().get("APP_VERSION", "3.3.7").strip().lower().replace("v", "").strip()
+            
             self.latest_version = latest_str
             v_latest = Version(latest_str)
             v_current = Version(current_str)
 
-            if pbar:
-                pbar.setValue(60)
+            if pbar: pbar.setValue(60)
 
             # --- VERGLEICH ---
             if v_latest > v_current:
+                # Log zentriert ausgeben
+                log("update_found", "warning", latest=latest_str, current=current_str)
+                
                 if pbar:
                     pbar.setValue(80)
-                    msg_found = "Update verfügbar!" if is_de else "Update available!"
-                    pbar.setFormat(f"✨ {msg_found} 80%")
+                    msg_up = "Update verfügbar!" if is_de else "Update available!"
+                    pbar.setFormat(f"✨ {msg_up} (v{latest_str})")
 
                 msg_box = QMessageBox(self)
                 msg_box.setIcon(QMessageBox.Icon.Question)
-                msg_box.setWindowTitle(
-                    TEXTS.get(lang_key, TEXTS["en"]).get(
-                        "update_available_title", "Update"
-                    )
-                )
-                raw_msg = TEXTS.get(lang_key, TEXTS["en"]).get(
-                    "update_available_msg",
-                    "Neu: {latest} (Aktuell: {current}). Update?",
-                )
-                msg_box.setText(raw_msg.format(current=APP_VERSION, latest=latest_str))
-                msg_box.setStandardButtons(
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                )
-
-                # Buttons übersetzen
-                btn_y = msg_box.button(QMessageBox.StandardButton.Yes)
-                if btn_y:
-                    btn_y.setText(TEXTS.get(lang_key, {}).get("yes", "Ja"))
-                btn_no = msg_box.button(QMessageBox.StandardButton.No)
-                if btn_no:
-                    btn_no.setText(TEXTS.get(lang_key, {}).get("no", "Nein"))
+                msg_box.setWindowTitle("Update")
+                msg_box.setText(f"Eine neue Version ist verfügbar!\n\nNeu: v{latest_str}\nAktuell: v{current_str}\n\nJetzt aktualisieren?")
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
                 if msg_box.exec() == QMessageBox.StandardButton.Yes:
                     if hasattr(self, "plugin_update_action"):
-                        self.plugin_update_action(
-                            latest_version=latest_str,
-                            progress_callback=pbar.setValue if pbar else None,
-                        )
+                        self.plugin_update_action(latest_version=latest_str)
                 else:
                     log("update_declined", "info")
-                    if pbar:
-                        pbar.setValue(100)
-                    from PyQt6.QtCore import QTimer
-
-                    # Nach 3 Sekunden (3000ms) zurücksetzen
-                    QTimer.singleShot(3000, self.pbar_idle)
+                    if pbar: pbar.setValue(100)
             else:
                 # AKTUELL
-                msg_templ = TEXTS.get(lang_key, TEXTS["en"]).get(
-                    "up_to_date", "Plugin aktuell (v{v})"
-                )
                 if pbar:
-                    status_ok = "aktuell" if is_de else "up-to-date"
-                    pbar.setFormat(f"✅ v{APP_VERSION} {status_ok} 100%")
+                    pbar.setFormat(f"✅ v{current_str} aktuell 100%" if is_de else f"✅ v{current_str} up-to-date 100%")
                     pbar.setValue(100)
-                    from PyQt6.QtCore import QTimer
-
-                    # Nach 3 Sekunden (3000ms) zurücksetzen
-                    QTimer.singleShot(3000, self.pbar_idle)
-                    QMessageBox.information(
-                        self, "Update", msg_templ.format(v=APP_VERSION)
-                    )
                 log("update_no_update", "success")
 
         except Exception as e:
+            error_msg = str(e)[:50] # Gekürzt für die Progressbar
             log("update_fail", "error", error=str(e))
             if pbar:
                 pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
-                pbar.setFormat(f"❌ Error: {str(e)}")
+                pbar.setFormat(f"❌ Fehler: {error_msg}")
                 pbar.setValue(100)
-                from PyQt6.QtCore import QTimer
 
-                # Nach 3 Sekunden (3000ms) zurücksetzen
-                QTimer.singleShot(3000, self.pbar_idle)
+        # Timer zum Aufräumen der Progressbar
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(4000, self.pbar_idle if hasattr(self, "pbar_idle") else pbar.hide)
 
         # UI Color Fix für Hover-Effekte
         if hasattr(self, "repaint_ui_colors"):
