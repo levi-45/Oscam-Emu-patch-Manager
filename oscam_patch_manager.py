@@ -1248,6 +1248,8 @@ TEXTS = {
         "log_update_uptodate": "✅ Installed version: {version}",
         "log_update_declined": "Update skipped",
         "log_update_failed": "❌ Update check failed: {error}",
+        "update_box_title": "Software Update",
+        "update_box_msg": "A new version is available!\n\nNew: v{latest}\nCurrent: v{current}\n\nUpdate now?",
         "msg_update_available_title": "Update available",
         "msg_update_available_text": "A new version ({latest}) is available.\nCurrently installed: {current}.\nUpdate now?",
         "update_fail": "Update failed: {error}",
@@ -1685,6 +1687,8 @@ TEXTS = {
         "update_success": "✅ Update erfolgreich installiert! Bitte Tool neu starten.",
         "version_current": "Version {version} ist aktuell.",
         "update_error": "Fehler bei Updateprüfung: {error}",
+        "update_box_title": "Software Update",
+        "update_box_msg": "Eine neue Version ist verfügbar!\n\nNeu: v{latest}\nAktuell: v{current}\n\nJetzt aktualisieren?",
         "update_declined": "Update abgebrochen.",
         "update_no_update": "ℹ️ Kein Update vorhanden",
         "tools_ok": "✅ Alle benötigten System-Tools sind bereits installiert.",
@@ -1739,7 +1743,7 @@ TEXTS = {
         "patch_version_from_header": "✅ Patch-Version aus Header: {patch_version}",
         "patch_create_failed": "❌ Patch-Erstellung fehlgeschlagen: {error}",
         "git_patch_success": "✅ Git Patch erfolgreich erstellt! Revision: {rev}",
-        #Statistik 
+        # Statistik
         "STATS_TITLE": "TOOL STATISTIK",
         "STATS_GITHUB": "GitHub:",
         "STATS_LOCAL": "Lokal:",
@@ -3624,6 +3628,7 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer, QTime, Qt, QPoint
 from PyQt6.QtGui import QPainter, QPolygon, QColor
 
+
 class AnalogClock(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -3638,7 +3643,7 @@ class AnalogClock(QWidget):
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
+
         # In die Mitte des Widgets schieben
         painter.translate(self.width() / 2, self.height() / 2)
         painter.scale(side / 200.0, side / 200.0)
@@ -3649,7 +3654,7 @@ class AnalogClock(QWidget):
         painter.drawEllipse(-95, -95, 190, 190)
 
         # --- Markierungen (Stunden) ---
-        painter.setPen(QColor("#EAFF00")) # Neongelb passend zu deinem Design
+        painter.setPen(QColor("#EAFF00"))  # Neongelb passend zu deinem Design
         for i in range(12):
             painter.drawLine(80, 0, 90, 0)
             painter.rotate(30.0)
@@ -3659,21 +3664,27 @@ class AnalogClock(QWidget):
         painter.setBrush(QColor(255, 0, 0))
         painter.save()
         painter.rotate(30.0 * ((time.hour() + time.minute() / 60.0)))
-        painter.drawConvexPolygon(QPolygon([QPoint(6, 10), QPoint(-6, 10), QPoint(0, -50)]))
+        painter.drawConvexPolygon(
+            QPolygon([QPoint(6, 10), QPoint(-6, 10), QPoint(0, -50)])
+        )
         painter.restore()
 
         # --- Minutenzeiger (Weiß/Grau) ---
         painter.setBrush(QColor(200, 200, 200))
         painter.save()
         painter.rotate(6.0 * (time.minute() + time.second() / 60.0))
-        painter.drawConvexPolygon(QPolygon([QPoint(4, 10), QPoint(-4, 10), QPoint(0, -80)]))
+        painter.drawConvexPolygon(
+            QPolygon([QPoint(4, 10), QPoint(-4, 10), QPoint(0, -80)])
+        )
         painter.restore()
 
         # --- Sekundenzeiger (Neongelb) ---
         painter.setBrush(QColor("#EAFF00"))
         painter.save()
         painter.rotate(6.0 * time.second())
-        painter.drawConvexPolygon(QPolygon([QPoint(2, 10), QPoint(-2, 10), QPoint(0, -90)]))
+        painter.drawConvexPolygon(
+            QPolygon([QPoint(2, 10), QPoint(-2, 10), QPoint(0, -90)])
+        )
         painter.restore()
 
         # Mittelpunkt abdecken
@@ -3831,10 +3842,10 @@ class PatchManagerGUI(QWidget):
 
         # Styling: Rot (#FF0000), Schriftstärke 900 (Extra Bold)
         self.info_text.setHtml(
-                f"<div style='margin: 20px; font-family: sans-serif; text-align: center;'>"
-                f"<b style='color:#FF0000; font-size:22pt; font-weight:900;'>{init_msg}</b>"
-                f"</div>"
-            )
+            f"<div style='margin: 20px; font-family: sans-serif; text-align: center;'>"
+            f"<b style='color:#FF0000; font-size:22pt; font-weight:900;'>{init_msg}</b>"
+            f"</div>"
+        )
 
         # 1. Willkommens-Info (500ms)
         # QTimer.singleShot(500, self.show_welcome_info)
@@ -7782,24 +7793,43 @@ class PatchManagerGUI(QWidget):
         try:
             from packaging.version import Version
         except ImportError:
+
             class Version:
                 def __init__(self, v):
                     # Robustes Splitten der Versionsnummer
-                    self.v = [int(x) for x in re.findall(r'\d+', str(v))]
-                def __gt__(self, other): return self.v > other.v
-                def __lt__(self, other): return self.v < other.v
-                def __eq__(self, other): return self.v == other.v
+                    self.v = [int(x) for x in re.findall(r"\d+", str(v))]
+
+                def __gt__(self, other):
+                    return self.v > other.v
+
+                def __lt__(self, other):
+                    return self.v < other.v
+
+                def __eq__(self, other):
+                    return self.v == other.v
 
         def log(text_key, level="info", **kwargs):
-            colors = {"success": "#00FF00", "warning": "orange", "error": "red", "info": "#00ADFF"}
+            colors = {
+                "success": "#00FF00",
+                "warning": "orange",
+                "error": "red",
+                "info": "#00ADFF",
+            }
             color = colors.get(level, "gray")
-            
+
             # Text aus dem globalen TEXTS Dictionary holen
-            lang_dict = globals().get("TEXTS", {}).get(lang_key, globals().get("TEXTS", {}).get("en", {}))
+            lang_dict = (
+                globals()
+                .get("TEXTS", {})
+                .get(lang_key, globals().get("TEXTS", {}).get("en", {}))
+            )
             text_template = lang_dict.get(text_key, text_key)
-            
+
             try:
-                safe_kwargs = {"current": globals().get("APP_VERSION", "3.3.7"), "latest": getattr(self, "latest_version", "???")}
+                safe_kwargs = {
+                    "current": globals().get("APP_VERSION", "3.3.7"),
+                    "latest": getattr(self, "latest_version", "???"),
+                }
                 safe_kwargs.update(kwargs)
                 text = text_template.format(**safe_kwargs)
             except:
@@ -7807,78 +7837,105 @@ class PatchManagerGUI(QWidget):
 
             if isinstance(widget, QTextEdit):
                 # ZENTRIERTE AUSGABE im Log
-                widget.append(f'<div style="text-align:center;"><span style="color:{color}"><b>{text}</b></span></div>')
+                widget.append(
+                    f'<div style="text-align:center;"><span style="color:{color}"><b>{text}</b></span></div>'
+                )
                 widget.moveCursor(QTextCursor.MoveOperation.End)
                 QApplication.processEvents()
 
         log("update_check_start", "info")
-        if pbar: pbar.setValue(20)
+        if pbar:
+            pbar.setValue(20)
 
         # --- 2. KORREKTE URL DEFINITION ---
         # WICHTIG: Die URL muss komplett sein!
         # 1. URL zur Versionsdatei (WICHTIG: Nutze die version.txt für den Check)
         version_url_base = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/version.txt"
-        
+
         try:
             # Cache-Buster anhängen
             v_url = f"{version_url_base}?nocache={int(time.time())}"
-            
-            resp = requests.get(v_url, timeout=10)
-            resp.header = {'User-Agent': 'Mozilla/5.0'}
-            resp.raise_for_status()
 
+            headers = {"User-Agent": "Mozilla/5.0"}
+            resp = requests.get(v_url, headers=headers, timeout=10)
+            resp.raise_for_status()
             # Version aus der TXT holen und säubern
             latest_str = resp.text.strip().lower().replace("v", "").strip()
-            
+
             # Die aktuelle Version aus deinem laufenden Script
-            current_str = globals().get("APP_VERSION", "3.3.7").strip().lower().replace("v", "").strip()
-            
+            current_str = (
+                globals()
+                .get("APP_VERSION", "3.3.7")
+                .strip()
+                .lower()
+                .replace("v", "")
+                .strip()
+            )
+
             self.latest_version = latest_str
             v_latest = Version(latest_str)
             v_current = Version(current_str)
 
-            if pbar: pbar.setValue(60)
+            if pbar:
+                pbar.setValue(60)
 
             # --- VERGLEICH ---
             if v_latest > v_current:
                 # Log zentriert ausgeben
                 log("update_found", "warning", latest=latest_str, current=current_str)
-                
+
                 if pbar:
                     pbar.setValue(80)
                     msg_up = "Update verfügbar!" if is_de else "Update available!"
                     pbar.setFormat(f"✨ {msg_up} (v{latest_str})")
 
+                # Hol dir die Texte aus deinem Dictionary
+                lang_dict = globals().get("TEXTS", {}).get(lang_key, {})
+                msg_title = lang_dict.get("update_box_title", "Update")
+                # Nutze .format() für die Versionen im Dialog
+                msg_body = lang_dict.get("update_box_msg", "Update?").format(
+                    latest=latest_str, current=current_str
+                )
+
                 msg_box = QMessageBox(self)
-                msg_box.setIcon(QMessageBox.Icon.Question)
-                msg_box.setWindowTitle("Update")
-                msg_box.setText(f"Eine neue Version ist verfügbar!\n\nNeu: v{latest_str}\nAktuell: v{current_str}\n\nJetzt aktualisieren?")
-                msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                msg_box.setWindowTitle(msg_title)
+                msg_box.setText(msg_body)
+                msg_box.setStandardButtons(
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
 
                 if msg_box.exec() == QMessageBox.StandardButton.Yes:
                     if hasattr(self, "plugin_update_action"):
                         self.plugin_update_action(latest_version=latest_str)
                 else:
                     log("update_declined", "info")
-                    if pbar: pbar.setValue(100)
+                    if pbar:
+                        pbar.setValue(100)
             else:
                 # AKTUELL
                 if pbar:
-                    pbar.setFormat(f"✅ v{current_str} aktuell 100%" if is_de else f"✅ v{current_str} up-to-date 100%")
+                    pbar.setFormat(
+                        f"✅ v{current_str} aktuell 100%"
+                        if is_de
+                        else f"✅ v{current_str} up-to-date 100%"
+                    )
                     pbar.setValue(100)
                 log("update_no_update", "success")
 
         except Exception as e:
-            error_msg = str(e)[:50] # Gekürzt für die Progressbar
+            error_label = "Fehler" if is_de else "Error"  # Oder aus TEXTS laden
             log("update_fail", "error", error=str(e))
             if pbar:
                 pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
-                pbar.setFormat(f"❌ Fehler: {error_msg}")
+                pbar.setFormat(f"❌ {error_label}: {str(e)[:40]}")
                 pbar.setValue(100)
 
         # Timer zum Aufräumen der Progressbar
         from PyQt6.QtCore import QTimer
-        QTimer.singleShot(4000, self.pbar_idle if hasattr(self, "pbar_idle") else pbar.hide)
+
+        QTimer.singleShot(
+            4000, self.pbar_idle if hasattr(self, "pbar_idle") else pbar.hide
+        )
 
         # UI Color Fix für Hover-Effekte
         if hasattr(self, "repaint_ui_colors"):
@@ -8150,7 +8207,7 @@ class PatchManagerGUI(QWidget):
             # --- Live Header ---
             # Hier text-align: center hinzufügen
             html.append(
-                f'<div style="line-height:1.0; text-align: center;">' 
+                f'<div style="line-height:1.0; text-align: center;">'
                 f'<div style="margin-bottom:2px;">'
                 f'<span style="color:{C_GREEN}; font-size:26pt; display:inline-block;">●</span>'
                 f'<span style="color:{C_RED}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:20pt; font-weight:bold;"> {T["live"]}</span> | '
@@ -8174,7 +8231,6 @@ class PatchManagerGUI(QWidget):
                 f"</div>"
             )
 
-            
             html.append(
                 f'<div style="border-top:1px solid {C_LINE}; margin:3px 0;"></div>'
             )
@@ -8394,8 +8450,12 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setValue(85)
             # Statistik HTML
-            current_lang = getattr(self, "LANG", self.cfg.get("language", "EN").lower()).lower()
-            T = TEXTS.get(current_lang, TEXTS["en"]) # <-- HIER: current_lang statt LANG benutzen!
+            current_lang = getattr(
+                self, "LANG", self.cfg.get("language", "EN").lower()
+            ).lower()
+            T = TEXTS.get(
+                current_lang, TEXTS["en"]
+            )  # <-- HIER: current_lang statt LANG benutzen!
 
             html.append(
                 f'<div style="border:2px solid #FF0419; border-radius:20px; padding:25px; margin-top:20px; '
@@ -8417,7 +8477,7 @@ class PatchManagerGUI(QWidget):
                 f'<div style="height:1px; background:#444; margin:15px auto; width:60%;"></div>'
                 f'<div style="font-size:26pt; font-weight:bold;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">📊</span> "
-                f'<span style="color:#FFFF00;">{T.get("stats_total", "Total:")}</span> ' # <--- HIER WAR DER FEHLER
+                f'<span style="color:#FFFF00;">{T.get("stats_total", "Total:")}</span> '  # <--- HIER WAR DER FEHLER
                 f'<span style="color:{C_BLUE}; font-weight:900;">{usage_count}</span>'
                 f"</div>"
                 f"</div>"
@@ -8459,9 +8519,19 @@ class PatchManagerGUI(QWidget):
 
     def init_ui(self):
         from PyQt6.QtWidgets import (
-            QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
-            QWidget, QTextEdit, QComboBox, QSpinBox, QProgressBar,
-            QApplication, QFrame, QFileDialog
+            QVBoxLayout,
+            QHBoxLayout,
+            QGridLayout,
+            QLabel,
+            QPushButton,
+            QWidget,
+            QTextEdit,
+            QComboBox,
+            QSpinBox,
+            QProgressBar,
+            QApplication,
+            QFrame,
+            QFileDialog,
         )
         from PyQt6.QtGui import QPixmap, QFont
         from PyQt6.QtCore import Qt, QSize, QTimer, QDateTime
@@ -8489,8 +8559,9 @@ class PatchManagerGUI(QWidget):
         # Header-Bereich
         # ---------------------------------------------------------
         header_widget = QFrame()
-        header_widget.setMinimumHeight(110) 
-        header_widget.setStyleSheet("""
+        header_widget.setMinimumHeight(110)
+        header_widget.setStyleSheet(
+            """
             QFrame { background-color: #2F2F2F; border: 1px solid #444; border-radius: 10px; }
             QLabel { background-color: transparent; border: none; font-weight: bold; }
             QPushButton {
@@ -8502,7 +8573,8 @@ class PatchManagerGUI(QWidget):
                 font-weight: bold;
             }
             QPushButton:hover { background-color: #4d4d4d; border: 1px solid #EAFF00; color: white !important; }
-        """)
+        """
+        )
 
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(15, 5, 15, 5)
@@ -8513,10 +8585,12 @@ class PatchManagerGUI(QWidget):
         left_header_layout = QHBoxLayout(left_header_container)
         left_header_layout.setContentsMargins(0, 0, 0, 0)
         left_header_layout.setSpacing(10)
-        
+
         self.info_button = QPushButton()
         self.info_button.setFixedSize(45, 45)
-        icon_info = self.style().standardIcon(QApplication.style().StandardPixmap.SP_MessageBoxInformation)
+        icon_info = self.style().standardIcon(
+            QApplication.style().StandardPixmap.SP_MessageBoxInformation
+        )
         self.info_button.setIcon(icon_info)
         self.info_button.setIconSize(QSize(28, 28))
         self.info_button.clicked.connect(self.show_info)
@@ -8528,21 +8602,21 @@ class PatchManagerGUI(QWidget):
         main_h_layout.setSpacing(15)
 
         self.analog_clock = AnalogClock()
-        self.analog_clock.setFixedSize(80, 80) 
+        self.analog_clock.setFixedSize(80, 80)
         main_h_layout.addWidget(self.analog_clock)
 
         labels_v_container = QWidget()
         labels_v_layout = QVBoxLayout(labels_v_container)
         labels_v_layout.setContentsMargins(0, 0, 0, 0)
         labels_v_layout.setSpacing(0)
-        
+
         bold_font_time = QFont("Segoe UI", 22, QFont.Weight.Bold)
         bold_font_date = QFont("Segoe UI", 24, QFont.Weight.Bold)
 
-        #self.digital_clock = QLabel("--:--:--")
-        #self.digital_clock.setFont(bold_font_time)
-        #self.digital_clock.setStyleSheet("color: red;")
-        #labels_v_layout.addWidget(self.digital_clock)
+        # self.digital_clock = QLabel("--:--:--")
+        # self.digital_clock.setFont(bold_font_time)
+        # self.digital_clock.setStyleSheet("color: red;")
+        # labels_v_layout.addWidget(self.digital_clock)
 
         self.date_label = QLabel("--.--.----")
         self.date_label.setFont(bold_font_date)
@@ -8576,7 +8650,9 @@ class PatchManagerGUI(QWidget):
         right_header_layout = QHBoxLayout(right_header_container)
         right_header_layout.setContentsMargins(0, 0, 0, 0)
         right_header_layout.setSpacing(15)
-        right_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        right_header_layout.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+        )
 
         # 1. Log-Button
         lang = getattr(self, "LANG", "de").lower()
@@ -8585,9 +8661,12 @@ class PatchManagerGUI(QWidget):
         self.log_button.setMinimumHeight(45)
         self.log_button.setMinimumWidth(150)
         self.log_button.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        icon_log = self.style().standardIcon(QApplication.style().StandardPixmap.SP_DriveHDIcon)
+        icon_log = self.style().standardIcon(
+            QApplication.style().StandardPixmap.SP_DriveHDIcon
+        )
         self.log_button.setIcon(icon_log)
-        if hasattr(self, "export_log"): self.log_button.clicked.connect(self.export_log)
+        if hasattr(self, "export_log"):
+            self.log_button.clicked.connect(self.export_log)
         right_header_layout.addWidget(self.log_button)
 
         # 2. Version & Autor Block (DEIN ORIGINAL)
@@ -8595,11 +8674,13 @@ class PatchManagerGUI(QWidget):
         version_text_layout = QVBoxLayout(version_text_container)
         version_text_layout.setContentsMargins(10, 0, 0, 0)
         version_text_layout.setSpacing(2)
-        version_text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        version_text_layout.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+        )
 
         # Die originalen Font-Einstellungen
         bold_font_header = QFont("Segoe UI", 24, QFont.Weight.Bold)
-        
+
         # APP_VERSION dynamisch holen (oder fest "3.3.5" nutzen)
         app_v = getattr(self, "APP_VERSION", "3.3.5")
 
@@ -9381,7 +9462,7 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         def update_digital_clock():
             now = QDateTime.currentDateTime()
-            #self.digital_clock.setText(now.toString("HH:mm:ss"))
+            # self.digital_clock.setText(now.toString("HH:mm:ss"))
             self.date_label.setText(now.toString("dd.MM.yyyy"))
 
         self.clock_timer = QTimer(self)
@@ -10173,7 +10254,7 @@ class PatchManagerGUI(QWidget):
         # Globale Variable LANG ebenfalls synchronisieren, falls vorhanden
         if "LANG" in globals():
             globals()["LANG"] = self.LANG
-            
+
         is_de = self.LANG == "de"
 
         # TEXTS Dictionary laden
@@ -10183,7 +10264,10 @@ class PatchManagerGUI(QWidget):
         lang_dict = self.TEXT
 
         # Texte für Overlays und Progressbar (Sicherer Zugriff via .get)
-        wait_text = lang_dict.get("loading_commits", "Sprache wird angepasst..." if is_de else "Switching language...")
+        wait_text = lang_dict.get(
+            "loading_commits",
+            "Sprache wird angepasst..." if is_de else "Switching language...",
+        )
         ok_text = f"✅ {lang_dict.get('foot_ok', 'OK')}"
 
         if hasattr(self, "loading_overlay"):
@@ -10217,27 +10301,48 @@ class PatchManagerGUI(QWidget):
 
             # Dynamische Anpassung der Einstellungs-Labels
             if hasattr(self, "commit_label") and self.commit_label:
-                self.commit_label.setText(lang_dict.get("commit_count_label", "Commits:"))
-                self.commit_label.setFixedWidth(self.commit_label.sizeHint().width() + 10)
+                self.commit_label.setText(
+                    lang_dict.get("commit_count_label", "Commits:")
+                )
+                self.commit_label.setFixedWidth(
+                    self.commit_label.sizeHint().width() + 10
+                )
 
             if hasattr(self, "color_label") and self.color_label:
-                self.color_label.setText(lang_dict.get("color_label", "Farbe:" if is_de else "Color:"))
+                self.color_label.setText(
+                    lang_dict.get("color_label", "Farbe:" if is_de else "Color:")
+                )
                 self.color_label.setFixedWidth(self.color_label.sizeHint().width() + 10)
 
             if hasattr(self, "log_button") and self.log_button:
-                self.log_button.setText(lang_dict.get("log_button_text", " Log speichern" if is_de else " Save Log"))
+                self.log_button.setText(
+                    lang_dict.get(
+                        "log_button_text", " Log speichern" if is_de else " Save Log"
+                    )
+                )
 
             if hasattr(self, "header_label") and self.header_label:
-                new_title = lang_dict.get("settings_header", "Einstellungen" if is_de else "Settings")
+                new_title = lang_dict.get(
+                    "settings_header", "Einstellungen" if is_de else "Settings"
+                )
                 self.header_label.setText(f" {strip_icons(new_title)}")
 
             # Buttons im Hauptmenü
             if hasattr(self, "btn_modifier") and self.btn_modifier:
-                label = strip_icons(lang_dict.get("modifier_button_text", "Patch Autor" if is_de else "Patch Author"))
+                label = strip_icons(
+                    lang_dict.get(
+                        "modifier_button_text",
+                        "Patch Autor" if is_de else "Patch Author",
+                    )
+                )
                 self.btn_modifier.setText(f"👤 {label}")
 
             if hasattr(self, "btn_patch_online") and self.btn_patch_online:
-                p_label = strip_icons(lang_dict.get("online_patch_dl", "Patch Online" if is_de else "Load Patch"))
+                p_label = strip_icons(
+                    lang_dict.get(
+                        "online_patch_dl", "Patch Online" if is_de else "Load Patch"
+                    )
+                )
                 self.btn_patch_online.setText(f"🌐 {p_label}")
 
             # Groupboxen
@@ -10245,8 +10350,13 @@ class PatchManagerGUI(QWidget):
                 title = box.title()
                 if any(word in title for word in ["Einstellungen", "Settings"]):
                     box.setTitle(lang_dict.get("settings_header", "Settings"))
-                elif any(word in title for word in ["GitHub", "Configuration", "Konfiguration"]):
-                    box.setTitle(lang_dict.get("github_config_header", "GitHub Configuration"))
+                elif any(
+                    word in title
+                    for word in ["GitHub", "Configuration", "Konfiguration"]
+                ):
+                    box.setTitle(
+                        lang_dict.get("github_config_header", "GitHub Configuration")
+                    )
 
             # --- E) CONFIG SPEICHERN ---
             if hasattr(self, "cfg"):
@@ -10258,7 +10368,14 @@ class PatchManagerGUI(QWidget):
             # --- F) INFO TEXT RESET (MITTIG) ---
             if hasattr(self, "info_text") and self.info_text:
                 self.info_text.clear()
-                wait_msg = lang_dict.get("restarting_check", "System-Check wird neu gestartet..." if is_de else "Restarting system check...")
+                wait_msg = lang_dict.get(
+                    "restarting_check",
+                    (
+                        "System-Check wird neu gestartet..."
+                        if is_de
+                        else "Restarting system check..."
+                    ),
+                )
                 # Zentrierung eingebaut:
                 self.info_text.setHtml(
                     f"<div style='margin-top:50px; text-align: center; color:#F37804; font-family:sans-serif;'>"
@@ -10294,7 +10411,9 @@ class PatchManagerGUI(QWidget):
             print(f"❌ Fehler beim Sprachwechsel: {e}")
         finally:
             # Blockierung zeitverzögert lösen
-            QTimer.singleShot(2000, lambda: setattr(self, "_block_language_change", False))
+            QTimer.singleShot(
+                2000, lambda: setattr(self, "_block_language_change", False)
+            )
             QApplication.processEvents()
 
     # =====================
