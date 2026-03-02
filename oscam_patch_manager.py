@@ -389,7 +389,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.0.0"
+APP_VERSION = "4.0.1"
 
 
 # ===================== PATCH DIRS =====================
@@ -8642,14 +8642,12 @@ class PatchManagerGUI(QWidget):
             self.logo_label.setStyleSheet("color: white; font-size: 18px;")
             self.original_pixmap = None
 
-        # --- RIGHT: Log-Button + Version & Autor (ORIGINAL STYLE) ---
+        # --- RIGHT: Log-Button + Version & Autor (OPTIMIERT) ---
         right_header_container = QWidget()
         right_header_layout = QHBoxLayout(right_header_container)
         right_header_layout.setContentsMargins(0, 0, 0, 0)
         right_header_layout.setSpacing(15)
-        right_header_layout.setAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
-        )
+        right_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
 
         # 1. Log-Button
         lang = getattr(self, "LANG", "de").lower()
@@ -8658,49 +8656,48 @@ class PatchManagerGUI(QWidget):
         self.log_button.setMinimumHeight(45)
         self.log_button.setMinimumWidth(150)
         self.log_button.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        icon_log = self.style().standardIcon(
-            QApplication.style().StandardPixmap.SP_DriveHDIcon
-        )
+        icon_log = self.style().standardIcon(QApplication.style().StandardPixmap.SP_DriveHDIcon)
         self.log_button.setIcon(icon_log)
         if hasattr(self, "export_log"):
             self.log_button.clicked.connect(self.export_log)
         right_header_layout.addWidget(self.log_button)
-        # --- EINSTELLUNGEN SEKTION (Kontrast-Optimiert) ---
+
+        # 2. Stats Checkbox (VOLLSTÄNDIG MIT FUNKTION)
         self.telemetry_cb = QCheckBox("Stats")
+        
+        # FUNKTION WIEDERHERSTELLEN:
+        self.telemetry_cb.setChecked(get_setting("allow_telemetry", True))
+        self.telemetry_cb.stateChanged.connect(self.on_telemetry_changed)
+        
+        # Tooltip & Cursor
         is_de = getattr(self, "LANG", "de") == "de"
-        # Setzt den initialen Tooltip basierend auf der aktuellen Sprache
         self.telemetry_cb.setToolTip(
             "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten." if is_de 
             else "Allow/Disallow anonymous usage statistics (Hit-Counter)."
         )
-        
-        # Holen der aktuellen Akzentfarbe deines Themes
-        accent = self.palette().highlight().color().name() 
-
+        self.telemetry_cb.setCursor(Qt.CursorShape.PointingHandCursor)
         self.telemetry_cb.setMinimumHeight(35)
         self.telemetry_cb.setMinimumWidth(90)
         self.telemetry_cb.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-        self.telemetry_cb.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        # STYLE: Fokus auf Lesbarkeit (Weißer Text beim Hovern)
+        # Akzentfarbe für Hover-Effekt (z.B. Rot oder Gelb)
+        accent = "#FF0000" # Hier kannst du deine Wunschfarbe für den Hover-Effekt setzen
+
+        # STYLE (Wieder eingefügt)
         self.telemetry_cb.setStyleSheet(f"""
             QCheckBox {{
                 color: white;
-                background-color: rgba(255, 255, 255, 0.1); /* Dezenter Rahmen im Header */
+                background-color: rgba(255, 255, 255, 0.1);
                 border: 1px solid rgba(255, 255, 255, 0.2);
                 border-radius: 4px;
                 padding-left: 8px;
                 padding-right: 5px;
             }}
-
-            /* HOVER: Hintergrund ändert sich, Schrift bleibt WEISS */
             QCheckBox:hover {{
-                background-color: {accent}; /* Deine Theme-Farbe (z.B. Gold/Gelb) */
+                background-color: {accent};
                 border: 1px solid white;
-                color: white !important;    /* ERZWINGT WEISSE SCHRIFT */
+                color: white !important;
             }}
-
-            /* Das Häkchen-Feld */
             QCheckBox::indicator {{
                 width: 14px;
                 height: 14px;
@@ -8708,58 +8705,49 @@ class PatchManagerGUI(QWidget):
                 border-radius: 2px;
                 background: transparent;
             }}
-
-            /* Wenn angehakt */
             QCheckBox::indicator:checked {{
                 background-color: white;
-                border: 1px solid white;
-                image: url(check_black.png); /* Falls vorhanden, sonst weglassen */
-            }}
-
-            /* Indicator-Verhalten beim Hovern */
-            QCheckBox:hover::indicator {{
                 border: 1px solid white;
             }}
         """)
 
-        # Status & Event
-        self.telemetry_cb.setChecked(get_setting("allow_telemetry", True))
-        self.telemetry_cb.stateChanged.connect(self.on_telemetry_changed)
-        
-        # Zum Header hinzufügen
         right_header_layout.addWidget(self.telemetry_cb)
-        # 2. Version & Autor Block (DEIN ORIGINAL)
+        
+        # Fonts definieren, BEVOR sie benutzt werden (löst NameError)
+        bold_font_header = QFont("Segoe UI", 24, QFont.Weight.Bold)
+        bold_font_version = QFont("Segoe UI", 22, QFont.Weight.Bold)
+
+        # Container für die Labels rechts oben
         version_text_container = QWidget()
         version_text_layout = QVBoxLayout(version_text_container)
-        version_text_layout.setContentsMargins(10, 0, 0, 0)
+        version_text_layout.setContentsMargins(10, 0, 15, 0)
         version_text_layout.setSpacing(2)
-        version_text_layout.setAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
-        )
+        version_text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
 
-        # Die originalen Font-Einstellungen
-        bold_font_header = QFont("Segoe UI", 24, QFont.Weight.Bold)
+        # Farben und Version holen
+        current_diff_colors = getattr(self, "current_diff_colors", {"fg": "#FF0000"})
+        text_color = current_diff_colors.get("fg", "#EAFF00")
+        app_v = getattr(self, "APP_VERSION", globals().get("APP_VERSION", "4.0.0"))
 
-        # APP_VERSION dynamisch holen (oder fest "3.3.5" nutzen)
-        app_v = getattr(self, "APP_VERSION", "3.3.5")
-
-        # Autor (Blau)
+        # Das Haupt-Versionslabel (Das farbige)
+        # WICHTIG: Wir weisen es self.version_label zu, damit es später aktualisierbar ist
+        self.version_label = QLabel(f"v{app_v}")
+        self.version_label.setFont(bold_font_version)
+        self.version_label.setStyleSheet(f"color: {text_color}; background: transparent; margin-bottom: 5px;")
+        
+        # Autor Label (Blau im Screenshot)
         self.by_label = QLabel("by speedy005")
-        self.by_label.setFont(bold_font_header)
-        self.by_label.setStyleSheet("color: blue; font-weight: bold;")
-        self.by_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.by_label.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
+        self.by_label.setStyleSheet("color: #0055ff; background: transparent;")
 
-        # Version (Rot)
-        self.v_label = QLabel(f"v{app_v}")
-        self.v_label.setFont(bold_font_header)
-        self.v_label.setStyleSheet("color: red; font-weight: bold;")
-        self.v_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-
+        # In den kleinen Container packen
+        version_text_layout.addWidget(self.version_label)
         version_text_layout.addWidget(self.by_label)
-        version_text_layout.addWidget(self.v_label)
 
-        # Alles zusammenfügen
+        # Den Container zum Header-Layout hinzufügen
         right_header_layout.addWidget(version_text_container)
+        
+        # Zum Haupt-Header hinzufügen
         header_layout.addWidget(right_header_container, 1)
 
         main_layout.addWidget(header_widget)
@@ -8769,22 +8757,37 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
-        self.info_text.setFont(
-            QFont("Consolas", 12)
-        )  # Consolas wirkt im Matrix-Mode besser
-        self.info_text.setStyleSheet(
-            """
+        self.info_text.setFont(QFont("Consolas", 12))
+        self.info_text.setStyleSheet("""
             QTextEdit {
                 background-color: #000000;
                 color: #FFFFFF;
                 border: 1px solid #444;
                 border-radius: 5px;
             }
-        """
-        )
+        """)
         main_layout.addWidget(self.info_text, 10)
 
-        main_layout.addSpacing(5)
+        # --- AUTO-SCROLL LOGIK HIER EINFÜGEN ---
+        # Timer erstellen, der alle 50 Millisekunden feuert
+        self.scroll_timer = QTimer(self)
+        
+        def auto_scroll():
+            v_bar = self.info_text.verticalScrollBar()
+            # Nur scrollen, wenn wir noch nicht am Ende sind
+            if v_bar.value() < v_bar.maximum():
+                v_bar.setValue(v_bar.value() + 1) # +1 ist ein sanfter Schritt
+            else:
+                # Optional: Stoppen, wenn Ende erreicht
+                # self.scroll_timer.stop() 
+                pass
+
+        self.scroll_timer.timeout.connect(auto_scroll)
+        self.scroll_timer.start(50) # Intervall in ms (kleiner = schneller)
+        # ---------------------------------------
+
+        main_layout.addSpacing(12)
+
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(35)
