@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.3.8"
+APP_VERSION = "3.3.9"
 
 
 # ===================== PATCH DIRS =====================
@@ -3897,123 +3897,6 @@ class PatchManagerGUI(QWidget):
                 led.setStyleSheet(style)
             except:
                 continue
-
-    def open_terminal(self, **kwargs):
-        """Öffnet Terminal (leer oder mit sudo s3 menu), spielt Sound ab und zeigt Regenbogen-Progress."""
-        import subprocess
-        import platform
-        import shutil
-        import os
-        from PyQt6.QtWidgets import QApplication
-        from PyQt6.QtCore import QTimer
-
-        # --- 1. PARAMETER AUS KWARGS HOLEN ---
-        s3_path = kwargs.get("s3_path")
-        use_sudo = kwargs.get("use_sudo", False)  # NEU: Sudo-Abfrage
-
-        lang = getattr(self, "LANG", "de").lower()
-        is_de = lang == "de"
-
-        if s3_path:
-            msg = (
-                "S3 Menü (Sudo) wird geladen..."
-                if is_de
-                else "Loading S3 Menu (Sudo)..."
-            )
-        else:
-            msg = "Terminal wird geöffnet..." if is_de else "Opening Terminal..."
-
-        # --- 2. PROGRESSBAR INITIALISIEREN (Regenbogen) ---
-        pbar = getattr(self, "progress_bar", None)
-        if pbar:
-            rainbow = (
-                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF)"
-            )
-            pbar.setStyleSheet(
-                f"QProgressBar {{ text-align: center; font-weight: 900; border: 2px solid #222; "
-                f"border-radius: 6px; background-color: #111; color: black; font-size: 11pt; }} "
-                f"QProgressBar::chunk {{ background: {rainbow}; border-radius: 4px; }}"
-            )
-            pbar.setFormat(f"{msg} %p%")
-            pbar.setValue(10)
-            pbar.show()
-            QApplication.processEvents()
-
-        try:
-            # --- 3. SOUND & PROGRESS ---
-            safe_play_func = globals().get("safe_play")
-            if safe_play_func:
-                safe_play_func("dialog-information.oga")
-            if pbar:
-                pbar.setValue(50)
-
-            # --- 4. BEFEHL ZUSAMMENBAUEN (Optimiert für Passwort-Abfrage) ---
-            system = platform.system()
-            terminal_opened = False
-            exec_cmd = ""
-
-            if s3_path:
-                work_dir = os.path.dirname(s3_path)
-                if use_sudo:
-                    # 'sudo -v' erzwingt die Passwort-Eingabe im Terminal.
-                    # Erst bei Erfolg (&&) wird das s3 Menü mit sudo gestartet.
-                    exec_cmd = f"cd {work_dir} && sudo -v && sudo ./s3 menu"
-                else:
-                    exec_cmd = f"cd {work_dir} && ./s3 menu"
-
-            # --- 5. TERMINAL STARTEN (LINUX FOKUS) ---
-            if system == "Linux":
-                terminals = [
-                    "gnome-terminal",
-                    "konsole",
-                    "xfce4-terminal",
-                    "xterm",
-                    "lxterminal",
-                ]
-                for term in terminals:
-                    if shutil.which(term):
-                        if exec_cmd:
-                            # 'exec bash' sorgt dafür, dass das Fenster nach s3 offen bleibt
-                            if term == "gnome-terminal":
-                                subprocess.Popen(
-                                    [term, "--", "bash", "-c", f"{exec_cmd}; exec bash"]
-                                )
-                            else:
-                                subprocess.Popen(
-                                    [term, "-e", f"bash -c '{exec_cmd}; exec bash'"]
-                                )
-                        else:
-                            subprocess.Popen([term])
-                        terminal_opened = True
-                        break
-
-            elif system == "Windows":
-                cmd_args = ["cmd", "/K", exec_cmd] if exec_cmd else ["cmd"]
-                subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
-                terminal_opened = True
-
-            if not terminal_opened:
-                raise FileNotFoundError("Kein Terminal-Emulator gefunden.")
-
-            # --- 6. ABSCHLUSS ---
-            if pbar:
-                pbar.setValue(100)
-                if hasattr(self, "pbar_idle"):
-                    QTimer.singleShot(3000, self.pbar_idle)
-
-        except Exception as e:
-            if pbar:
-                pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
-                pbar.setFormat(f"❌ Error: {str(e)}")
-            if hasattr(self, "info_text") and self.info_text:
-                self.info_text.append(
-                    f'<span style="color:red;"><b>❌ Fehler:</b> {str(e)}</span>'
-                )
-
-        finally:
-            QApplication.processEvents()
 
     def start_s3_menu(self):
         """Sucht s3 und startet das Terminal mit 'sudo ./s3 menu'."""
