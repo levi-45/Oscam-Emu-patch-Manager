@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.3.1"
+APP_VERSION = "3.3.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -8335,22 +8335,35 @@ class PatchManagerGUI(QWidget):
             usage_count = str(total_stats)
 
             html.append(
-                f'<div style="text-align:center; margin-top:15px; line-height:1.4; padding:15px; border:2px solid {C_LINE}; border-radius:12px;">'
-                f'<div style="font-size:{S_HEADER}; font-weight:bold; color:#FF0419; margin-bottom:8px;">📊 TOOL STATISTIK</div>'
-                f'<div style="font-size:18pt; margin:4px 0;">'
-                f'<span style="font-family:{F_EMOJI};">🐙</span> '
-                f'<span style="color:{C_GREEN}; font-weight:bold;">GitHub Downloads:</span> '
+                f'<div style="border:2px solid #FF0419; border-radius:20px; padding:25px; margin-top:20px; '
+                f'background:transparent; text-align:center; font-family:sans-serif;">'
+    
+                # Titel: Icon Weiß, Text Rot
+                f'<div style="font-size:28pt; font-weight:bold; margin-bottom:20px;">'
+                f'<span style="color:white;">📊</span> <span style="color:#FF0419;">TOOL STATISTIK</span></div>'
+    
+                # GitHub: Icon Weiß, Label Grün, Zahl Blau
+                f'<div style="font-size:24pt; margin:10px 0;">'
+                f'<span style="color:white;">🐙</span> <span style="color:#00FF00; font-weight:bold;">GitHub:</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span></div>'
-                f'<div style="font-size:18pt; margin:4px 0;">'
-                f'<span style="font-family:{F_EMOJI};">💾</span> '
-                f'<span style="color:{C_ORANGE}; font-weight:bold;">Lokale Installationen:</span> '
+    
+                # Lokal: Icon Weiß, Label Orange, Zahl Blau
+                f'<div style="font-size:24pt; margin:10px 0;">'
+                f'<span style="color:white;">💾</span> <span style="color:#F57A08; font-weight:bold;">Lokal:</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span></div>'
-                f'<div style="font-size:18pt; margin:4px 0;">'
-                f'<span style="font-family:{F_EMOJI};">📊</span> '
-                f'<span style="color:{C_YELLOW}; font-weight:bold;">Gesamt:</span> '
-                f'<span style="color:{C_BLUE}; font-weight:bold;">{usage_count}</span></div>'
+    
+                # Trenner (dezent)
+                f'<div style="height:1px; background:#444; margin:15px auto; width:60%;"></div>'
+    
+                # Gesamt: Icon Weiß, Label Gelb, Zahl Blau
+                f'<div style="font-size:26pt; font-weight:bold;">'
+                f'<span style="color:white;">📊</span> <span style="color:#FFFF00;">Gesamt:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:900;">{usage_count}</span></div>'
+    
                 f'</div>'
             )
+
+
             # --- FOOTER ---
             html.append(
                 f'<div style="border-top:1px solid {C_LINE}; margin: 3px 0;"></div>'
