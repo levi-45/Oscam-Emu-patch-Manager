@@ -78,7 +78,9 @@ def install_font_windows():
     except Exception:
         return False
 
+
 SETTINGS_FILE = "oscam_patcher_settings.json"
+
 
 def get_setting(key, default=True):
     try:
@@ -89,16 +91,19 @@ def get_setting(key, default=True):
         pass
     return default
 
+
 def save_setting(key, value):
     settings = {}
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
                 settings = json.load(f)
-        except: pass
+        except:
+            pass
     settings[key] = value
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f)
+
 
 def ensure_dependencies():
     """Prüft Python, System-Tools, Sound-Support und zählt die Nutzung (wenn erlaubt)."""
@@ -156,14 +161,15 @@ def ensure_dependencies():
     if get_setting("allow_telemetry", True):
         try:
             import requests
+
             # Nutzt deinen spezifischen Counter-Link für präzise Statistiken
             tracking_url = "https://hits.seeyoufarm.com"
-            
+
             # Kurzer Timeout (3s), damit das Tool bei fehlendem Internet nicht hängt
             requests.get(tracking_url, timeout=3)
         except Exception:
             # Lautloser Fehler: Falls offline oder Server down, startet das Tool trotzdem normal
-            pass 
+            pass
     # -----------------------------------------------------------------
 
     # 2. SYSTEM TOOLS PRÜFEN (git, patch)
@@ -3933,10 +3939,10 @@ class PatchManagerGUI(QWidget):
     def on_telemetry_changed(self, state):
         """Bestätigungs-Dialog für Datenschutz mit Sound und Theme-Anpassung."""
         from PyQt6.QtWidgets import QMessageBox
-        
+
         is_de = getattr(self, "LANG", "en") == "de"
-        new_status = (state == 2)
-        
+        new_status = state == 2
+
         # --- A) SOUND EFFEKT (Frage-Sound) ---
         safe_play_func = globals().get("safe_play")
         if safe_play_func:
@@ -3945,34 +3951,44 @@ class PatchManagerGUI(QWidget):
         # --- B) TEXTE ---
         if is_de:
             title = "Datenschutz-Einstellungen"
-            msg = ("<b>Möchten Sie die anonyme Nutzungsstatistik {}?</b><br><br>"
-                   "Es werden keine privaten Daten gesendet. Es zählt lediglich "
-                   "den Start des Tools, um die Weiterentwicklung zu unterstützen.")
+            msg = (
+                "<b>Möchten Sie die anonyme Nutzungsstatistik {}?</b><br><br>"
+                "Es werden keine privaten Daten gesendet. Es zählt lediglich "
+                "den Start des Tools, um die Weiterentwicklung zu unterstützen."
+            )
             btn_yes, btn_no = "Ja", "Nein"
             status_log = "aktiviert" if new_status else "deaktiviert"
         else:
             title = "Privacy Settings"
-            msg = ("<b>Would you like to {} anonymous usage statistics?</b><br><br>"
-                   "No private data is sent. It only counts the start of the tool "
-                   "to support further development.")
+            msg = (
+                "<b>Would you like to {} anonymous usage statistics?</b><br><br>"
+                "No private data is sent. It only counts the start of the tool "
+                "to support further development."
+            )
             btn_yes, btn_no = "Yes", "No"
             status_log = "enabled" if new_status else "disabled"
 
-        action = ("aktivieren" if is_de else "enable") if new_status else ("deaktivieren" if is_de else "disable")
-        
+        action = (
+            ("aktivieren" if is_de else "enable")
+            if new_status
+            else ("deaktivieren" if is_de else "disable")
+        )
+
         # --- C) MESSAGEBOX KONFIGURIEREN ---
         box = QMessageBox(self)
         box.setWindowTitle(title)
         box.setText(msg.format(action))
         box.setIcon(QMessageBox.Icon.Question)
-        
+
         # Theme-Anpassung (Dark Style für die Box erzwingen)
-        box.setStyleSheet("QLabel{ color: white; font-size: 10pt; } QPushButton{ width: 80px; height: 25px; }")
-        
+        box.setStyleSheet(
+            "QLabel{ color: white; font-size: 10pt; } QPushButton{ width: 80px; height: 25px; }"
+        )
+
         y_btn = box.addButton(btn_yes, QMessageBox.ButtonRole.YesRole)
         n_btn = box.addButton(btn_no, QMessageBox.ButtonRole.NoRole)
         box.setDefaultButton(n_btn)
-        
+
         box.exec()
 
         # --- D) AUSWERTUNG ---
@@ -3982,15 +3998,15 @@ class PatchManagerGUI(QWidget):
                 prefix = "[EINSTELLUNGEN]" if is_de else "[SETTINGS]"
                 log_msg = "Nutzungsstatistik" if is_de else "Usage statistics"
                 self.log_message(f"{prefix} {log_msg} {status_log}.")
-            
+
             # Sound für Erfolg
-            if safe_play_func: safe_play_func("dialog-information.oga")
+            if safe_play_func:
+                safe_play_func("dialog-information.oga")
         else:
             # Checkbox ohne Trigger zurückdrehen
             self.telemetry_cb.blockSignals(True)
             self.telemetry_cb.setChecked(not new_status)
             self.telemetry_cb.blockSignals(False)
-
 
     def start_s3_menu(self):
         """Sucht s3 und startet das Terminal mit 'sudo ./s3 menu'."""
@@ -5451,13 +5467,19 @@ class PatchManagerGUI(QWidget):
             DIFF_COLORS.get("Classics", {"bg": "#2F2F2F", "fg": "#FFFFFF"}),
         )
         bg = base_colors.get("bg", "#2F2F2F")
-        fg = base_colors.get("fg", "#EAFF00") # Dein Akzent (z.B. Neon-Gelb)
+        fg = base_colors.get("fg", "#EAFF00")  # Dein Akzent (z.B. Neon-Gelb)
 
         # 3️⃣ Farben vorbereiten
         current_diff_colors = {
             **base_colors,
-            "hover": base_colors.get("hover", self.adjust_color(bg, 1.2) if hasattr(self, "adjust_color") else bg),
-            "active": base_colors.get("active", self.adjust_color(bg, 0.8) if hasattr(self, "adjust_color") else bg),
+            "hover": base_colors.get(
+                "hover",
+                self.adjust_color(bg, 1.2) if hasattr(self, "adjust_color") else bg,
+            ),
+            "active": base_colors.get(
+                "active",
+                self.adjust_color(bg, 0.8) if hasattr(self, "adjust_color") else bg,
+            ),
         }
 
         if "safe_play" in globals():
@@ -5486,7 +5508,8 @@ class PatchManagerGUI(QWidget):
         # --- STATS-CHECKBOX AN DAS SCHEMA ANPASSEN (Hintergrund & Akzent) ---
         if hasattr(self, "telemetry_cb") and self.telemetry_cb:
             # Wir nutzen hier 'bg' für den Kasten und 'fg' für den Text/Rahmen
-            self.telemetry_cb.setStyleSheet(f"""
+            self.telemetry_cb.setStyleSheet(
+                f"""
                 QCheckBox {{
                     color: {fg};
                     background-color: {bg}; 
@@ -5517,18 +5540,22 @@ class PatchManagerGUI(QWidget):
                     border: 1px solid {bg};
                     background-color: rgba(0, 0, 0, 0.1);
                 }}
-            """)
-
+            """
+            )
 
         # Zusätzliche UI-Elemente
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
         if hasattr(self, "header_container"):
-            self.header_container.setStyleSheet(f"background-color: {bg}; border-radius: 8px; border: 1px solid #444;")
+            self.header_container.setStyleSheet(
+                f"background-color: {bg}; border-radius: 8px; border: 1px solid #444;"
+            )
 
         if hasattr(self, "header_label"):
-            self.header_label.setStyleSheet(f"color: {fg}; font-weight: 700; font-size: 20px; background: transparent;")
+            self.header_label.setStyleSheet(
+                f"color: {fg}; font-weight: 700; font-size: 20px; background: transparent;"
+            )
 
         # 5️⃣ ZENTRAL SPEICHERN
         if not getattr(self, "is_loading", False):
@@ -7754,6 +7781,7 @@ class PatchManagerGUI(QWidget):
         """
         Geprüfter Update-Callback mit Regenbogen-Progress und schwarzem Text (DE/EN).
         Zentrierte Log-Ausgabe und korrekte URL-Verarbeitung.
+        Erzwingt Ja/Nein Buttons passend zur gewählten Sprache.
         """
         from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
         from PyQt6.QtGui import QTextCursor
@@ -7793,7 +7821,6 @@ class PatchManagerGUI(QWidget):
 
             class Version:
                 def __init__(self, v):
-                    # Robustes Splitten der Versionsnummer
                     self.v = [int(x) for x in re.findall(r"\d+", str(v))]
 
                 def __gt__(self, other):
@@ -7813,8 +7840,6 @@ class PatchManagerGUI(QWidget):
                 "info": "#00ADFF",
             }
             color = colors.get(level, "gray")
-
-            # Text aus dem globalen TEXTS Dictionary holen
             lang_dict = (
                 globals()
                 .get("TEXTS", {})
@@ -7833,7 +7858,6 @@ class PatchManagerGUI(QWidget):
                 text = text_template
 
             if isinstance(widget, QTextEdit):
-                # ZENTRIERTE AUSGABE im Log
                 widget.append(
                     f'<div style="text-align:center;"><span style="color:{color}"><b>{text}</b></span></div>'
                 )
@@ -7844,22 +7868,16 @@ class PatchManagerGUI(QWidget):
         if pbar:
             pbar.setValue(20)
 
-        # --- 2. KORREKTE URL DEFINITION ---
-        # WICHTIG: Die URL muss komplett sein!
-        # 1. URL zur Versionsdatei (WICHTIG: Nutze die version.txt für den Check)
+        # --- 2. URL & CHECK ---
         version_url_base = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/version.txt"
 
         try:
-            # Cache-Buster anhängen
             v_url = f"{version_url_base}?nocache={int(time.time())}"
-
             headers = {"User-Agent": "Mozilla/5.0"}
             resp = requests.get(v_url, headers=headers, timeout=10)
             resp.raise_for_status()
-            # Version aus der TXT holen und säubern
-            latest_str = resp.text.strip().lower().replace("v", "").strip()
 
-            # Die aktuelle Version aus deinem laufenden Script
+            latest_str = resp.text.strip().lower().replace("v", "").strip()
             current_str = (
                 globals()
                 .get("APP_VERSION", "3.3.7")
@@ -7876,9 +7894,8 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setValue(60)
 
-            # --- VERGLEICH ---
+            # --- 3. VERGLEICH & MESSAGEBOX ---
             if v_latest > v_current:
-                # Log zentriert ausgeben
                 log("update_found", "warning", latest=latest_str, current=current_str)
 
                 if pbar:
@@ -7886,10 +7903,8 @@ class PatchManagerGUI(QWidget):
                     msg_up = "Update verfügbar!" if is_de else "Update available!"
                     pbar.setFormat(f"✨ {msg_up} (v{latest_str})")
 
-                # Hol dir die Texte aus deinem Dictionary
                 lang_dict = globals().get("TEXTS", {}).get(lang_key, {})
                 msg_title = lang_dict.get("update_box_title", "Update")
-                # Nutze .format() für die Versionen im Dialog
                 msg_body = lang_dict.get("update_box_msg", "Update?").format(
                     latest=latest_str, current=current_str
                 )
@@ -7897,11 +7912,18 @@ class PatchManagerGUI(QWidget):
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle(msg_title)
                 msg_box.setText(msg_body)
-                msg_box.setStandardButtons(
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                )
 
-                if msg_box.exec() == QMessageBox.StandardButton.Yes:
+                # Buttons manuell setzen um "Yes/No" (Systemsprache) zu umgehen
+                yes_text, no_text = ("Ja", "Nein") if is_de else ("Yes", "No")
+                yes_button = msg_box.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
+                no_button = msg_box.addButton(no_text, QMessageBox.ButtonRole.NoRole)
+
+                msg_box.setDefaultButton(yes_button)
+                msg_box.setEscapeButton(no_button)
+
+                msg_box.exec()
+
+                if msg_box.clickedButton() == yes_button:
                     if hasattr(self, "plugin_update_action"):
                         self.plugin_update_action(latest_version=latest_str)
                 else:
@@ -7909,7 +7931,7 @@ class PatchManagerGUI(QWidget):
                     if pbar:
                         pbar.setValue(100)
             else:
-                # AKTUELL
+                # Aktuell
                 if pbar:
                     pbar.setFormat(
                         f"✅ v{current_str} aktuell 100%"
@@ -7920,18 +7942,23 @@ class PatchManagerGUI(QWidget):
                 log("update_no_update", "success")
 
         except Exception as e:
-            error_label = "Fehler" if is_de else "Error"  # Oder aus TEXTS laden
+            error_label = "Fehler" if is_de else "Error"
             log("update_fail", "error", error=str(e))
             if pbar:
                 pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
                 pbar.setFormat(f"❌ {error_label}: {str(e)[:40]}")
                 pbar.setValue(100)
 
-        # Timer zum Aufräumen der Progressbar
+        # Timer zum Aufräumen
         from PyQt6.QtCore import QTimer
 
         QTimer.singleShot(
-            4000, self.pbar_idle if hasattr(self, "pbar_idle") else pbar.hide
+            4000,
+            lambda: (
+                self.pbar_idle()
+                if hasattr(self, "pbar_idle")
+                else (pbar.hide() if pbar else None)
+            ),
         )
 
         # UI Color Fix für Hover-Effekte
@@ -8647,7 +8674,9 @@ class PatchManagerGUI(QWidget):
         right_header_layout = QHBoxLayout(right_header_container)
         right_header_layout.setContentsMargins(0, 0, 0, 0)
         right_header_layout.setSpacing(15)
-        right_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        right_header_layout.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+        )
 
         # 1. Log-Button
         lang = getattr(self, "LANG", "de").lower()
@@ -8656,7 +8685,9 @@ class PatchManagerGUI(QWidget):
         self.log_button.setMinimumHeight(45)
         self.log_button.setMinimumWidth(150)
         self.log_button.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        icon_log = self.style().standardIcon(QApplication.style().StandardPixmap.SP_DriveHDIcon)
+        icon_log = self.style().standardIcon(
+            QApplication.style().StandardPixmap.SP_DriveHDIcon
+        )
         self.log_button.setIcon(icon_log)
         if hasattr(self, "export_log"):
             self.log_button.clicked.connect(self.export_log)
@@ -8664,15 +8695,16 @@ class PatchManagerGUI(QWidget):
 
         # 2. Stats Checkbox (VOLLSTÄNDIG MIT FUNKTION)
         self.telemetry_cb = QCheckBox("Stats")
-        
+
         # FUNKTION WIEDERHERSTELLEN:
         self.telemetry_cb.setChecked(get_setting("allow_telemetry", True))
         self.telemetry_cb.stateChanged.connect(self.on_telemetry_changed)
-        
+
         # Tooltip & Cursor
         is_de = getattr(self, "LANG", "de") == "de"
         self.telemetry_cb.setToolTip(
-            "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten." if is_de 
+            "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten."
+            if is_de
             else "Allow/Disallow anonymous usage statistics (Hit-Counter)."
         )
         self.telemetry_cb.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -8681,10 +8713,13 @@ class PatchManagerGUI(QWidget):
         self.telemetry_cb.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
 
         # Akzentfarbe für Hover-Effekt (z.B. Rot oder Gelb)
-        accent = "#FF0000" # Hier kannst du deine Wunschfarbe für den Hover-Effekt setzen
+        accent = (
+            "#FF0000"  # Hier kannst du deine Wunschfarbe für den Hover-Effekt setzen
+        )
 
         # STYLE (Wieder eingefügt)
-        self.telemetry_cb.setStyleSheet(f"""
+        self.telemetry_cb.setStyleSheet(
+            f"""
             QCheckBox {{
                 color: white;
                 background-color: rgba(255, 255, 255, 0.1);
@@ -8709,10 +8744,11 @@ class PatchManagerGUI(QWidget):
                 background-color: white;
                 border: 1px solid white;
             }}
-        """)
+        """
+        )
 
         right_header_layout.addWidget(self.telemetry_cb)
-        
+
         # Fonts definieren, BEVOR sie benutzt werden (löst NameError)
         bold_font_header = QFont("Segoe UI", 24, QFont.Weight.Bold)
         bold_font_version = QFont("Segoe UI", 22, QFont.Weight.Bold)
@@ -8722,7 +8758,9 @@ class PatchManagerGUI(QWidget):
         version_text_layout = QVBoxLayout(version_text_container)
         version_text_layout.setContentsMargins(10, 0, 15, 0)
         version_text_layout.setSpacing(2)
-        version_text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        version_text_layout.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+        )
 
         # Farben und Version holen
         current_diff_colors = getattr(self, "current_diff_colors", {"fg": "#FF0000"})
@@ -8733,8 +8771,10 @@ class PatchManagerGUI(QWidget):
         # WICHTIG: Wir weisen es self.version_label zu, damit es später aktualisierbar ist
         self.version_label = QLabel(f"v{app_v}")
         self.version_label.setFont(bold_font_version)
-        self.version_label.setStyleSheet(f"color: {text_color}; background: transparent; margin-bottom: 5px;")
-        
+        self.version_label.setStyleSheet(
+            f"color: {text_color}; background: transparent; margin-bottom: 5px;"
+        )
+
         # Autor Label (Blau im Screenshot)
         self.by_label = QLabel("by speedy005")
         self.by_label.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
@@ -8746,7 +8786,7 @@ class PatchManagerGUI(QWidget):
 
         # Den Container zum Header-Layout hinzufügen
         right_header_layout.addWidget(version_text_container)
-        
+
         # Zum Haupt-Header hinzufügen
         header_layout.addWidget(right_header_container, 1)
 
@@ -8758,36 +8798,37 @@ class PatchManagerGUI(QWidget):
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
         self.info_text.setFont(QFont("Consolas", 12))
-        self.info_text.setStyleSheet("""
+        self.info_text.setStyleSheet(
+            """
             QTextEdit {
                 background-color: #000000;
                 color: #FFFFFF;
                 border: 1px solid #444;
                 border-radius: 5px;
             }
-        """)
+        """
+        )
         main_layout.addWidget(self.info_text, 10)
 
         # --- AUTO-SCROLL LOGIK HIER EINFÜGEN ---
         # Timer erstellen, der alle 50 Millisekunden feuert
         self.scroll_timer = QTimer(self)
-        
+
         def auto_scroll():
             v_bar = self.info_text.verticalScrollBar()
             # Nur scrollen, wenn wir noch nicht am Ende sind
             if v_bar.value() < v_bar.maximum():
-                v_bar.setValue(v_bar.value() + 1) # +1 ist ein sanfter Schritt
+                v_bar.setValue(v_bar.value() + 1)  # +1 ist ein sanfter Schritt
             else:
                 # Optional: Stoppen, wenn Ende erreicht
-                # self.scroll_timer.stop() 
+                # self.scroll_timer.stop()
                 pass
 
         self.scroll_timer.timeout.connect(auto_scroll)
-        self.scroll_timer.start(50) # Intervall in ms (kleiner = schneller)
+        self.scroll_timer.start(50)  # Intervall in ms (kleiner = schneller)
         # ---------------------------------------
 
         main_layout.addSpacing(12)
-
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(35)
@@ -9926,7 +9967,8 @@ class PatchManagerGUI(QWidget):
         for btn in all_widgets:
             try:
                 btn.setGraphicsEffect(None)
-                btn.setStyleSheet(f"""
+                btn.setStyleSheet(
+                    f"""
                     QPushButton {{
                         background-color: {bg_color};
                         color: {text_color};
@@ -9946,7 +9988,8 @@ class PatchManagerGUI(QWidget):
                         background-color: {active_color};
                         padding-top: 2px;
                     }}
-                """)
+                """
+                )
             except RuntimeError:
                 continue
 
@@ -9955,7 +9998,8 @@ class PatchManagerGUI(QWidget):
         if cb:
             try:
                 # Wir stylen die Checkbox exakt wie die Buttons oben
-                cb.setStyleSheet(f"""
+                cb.setStyleSheet(
+                    f"""
                     QCheckBox {{
                         background-color: {bg_color};
                         color: {text_color};
@@ -9982,7 +10026,8 @@ class PatchManagerGUI(QWidget):
                         background-color: {text_color};
                         border: 1px solid white;
                     }}
-                """)
+                """
+                )
             except RuntimeError:
                 pass
 
@@ -9999,7 +10044,12 @@ class PatchManagerGUI(QWidget):
                 pass
 
         # C) Labels & Header
-        for lbl_name in ["lang_label", "color_label", "commit_label", "controls_header"]:
+        for lbl_name in [
+            "lang_label",
+            "color_label",
+            "commit_label",
+            "controls_header",
+        ]:
             lbl = getattr(self, lbl_name, None)
             if lbl:
                 try:
@@ -10017,7 +10067,6 @@ class PatchManagerGUI(QWidget):
                 self.pbar_idle()
         except RuntimeError:
             pass
-
 
     def setup_grid_buttons(self):
         """
@@ -10383,18 +10432,22 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "telemetry_cb") and self.telemetry_cb:
                 # 1. Texte aus dem Dictionary oder Fallback holen
                 cb_text = lang_dict.get("stats_checkbox", "Stats")
-                cb_tip = lang_dict.get("stats_tooltip", 
-                    "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten." if is_de 
-                    else "Allow/Disallow anonymous usage statistics (Hit-Counter).")
-    
+                cb_tip = lang_dict.get(
+                    "stats_tooltip",
+                    (
+                        "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten."
+                        if is_de
+                        else "Allow/Disallow anonymous usage statistics (Hit-Counter)."
+                    ),
+                )
+
                 # 2. Tooltip erst leeren (Force Refresh), dann neu setzen
-                self.telemetry_cb.setToolTip("") 
+                self.telemetry_cb.setToolTip("")
                 self.telemetry_cb.setText(cb_text)
                 self.telemetry_cb.setToolTip(cb_tip)
-    
+
                 # 3. Widget zur Neudarstellung zwingen
                 self.telemetry_cb.update()
-
 
             if hasattr(self, "header_label") and self.header_label:
                 new_title = lang_dict.get(
