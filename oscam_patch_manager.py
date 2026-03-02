@@ -8337,32 +8337,39 @@ class PatchManagerGUI(QWidget):
             html.append(
                 f'<div style="border:2px solid #FF0419; border-radius:20px; padding:25px; margin-top:20px; '
                 f'background:transparent; text-align:center; font-family:sans-serif;">'
-    
-                # Titel: Icon Weiß, Text Rot
+
+                # Titel: Emoji bunt, Text Rot
                 f'<div style="font-size:28pt; font-weight:bold; margin-bottom:20px;">'
-                f'<span style="color:white;">📊</span> <span style="color:#FF0419;">TOOL STATISTIK</span></div>'
-    
-                # GitHub: Icon Weiß, Label Grün, Zahl Blau
+                f'<span style="font-family:\'Apple Color Emoji\',\'Segoe UI Emoji\',\'Noto Color Emoji\',sans-serif;">📊</span> '
+                f'<span style="color:#FF0419;">TOOL STATISTIK</span>'
+                f'</div>'
+
+                # GitHub: Emoji bunt, Label Grün, Zahl Blau
                 f'<div style="font-size:24pt; margin:10px 0;">'
-                f'<span style="color:white;">🐙</span> <span style="color:#00FF00; font-weight:bold;">GitHub:</span> '
-                f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span></div>'
-    
-                # Lokal: Icon Weiß, Label Orange, Zahl Blau
+                f'<span style="font-family:\'Apple Color Emoji\',\'Segoe UI Emoji\',\'Noto Color Emoji\',sans-serif;">🐙</span> '
+                f'<span style="color:#00FF00; font-weight:bold;">GitHub:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span>'
+                f'</div>'
+
+                # Lokal: Emoji bunt, Label Orange, Zahl Blau
                 f'<div style="font-size:24pt; margin:10px 0;">'
-                f'<span style="color:white;">💾</span> <span style="color:#F57A08; font-weight:bold;">Lokal:</span> '
-                f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span></div>'
-    
+                f'<span style="font-family:\'Apple Color Emoji\',\'Segoe UI Emoji\',\'Noto Color Emoji\',sans-serif;">💾</span> '
+                f'<span style="color:#F57A08; font-weight:bold;">Lokal:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span>'
+                f'</div>'
+
                 # Trenner (dezent)
                 f'<div style="height:1px; background:#444; margin:15px auto; width:60%;"></div>'
-    
-                # Gesamt: Icon Weiß, Label Gelb, Zahl Blau
+
+                # Gesamt: Emoji bunt, Label Gelb, Zahl Blau
                 f'<div style="font-size:26pt; font-weight:bold;">'
-                f'<span style="color:white;">📊</span> <span style="color:#FFFF00;">Gesamt:</span> '
-                f'<span style="color:{C_BLUE}; font-weight:900;">{usage_count}</span></div>'
-    
+                f'<span style="font-family:\'Apple Color Emoji\',\'Segoe UI Emoji\',\'Noto Color Emoji\',sans-serif;">📊</span> '
+                f'<span style="color:#FFFF00;">Gesamt:</span> '
+                f'<span style="color:{C_BLUE}; font-weight:900;">{usage_count}</span>'
+                f'</div>'
+
                 f'</div>'
             )
-
 
             # --- FOOTER ---
             html.append(
