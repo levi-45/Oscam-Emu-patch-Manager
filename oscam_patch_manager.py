@@ -395,7 +395,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.0.5"
+APP_VERSION = "4.0.6"
 
 
 # ===================== PATCH DIRS =====================
@@ -1871,7 +1871,7 @@ fill_missing_keys(TEXTS)
 def save_config(cfg_updates, gui_instance=None, silent=False):
     """
     Speichert Config-Updates und synchronisiert Timer, ProgressBar sowie Sounds.
-    Berücksichtigt den globalen led_enabled Status.
+    Verhindert die Anzeige beim Toolstart (Laden) und zeigt Status beim Beenden/Speichern.
     """
     try:
         # 1. Bestehende Config laden
@@ -1888,7 +1888,6 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
 
         # 3. System-Werte & Timer synchronisieren
         blink_speed = current_cfg.get("blink_speed", 500)
-        # NEU: Globalen LED-Status abfragen (wichtig für Neustart/Toggle)
         led_globally_on = current_cfg.get("led_enabled", True)
 
         if gui_instance:
@@ -1896,19 +1895,14 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
                 gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None)
             )
             if timer:
-                # BEDINGUNGEN ZUM STOPPEN:
-                # - Programm lädt gerade (is_loading)
-                # - ODER Geschwindigkeit ist auf STATIC gesetzt (>= 950)
-                # - ODER LED-Blinken wurde global ausgeschaltet (led_enabled: False)
+                # Stoppen wenn: Laden läuft, Speed statisch oder global AUS
                 if getattr(gui_instance, "is_loading", False) or blink_speed >= 950 or not led_globally_on:
                     timer.stop()
-                    # User-LEDs statisch setzen
                     if hasattr(gui_instance, "force_user_leds_static"):
                         gui_instance.force_user_leds_static()
                     elif hasattr(gui_instance, "force_leds_static"):
                         gui_instance.force_leds_static()
                 else:
-                    # NUR STARTEN, wenn global erlaubt UND Speed im Blink-Bereich
                     timer.setInterval(max(10, blink_speed))
                     if not timer.isActive():
                         timer.start()
@@ -1917,39 +1911,50 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
         with open(os.path.abspath(CONFIG_FILE), "w", encoding="utf-8") as f:
             json.dump(current_cfg, f, indent=4, ensure_ascii=False)
 
-        # 5. UI & Feedback (NUR wenn nicht im Lade-Modus und nicht silent)
-        if gui_instance and not getattr(gui_instance, "is_loading", False):
+        # 5. UI & Feedback Logik
+        if gui_instance:
             gui_instance.current_config = current_cfg
+            
+            is_loading = getattr(gui_instance, "is_loading", False)
+            is_closing = getattr(gui_instance, "is_closing", False)
 
-            if not silent:
+            # WICHTIG: Feedback nur wenn NICHT im Lademodus (Start)
+            if not is_loading and not silent:
                 # --- SOUND ABSPIELEN ---
-                if "safe_play" in globals():
+                if "safe_play" in globals() and not is_closing: # Beim Beenden übernimmt closeEvent den Sound
                     safe_play("dialog-information.oga")
 
-                # --- PROGRESSBAR ERFOLG ANZEIGEN ---
+                # --- TEXT & FARBE BESTIMMEN ---
+                lang = getattr(gui_instance, "LANG", "de").lower()
+                is_matrix = current_cfg.get("theme_mode") == "matrix"
+                
+                if is_closing:
+                    msg = "✅ Beendet & Gespeichert" if lang == "de" else "✅ Exit & Saved"
+                    log_color = "#FFD700"  # Gold-Gelb im Log beim Beenden
+                    pbar_color = "#e67e22" # Orangefarbener Balken beim Beenden
+                else:
+                    msg = "✅ Einstellungen gespeichert" if lang == "de" else "✅ Settings saved"
+                    # Matrix-Grün im Matrix-Mode, sonst Cyan
+                    log_color = "#00FF41" if is_matrix else "cyan"
+                    pbar_color = "#2ecc71" # Standard-Grün
+
+                # --- PROGRESSBAR AKTUALISIEREN ---
                 pbar = getattr(gui_instance, "progress_bar", None)
                 if pbar:
-                    lang = getattr(gui_instance, "LANG", "de").lower()
-                    msg = (
-                        "✅ Einstellungen gespeichert"
-                        if lang == "de"
-                        else "✅ Settings saved"
-                    )
-
                     pbar.setValue(100)
                     pbar.setFormat(msg)
+                    # Setzt die Farbe des Balkens passend zum Status (Grün oder Orange)
+                    pbar.setStyleSheet(f"QProgressBar::chunk {{ background-color: {pbar_color}; border-radius: 2px; }}")
 
-                    # Nach 3 Sekunden zurück zum Idle-Zustand
-                    if hasattr(gui_instance, "pbar_idle"):
+                    # Nach 3 Sekunden zurück zum Idle (nur wenn nicht beim Beenden)
+                    if not is_closing and hasattr(gui_instance, "pbar_idle"):
                         from PyQt6.QtCore import QTimer
                         QTimer.singleShot(3000, gui_instance.pbar_idle)
 
-                # --- LOG MESSAGE ---
+                # --- LOG MESSAGE (INFOSCREEN) ---
                 if hasattr(gui_instance, "log_message"):
-                    is_matrix = current_cfg.get("theme_mode") == "matrix"
-                    color = "#00FF41" if is_matrix else "cyan"
                     gui_instance.log_message(
-                        f"<span style='color:{color}; font-weight:700;'><b>{msg}</b></span>"
+                        f"<span style='color:{log_color}; font-weight:700;'><b>{msg}</b></span>"
                     )
 
     except Exception as e:
@@ -1957,6 +1962,8 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
             gui_instance.log_message(
                 f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>"
             )
+
+
 
 
 
@@ -11410,34 +11417,46 @@ class PatchManagerGUI(QWidget):
 
     def closeEvent(self, event):
         """
-        Wird aufgerufen, wenn der Benutzer das Fenster schließt.
-        Spielt einen Abschieds-Sound unter Windows oder Linux ab.
+        Wird beim Schließen aufgerufen. Zeigt kurz die 'Beendet'-Meldung,
+        spielt den Sound ab und schließt dann zeitverzögert das Fenster.
         """
         try:
-            import platform
+            # 1. Status für die UI-Logik setzen
+            self.is_closing = True
+            
+            # 2. Letztes Speichern triggern
+            # Dies zeigt jetzt die goldene Nachricht im Log & den orangefarbenen Balken
+            save_config({"last_session_exit": "success"}, gui_instance=self)
 
-            # Nutzt die bereits definierte globale safe_play Funktion
+            # 3. Sound-Logik (Windows / Linux)
+            import platform
             if platform.system() == "Windows":
                 import winsound
-
-                # Spielt den Standard-Windows-Abmeldesound oder Beep
                 winsound.MessageBeep(winsound.MB_ICONASTERISK)
             else:
-                # Linux: Versucht den Logout-Sound aus dem Freedesktop-Theme
                 import shutil, subprocess
-
                 for cmd in ["paplay", "canberra-gtk-play", "aplay"]:
                     if shutil.which(cmd):
-                        sound_path = (
-                            "/usr/share/sounds/freedesktop/stereo/service-logout.oga"
-                        )
+                        sound_path = "/usr/share/sounds/freedesktop/stereo/service-logout.oga"
                         subprocess.Popen([cmd, sound_path], stderr=subprocess.DEVNULL)
                         break
-        except:
-            pass
+                        
+            # 4. Kurze Verzögerung (700ms), damit der User die Meldung noch sieht
+            # Wir ignorieren das Event zuerst und schließen dann per QTimer
+            from PyQt6.QtCore import QTimer
+            event.ignore() # Fenster bleibt noch kurz offen
+            QTimer.singleShot(700, self.close_final) # Ruft nach 700ms das endgültige Schließen auf
+            
+        except Exception as e:
+            # Falls etwas schiefgeht, Fenster sofort schließen
+            print(f"Fehler im closeEvent: {e}")
+            event.accept()
 
-        # Bestätigt das Schließen des Fensters
-        event.accept()
+    def close_final(self):
+        """Hilfsfunktion für das endgültige Beenden nach der Verzögerung."""
+        import sys
+        # Beendet das komplette Programm sauber
+        sys.exit(0)
 
 
 # ===================== __main__ =====================
