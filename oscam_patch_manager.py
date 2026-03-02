@@ -79,13 +79,13 @@ def install_font_windows():
         return False
 
 
-SETTINGS_FILE = "oscam_patcher_settings.json"
+CONFIG_FILE = "config.json"
 
 
 def get_setting(key, default=True):
     try:
-        if os.path.exists(SETTINGS_FILE):
-            with open(SETTINGS_FILE, "r") as f:
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "r") as f:
                 return json.load(f).get(key, default)
     except:
         pass
@@ -94,14 +94,14 @@ def get_setting(key, default=True):
 
 def save_setting(key, value):
     settings = {}
-    if os.path.exists(SETTINGS_FILE):
+    if os.path.exists(CONFIG_FILE):
         try:
-            with open(SETTINGS_FILE, "r") as f:
+            with open(CONFIG_FILE, "r") as f:
                 settings = json.load(f)
         except:
             pass
     settings[key] = value
-    with open(SETTINGS_FILE, "w") as f:
+    with open(CONFIG_FILE, "w") as f:
         json.dump(settings, f)
 
 
@@ -395,7 +395,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.0.2"
+APP_VERSION = "4.0.5"
 
 
 # ===================== PATCH DIRS =====================
@@ -1871,6 +1871,7 @@ fill_missing_keys(TEXTS)
 def save_config(cfg_updates, gui_instance=None, silent=False):
     """
     Speichert Config-Updates und synchronisiert Timer, ProgressBar sowie Sounds.
+    Berücksichtigt den globalen led_enabled Status.
     """
     try:
         # 1. Bestehende Config laden
@@ -1882,26 +1883,37 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
             except:
                 current_cfg = {}
 
-        # 2. Mergen
+        # 2. Mergen der neuen Updates
         current_cfg.update(cfg_updates)
 
         # 3. System-Werte & Timer synchronisieren
         blink_speed = current_cfg.get("blink_speed", 500)
+        # NEU: Globalen LED-Status abfragen (wichtig für Neustart/Toggle)
+        led_globally_on = current_cfg.get("led_enabled", True)
+
         if gui_instance:
             timer = getattr(
                 gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None)
             )
             if timer:
-                if getattr(gui_instance, "is_loading", False) or blink_speed >= 950:
+                # BEDINGUNGEN ZUM STOPPEN:
+                # - Programm lädt gerade (is_loading)
+                # - ODER Geschwindigkeit ist auf STATIC gesetzt (>= 950)
+                # - ODER LED-Blinken wurde global ausgeschaltet (led_enabled: False)
+                if getattr(gui_instance, "is_loading", False) or blink_speed >= 950 or not led_globally_on:
                     timer.stop()
-                    if hasattr(gui_instance, "force_leds_static"):
+                    # User-LEDs statisch setzen
+                    if hasattr(gui_instance, "force_user_leds_static"):
+                        gui_instance.force_user_leds_static()
+                    elif hasattr(gui_instance, "force_leds_static"):
                         gui_instance.force_leds_static()
                 else:
+                    # NUR STARTEN, wenn global erlaubt UND Speed im Blink-Bereich
                     timer.setInterval(max(10, blink_speed))
                     if not timer.isActive():
                         timer.start()
 
-        # 4. Speichern
+        # 4. Speichern in die Datei
         with open(os.path.abspath(CONFIG_FILE), "w", encoding="utf-8") as f:
             json.dump(current_cfg, f, indent=4, ensure_ascii=False)
 
@@ -1924,21 +1936,18 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
                         else "✅ Settings saved"
                     )
 
-                    # Kurz auf 100% setzen mit Erfolgstext
                     pbar.setValue(100)
                     pbar.setFormat(msg)
 
-                    # Nach 3 Sekunden zurück zu "Was bauen wir heute?"
+                    # Nach 3 Sekunden zurück zum Idle-Zustand
                     if hasattr(gui_instance, "pbar_idle"):
                         from PyQt6.QtCore import QTimer
-
                         QTimer.singleShot(3000, gui_instance.pbar_idle)
 
                 # --- LOG MESSAGE ---
                 if hasattr(gui_instance, "log_message"):
                     is_matrix = current_cfg.get("theme_mode") == "matrix"
                     color = "#00FF41" if is_matrix else "cyan"
-                    # FIX: font-weight 700 im HTML-Style für das Log
                     gui_instance.log_message(
                         f"<span style='color:{color}; font-weight:700;'><b>{msg}</b></span>"
                     )
@@ -1946,8 +1955,9 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
     except Exception as e:
         if gui_instance and hasattr(gui_instance, "log_message"):
             gui_instance.log_message(
-                f"<span style='color:orange;'>❌ Fehler: {e}</span>"
+                f"<span style='color:orange;'>❌ Fehler beim Speichern: {e}</span>"
             )
+
 
 
 # ===================== CONFIG =====================
@@ -3884,7 +3894,20 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "update_plugin_button_state"):
             self.update_plugin_button_state()
 
-        # --- INITIALISIERUNG BEIM START (Sofort sichtbar) ---
+        # --- LED STATUS WIEDERHERSTELLEN ---
+        # 1. Den Wert aus der geladenen Config holen (Standard: True)
+        saved_led_enabled = self.current_config.get("led_enabled", True)
+
+        # 2. Die Checkbox visuell synchronisieren (ohne Signale zu feuern)
+        if hasattr(self, "led_checkbox"):
+            self.led_checkbox.blockSignals(True)
+            self.led_checkbox.setChecked(saved_led_enabled)
+            self.led_checkbox.blockSignals(False)
+
+        # 3. Die tatsächliche Blink-Logik/Timer starten oder stoppen
+        self.toggle_leds(saved_led_enabled)
+        # -----------------------------------
+
         lang = getattr(self, "LANG", "de").lower()
         init_msg = (
             "Initialisiere Generator..."
@@ -3898,6 +3921,27 @@ class PatchManagerGUI(QWidget):
             f"<b style='color:#FF0000; font-size:22pt; font-weight:900;'>{init_msg}</b>"
             f"</div>"
         )
+        # Ganz am Ende der __init__ einfügen:
+        
+        # 1. Wert aus Config holen
+        saved_led_enabled = self.current_config.get("led_enabled", True)
+        
+        # 2. Checkbox finden und setzen (WICHTIG: Name prüfen!)
+        # Falls die Checkbox bei dir anders heißt, hier anpassen:
+        target_cb = getattr(self, "led_checkbox", None) 
+        if target_cb:
+            target_cb.blockSignals(True)
+            target_cb.setChecked(saved_led_enabled)
+            target_cb.blockSignals(False)
+
+        # 3. Die Logik final erzwingen
+        self.toggle_leds(saved_led_enabled)
+        
+        # 4. Falls der Timer trotzdem läuft, obwohl er aus sein soll:
+        if not saved_led_enabled and hasattr(self, "blink_timer"):
+            self.blink_timer.stop()
+            if hasattr(self, "force_user_leds_static"):
+                self.force_user_leds_static()
 
         # 1. Willkommens-Info (500ms)
         # QTimer.singleShot(500, self.show_welcome_info)
@@ -4552,14 +4596,30 @@ class PatchManagerGUI(QWidget):
         User-LEDs an/aus, Timer starten/stoppen, Config speichern.
         System-LEDs bleiben statisch.
         """
+        # 1. Zuerst den Status in der geladenen Config setzen!
+        # Das ist wichtig, damit update_blink_speed den neuen Wert sofort sieht.
+        self.current_config["led_enabled"] = enable
+    
+        # 2. Timer-Logik
         if hasattr(self, "blink_timer") and self.blink_timer:
             if enable:
-                self.blink_timer.start(self.slider_speed.value())
+                # Falls ein Slider da ist, dessen Wert nutzen
+                speed = self.slider_speed.value() if hasattr(self, "slider_speed") else 500
+            
+                # Nur starten, wenn der Speed-Wert auch Blinken zulässt (>0 und <950)
+                if 0 < speed < 950:
+                    self.blink_timer.start(speed)
+                else:
+                    # Falls Slider auf STATIC oder OFF steht, trotz "Enable" nicht blinken
+                    self.blink_timer.stop()
+                    self.force_user_leds_static()
             else:
+                # Global aus -> Timer stoppen
                 self.blink_timer.stop()
-                self.force_user_leds_static()
+                if hasattr(self, "force_user_leds_static"):
+                    self.force_user_leds_static()
 
-        self.current_config["led_enabled"] = enable
+        # 3. Permanent speichern
         save_config({"led_enabled": enable}, gui_instance=self)
 
     def show_language_animation(self, lang_code):
@@ -4812,49 +4872,52 @@ class PatchManagerGUI(QWidget):
     def update_blink_speed(self, value):
         """
         Nur User-LEDs blinken lassen, System-LEDs bleiben statisch.
-        0=OFF, >=950=STATIC, sonst blinkend.
+        0=OFF, >=950=STATIC, sonst blinkend (nur wenn led_enabled in Config).
         """
         timer = getattr(self, "blink_timer", None)
         if not timer or getattr(self, "is_loading", False):
             return
 
-        # UI Feedback
+        # 1. UI Feedback (Texte & Farben des Labels)
         if hasattr(self, "lbl_speed_val"):
             if value <= 0:
                 self.lbl_speed_val.setText("OFF")
-                self.lbl_speed_val.setStyleSheet(
-                    "color: #777; font-weight: bold; font-size: 12px;"
-                )
+                self.lbl_speed_val.setStyleSheet("color: #777; font-weight: bold; font-size: 12px;")
             elif value >= 950:
                 self.lbl_speed_val.setText("STATIC")
-                self.lbl_speed_val.setStyleSheet(
-                    "color: #2ecc71; font-weight: bold; font-size: 12px;"
-                )
+                self.lbl_speed_val.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 12px;")
             elif value <= 50:
                 self.lbl_speed_val.setText("TURBO")
-                self.lbl_speed_val.setStyleSheet(
-                    "color: #FF0000; font-weight: bold; font-size: 12px;"
-                )
+                self.lbl_speed_val.setStyleSheet("color: #FF0000; font-weight: bold; font-size: 12px;")
             else:
                 self.lbl_speed_val.setText(f"{value}ms")
-                self.lbl_speed_val.setStyleSheet(
-                    "color: #aaa; font-weight: bold; font-size: 12px;"
-                )
+                self.lbl_speed_val.setStyleSheet("color: #aaa; font-weight: bold; font-size: 12px;")
 
+        # 2. Logik: Soll überhaupt geblinkt werden?
+        # Wir prüfen den globalen "An/Aus"-Schalter aus der Config
+        is_led_globally_enabled = self.current_config.get("led_enabled", True)
         config_updates = {"blink_speed": value}
 
-        if value <= 0 or value >= 950:
+        # Bedingung zum STOPPEN: 
+        # Slider auf 0 ODER Slider auf Max ODER User hat Blinken global deaktiviert
+        if value <= 0 or value >= 950 or not is_led_globally_enabled:
             timer.stop()
-            self.force_user_leds_static()
-            config_updates["led_enabled"] = value > 0
+            if hasattr(self, "force_user_leds_static"):
+                self.force_user_leds_static()
+        
+            # Nur wenn der Slider selbst auf 0/Max steht, ändern wir led_enabled in der Config
+            if value <= 0 or value >= 950:
+                config_updates["led_enabled"] = (value > 0)
         else:
+            # Bedingung zum STARTEN/AKTUALISIEREN:
             timer.setInterval(max(10, value))
             if not timer.isActive():
                 timer.start()
             config_updates["led_enabled"] = True
 
-        # System-LEDs immer statisch halten
-        # self.set_system_leds_static()
+        # 3. Speichern & System-Status
+        # Falls du die Checkbox in der UI hast, hier ggf. synchronisieren:
+        # if hasattr(self, "led_checkbox"): self.led_checkbox.setChecked(config_updates.get("led_enabled", is_led_globally_enabled))
 
         save_config(config_updates, gui_instance=self, silent=True)
 
