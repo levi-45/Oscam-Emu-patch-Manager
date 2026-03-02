@@ -8034,7 +8034,8 @@ class PatchManagerGUI(QWidget):
             pbar.setRange(0, 100)
             pbar.setValue(0)
             pbar.show()
-
+            if pbar:
+                pbar.setValue(0)  # Start
         try:
             # === ZENTRALE GRÖSSEN & Farben ===
             S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT, S_FOOTER = (
@@ -8352,7 +8353,8 @@ class PatchManagerGUI(QWidget):
 
             total_stats += install_count
             usage_count = str(total_stats)
-
+            if pbar:
+                pbar.setValue(85)
             # Statistik HTML
             html.append(
                 f'<div style="border:2px solid #FF0419; border-radius:20px; padding:25px; margin-top:20px; '
@@ -8398,7 +8400,7 @@ class PatchManagerGUI(QWidget):
             widget.moveCursor(QTextCursor.MoveOperation.End)
 
             if pbar:
-                pbar.setValue(100)
+                pbar.setValue(90)
 
         except Exception as e:
             if widget:
@@ -8406,6 +8408,8 @@ class PatchManagerGUI(QWidget):
 
         finally:
             self._checking_active = False
+            if pbar:
+                pbar.setValue(100)
             QApplication.processEvents()
 
         # =====================
