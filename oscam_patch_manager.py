@@ -78,9 +78,30 @@ def install_font_windows():
     except Exception:
         return False
 
+SETTINGS_FILE = "oscam_patcher_settings.json"
+
+def get_setting(key, default=True):
+    try:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, "r") as f:
+                return json.load(f).get(key, default)
+    except:
+        pass
+    return default
+
+def save_setting(key, value):
+    settings = {}
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                settings = json.load(f)
+        except: pass
+    settings[key] = value
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f)
 
 def ensure_dependencies():
-    """Prüft Python, System-Tools, Sound-Support und zählt die Nutzung."""
+    """Prüft Python, System-Tools, Sound-Support und zählt die Nutzung (wenn erlaubt)."""
     global HAS_SOUND_SUPPORT
     import importlib.util
     import shutil
@@ -89,6 +110,7 @@ def ensure_dependencies():
     import subprocess
     import sys
     import os
+    import json
 
     # Zukunftssichere Spracherkennung
     try:
@@ -129,16 +151,19 @@ def ensure_dependencies():
             os.execv(sys.executable, [sys.executable] + sys.argv)
         sys.exit(1)
 
-    # --- COUNTER LOGIK (Startet erst, wenn requests vorhanden ist) ---
-    try:
-        import requests
-
-        # Nutzt einen unsichtbaren Counter-Pixel für dein Repository
-        # Dies zählt jeden Start des Tools als "Besuch"
-        tracking_url = "https://hits.seeyoufarm.com"
-        requests.get(tracking_url, timeout=3)
-    except:
-        pass  # Lautloser Fehler, falls offline
+    # --- COUNTER LOGIK MIT OPT-OUT PRÜFUNG ---
+    # Prüft beim Start, ob der User in der GUI (JSON) zugestimmt hat
+    if get_setting("allow_telemetry", True):
+        try:
+            import requests
+            # Nutzt deinen spezifischen Counter-Link für präzise Statistiken
+            tracking_url = "https://hits.seeyoufarm.com"
+            
+            # Kurzer Timeout (3s), damit das Tool bei fehlendem Internet nicht hängt
+            requests.get(tracking_url, timeout=3)
+        except Exception:
+            # Lautloser Fehler: Falls offline oder Server down, startet das Tool trotzdem normal
+            pass 
     # -----------------------------------------------------------------
 
     # 2. SYSTEM TOOLS PRÜFEN (git, patch)
@@ -190,6 +215,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QGroupBox,
     QSizePolicy,
+    QCheckBox,
 )
 from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize
 import subprocess
@@ -363,7 +389,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.3.9"
+APP_VERSION = "4.0.0"
 
 
 # ===================== PATCH DIRS =====================
@@ -1221,6 +1247,9 @@ TEXTS = {
         "info_title": "About OSCam Emu Toolkit",
         "mod_dialog_title": "Change Patch Author",
         "mod_dialog_label": "Author name:",
+        # check box
+        "stats_checkbox": "Stats",
+        "stats_tooltip": "Allow/Disallow anonymous usage statistics (Hit-Counter).",
         # For the update check
         "new_version_available": "New version available",
         "update_title": "Update Available",
@@ -1602,6 +1631,9 @@ TEXTS = {
         "active_conf": "🛠️ Aktive Konfiguration:",
         "patch_author": "Patch Autor",
         "repository": "Repository",
+        # check box
+        "stats_checkbox": "Stats",
+        "stats_tooltip": "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten.",
         # Für den Update-Check
         "new_version_available": "Neue Version verfügbar",
         "update_title": "Update verfügbar",
@@ -3898,6 +3930,68 @@ class PatchManagerGUI(QWidget):
             except:
                 continue
 
+    def on_telemetry_changed(self, state):
+        """Bestätigungs-Dialog für Datenschutz mit Sound und Theme-Anpassung."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        is_de = getattr(self, "LANG", "en") == "de"
+        new_status = (state == 2)
+        
+        # --- A) SOUND EFFEKT (Frage-Sound) ---
+        safe_play_func = globals().get("safe_play")
+        if safe_play_func:
+            safe_play_func("dialog-question.oga")
+
+        # --- B) TEXTE ---
+        if is_de:
+            title = "Datenschutz-Einstellungen"
+            msg = ("<b>Möchten Sie die anonyme Nutzungsstatistik {}?</b><br><br>"
+                   "Es werden keine privaten Daten gesendet. Es zählt lediglich "
+                   "den Start des Tools, um die Weiterentwicklung zu unterstützen.")
+            btn_yes, btn_no = "Ja", "Nein"
+            status_log = "aktiviert" if new_status else "deaktiviert"
+        else:
+            title = "Privacy Settings"
+            msg = ("<b>Would you like to {} anonymous usage statistics?</b><br><br>"
+                   "No private data is sent. It only counts the start of the tool "
+                   "to support further development.")
+            btn_yes, btn_no = "Yes", "No"
+            status_log = "enabled" if new_status else "disabled"
+
+        action = ("aktivieren" if is_de else "enable") if new_status else ("deaktivieren" if is_de else "disable")
+        
+        # --- C) MESSAGEBOX KONFIGURIEREN ---
+        box = QMessageBox(self)
+        box.setWindowTitle(title)
+        box.setText(msg.format(action))
+        box.setIcon(QMessageBox.Icon.Question)
+        
+        # Theme-Anpassung (Dark Style für die Box erzwingen)
+        box.setStyleSheet("QLabel{ color: white; font-size: 10pt; } QPushButton{ width: 80px; height: 25px; }")
+        
+        y_btn = box.addButton(btn_yes, QMessageBox.ButtonRole.YesRole)
+        n_btn = box.addButton(btn_no, QMessageBox.ButtonRole.NoRole)
+        box.setDefaultButton(n_btn)
+        
+        box.exec()
+
+        # --- D) AUSWERTUNG ---
+        if box.clickedButton() == y_btn:
+            save_setting("allow_telemetry", new_status)
+            if hasattr(self, "log_message"):
+                prefix = "[EINSTELLUNGEN]" if is_de else "[SETTINGS]"
+                log_msg = "Nutzungsstatistik" if is_de else "Usage statistics"
+                self.log_message(f"{prefix} {log_msg} {status_log}.")
+            
+            # Sound für Erfolg
+            if safe_play_func: safe_play_func("dialog-information.oga")
+        else:
+            # Checkbox ohne Trigger zurückdrehen
+            self.telemetry_cb.blockSignals(True)
+            self.telemetry_cb.setChecked(not new_status)
+            self.telemetry_cb.blockSignals(False)
+
+
     def start_s3_menu(self):
         """Sucht s3 und startet das Terminal mit 'sudo ./s3 menu'."""
         import os, shutil
@@ -5345,42 +5439,31 @@ class PatchManagerGUI(QWidget):
         """Aktualisiert das Farbschema, passt alle GUI-Buttons an und speichert via save_config."""
         global current_diff_colors, current_color_name
 
-        # 1️⃣ Aktuelle Farbe aus der ComboBox oder Config ermitteln
+        # 1️⃣ Aktuelle Farbe ermitteln
         if hasattr(self, "color_box") and self.color_box.currentText():
             current_color_name = self.color_box.currentText()
         else:
             current_color_name = getattr(self, "cfg", {}).get("color", "Classics")
 
-        # 2️⃣ Basis-Farben aus dem DIFF_COLORS Dictionary holen
-        # DIFF_COLORS muss global definiert sein (z.B. {"Neon": {"bg": "#222", "fg": "#EAFF00"}, ...})
+        # 2️⃣ Basis-Farben holen
         base_colors = DIFF_COLORS.get(
             current_color_name,
             DIFF_COLORS.get("Classics", {"bg": "#2F2F2F", "fg": "#FFFFFF"}),
         )
         bg = base_colors.get("bg", "#2F2F2F")
-        fg = base_colors.get("fg", "#EAFF00")  # Hier steckt dein Neongelb drin!
+        fg = base_colors.get("fg", "#EAFF00") # Dein Akzent (z.B. Neon-Gelb)
 
-        # 3️⃣ Farben für UI-Logik vorbereiten
+        # 3️⃣ Farben vorbereiten
         current_diff_colors = {
             **base_colors,
-            "hover": base_colors.get(
-                "hover",
-                self.adjust_color(bg, 1.2) if hasattr(self, "adjust_color") else bg,
-            ),
-            "active": base_colors.get(
-                "active",
-                self.adjust_color(bg, 0.8) if hasattr(self, "adjust_color") else bg,
-            ),
+            "hover": base_colors.get("hover", self.adjust_color(bg, 1.2) if hasattr(self, "adjust_color") else bg),
+            "active": base_colors.get("active", self.adjust_color(bg, 0.8) if hasattr(self, "adjust_color") else bg),
         }
 
-        # 🔊 SOUND-EFFEKT BEIM FARBWECHSEL
         if "safe_play" in globals():
             safe_play("dialog-information.oga")
 
-        # 4️⃣ FARBEN IM UI ANWENDEN (Buttons, Header, Labels)
-
-        # --- ZENTRALES BUTTON-STYLING (Wichtig für die Schriftfarbe!) ---
-        # Dies sorgt dafür, dass alle Buttons die Farbe 'fg' (z.B. Neongelb) annehmen
+        # 4️⃣ FARBEN IM UI ANWENDEN
         button_style = f"""
             QPushButton {{
                 color: {fg} !important;
@@ -5397,24 +5480,55 @@ class PatchManagerGUI(QWidget):
                 color: white !important;
             }}
         """
-        # Auf das Hauptfenster anwenden
         self.setStyleSheet(self.styleSheet() + button_style)
 
-        # Zusätzliche UI-Elemente live umfärben
+        # --- NEU: STATS-CHECKBOX AN DAS SCHEMA ANPASSEN ---
+        # --- STATS-CHECKBOX AN DAS SCHEMA ANPASSEN (Hintergrund & Akzent) ---
+        if hasattr(self, "telemetry_cb") and self.telemetry_cb:
+            # Wir nutzen hier 'bg' für den Kasten und 'fg' für den Text/Rahmen
+            self.telemetry_cb.setStyleSheet(f"""
+                QCheckBox {{
+                    color: {fg};
+                    background-color: {bg}; 
+                    border: 1px solid {fg};
+                    border-radius: 4px;
+                    padding: 5px 10px;
+                    font-weight: 700;
+                }}
+                /* Vollflächiger Hover-Effekt wie bei deinen Buttons */
+                QCheckBox:hover {{
+                    background-color: {fg};
+                    color: {bg} !important; /* Textfarbe wechselt auf Hintergrundfarbe für Kontrast */
+                    border: 1px solid white;
+                }}
+                QCheckBox::indicator {{
+                    width: 16px;
+                    height: 16px;
+                    border: 1px solid {fg};
+                    border-radius: 3px;
+                    background: transparent;
+                }}
+                QCheckBox::indicator:checked {{
+                    background-color: {fg};
+                    border: 1px solid white;
+                }}
+                /* Indikator-Farbe invertieren wenn der Button gehovert wird */
+                QCheckBox:hover::indicator {{
+                    border: 1px solid {bg};
+                    background-color: rgba(0, 0, 0, 0.1);
+                }}
+            """)
+
+
+        # Zusätzliche UI-Elemente
         if hasattr(self, "repaint_ui_colors"):
             self.repaint_ui_colors()
 
-        # Einstellungs-Header (falls vorhanden)
         if hasattr(self, "header_container"):
-            self.header_container.setStyleSheet(
-                f"background-color: {bg}; border-radius: 8px; border: 1px solid #444;"
-            )
+            self.header_container.setStyleSheet(f"background-color: {bg}; border-radius: 8px; border: 1px solid #444;")
 
         if hasattr(self, "header_label"):
-            # Nutzt font-weight 700 zur Vermeidung von Qt-Warnungen
-            self.header_label.setStyleSheet(
-                f"color: {fg}; font-weight: 700; font-size: 20px; background: transparent;"
-            )
+            self.header_label.setStyleSheet(f"color: {fg}; font-weight: 700; font-size: 20px; background: transparent;")
 
         # 5️⃣ ZENTRAL SPEICHERN
         if not getattr(self, "is_loading", False):
@@ -8551,7 +8665,69 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "export_log"):
             self.log_button.clicked.connect(self.export_log)
         right_header_layout.addWidget(self.log_button)
+        # --- EINSTELLUNGEN SEKTION (Kontrast-Optimiert) ---
+        self.telemetry_cb = QCheckBox("Stats")
+        is_de = getattr(self, "LANG", "de") == "de"
+        # Setzt den initialen Tooltip basierend auf der aktuellen Sprache
+        self.telemetry_cb.setToolTip(
+            "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten." if is_de 
+            else "Allow/Disallow anonymous usage statistics (Hit-Counter)."
+        )
+        
+        # Holen der aktuellen Akzentfarbe deines Themes
+        accent = self.palette().highlight().color().name() 
 
+        self.telemetry_cb.setMinimumHeight(35)
+        self.telemetry_cb.setMinimumWidth(90)
+        self.telemetry_cb.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.telemetry_cb.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # STYLE: Fokus auf Lesbarkeit (Weißer Text beim Hovern)
+        self.telemetry_cb.setStyleSheet(f"""
+            QCheckBox {{
+                color: white;
+                background-color: rgba(255, 255, 255, 0.1); /* Dezenter Rahmen im Header */
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 4px;
+                padding-left: 8px;
+                padding-right: 5px;
+            }}
+
+            /* HOVER: Hintergrund ändert sich, Schrift bleibt WEISS */
+            QCheckBox:hover {{
+                background-color: {accent}; /* Deine Theme-Farbe (z.B. Gold/Gelb) */
+                border: 1px solid white;
+                color: white !important;    /* ERZWINGT WEISSE SCHRIFT */
+            }}
+
+            /* Das Häkchen-Feld */
+            QCheckBox::indicator {{
+                width: 14px;
+                height: 14px;
+                border: 1px solid white;
+                border-radius: 2px;
+                background: transparent;
+            }}
+
+            /* Wenn angehakt */
+            QCheckBox::indicator:checked {{
+                background-color: white;
+                border: 1px solid white;
+                image: url(check_black.png); /* Falls vorhanden, sonst weglassen */
+            }}
+
+            /* Indicator-Verhalten beim Hovern */
+            QCheckBox:hover::indicator {{
+                border: 1px solid white;
+            }}
+        """)
+
+        # Status & Event
+        self.telemetry_cb.setChecked(get_setting("allow_telemetry", True))
+        self.telemetry_cb.stateChanged.connect(self.on_telemetry_changed)
+        
+        # Zum Header hinzufügen
+        right_header_layout.addWidget(self.telemetry_cb)
         # 2. Version & Autor Block (DEIN ORIGINAL)
         version_text_container = QWidget()
         version_text_layout = QVBoxLayout(version_text_container)
@@ -9738,47 +9914,16 @@ class PatchManagerGUI(QWidget):
 
         # Farben zentral definieren
         text_color = current_diff_colors.get("fg", "#FFFFFF")
-        bg_color = current_diff_colors["bg"]
+        bg_color = current_diff_colors.get("bg", "#2F2F2F")
         hover_color = current_diff_colors.get("hover", "#444444")
         active_color = current_diff_colors.get("active", "#666666")
 
-        # 1. Standard Button Style - FIX: 700 statt bold gegen QFont-Fehler
-        button_style = f"""
-            QPushButton {{
-                background-color: {bg_color};
-                color: {text_color};
-                border-radius: 10px;
-                font-weight: 700;  /* FIX: Verhindert 1001-Warnung */
-                padding: 2px 6px;
-                font-size: 13px;
-                border: none;
-                height: 35px;
-                min-height: 35px;
-            }}
-            QPushButton:hover {{
-                background-color: {hover_color};
-                border: 1px solid {text_color};
-            }}
-            QPushButton:pressed {{
-               background-color: {active_color};
-            }}
-        """
-
         # A) ALLE Buttons im Fenster automatisch finden und stylen
-        # Das verhindert, dass einzelne Buttons (wie die linken 4) blau bleiben.
         all_widgets = self.findChildren(QPushButton)
-
         for btn in all_widgets:
-            # Wir überspringen Buttons, die ein spezielles Icon-Design haben (optional)
-            # oder wir stylen einfach alle gnadenlos durch:
             try:
-                # 1. Alte Effekte entfernen
                 btn.setGraphicsEffect(None)
-
-                # 2. Den einheitlichen Button-Style anwenden
-                # FIX: 700 statt bold gegen den 1001-Fehler im Terminal
-                btn.setStyleSheet(
-                    f"""
+                btn.setStyleSheet(f"""
                     QPushButton {{
                         background-color: {bg_color};
                         color: {text_color};
@@ -9786,7 +9931,7 @@ class PatchManagerGUI(QWidget):
                         font-weight: 700; 
                         padding: 2px 6px;
                         font-size: 13px;
-                        border: 1px solid #444; /* Dezenter Rahmen */
+                        border: 1px solid #444;
                         height: 35px;
                         min-height: 35px;
                     }}
@@ -9798,17 +9943,50 @@ class PatchManagerGUI(QWidget):
                         background-color: {active_color};
                         padding-top: 2px;
                     }}
-                """
-                )
+                """)
             except RuntimeError:
                 continue
+
+        # --- NEU: STATS-CHECKBOX (TELEMETRIE) AN DAS SCHEMA ANPASSEN ---
+        cb = getattr(self, "telemetry_cb", None)
+        if cb:
+            try:
+                # Wir stylen die Checkbox exakt wie die Buttons oben
+                cb.setStyleSheet(f"""
+                    QCheckBox {{
+                        background-color: {bg_color};
+                        color: {text_color};
+                        border-radius: 10px;
+                        font-weight: 700;
+                        padding: 2px 10px;
+                        font-size: 13px;
+                        border: 1px solid #444;
+                        height: 35px;
+                        min-height: 35px;
+                    }}
+                    QCheckBox:hover {{
+                        background-color: {hover_color};
+                        border: 1px solid {text_color};
+                    }}
+                    QCheckBox::indicator {{
+                        width: 16px;
+                        height: 16px;
+                        border: 1px solid {text_color};
+                        border-radius: 3px;
+                        background: transparent;
+                    }}
+                    QCheckBox::indicator:checked {{
+                        background-color: {text_color};
+                        border: 1px solid white;
+                    }}
+                """)
+            except RuntimeError:
+                pass
 
         # B) ProgressBar Style (Standard-Zustand)
         pb = getattr(self, "progress_bar", None)
         if pb:
             try:
-                # Nur stylen, wenn sie NICHT gerade im Regenbogen-Modus (Aktion) ist
-                # Falls sie gerade läuft, lassen wir den Regenbogen-Style aus zip_patch/backup_old_patch
                 if pb.value() == 0 or pb.value() == 100:
                     pb.setStyleSheet(
                         f"QProgressBar {{ border: 1px solid {bg_color}; border-radius: 7px; background-color: #1a1a1a; text-align: center; color: {text_color}; font-weight: 700; }}"
@@ -9818,16 +9996,10 @@ class PatchManagerGUI(QWidget):
                 pass
 
         # C) Labels & Header
-        for lbl_name in [
-            "lang_label",
-            "color_label",
-            "commit_label",
-            "controls_header",
-        ]:
+        for lbl_name in ["lang_label", "color_label", "commit_label", "controls_header"]:
             lbl = getattr(self, lbl_name, None)
             if lbl:
                 try:
-                    # Header bekommt bg_color, normale Labels bleiben transparent
                     bg = bg_color if lbl_name == "controls_header" else "transparent"
                     lbl.setStyleSheet(
                         f"color: {text_color}; font-weight: 700; font-size: 18px; background: {bg}; border-radius: 6px;"
@@ -9838,11 +10010,11 @@ class PatchManagerGUI(QWidget):
         # 5. Hauptfenster Hintergrund
         try:
             self.setStyleSheet("background-color: #2F2F2F;")
-            # Falls pbar_idle existiert, rufen wir es auf, um den edlen Gold-Modus zu laden
             if hasattr(self, "pbar_idle") and (not pb or pb.value() == 0):
                 self.pbar_idle()
         except RuntimeError:
             pass
+
 
     def setup_grid_buttons(self):
         """
@@ -10204,6 +10376,23 @@ class PatchManagerGUI(QWidget):
                     )
                 )
 
+            # Innerhalb von change_language(self):
+            if hasattr(self, "telemetry_cb") and self.telemetry_cb:
+                # 1. Texte aus dem Dictionary oder Fallback holen
+                cb_text = lang_dict.get("stats_checkbox", "Stats")
+                cb_tip = lang_dict.get("stats_tooltip", 
+                    "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten." if is_de 
+                    else "Allow/Disallow anonymous usage statistics (Hit-Counter).")
+    
+                # 2. Tooltip erst leeren (Force Refresh), dann neu setzen
+                self.telemetry_cb.setToolTip("") 
+                self.telemetry_cb.setText(cb_text)
+                self.telemetry_cb.setToolTip(cb_tip)
+    
+                # 3. Widget zur Neudarstellung zwingen
+                self.telemetry_cb.update()
+
+
             if hasattr(self, "header_label") and self.header_label:
                 new_title = lang_dict.get(
                     "settings_header", "Einstellungen" if is_de else "Settings"
@@ -10272,9 +10461,6 @@ class PatchManagerGUI(QWidget):
 
             # System Check Neustart (Das schreibt Autor & Version bereits neu!)
             QTimer.singleShot(1000, lambda: self.run_full_system_check(clear_log=True))
-
-            # HINWEIS: show_start_config wurde entfernt, um doppelten Autor/Header zu vermeiden,
-            # da run_full_system_check das Fenster bereits komplett neu aufbaut.
 
             # Overlay entfernen
             QTimer.singleShot(1800, self.hide_language_overlay)
