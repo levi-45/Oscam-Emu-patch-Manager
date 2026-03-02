@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.3.5"
+APP_VERSION = "3.3.7"
 
 
 # ===================== PATCH DIRS =====================
@@ -3619,6 +3619,66 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QSlider,
 )
+
+from PyQt6.QtWidgets import QWidget
+from PyQt6.QtCore import QTimer, QTime, Qt, QPoint
+from PyQt6.QtGui import QPainter, QPolygon, QColor
+
+class AnalogClock(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update)
+        self.timer.start(1000)
+        self.setMinimumSize(100, 100)
+
+    def paintEvent(self, event):
+        side = min(self.width(), self.height())
+        time = QTime.currentTime()
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # In die Mitte des Widgets schieben
+        painter.translate(self.width() / 2, self.height() / 2)
+        painter.scale(side / 200.0, side / 200.0)
+
+        # --- Zifferblatt (Hintergrund) ---
+        painter.setPen(QColor("#EAFF00"))
+        painter.setBrush(QColor("#1A1A1A"))
+        painter.drawEllipse(-95, -95, 190, 190)
+
+        # --- Markierungen (Stunden) ---
+        painter.setPen(QColor("#EAFF00")) # Neongelb passend zu deinem Design
+        for i in range(12):
+            painter.drawLine(80, 0, 90, 0)
+            painter.rotate(30.0)
+
+        # --- Stundenzeiger (Rot) ---
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(255, 0, 0))
+        painter.save()
+        painter.rotate(30.0 * ((time.hour() + time.minute() / 60.0)))
+        painter.drawConvexPolygon(QPolygon([QPoint(6, 10), QPoint(-6, 10), QPoint(0, -50)]))
+        painter.restore()
+
+        # --- Minutenzeiger (Weiß/Grau) ---
+        painter.setBrush(QColor(200, 200, 200))
+        painter.save()
+        painter.rotate(6.0 * (time.minute() + time.second() / 60.0))
+        painter.drawConvexPolygon(QPolygon([QPoint(4, 10), QPoint(-4, 10), QPoint(0, -80)]))
+        painter.restore()
+
+        # --- Sekundenzeiger (Neongelb) ---
+        painter.setBrush(QColor("#EAFF00"))
+        painter.save()
+        painter.rotate(6.0 * time.second())
+        painter.drawConvexPolygon(QPolygon([QPoint(2, 10), QPoint(-2, 10), QPoint(0, -90)]))
+        painter.restore()
+
+        # Mittelpunkt abdecken
+        painter.setBrush(QColor("#EAFF00"))
+        painter.drawEllipse(-5, -5, 10, 10)
 
 
 class PatchManagerGUI(QWidget):
@@ -8444,19 +8504,9 @@ class PatchManagerGUI(QWidget):
 
     def init_ui(self):
         from PyQt6.QtWidgets import (
-            QVBoxLayout,
-            QHBoxLayout,
-            QGridLayout,
-            QLabel,
-            QPushButton,
-            QWidget,
-            QTextEdit,
-            QComboBox,
-            QSpinBox,
-            QProgressBar,
-            QApplication,
-            QFrame,
-            QFileDialog,
+            QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
+            QWidget, QTextEdit, QComboBox, QSpinBox, QProgressBar,
+            QApplication, QFrame, QFileDialog
         )
         from PyQt6.QtGui import QPixmap, QFont
         from PyQt6.QtCore import Qt, QSize, QTimer, QDateTime
@@ -8465,7 +8515,7 @@ class PatchManagerGUI(QWidget):
         import requests
 
         # ---------------------------------------------------------
-        # 1. Grundwerte
+        # 1. Grundwerte & Hauptlayout
         # ---------------------------------------------------------
         self.TITLE_HEIGHT = 35
         self.BUTTON_HEIGHT = 35
@@ -8475,99 +8525,80 @@ class PatchManagerGUI(QWidget):
         B_WIDTH = 240
         CONTROL_HEIGHT = self.BUTTON_HEIGHT
 
-        # ---------------------------------------------------------
-        # Hauptlayout
-        # ---------------------------------------------------------
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(12)
         main_layout.setContentsMargins(5, 0, 20, 10)
-
-        # Setzt das gesamte Fenster auf Dunkelgrau
         self.setStyleSheet("background-color: #2F2F2F;")
 
         # ---------------------------------------------------------
-        # Header-Bereich (NEON-FIX)
+        # Header-Bereich
         # ---------------------------------------------------------
         header_widget = QFrame()
-        header_widget.setMinimumHeight(40)
-
-        # HIER REIN: Wir definieren explizit, wie Buttons IM Header aussehen
-        header_widget.setStyleSheet(
-            """
-            QFrame {
-                background-color: #2F2F2F;
-                border: 1px solid #444;
-                border-radius: 10px;
-            }
-            QLabel {
-                background-color: transparent;
-                border: none;
-                font-weight: bold;
-            }
-            /* DAS IST DER ENTSCHEIDENDE FIX FÜR DIE BUTTONS IM HEADER */
+        header_widget.setMinimumHeight(110) 
+        header_widget.setStyleSheet("""
+            QFrame { background-color: #2F2F2F; border: 1px solid #444; border-radius: 10px; }
+            QLabel { background-color: transparent; border: none; font-weight: bold; }
             QPushButton {
-                color: #EAFF00 !important; /* ENDLICH NEONGELB */
+                color: #EAFF00 !important;
                 background-color: #3d3d3d;
                 border: 1px solid #555;
                 border-radius: 8px;
                 padding: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover {
-                background-color: #4d4d4d;
-                border: 1px solid #EAFF00;
-                color: white !important;
-            }
-            """
-        )
+            QPushButton:hover { background-color: #4d4d4d; border: 1px solid #EAFF00; color: white !important; }
+        """)
 
         header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(15, 0, 15, 0)
+        header_layout.setContentsMargins(15, 5, 15, 5)
         header_layout.setSpacing(10)
 
-        # ---------------- LEFT: Info + Uhr/Daten ----------------
+        # --- LEFT: Info + Uhr/Daten ---
         left_header_container = QWidget()
         left_header_layout = QHBoxLayout(left_header_container)
         left_header_layout.setContentsMargins(0, 0, 0, 0)
         left_header_layout.setSpacing(10)
-        left_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-        # Info-Button
+        
         self.info_button = QPushButton()
         self.info_button.setFixedSize(45, 45)
-        icon_info = self.style().standardIcon(
-            QApplication.style().StandardPixmap.SP_MessageBoxInformation
-        )
+        icon_info = self.style().standardIcon(QApplication.style().StandardPixmap.SP_MessageBoxInformation)
         self.info_button.setIcon(icon_info)
         self.info_button.setIconSize(QSize(28, 28))
         self.info_button.clicked.connect(self.show_info)
         left_header_layout.addWidget(self.info_button)
 
-        # Uhr & Datum vertikal
         time_date_container = QWidget()
-        time_date_layout = QVBoxLayout(time_date_container)
-        time_date_layout.setContentsMargins(15, 0, 0, 0)
-        time_date_layout.setSpacing(2)
-        time_date_layout.setAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
-        )
+        main_h_layout = QHBoxLayout(time_date_container)
+        main_h_layout.setContentsMargins(5, 0, 0, 0)
+        main_h_layout.setSpacing(15)
 
-        bold_font_header = QFont("Segoe UI", 24, QFont.Weight.Bold)
+        self.analog_clock = AnalogClock()
+        self.analog_clock.setFixedSize(80, 80) 
+        main_h_layout.addWidget(self.analog_clock)
 
-        self.digital_clock = QLabel("--:--:--")
-        self.digital_clock.setFont(bold_font_header)
-        self.digital_clock.setStyleSheet("color: red; font-weight: bold;")
-        time_date_layout.addWidget(self.digital_clock)
+        labels_v_container = QWidget()
+        labels_v_layout = QVBoxLayout(labels_v_container)
+        labels_v_layout.setContentsMargins(0, 0, 0, 0)
+        labels_v_layout.setSpacing(0)
+        
+        bold_font_time = QFont("Segoe UI", 22, QFont.Weight.Bold)
+        bold_font_date = QFont("Segoe UI", 24, QFont.Weight.Bold)
+
+        #self.digital_clock = QLabel("--:--:--")
+        #self.digital_clock.setFont(bold_font_time)
+        #self.digital_clock.setStyleSheet("color: red;")
+        #labels_v_layout.addWidget(self.digital_clock)
 
         self.date_label = QLabel("--.--.----")
-        self.date_label.setFont(bold_font_header)
-        self.date_label.setStyleSheet("color: green; font-weight: bold;")
-        time_date_layout.addWidget(self.date_label)
+        self.date_label.setFont(bold_font_date)
+        self.date_label.setStyleSheet("color: orange;")
+        labels_v_layout.addWidget(self.date_label)
 
+        main_h_layout.addWidget(labels_v_container)
         left_header_layout.addWidget(time_date_container)
         header_layout.addWidget(left_header_container, 1)
 
-        # ---------------- MIDDLE: Logo ----------------
+        # --- MIDDLE: Logo ---
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.logo_label.setMinimumWidth(300)
@@ -8582,111 +8613,60 @@ class PatchManagerGUI(QWidget):
             self.update_logo(width=300, height=35)
         except Exception:
             self.logo_label.setText("OSCAM TOOLKIT")
+            self.logo_label.setStyleSheet("color: white; font-size: 18px;")
             self.original_pixmap = None
 
-        # ---------------- RIGHT: Log-Button + Version (GETAUSCHT) ----------------
+        # --- RIGHT: Log-Button + Version & Autor (ORIGINAL STYLE) ---
         right_header_container = QWidget()
         right_header_layout = QHBoxLayout(right_header_container)
         right_header_layout.setContentsMargins(0, 0, 0, 0)
         right_header_layout.setSpacing(15)
-        right_header_layout.setAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
-        )
+        right_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
 
-        # Sprache für den Button abrufen
+        # 1. Log-Button
         lang = getattr(self, "LANG", "de").lower()
         log_text = "Log speichern" if lang == "de" else "Save Log"
-
-        # --- 1. Log-Button (Zuerst definieren!) ---
-        lang = getattr(self, "LANG", "de").lower()
-        log_text = "Log speichern" if lang == "de" else "Save Log"
-
-        # VARIABLE ERSTELLEN
         self.log_button = QPushButton(f" {log_text}")
         self.log_button.setMinimumHeight(45)
-        self.log_button.setMinimumWidth(160)
-        self.log_button.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-
-        # JETZT DAS STYLING (Direkt-Neon)
-        self.log_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #3d3d3d;
-                color: #EAFF00; /* NEONGELB */
-                border: 1px solid #555;
-                border-radius: 8px;
-                padding: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #4d4d4d;
-                color: #FFFFFF;
-                border: 1px solid #EAFF00;
-            }
-            """
-        )
-
-        # JETZT DAS ICON (Nachdem die Variable existiert)
-        icon_log = self.style().standardIcon(
-            QApplication.style().StandardPixmap.SP_DriveHDIcon
-        )
+        self.log_button.setMinimumWidth(150)
+        self.log_button.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        icon_log = self.style().standardIcon(QApplication.style().StandardPixmap.SP_DriveHDIcon)
         self.log_button.setIcon(icon_log)
-        self.log_button.setIconSize(QSize(24, 24))
-
-        # JETZT CONNECT (Falls die Funktion existiert)
-        if hasattr(self, "export_log"):
-            self.log_button.clicked.connect(self.export_log)
-
-        # ZULETZT DEM LAYOUT HINZUFÜGEN
+        if hasattr(self, "export_log"): self.log_button.clicked.connect(self.export_log)
         right_header_layout.addWidget(self.log_button)
 
-        # --- 2. Version & Autor (JETZT GANZ RECHTS AUSSEN) ---
+        # 2. Version & Autor Block (DEIN ORIGINAL)
         version_text_container = QWidget()
         version_text_layout = QVBoxLayout(version_text_container)
-        version_text_layout.setContentsMargins(
-            10, 0, 0, 0
-        )  # Abstand zum Button links davon
+        version_text_layout.setContentsMargins(10, 0, 0, 0)
         version_text_layout.setSpacing(2)
-        version_text_layout.setAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
-        )
+        version_text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
 
+        # Die originalen Font-Einstellungen
         bold_font_header = QFont("Segoe UI", 24, QFont.Weight.Bold)
+        
+        # APP_VERSION dynamisch holen (oder fest "3.3.5" nutzen)
+        app_v = getattr(self, "APP_VERSION", "3.3.5")
 
-        by_label = QLabel("by speedy005")
-        by_label.setFont(bold_font_header)
-        by_label.setStyleSheet("color: blue; font-weight: bold;")
-        by_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        # Autor (Blau)
+        self.by_label = QLabel("by speedy005")
+        self.by_label.setFont(bold_font_header)
+        self.by_label.setStyleSheet("color: blue; font-weight: bold;")
+        self.by_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        v_label = QLabel(f"v{APP_VERSION}")
-        v_label.setFont(bold_font_header)
-        v_label.setStyleSheet("color: red; font-weight: bold;")
-        v_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        # Version (Rot)
+        self.v_label = QLabel(f"v{app_v}")
+        self.v_label.setFont(bold_font_header)
+        self.v_label.setStyleSheet("color: red; font-weight: bold;")
+        self.v_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        version_text_layout.addWidget(by_label)
-        version_text_layout.addWidget(v_label)
+        version_text_layout.addWidget(self.by_label)
+        version_text_layout.addWidget(self.v_label)
 
+        # Alles zusammenfügen
         right_header_layout.addWidget(version_text_container)
-
         header_layout.addWidget(right_header_container, 1)
-        # --- SPRACHWECHSEL OVERLAY (Initial unsichtbar) ---
-        self.loading_overlay = QFrame(self)
-        self.loading_overlay.setGeometry(self.rect())
-        self.loading_overlay.setStyleSheet(
-            "background-color: rgba(0, 0, 0, 180); border-radius: 10px;"
-        )
-        self.loading_overlay.hide()
 
-        self.loading_label = QLabel(self.loading_overlay)
-        self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.loading_label.setStyleSheet(
-            "color: #F37804; font-size: 22pt; font-weight: bold; background: transparent;"
-        )
-
-        # Zentrierung im Resize-Event sicherstellen
-        self.loading_layout = QVBoxLayout(self.loading_overlay)
-        self.loading_layout.addWidget(self.loading_label)
-        # Header dem Hauptlayout hinzufügen
         main_layout.addWidget(header_widget)
         self.apply_global_button_style("#EAFF00")
         # ---------------------------------------------------------
@@ -9446,7 +9426,7 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         def update_digital_clock():
             now = QDateTime.currentDateTime()
-            self.digital_clock.setText(now.toString("HH:mm:ss"))
+            #self.digital_clock.setText(now.toString("HH:mm:ss"))
             self.date_label.setText(now.toString("dd.MM.yyyy"))
 
         self.clock_timer = QTimer(self)
