@@ -363,7 +363,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "3.3.2"
+APP_VERSION = "3.3.3"
 
 
 # ===================== PATCH DIRS =====================
@@ -8156,19 +8156,24 @@ class PatchManagerGUI(QWidget):
             )
             if pbar:
                 pbar.setValue(30)
+            # 1. Zip& Patch
+            import shutil
+            import subprocess
+            import re
 
             for t in ["git", "patch", "zip"]:
                 path = shutil.which(t)
                 if path:
                     try:
-                        # Versionsinfo abrufen
-                        info = (
-                            subprocess.getoutput(f"{t} --version")
-                            .strip()
-                            .replace("\n", " ")
-                        )
+                        info_raw = subprocess.getoutput(f"{t} --version").strip()
+                        first_line = info_raw.splitlines()[0]
+
+                        # Robustere Regex: erste Zahl mit Punkten oder einzelnen Zahlen
+                        match = re.search(r"\d+(?:\.\d+)+|\d+", first_line)
+                        version = match.group(0) if match else "unbekannt"
+                        info = f"Version {version}"
                     except Exception:
-                        info = path  # fallback: Pfad
+                        info = path
                     ok = True
                 else:
                     info = "nicht gefunden"
@@ -8183,6 +8188,8 @@ class PatchManagerGUI(QWidget):
                         C_BLUE if ok else C_RED,
                     )
                 )
+            
+            # 3. PyQt6
             if pbar:
                 pbar.setValue(45)
 
@@ -8215,7 +8222,7 @@ class PatchManagerGUI(QWidget):
                     )
                 )
 
-            # 2. Netzwerk & Alle Repositories
+            # 4. Netzwerk & Alle Repositories
             html.append(
                 f'<div style="border-top:1px dashed {C_LINE}; margin:4px 0; width:60%;"></div>'
             )
@@ -8288,7 +8295,7 @@ class PatchManagerGUI(QWidget):
                 html.append(
                     make_safe_row("🌐", T["network"], T["offline"], C_RED, C_RED)
                 )
-            # --- TOOL STATISTIK ---
+            # ---5 TOOL STATISTIK ---
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             total_stats = 0
             headers = {"User-Agent": "Mozilla/5.0"}
@@ -8310,7 +8317,7 @@ class PatchManagerGUI(QWidget):
             except Exception as e:
                 print(f"DEBUG: GitHub Exception: {e}")
 
-            # 2️⃣ Lokaler Counter
+            # 6 2️⃣ Lokaler Counter
             try:
                 tool_dir = os.path.dirname(os.path.abspath(__file__))
             except NameError:
