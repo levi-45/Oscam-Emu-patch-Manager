@@ -395,7 +395,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.0.1"
+APP_VERSION = "4.0.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -3676,8 +3676,22 @@ class AnalogClock(QWidget):
         self.setMinimumSize(100, 100)
 
     def paintEvent(self, event):
+        from PyQt6.QtGui import QPainter, QColor, QPolygon
+        from PyQt6.QtCore import Qt, QPoint, QTime
+        
         side = min(self.width(), self.height())
         time = QTime.currentTime()
+
+        # --- MATRIX CHECK ---
+        # Wir schauen im Hauptfenster nach, ob der Modus aktiv ist
+        main_win = self.window()
+        is_matrix = getattr(main_win, "current_config", {}).get("theme_mode") == "matrix"
+        
+        # Farben definieren
+        color_accent = QColor("#00FF41") if is_matrix else QColor("#EAFF00") # Grün oder Gelb
+        color_bg = QColor("#000000") if is_matrix else QColor("#1A1A1A")     # Schwarz oder Dunkelgrau
+        color_hour = QColor("#008F11") if is_matrix else QColor(255, 0, 0)   # Dunkelgrün oder Rot
+        color_min = QColor("#00FF41") if is_matrix else QColor(200, 200, 200) # Hellgrün oder Grau
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -3687,19 +3701,19 @@ class AnalogClock(QWidget):
         painter.scale(side / 200.0, side / 200.0)
 
         # --- Zifferblatt (Hintergrund) ---
-        painter.setPen(QColor("#EAFF00"))
-        painter.setBrush(QColor("#1A1A1A"))
+        painter.setPen(color_accent)
+        painter.setBrush(color_bg)
         painter.drawEllipse(-95, -95, 190, 190)
 
         # --- Markierungen (Stunden) ---
-        painter.setPen(QColor("#EAFF00"))  # Neongelb passend zu deinem Design
+        painter.setPen(color_accent)
         for i in range(12):
             painter.drawLine(80, 0, 90, 0)
             painter.rotate(30.0)
 
-        # --- Stundenzeiger (Rot) ---
+        # --- Stundenzeiger ---
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(255, 0, 0))
+        painter.setBrush(color_hour)
         painter.save()
         painter.rotate(30.0 * ((time.hour() + time.minute() / 60.0)))
         painter.drawConvexPolygon(
@@ -3707,8 +3721,8 @@ class AnalogClock(QWidget):
         )
         painter.restore()
 
-        # --- Minutenzeiger (Weiß/Grau) ---
-        painter.setBrush(QColor(200, 200, 200))
+        # --- Minutenzeiger ---
+        painter.setBrush(color_min)
         painter.save()
         painter.rotate(6.0 * (time.minute() + time.second() / 60.0))
         painter.drawConvexPolygon(
@@ -3716,8 +3730,8 @@ class AnalogClock(QWidget):
         )
         painter.restore()
 
-        # --- Sekundenzeiger (Neongelb) ---
-        painter.setBrush(QColor("#EAFF00"))
+        # --- Sekundenzeiger ---
+        painter.setBrush(color_accent)
         painter.save()
         painter.rotate(6.0 * time.second())
         painter.drawConvexPolygon(
@@ -3726,7 +3740,7 @@ class AnalogClock(QWidget):
         painter.restore()
 
         # Mittelpunkt abdecken
-        painter.setBrush(QColor("#EAFF00"))
+        painter.setBrush(color_accent)
         painter.drawEllipse(-5, -5, 10, 10)
 
 
@@ -4865,9 +4879,9 @@ class PatchManagerGUI(QWidget):
     def toggle_matrix(self, force_state=None):
         """
         Schaltet das neon-grüne Matrix-Theme um.
-        Nutzt Lokalisierung (TEXTS) für alle Ausgaben und UI-Beschriftungen.
+        Inklusive Sofort-Update für die Analog-Uhr und Header-Elemente.
         """
-        if not self.btn_matrix:
+        if not hasattr(self, "btn_matrix") or not self.btn_matrix:
             return
 
         # 1. Sprache und Texte laden
@@ -4904,45 +4918,52 @@ class PatchManagerGUI(QWidget):
             self.btn_matrix.setText(t.get("matrix_btn_exit", "🔙 EXIT MATRIX"))
             cfg["theme_mode"] = "matrix"
 
-            # Log-Ausgabe (Text-tauglich)
-            if hasattr(self, "info_text") and not self.is_loading:
+            # Header-Logos/Frames anpassen falls vorhanden
+            if hasattr(self, "header_widget"):
+                self.header_widget.setStyleSheet("background-color: #000; border: 1px solid #008F11;")
+
+            # Log-Ausgabe
+            if hasattr(self, "info_text") and not getattr(self, "is_loading", False):
                 sys_tag = f"<b>[{t.get('matrix_sys', 'System')}]</b>"
                 msg = f'<br><span style="color:#00FF41; font-family:Consolas, monospace;">{sys_tag} {t.get("matrix_on", "Wake up, Neo... Matrix Mode engaged. ■")}</span>'
                 self.info_text.append(msg)
 
-            if "safe_play" in globals() and not self.is_loading:
+            if "safe_play" in globals() and not getattr(self, "is_loading", False):
                 safe_play("dialog-information.oga")
 
         else:
-            # --- STANDARD STYLE (Standard Qt / System Farben) ---
-            self.setStyleSheet("")
-
+            # --- STANDARD STYLE ---
+            self.setStyleSheet("") # Setzt alles auf die Standard-Werte zurück
+            
+            # WICHTIG: Falls du in init_ui ein spezielles Grau-Gelb-Design hast,
+            # musst du es hier ggf. wieder zuweisen oder leer lassen für System-Farben.
+            
             # Slider-Style zurücksetzen
-            target_slider = getattr(
-                self, "blink_slider", getattr(self, "slider_speed", None)
-            )
+            target_slider = getattr(self, "blink_slider", getattr(self, "slider_speed", None))
             if target_slider:
-                target_slider.setStyleSheet(
-                    """
+                target_slider.setStyleSheet("""
                     QSlider::groove:horizontal { border: 1px solid #666; height: 6px; background: #222; border-radius: 3px; }
                     QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
-                """
-                )
+                """)
 
             self.btn_matrix.setText(t.get("matrix_btn_enter", "📟 MATRIX MODE"))
             cfg["theme_mode"] = "standard"
 
-            # Log-Ausgabe (Text-tauglich)
-            if hasattr(self, "info_text") and not self.is_loading:
+            # Log-Ausgabe
+            if hasattr(self, "info_text") and not getattr(self, "is_loading", False):
                 sys_tag = f"<b>[{t.get('matrix_sys', 'System')}]</b>"
                 msg = f'<br><span style="color:orange; font-family:Consolas, monospace;">{sys_tag} {t.get("matrix_off", "Matrix Mode disabled.")}</span>'
                 self.info_text.append(msg)
 
-        # 3. Synchronisierung & Speicherung
+        # 3. Uhr-Update (Zwingt die AnalogClock zum Farbwechsel)
+        if hasattr(self, "analog_clock"):
+            self.analog_clock.update()
+
+        # 4. Synchronisierung & Speicherung
         if hasattr(self, "force_leds_static"):
             self.force_leds_static()
 
-        # Dauerhaft in Konfiguration sichern (nur wenn Setup abgeschlossen)
+        # Dauerhaft in Konfiguration sichern
         if not getattr(self, "is_loading", False):
             if "save_config" in globals():
                 save_config(cfg, gui_instance=self, silent=True)
@@ -9614,8 +9635,38 @@ class PatchManagerGUI(QWidget):
             }
         """
 
-        # Dieser Befehl zwingt die gesamte App zum neuen Design
-        self.setStyleSheet(self.styleSheet() + neon_style)
+        # --- THEME BEIM START LADEN (Matrix-Check) ---
+        # 1. Sicherstellen, dass wir die aktuellsten Daten haben
+        # Falls self.current_config noch leer ist, laden wir sie hier kurz manuell
+        if not hasattr(self, "current_config") or not self.current_config:
+            if os.path.exists(CONFIG_FILE):
+                try:
+                    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                        self.current_config = json.load(f)
+                except:
+                    self.current_config = {}
+
+        cfg = getattr(self, "current_config", {})
+        saved_theme = cfg.get("theme_mode", "standard")
+        
+        # 2. Matrix erzwingen
+        if saved_theme == "matrix":
+            # Wir setzen is_loading auf True, um Sounds/Logs beim Start zu blockieren
+            was_loading = getattr(self, "is_loading", False)
+            self.is_loading = True
+            
+            # WICHTIG: Erst das normale Stylesheet löschen, dann Matrix setzen
+            self.setStyleSheet("") 
+            self.toggle_matrix(force_state="matrix")
+            
+            # Uhr-Update
+            if hasattr(self, "analog_clock"):
+                self.analog_clock.update()
+                
+            self.is_loading = was_loading
+        else:
+            # Falls nicht Matrix, Standard-Neon setzen
+            self.setStyleSheet(self.styleSheet() + neon_style)
 
     # =====================
     # BUTTON & COLOR HANDLING
