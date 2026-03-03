@@ -1936,26 +1936,40 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
                     safe_play("dialog-information.oga")
 
                 # --- TEXT & FARBE BESTIMMEN ---
-                lang = getattr(gui_instance, "LANG", "de").lower()
-                is_matrix = current_cfg.get("theme_mode") == "matrix"
+                lang = getattr(gui_instance, "LANG", "de").lower()[:2]
+                
+                # Definition des Regenbogens für die Progressbar
+                rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                           "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                           "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
 
                 if is_closing:
-                    msg = (
-                        "✅ Beendet & Gespeichert"
-                        if lang == "de"
-                        else "✅ Exit & Saved"
-                    )
-                    log_color = "#FB0A2A"  # Gold-Gelb im Log beim Beenden
-                    pbar_color = "#0e0701"  # Orangefarbener Balken beim Beenden
+                    msg = "✅ Beendet & Gespeichert" if lang == "de" else "✅ Exit & Saved"
+                    log_color = "#FFD700"  # Kräftiges GOLD für den Log-Text (statt weiß/rot)
+                    pbar_style = f"QProgressBar::chunk {{ background: {rainbow}; border-radius: 5px; }}"
                 else:
-                    msg = (
-                        "✅ Einstellungen gespeichert"
-                        if lang == "de"
-                        else "✅ Settings saved"
-                    )
-                    # Matrix-Grün im Matrix-Mode, sonst Cyan
-                    log_color = "#00FF41" if is_matrix else "cyan"
-                    pbar_color = "#2ecc71"  # Standard-Grün
+                    msg = "✅ Einstellungen gespeichert" if lang == "de" else "✅ Settings saved"
+                    # Matrix-Grün oder Cyan für normales Speichern
+                    log_color = "#00FF41" if current_cfg.get("theme_mode") == "matrix" else "#00FFFF"
+                    pbar_style = "QProgressBar::chunk { background-color: #2ecc71; border-radius: 5px; }"
+
+                # --- PROGRESSBAR AKTUALISIEREN ---
+                pbar = getattr(gui_instance, "progress_bar", None)
+                if pbar:
+                    pbar.setValue(100)
+                    pbar.setFormat(msg)
+                    # Hier wird das komplette Stylesheet gesetzt, inklusive Text-Farbe SCHWARZ für Lesbarkeit
+                    pbar.setStyleSheet(f"""
+                        QProgressBar {{ 
+                            text-align: center; color: black; font-weight: 900; 
+                            background: #111; border: 1px solid #333; 
+                        }}
+                        {pbar_style}
+                    """)
+
+                    if not is_closing:
+                        from PyQt6.QtCore import QTimer
+                        QTimer.singleShot(3000, lambda: pbar.setStyleSheet("")) # Reset nach 3s
 
                 # --- PROGRESSBAR AKTUALISIEREN ---
                 pbar = getattr(gui_instance, "progress_bar", None)
