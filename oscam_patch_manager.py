@@ -397,7 +397,6 @@ date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
 APP_VERSION = "4.1.0"
 
-
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -6801,33 +6800,34 @@ class PatchManagerGUI(QWidget):
 
 
     def ask_for_update(self, latest_version):
-        lang = getattr(self, "LANG", "DE")
-        lang_texts = TEXTS.get(lang, TEXTS.get("EN", {}))
+        # ... (dein bisheriger Code für Texte und Dialog-Setup) ...
+        lang = getattr(self, "LANG", "de").lower()
+        lang_texts = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
 
-        # Dialog erstellen
         msg_box = QMessageBox(self)
         msg_box.setIcon(QMessageBox.Icon.Question)
         msg_box.setWindowTitle(lang_texts.get("update_available_title", "Update"))
-
-        # Text formatieren
+        
         msg_template = lang_texts.get("update_available_msg", "Update {latest}?")
-        message = msg_template.format(current=APP_VERSION, latest=latest_version)
+        message = msg_template.format(current=globals().get("APP_VERSION", "3.3.7"), latest=latest_version)
         msg_box.setText(message)
 
-        # Buttons manuell hinzufügen und übersetzen
-        # Wir nehmen die Texte "yes" und "no" aus deinem TEXTS-Dictionary
         yes_text = lang_texts.get("yes", "Ja")
         no_text = lang_texts.get("no", "Nein")
-
         yes_button = msg_box.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
         no_button = msg_box.addButton(no_text, QMessageBox.ButtonRole.NoRole)
-        msg_box.setDefaultButton(yes_button)
-
+        
         msg_box.exec()
 
         if msg_box.clickedButton() == yes_button:
+            # --- WICHTIG: Erst Dialog weg, dann UI atmen lassen, dann Installation ---
+            msg_box.close() 
+            from PyQt6.QtWidgets import QApplication
+            QApplication.processEvents() 
+            
             if hasattr(self, "plugin_update_action"):
-                self.plugin_update_action(latest_version)
+                # Nutze QTimer, um die Funktion vom Dialog-Thread zu entkoppeln
+                QTimer.singleShot(100, lambda: self.plugin_update_action(latest_version))
 
     # ======= HIER EINSETZEN =======
     def create_action_button(self, parent, text, color, callback, all_buttons_list, 
