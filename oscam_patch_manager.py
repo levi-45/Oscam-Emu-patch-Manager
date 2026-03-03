@@ -247,7 +247,9 @@ class OSCamUpdateWorker(QThread):
         try:
             # 1. Remote HEAD Hash abrufen
             cmd_remote = ["git", "ls-remote", self.remote_url, "HEAD"]
-            remote_out = subprocess.check_output(cmd_remote, text=True, stderr=subprocess.DEVNULL).split()
+            remote_out = subprocess.check_output(
+                cmd_remote, text=True, stderr=subprocess.DEVNULL
+            ).split()
             if not remote_out:
                 return
             remote_hash = remote_out[0]
@@ -256,10 +258,12 @@ class OSCamUpdateWorker(QThread):
             local_hash = ""
             if os.path.exists(os.path.join(self.local_path, ".git")):
                 cmd_local = ["git", "-C", self.local_path, "rev-parse", "HEAD"]
-                local_hash = subprocess.check_output(cmd_local, text=True, stderr=subprocess.DEVNULL).strip()
+                local_hash = subprocess.check_output(
+                    cmd_local, text=True, stderr=subprocess.DEVNULL
+                ).strip()
 
             # 3. Vergleich & Signal senden
-            update_available = (remote_hash != local_hash)
+            update_available = remote_hash != local_hash
             self.status_signal.emit(update_available, remote_hash)
         except Exception as e:
             print(f"Update-Check Fehler: {e}")
@@ -389,7 +393,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.1.0"
+APP_VERSION = "4.0.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -423,7 +427,7 @@ def get_initial_patch_dir():
 
 
 # 1. Zuerst das Hauptverzeichnis definieren
-PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__)) 
+PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 WORK_DIR = PLUGIN_DIR
 
 # 2. Jetzt alle Pfade definieren, die auf PLUGIN_DIR basieren
@@ -447,7 +451,7 @@ ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
 PATCH_MANAGER_OLD = os.path.join(OLD_PATCH_DIR, "oscam_patch_manager_old.py")
 CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "config_old.json")
 GITHUB_CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "github_upload_config_old.json")
-# ===================== TOOLS & REPOS =====================                                                
+# ===================== TOOLS & REPOS =====================
 CHECK_TOOLS_SCRIPT = os.path.join(PLUGIN_DIR, "check_tools.sh")
 PATCH_MODIFIER = "speedy005"
 EMUREPO = "https://github.com/oscam-mirror/oscam-emu.git"
@@ -3843,11 +3847,13 @@ class PatchManagerGUI(QWidget):
         stored_lang = str(self.current_config.get("language", "de")).lower()
         self.LANG = stored_lang if stored_lang in ["en", "de"] else "de"
         self.patch_modifier = self.current_config.get("patch_modifier", "Default")
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))        
-        self.PLUGIN_DIR = self.base_dir            # Arbeitsordner
-        self.WORK_DIR = self.base_dir 
-        self.TEMP_REPO = os.path.join(self.base_dir, "temp_repo")         # Temp-Repo Ordner
-        self.PATCH_EMU_GIT_DIR = os.path.join(self.base_dir, "oscam-emu-git") # Emu-Git Ordner
+        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.PLUGIN_DIR = self.base_dir  # Arbeitsordner
+        self.WORK_DIR = self.base_dir
+        self.TEMP_REPO = os.path.join(self.base_dir, "temp_repo")  # Temp-Repo Ordner
+        self.PATCH_EMU_GIT_DIR = os.path.join(
+            self.base_dir, "oscam-emu-git"
+        )  # Emu-Git Ordner
         current_path = self.current_config.get(
             "s3_patch_path", globals().get("OLD_PATCH_DIR", "./")
         )
@@ -3855,7 +3861,12 @@ class PatchManagerGUI(QWidget):
         self.OLD_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.patch")
         self.ALT_PATCH_FILE = os.path.join(self.OLD_PATCH_DIR, "oscam-emu.altpatch")
         # --- Direkt nach ALT_PATCH_FILE einfügen ---
-        target_dirs = [self.PLUGIN_DIR, self.TEMP_REPO, self.PATCH_EMU_GIT_DIR, self.OLD_PATCH_DIR]
+        target_dirs = [
+            self.PLUGIN_DIR,
+            self.TEMP_REPO,
+            self.PATCH_EMU_GIT_DIR,
+            self.OLD_PATCH_DIR,
+        ]
 
         for d in target_dirs:
             if d and not os.path.exists(d):
@@ -4002,8 +4013,9 @@ class PatchManagerGUI(QWidget):
         # 4. OSCam Monitor (8500ms)
         QTimer.singleShot(6500, self.start_oscam_update_check)
         self.init_button_signals()
-        
+
         self.is_loading = False  # Initialisierung abgeschlossen
+
     # =====================================================================
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
@@ -4057,22 +4069,26 @@ class PatchManagerGUI(QWidget):
         pbar = getattr(self, "progress_bar", None)
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
-        
+
         T_OPEN = "Öffne Ordner..." if is_de else "Opening folder..."
         T_DONE = "Ordner offen!" if is_de else "Folder opened!"
 
         if pbar:
             # REGENBOGEN-PROGRESS Setup
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     text-align: center; font-weight: 700; border: 2px solid #222;
                     border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
+            """
+            )
             pbar.setFormat(f"📂 {T_OPEN} %p%")
             pbar.setValue(20)
             pbar.show()
@@ -4083,19 +4099,22 @@ class PatchManagerGUI(QWidget):
             if not path or not os.path.exists(path):
                 os.makedirs(path, exist_ok=True)
 
-            if pbar: pbar.setValue(60)
+            if pbar:
+                pbar.setValue(60)
 
             # Explorer starten
             if platform.system() == "Windows":
                 os.startfile(os.path.normpath(path))
             else:
                 cmd = "xdg-open" if platform.system() == "Linux" else "open"
-                subprocess.Popen([cmd, path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(
+                    [cmd, path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
 
             # --- 2. SOUND NACH DEM ÖFFNEN (Abschluss) ---
             if "safe_play" in globals():
                 # Signalisiert, dass der Befehl durch ist
-                safe_play("complete.oga") 
+                safe_play("complete.oga")
 
             if pbar:
                 pbar.setValue(100)
@@ -4104,19 +4123,24 @@ class PatchManagerGUI(QWidget):
         except Exception:
             if "safe_play" in globals():
                 safe_play("dialog-error.oga")
-            if pbar: pbar.setValue(0)
+            if pbar:
+                pbar.setValue(0)
 
         # 3. AUTO-RESET (3 Sekunden) -> Zurück zu Orange/Gold
         if pbar:
+
             def restore_pbar():
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
+                pbar.setStyleSheet(
+                    """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
                     color: white; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
+                """
+                )
+
             QTimer.singleShot(3000, restore_pbar)
 
     def on_telemetry_changed(self, state):
@@ -4451,29 +4475,34 @@ class PatchManagerGUI(QWidget):
         path_map = {
             # Nutzt jetzt direkt self.WORK_DIR (das Plugin-Verzeichnis)
             "btn_open_work": getattr(self, "WORK_DIR", os.getcwd()),
-            
             # Nutzt self.TEMP_REPO (oscam-svn)
-            "btn_open_temp": getattr(self, "TEMP_REPO", os.path.join(os.getcwd(), "oscam-svn")),
-            
+            "btn_open_temp": getattr(
+                self, "TEMP_REPO", os.path.join(os.getcwd(), "oscam-svn")
+            ),
             # Nutzt self.PATCH_EMU_GIT_DIR (oscam-emu-patch)
-            "btn_open_emu":  getattr(self, "PATCH_EMU_GIT_DIR", os.path.join(os.getcwd(), "oscam-emu-patch")),
+            "btn_open_emu": getattr(
+                self, "PATCH_EMU_GIT_DIR", os.path.join(os.getcwd(), "oscam-emu-patch")
+            ),
         }
-
 
         # 2. Die Ordner-Buttons scharf schalten
         for btn_name, path in path_map.items():
             btn = getattr(self, btn_name, None)
             if btn:
                 try:
-                    btn.clicked.disconnect() 
+                    btn.clicked.disconnect()
                 except:
                     pass
-                
+
                 # Der Pfad 'p' wird hier fest an den Klick gebunden (Lambda-Freeze)
-                btn.clicked.connect(lambda checked=False, p=path: self.open_custom_folder(p))
-                
+                btn.clicked.connect(
+                    lambda checked=False, p=path: self.open_custom_folder(p)
+                )
+
                 if hasattr(self, "_play_sys_sound"):
-                    btn.clicked.connect(lambda checked=False: self._play_sys_sound("standard"))
+                    btn.clicked.connect(
+                        lambda checked=False: self._play_sys_sound("standard")
+                    )
 
         # 3. FUNKTIONS-BUTTONS (Jetzt inklusive Header-Editor!)
         func_names = {
@@ -4482,13 +4511,15 @@ class PatchManagerGUI(QWidget):
             "clean_emu_button": "clean_emu_data",
             "patch_emu_git_button": "run_patch_process",
             # HIER DEN EDITOR HINZUFÜGEN:
-            "btn_edit_patch": "edit_patch_header", 
+            "btn_edit_patch": "edit_patch_header",
         }
 
         for btn_attr, method_name in func_names.items():
             btn = getattr(self, btn_attr, None)
-            method = getattr(self, method_name, None) # Holt die Methode nur, wenn sie existiert
-            
+            method = getattr(
+                self, method_name, None
+            )  # Holt die Methode nur, wenn sie existiert
+
             if btn and method:
                 try:
                     btn.clicked.disconnect()
@@ -4564,8 +4595,9 @@ class PatchManagerGUI(QWidget):
         import os, requests, re
 
         # Hilfsfunktionen
-        def _(k, d): return getattr(self, "get_t", lambda x, y: y)(k, d)
-        
+        def _(k, d):
+            return getattr(self, "get_t", lambda x, y: y)(k, d)
+
         lang = str(getattr(self, "lang", getattr(self, "LANG", "en"))).lower()[:2]
         is_de = lang == "de"
         pbar = getattr(self, "progress_bar", None)
@@ -4582,25 +4614,31 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
+                pbar.setStyleSheet(
+                    """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
                     color: white; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
+                """
+                )
 
         # 1. REGENBOGEN START (Schwarz, 15pt)
         if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     text-align: center; font-weight: 900; border: 2px solid #222;
                     border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
+            """
+            )
             pbar.setFormat(f"{T_WAIT} %p%")
             pbar.setValue(15)
             pbar.show()
@@ -4608,16 +4646,20 @@ class PatchManagerGUI(QWidget):
 
         # Versionen laden
         display_items = {}
-        patch_list = globals().get("ONLINE_PATCHES", getattr(self, "ONLINE_PATCHES", {}))
+        patch_list = globals().get(
+            "ONLINE_PATCHES", getattr(self, "ONLINE_PATCHES", {})
+        )
         for name, url in patch_list.items():
             try:
                 res = requests.get(url, headers={"Range": "bytes=0-511"}, timeout=3)
                 v = re.search(r"patch version:\s*([\d\.-]+)", res.text)
                 version = v.group(1) if v else "unknown"
                 display_items[f"{name} [{version}]"] = (url, version, name)
-            except: display_items[f"{name} [Offline]"] = (url, "unknown", name)
+            except:
+                display_items[f"{name} [Offline]"] = (url, "unknown", name)
 
-        if safe_play_func: safe_play_func("dialog-information.oga")
+        if safe_play_func:
+            safe_play_func("dialog-information.oga")
 
         dialog = QInputDialog(self)
         dialog.setWindowTitle(_("patch_dl_title", "Patch Download"))
@@ -4629,51 +4671,60 @@ class PatchManagerGUI(QWidget):
         if dialog.exec():
             item = dialog.textValue()
             url, version, original_name = display_items[item]
-            if pbar: pbar.setFormat(f"{T_START} %p%"); pbar.setValue(60)
+            if pbar:
+                pbar.setFormat(f"{T_START} %p%")
+                pbar.setValue(60)
 
             try:
                 response = requests.get(url, timeout=15)
                 response.raise_for_status()
-                
+
                 file_name = f"{original_name.split()[0].replace('(', '').lower()}_v{version}.patch"
-                with open(file_name, "w", encoding="utf-8") as f: f.write(response.text)
+                with open(file_name, "w", encoding="utf-8") as f:
+                    f.write(response.text)
 
                 # --- ERFOLGS-ABLAUF: 100% -> Reset -> Meldung ---
-                if safe_play_func: safe_play_func("complete.oga")
+                if safe_play_func:
+                    safe_play_func("complete.oga")
                 if pbar:
-                    pbar.setValue(100) # Erst voll
+                    pbar.setValue(100)  # Erst voll
                     pbar.setFormat("100%")
                     pbar.repaint()
-                    
+
                     def show_success():
-                        pbar.setValue(0) # Dann ausblenden (0%)
+                        pbar.setValue(0)  # Dann ausblenden (0%)
                         pbar.setFormat(f"✅ {T_DONE}")
                         pbar.repaint()
                         QTimer.singleShot(3000, restore_style)
+
                     QTimer.singleShot(500, show_success)
 
             except Exception as e:
-                if safe_play_func: safe_play_func("dialog-error.oga")
-                if pbar: pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; }")
+                if safe_play_func:
+                    safe_play_func("dialog-error.oga")
+                if pbar:
+                    pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; }")
 
         else:
             # --- ABBRUCH-ABLAUF: 100% -> Reset -> Meldung ---
-            if safe_play_func: safe_play_func("dialog-warning.oga")
+            if safe_play_func:
+                safe_play_func("dialog-warning.oga")
             if pbar:
-                pbar.setValue(100) # 1. Auf 100% (Regenbogen voll)
+                pbar.setValue(100)  # 1. Auf 100% (Regenbogen voll)
                 pbar.setFormat("100%")
                 pbar.repaint()
                 QApplication.processEvents()
-                
+
                 def show_cancel_final():
-                    pbar.setValue(0) # 2. Ausblenden (Reset auf 0)
-                    pbar.setFormat(f"❌ {T_CANCEL_MSG}") # 3. Meldung in Rot
-                    pbar.setStyleSheet("QProgressBar { text-align: center; color: red; font-weight: 900; border: 2px solid red; background: #111; font-size: 15pt; }")
+                    pbar.setValue(0)  # 2. Ausblenden (Reset auf 0)
+                    pbar.setFormat(f"❌ {T_CANCEL_MSG}")  # 3. Meldung in Rot
+                    pbar.setStyleSheet(
+                        "QProgressBar { text-align: center; color: red; font-weight: 900; border: 2px solid red; background: #111; font-size: 15pt; }"
+                    )
                     pbar.repaint()
                     QTimer.singleShot(2500, restore_style)
 
                 QTimer.singleShot(500, show_cancel_final)
-
 
     def run_patch_process(self, patch_data, is_dry_run=True):
         """Führt den Patch-Befehl per Pipe aus (Simulation oder echt)."""
@@ -6036,38 +6087,45 @@ class PatchManagerGUI(QWidget):
         pbar = getattr(self, "progress_bar", None)
 
         # TEXTE
-        T_TITLE   = "Repository Auswahl" if is_de else "Repository Selection"
-        T_LABEL   = "Wähle die gewünschte Repo-URL:" if is_de else "Select Repo-URL:"
-        T_SAVING  = "Speichere Repo..." if is_de else "Saving Repo..."
-        T_DONE    = "Repo geändert!" if is_de else "Repo changed!"
-        T_CANCEL  = "Abgebrochen" if is_de else "Cancelled"
+        T_TITLE = "Repository Auswahl" if is_de else "Repository Selection"
+        T_LABEL = "Wähle die gewünschte Repo-URL:" if is_de else "Select Repo-URL:"
+        T_SAVING = "Speichere Repo..." if is_de else "Saving Repo..."
+        T_DONE = "Repo geändert!" if is_de else "Repo changed!"
+        T_CANCEL = "Abgebrochen" if is_de else "Cancelled"
 
         # RESET-FUNKTION (Standard Orange/Gold)
         def restore_style():
             if pbar:
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
+                pbar.setStyleSheet(
+                    """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
                     color: white; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
+                """
+                )
 
-        if "safe_play" in globals(): safe_play("dialog-information.oga")
+        if "safe_play" in globals():
+            safe_play("dialog-information.oga")
 
         # 2. REGENBOGEN VORBEREITEN
         if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     text-align: center; font-weight: 900; border: 2px solid #222;
                     border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
+            """
+            )
             pbar.setFormat(f"⚙️ {T_SAVING} %p%")
             pbar.setValue(20)
             pbar.show()
@@ -6086,51 +6144,59 @@ class PatchManagerGUI(QWidget):
         if dialog.exec():
             new_url = dialog.textValue()
             if new_url:
-                if pbar: pbar.setValue(60)
+                if pbar:
+                    pbar.setValue(60)
                 self.EMUREPO = new_url
                 globals()["EMUREPO"] = new_url
-                
+
                 if hasattr(self, "cfg"):
                     self.cfg["EMUREPO"] = self.EMUREPO
                     try:
                         if "save_config" in globals():
                             globals()["save_config"](self.cfg, gui_instance=self)
-                        if hasattr(self, "update_language"): self.update_language()
+                        if hasattr(self, "update_language"):
+                            self.update_language()
 
-                        if "safe_play" in globals(): safe_play("complete.oga")
+                        if "safe_play" in globals():
+                            safe_play("complete.oga")
                         if pbar:
                             pbar.setValue(100)
                             pbar.setFormat(f"✅ {T_DONE}")
                             QApplication.processEvents()
                     except Exception as e:
-                        if "safe_play" in globals(): safe_play("dialog-error.oga")
-                        if pbar: pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
-                
+                        if "safe_play" in globals():
+                            safe_play("dialog-error.oga")
+                        if pbar:
+                            pbar.setStyleSheet(
+                                "QProgressBar { color: red; font-weight: 700; }"
+                            )
+
                 QTimer.singleShot(3000, restore_style)
         else:
             # --- 4. SPEZIELLER ABBRUCH-ABLAUF ---
-            if "safe_play" in globals(): safe_play("dialog-warning.oga") 
-            
+            if "safe_play" in globals():
+                safe_play("dialog-warning.oga")
+
             if pbar:
                 # Erst auf 100% füllen
                 pbar.setValue(100)
                 pbar.setFormat("100%")
                 pbar.repaint()
                 QApplication.processEvents()
-                
+
                 # Nach 400ms: Ausblenden (Reset auf 0) und rote Meldung zeigen
                 def show_cancel_msg():
                     pbar.setValue(0)
                     pbar.setFormat(f"❌ {T_CANCEL}")
                     # Kurzes rotes Highlight für den Abbruch
-                    pbar.setStyleSheet(f"QProgressBar {{ text-align: center; color: red; font-weight: 900; font-size: 15pt; border: 2px solid red; background: #111; }}")
+                    pbar.setStyleSheet(
+                        f"QProgressBar {{ text-align: center; color: red; font-weight: 900; font-size: 15pt; border: 2px solid red; background: #111; }}"
+                    )
                     pbar.repaint()
                     # Nach weiteren 2 Sekunden endgültiger Reset zu Orange
                     QTimer.singleShot(2000, restore_style)
 
                 QTimer.singleShot(400, show_cancel_msg)
-
-
 
     def change_modifier_name(self):
         """Öffnet Autor-Dialog mit Regenbogen-Progress, Sound und DE/EN Support."""
@@ -6144,23 +6210,25 @@ class PatchManagerGUI(QWidget):
         pbar = getattr(self, "progress_bar", None)
 
         # Lokalisierte Texte
-        T_TITLE   = "Patch Autor" if is_de else "Patch Author"
-        T_LABEL   = "Name des Autors:" if is_de else "Author Name:"
-        T_SAVING  = "Speichere Autor..." if is_de else "Saving Author..."
-        T_DONE    = "Autor geändert!" if is_de else "Author changed!"
-        T_CANCEL  = "Abgebrochen" if is_de else "Cancelled"
+        T_TITLE = "Patch Autor" if is_de else "Patch Author"
+        T_LABEL = "Name des Autors:" if is_de else "Author Name:"
+        T_SAVING = "Speichere Autor..." if is_de else "Saving Author..."
+        T_DONE = "Autor geändert!" if is_de else "Author changed!"
+        T_CANCEL = "Abgebrochen" if is_de else "Cancelled"
 
         # RESET-FUNKTION (Zurück zu Orange/Gold)
         def restore_style():
             if pbar:
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
+                pbar.setStyleSheet(
+                    """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
                     color: white; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
+                """
+                )
 
         # --- SOUND BEIM ÖFFNEN ---
         if "safe_play" in globals():
@@ -6168,16 +6236,20 @@ class PatchManagerGUI(QWidget):
 
         # 2. REGENBOGEN-PROGRESS STARTEN
         if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     text-align: center; font-weight: 900; border: 2px solid #222;
                     border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
+            """
+            )
             pbar.setFormat(f"👤 {T_SAVING} %p%")
             pbar.setValue(20)
             pbar.show()
@@ -6194,54 +6266,62 @@ class PatchManagerGUI(QWidget):
         if dialog.exec():
             new_name = dialog.textValue().strip()
             if new_name:
-                if pbar: pbar.setValue(60)
+                if pbar:
+                    pbar.setValue(60)
                 self.patch_modifier = new_name
-                
+
                 if hasattr(self, "cfg"):
                     self.cfg["patch_modifier"] = self.patch_modifier
                     try:
                         if "save_config" in globals():
                             globals()["save_config"](self.cfg, gui_instance=self)
-                        
+
                         if hasattr(self, "update_language"):
                             self.update_language()
 
                         # --- ERFOLG ---
-                        if "safe_play" in globals(): safe_play("complete.oga")
+                        if "safe_play" in globals():
+                            safe_play("complete.oga")
                         if pbar:
                             pbar.setValue(100)
                             pbar.setFormat(f"✅ {T_DONE}")
                             QApplication.processEvents()
-                    
+
                     except Exception as e:
-                        if "safe_play" in globals(): safe_play("dialog-error.oga")
-                        if pbar: pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; }")
-                
+                        if "safe_play" in globals():
+                            safe_play("dialog-error.oga")
+                        if pbar:
+                            pbar.setStyleSheet(
+                                "QProgressBar { color: red; font-weight: 900; }"
+                            )
+
                 # Auto-Reset nach Erfolg
                 QTimer.singleShot(3000, restore_style)
         else:
             # --- 4. SPEZIELLER ABBRUCH-ABLAUF ---
-            if "safe_play" in globals(): 
-                safe_play("dialog-warning.oga") 
-            
+            if "safe_play" in globals():
+                safe_play("dialog-warning.oga")
+
             if pbar:
                 # Erst auf 100% füllen (Regenbogen)
                 pbar.setValue(100)
                 pbar.setFormat("100%")
                 pbar.repaint()
                 QApplication.processEvents()
-                
+
                 # Nach 400ms: Auf 0 setzen und rote Meldung zeigen
                 def show_cancel_msg():
                     pbar.setValue(0)
                     pbar.setFormat(f"❌ {T_CANCEL}")
                     # Rotes Highlight für den Fehler/Abbruch
-                    pbar.setStyleSheet(f"""
+                    pbar.setStyleSheet(
+                        f"""
                         QProgressBar {{ 
                             text-align: center; color: red; font-weight: 900; 
                             font-size: 15pt; border: 2px solid red; background: #111; 
                         }}
-                    """)
+                    """
+                    )
                     pbar.repaint()
                     QApplication.processEvents()
                     # Nach weiteren 2 Sekunden endgültiger Reset zu Orange/Gold
@@ -6300,8 +6380,8 @@ class PatchManagerGUI(QWidget):
 
         # Lokalisierte Texte
         T_START = "System-Check..." if is_de else "System Check..."
-        T_DONE  = "Check bereit!" if is_de else "Check ready!"
-        T_ERR   = "Fehler!" if is_de else "Error!"
+        T_DONE = "Check bereit!" if is_de else "Check ready!"
+        T_ERR = "Fehler!" if is_de else "Error!"
 
         # --- SOUND BEIM ÖFFNEN (Start) ---
         if "safe_play" in globals():
@@ -6309,16 +6389,20 @@ class PatchManagerGUI(QWidget):
 
         # 2. REGENBOGEN-PROGRESS AKTIVIEREN
         if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     text-align: center; font-weight: 700; border: 2px solid #222;
                     border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
+            """
+            )
             pbar.setFormat(f"🛠️ {T_START} %p%")
             pbar.setValue(20)
             pbar.show()
@@ -6326,10 +6410,15 @@ class PatchManagerGUI(QWidget):
 
         try:
             self.info_text.clear()
-            msg_init = f"Starte System-Check... [{timestamp}]" if is_de else f"Starting system check... [{timestamp}]"
+            msg_init = (
+                f"Starte System-Check... [{timestamp}]"
+                if is_de
+                else f"Starting system check... [{timestamp}]"
+            )
             self.append_info(msg_init, "info")
 
-            if pbar: pbar.setValue(50)
+            if pbar:
+                pbar.setValue(50)
 
             # 3. Tools prüfen
             required_tools = ["git", "python3"]
@@ -6339,41 +6428,66 @@ class PatchManagerGUI(QWidget):
             missing = [t for t in required_tools if shutil.which(t) is None]
 
             if not missing:
-                self.append_info("✅ Alle benötigten System-Tools sind bereit." if is_de else "✅ All required tools are ready.", "success")
-                
+                self.append_info(
+                    (
+                        "✅ Alle benötigten System-Tools sind bereit."
+                        if is_de
+                        else "✅ All required tools are ready."
+                    ),
+                    "success",
+                )
+
                 # --- SOUND BEI ERFOLG ---
-                if "safe_play" in globals(): safe_play("complete.oga")
-                
+                if "safe_play" in globals():
+                    safe_play("complete.oga")
+
                 if pbar:
                     pbar.setValue(100)
                     pbar.setFormat(f"✅ {T_DONE} 100%")
 
                 # Folgeschritte ausführen
-                if hasattr(self, "check_for_plugin_update"): self.check_for_plugin_update()
-                if hasattr(self, "show_start_config"): self.show_start_config()
+                if hasattr(self, "check_for_plugin_update"):
+                    self.check_for_plugin_update()
+                if hasattr(self, "show_start_config"):
+                    self.show_start_config()
             else:
                 # --- SOUND BEI WARNUNG ---
-                if "safe_play" in globals(): safe_play("dialog-error.oga")
+                if "safe_play" in globals():
+                    safe_play("dialog-error.oga")
                 missing_str = ", ".join(missing)
-                self.append_info(f"⚠️ Fehlende Tools: {missing_str}" if is_de else f"⚠️ Missing tools: {missing_str}", "warning")
-                if pbar: pbar.setValue(0)
+                self.append_info(
+                    (
+                        f"⚠️ Fehlende Tools: {missing_str}"
+                        if is_de
+                        else f"⚠️ Missing tools: {missing_str}"
+                    ),
+                    "warning",
+                )
+                if pbar:
+                    pbar.setValue(0)
 
         except Exception as e:
-            if "safe_play" in globals(): safe_play("dialog-error.oga")
+            if "safe_play" in globals():
+                safe_play("dialog-error.oga")
             self.append_info(f"❌ Check-Fehler: {str(e)}", "error")
-            if pbar: pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
+            if pbar:
+                pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
 
         # 4. AUTO-RESET (3 Sekunden) -> Zurück zu Orange/Gold Style
         if pbar:
+
             def restore_style():
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
+                pbar.setStyleSheet(
+                    """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
                     color: white; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
+                """
+                )
+
             QTimer.singleShot(3000, restore_style)
 
     def show_start_config(self):
@@ -6487,23 +6601,28 @@ class PatchManagerGUI(QWidget):
 
         # 2. REGENBOGEN-PROGRESS AKTIVIEREN (Schwarze Schrift, 15pt)
         if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     text-align: center; font-weight: 700; border: 2px solid #222;
                     border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
+            """
+            )
             pbar.setFormat(f"💻 {T_LOAD} %p%")
             pbar.setValue(20)
             pbar.show()
             QApplication.processEvents()
 
         try:
-            if pbar: pbar.setValue(50)
+            if pbar:
+                pbar.setValue(50)
 
             # 3. TERMINAL LOGIK
             system = platform.system()
@@ -6516,15 +6635,25 @@ class PatchManagerGUI(QWidget):
                 terminal_opened = True
 
             elif system == "Linux":
-                terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm", "lxterminal"]
+                terminals = [
+                    "gnome-terminal",
+                    "konsole",
+                    "xfce4-terminal",
+                    "xterm",
+                    "lxterminal",
+                ]
                 for term in terminals:
                     if shutil.which(term):
                         if exec_cmd:
                             # Ubuntu/Gnome Spezial-Handling
                             if term == "gnome-terminal":
-                                subprocess.Popen([term, "--", "bash", "-c", f"{exec_cmd}; exec bash"])
+                                subprocess.Popen(
+                                    [term, "--", "bash", "-c", f"{exec_cmd}; exec bash"]
+                                )
                             else:
-                                subprocess.Popen([term, "-e", f"bash -c '{exec_cmd}; exec bash'"])
+                                subprocess.Popen(
+                                    [term, "-e", f"bash -c '{exec_cmd}; exec bash'"]
+                                )
                         else:
                             subprocess.Popen([term])
                         terminal_opened = True
@@ -6534,13 +6663,15 @@ class PatchManagerGUI(QWidget):
                 raise FileNotFoundError("No terminal emulator found!")
 
             # --- SOUND & PROGRESS BEI ERFOLG ---
-            if "safe_play" in globals(): safe_play("complete.oga")
+            if "safe_play" in globals():
+                safe_play("complete.oga")
             if pbar:
                 pbar.setValue(100)
                 pbar.setFormat(f"✅ {T_DONE} 100%")
 
         except Exception as e:
-            if "safe_play" in globals(): safe_play("dialog-error.oga")
+            if "safe_play" in globals():
+                safe_play("dialog-error.oga")
             if pbar:
                 pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
                 pbar.setFormat("❌ Error!")
@@ -6549,17 +6680,20 @@ class PatchManagerGUI(QWidget):
 
         # 4. AUTO-RESET (3 Sekunden) -> Zurück zu Orange/Gold Style
         if pbar:
+
             def restore_style():
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
+                pbar.setStyleSheet(
+                    """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
                     color: white; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
-            QTimer.singleShot(3000, restore_style)
+                """
+                )
 
+            QTimer.singleShot(3000, restore_style)
 
     def select_patch_path(self):
         """Öffnet Verzeichnis-Dialog mit Regenbogen-Progress, Sound und DE/EN Support."""
@@ -6574,9 +6708,9 @@ class PatchManagerGUI(QWidget):
 
         # Lokalisierte Texte
         T_TITLE = "Patch-Ordner auswählen" if is_de else "Select Patch Folder"
-        T_LOAD  = "Ordner wird gewählt..." if is_de else "Selecting folder..."
-        T_DONE  = "Pfad gespeichert!" if is_de else "Path saved!"
-        T_ERR   = "Fehler!" if is_de else "Error!"
+        T_LOAD = "Ordner wird gewählt..." if is_de else "Selecting folder..."
+        T_DONE = "Pfad gespeichert!" if is_de else "Path saved!"
+        T_ERR = "Fehler!" if is_de else "Error!"
 
         # --- SOUND BEIM ÖFFNEN (Start) ---
         if "safe_play" in globals():
@@ -6584,16 +6718,20 @@ class PatchManagerGUI(QWidget):
 
         # 2. REGENBOGEN-PROGRESS AKTIVIEREN (Schwarze Schrift, 15pt)
         if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     text-align: center; font-weight: 700; border: 2px solid #222;
                     border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
+            """
+            )
             pbar.setFormat(f"📁 {T_LOAD} %p%")
             pbar.setValue(20)
             pbar.show()
@@ -6605,7 +6743,8 @@ class PatchManagerGUI(QWidget):
 
         if directory:
             directory = os.path.normpath(directory)
-            if pbar: pbar.setValue(60)
+            if pbar:
+                pbar.setValue(60)
 
             # Interne Variablen updaten
             self.cfg["s3_patch_path"] = directory
@@ -6620,187 +6759,206 @@ class PatchManagerGUI(QWidget):
                     json.dump(self.cfg, f, indent=4)
 
                 # --- SOUND & PROGRESS BEI ERFOLG ---
-                if "safe_play" in globals(): safe_play("complete.oga")
-                
+                if "safe_play" in globals():
+                    safe_play("complete.oga")
+
                 if pbar:
                     pbar.setValue(100)
                     pbar.setFormat(f"✅ {T_DONE} 100%")
 
                 if hasattr(self, "append_info"):
-                    self.append_info(self.info_text, f"✅ Speicherort geändert: <b>{directory}</b>" if is_de else f"✅ Path changed: <b>{directory}</b>", "success")
-            
+                    self.append_info(
+                        self.info_text,
+                        (
+                            f"✅ Speicherort geändert: <b>{directory}</b>"
+                            if is_de
+                            else f"✅ Path changed: <b>{directory}</b>"
+                        ),
+                        "success",
+                    )
+
             except Exception as e:
-                if "safe_play" in globals(): safe_play("dialog-error.oga")
-                if pbar: pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
+                if "safe_play" in globals():
+                    safe_play("dialog-error.oga")
+                if pbar:
+                    pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
                 if hasattr(self, "append_info"):
                     self.append_info(self.info_text, f"❌ {T_ERR}: {e}", "error")
         else:
             # Abgebrochen
-            if "safe_play" in globals(): safe_play("dialog-error.oga")
-            if pbar: pbar.setValue(0)
+            if "safe_play" in globals():
+                safe_play("dialog-error.oga")
+            if pbar:
+                pbar.setValue(0)
 
         # 4. AUTO-RESET (3 Sekunden) -> Zurück zu Orange/Gold Style
         if pbar:
+
             def restore_style():
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
+                pbar.setStyleSheet(
+                    """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
                     color: white; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
+                """
+                )
+
             QTimer.singleShot(3000, restore_style)
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """Installiert Update: Prüft Schreibrechte, macht Backup und erzwingt Disk-Sync."""
-        import requests, os, shutil, sys, stat
+        """Sichert alle wichtigen Dateien, installiert das Update und bietet Rollback bei Fehlern."""
+        import requests, os, shutil, sys
         from PyQt6.QtWidgets import QMessageBox, QApplication
-        from PyQt6.QtCore import QTimer
-        from datetime import datetime
 
-        # 1. SETUP & ECHTE PFADE ERMITTELN
-        current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
-        is_de = current_lang == "de"
-        
-        # sys.argv[0] ist unter Linux der sicherste Weg zum echten Skript-Pfad
-        current_file = os.path.abspath(sys.argv[0])
-        tool_dir = os.path.dirname(current_file)
-        
-        backup_dir = os.path.join(tool_dir, "backup")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        v_str = str(globals().get("APP_VERSION", "old")).replace(".", "_")
-        backup_file = os.path.join(backup_dir, f"backup_v{v_str}_{timestamp}.py")
-        
-        pbar = getattr(self, "progress_bar", None)
+        current_lang = str(getattr(self, "LANG", "de")).lower()
+        lang_pack = TEXTS.get(current_lang, TEXTS.get("en", {}))
+        current_file = os.path.abspath(__file__)
+        # Pfad zum Backup der Hauptdatei (aus deiner Konfiguration)
+        backup_file = PATCH_MANAGER_OLD
 
-        # --- BERECHTIGUNGS-CHECK (Der wichtigste Teil!) ---
-        if not os.access(tool_dir, os.W_OK) or (os.path.exists(current_file) and not os.access(current_file, os.W_OK)):
-            error_msg = (f"❌ KEINE SCHREIBRECHTE!\n\nDas Tool darf in {tool_dir} nichts ändern.\n"
-                         "Bitte starte das Tool mit 'sudo' oder ändere die Rechte:\n"
-                         f"sudo chmod -R 777 {tool_dir}") if is_de else \
-                        (f"❌ NO WRITE PERMISSIONS!\n\nCannot write to {tool_dir}.\n"
-                         "Please start with 'sudo' or fix permissions.")
-            QMessageBox.critical(self, "Permission Error", error_msg)
-            return
-
-        if "safe_play" in globals(): safe_play("service-login.oga")
-
-        # 2. REGENBOGEN-PROGRESS STARTEN
-        if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"QProgressBar {{ text-align: center; font-weight: 900; color: black; font-size: 15pt; background: #111; border: 2px solid #222; }} QProgressBar::chunk {{ background: {rainbow}; }}")
-            pbar.setFormat("🚀 Update: Backup..." if is_de else "🚀 Update: Backup...")
-            pbar.setValue(10)
-            pbar.show()
-            pbar.raise_()
-            QApplication.processEvents()
-
-        try:
-            # --- Schritt 1: Backup ---
-            if not os.path.exists(backup_dir):
-                os.makedirs(backup_dir, exist_ok=True)
-            shutil.copy2(current_file, backup_file)
-            if pbar: pbar.setValue(30); QApplication.processEvents()
-
-            # --- Schritt 2: Download (KORREKTE URL) ---
-            # Der Pfad muss komplett sein inklusive User, Repo, Branch und Datei!
-            download_url = "https://raw.githubusercontent.com"
-
-            headers = {
-                "Cache-Control": "no-cache", 
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                "Pragma": "no-cache"
-            } 
-
-            try:
-                # Nur ein Aufruf nötig
-                resp = requests.get(download_url, headers=headers, timeout=30)
-                resp.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                raise ValueError(f"Download fehlgeschlagen: {e}")
-
-            # HTML-Schutz (Prüft ob wir wirklich Code erhalten haben)
-            if "<!DOCTYPE html>" in resp.text or "<html>" in resp.text:
-                raise ValueError("Fehler: URL ungültig (GitHub liefert HTML statt Code).")
-            
-            # Sicherheitscheck: Inhalt muss nach Python aussehen
-            if "import" not in resp.text or "def" not in resp.text:
-                raise ValueError("Download korrupt: Kein gültiger Python-Code empfangen.")
-            
-            if len(resp.text) < 5000: 
-                raise ValueError(f"Download korrupt: Datei zu klein ({len(resp.text)} Bytes).")
-
-
-            # --- Schritt 3: Datei ersetzen (Atomic Write) ---
-            temp_file = current_file + ".tmp"
-            with open(temp_file, "w", encoding="utf-8") as f:
-                f.write(resp.text)
-                f.flush()
-                os.fsync(f.fileno())
-
-            # Alte Datei löschen, neue umbenennen (umgeht File-Locks)
-            if os.path.exists(current_file):
-                os.remove(current_file)
-            os.rename(temp_file, current_file)
-            
-            # Ausführbar machen für Linux
-            os.chmod(current_file, os.stat(current_file).st_mode | stat.S_IEXEC)
-
-            # --- Schritt 4: Erfolg & Neustart ---
-            if pbar:
-                pbar.setValue(100)
-                pbar.setFormat("✅ Fertig!" if is_de else "✅ Done!")
+        def action_log(text_key, level="info", **kwargs):
+            if hasattr(self, "info_text"):
+                safe_vars = {"version": latest_version or "???", "current": APP_VERSION}
+                safe_vars.update(kwargs)
+                text_template = lang_pack.get(text_key, text_key)
+                try:
+                    text = text_template.format(**safe_vars)
+                except:
+                    text = text_template
+                color = (
+                    "green"
+                    if level == "success"
+                    else "red" if level == "error" else "blue"
+                )
+                self.info_text.append(f'<span style="color:{color}">{text}</span>')
                 QApplication.processEvents()
 
-            if "safe_play" in globals(): safe_play("complete.oga")
-            
-            msg = "Update erfolgreich! Jetzt neu starten?" if is_de else "Update successful! Restart now?"
-            if QMessageBox.question(self, "Restart", msg) == QMessageBox.StandardButton.Yes:
+        try:
+            if progress_callback:
+                progress_callback(10)
+
+            # --- 1. BACKUP ERSTELLEN ---
+            patch_dir = getattr(self, "OLD_PATCH_DIR", "patch_backup")
+            os.makedirs(patch_dir, exist_ok=True)
+
+            # Wichtigstes Backup: Die aktuelle .py Datei
+            shutil.copy2(current_file, backup_file)
+            action_log("update_backup_done", "success")
+
+            if progress_callback:
+                progress_callback(30)
+
+            # --- 2. DOWNLOAD ---
+            download_url = (
+                "https://raw.githubusercontent.com/"
+                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            )
+            resp = requests.get(download_url, timeout=20)
+            resp.raise_for_status()
+            new_content = resp.content
+
+            # --- 3. DATEI ERSETZEN MIT ROLLBACK-SCHUTZ ---
+            try:
+                if len(new_content) < 1000:  # Plausibilitätscheck: Zu kleine Datei?
+                    raise ValueError(
+                        "Download-Datei scheint korrupt oder zu klein zu sein."
+                    )
+
+                with open(current_file, "wb") as f:
+                    f.write(new_content)
+
+            except Exception as write_error:
+                # ROLLBACK: Falls das Schreiben fehlschlägt, Backup sofort zurückspielen
+                if os.path.exists(backup_file):
+                    shutil.copy2(backup_file, current_file)
+                    action_log(
+                        "update_fail",
+                        "error",
+                        error=f"Rollback durchgeführt: {str(write_error)}",
+                    )
+                raise write_error
+
+            if progress_callback:
+                progress_callback(90)
+            action_log("update_done", "success", version=latest_version)
+
+            # --- 4. NEUSTART ---
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle(lang_pack.get("restart_required_title", "Restart"))
+            msg_box.setText(
+                f"{lang_pack.get('update_success', 'Update OK')}\n\n{lang_pack.get('restart_tool_question', 'Restart?')}"
+            )
+
+            yes_btn = msg_box.addButton(
+                lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
+            )
+            msg_box.addButton(
+                lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole
+            )
+            msg_box.exec()
+
+            if progress_callback:
+                progress_callback(100)
+            if msg_box.clickedButton() == yes_btn:
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
         except Exception as e:
-            if "safe_play" in globals(): safe_play("dialog-error.oga")
-            QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
-            if pbar:
-                pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; }")
-                pbar.setFormat("❌ Fehler!")
+            action_log("update_download_failed", "error", error=str(e))
+            QMessageBox.critical(
+                self,
+                "Update Error",
+                f"Update fehlgeschlagen.\nDas Tool wurde (falls möglich) wiederhergestellt.\n\nFehler: {str(e)}",
+            )
+            if progress_callback:
+                progress_callback(0)
 
     def ask_for_update(self, latest_version):
-        """Fragt nach Update und startet Installation entkoppelt für flüssige GUI."""
-        lang = getattr(self, "LANG", "de").lower()[:2]
-        lang_texts = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
+        lang = getattr(self, "LANG", "DE")
+        lang_texts = TEXTS.get(lang, TEXTS.get("EN", {}))
 
+        # Dialog erstellen
         msg_box = QMessageBox(self)
         msg_box.setIcon(QMessageBox.Icon.Question)
         msg_box.setWindowTitle(lang_texts.get("update_available_title", "Update"))
-        
-        message = lang_texts.get("update_available_msg", "Update {latest} verfügbar?").format(latest=latest_version)
+
+        # Text formatieren
+        msg_template = lang_texts.get("update_available_msg", "Update {latest}?")
+        message = msg_template.format(current=APP_VERSION, latest=latest_version)
         msg_box.setText(message)
 
-        yes_btn = msg_box.addButton(lang_texts.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
-        no_btn = msg_box.addButton(lang_texts.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
-        msg_box.setDefaultButton(yes_btn)
+        # Buttons manuell hinzufügen und übersetzen
+        # Wir nehmen die Texte "yes" und "no" aus deinem TEXTS-Dictionary
+        yes_text = lang_texts.get("yes", "Ja")
+        no_text = lang_texts.get("no", "Nein")
+
+        yes_button = msg_box.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
+        no_button = msg_box.addButton(no_text, QMessageBox.ButtonRole.NoRole)
+        msg_box.setDefaultButton(yes_button)
 
         msg_box.exec()
 
-        if msg_box.clickedButton() == yes_btn:
-            # FIX: Erst Fenster weg, dann UI aktualisieren, dann mit Timer die Action rufen
-            msg_box.close()
-            QApplication.processEvents() 
-            
+        if msg_box.clickedButton() == yes_button:
             if hasattr(self, "plugin_update_action"):
-                # 200ms Verzögerung entkoppelt den schweren Download-Prozess vom Dialog-Thread
-                QTimer.singleShot(200, lambda: self.plugin_update_action(latest_version))
-
-
+                self.plugin_update_action(latest_version)
 
     # ======= HIER EINSETZEN =======
-    def create_action_button(self, parent, text, color, callback, all_buttons_list, 
-                             fg="white", factor_hover=1.15, factor_pressed=0.85, 
-                             min_height=42, radius=8, icon_name=None):
+    def create_action_button(
+        self,
+        parent,
+        text,
+        color,
+        callback,
+        all_buttons_list,
+        fg="white",
+        factor_hover=1.15,
+        factor_pressed=0.85,
+        min_height=42,
+        radius=8,
+        icon_name=None,
+    ):
         from PyQt6.QtGui import QIcon
         from PyQt6.QtCore import QSize, Qt
         from PyQt6.QtWidgets import QStyle, QSizePolicy, QPushButton
@@ -6814,20 +6972,30 @@ class PatchManagerGUI(QWidget):
             icon = QIcon()
             if str(icon_name).startswith("SP_"):
                 p_enum = getattr(QStyle.StandardPixmap, icon_name, None)
-                if p_enum: icon = self.style().standardIcon(p_enum)
+                if p_enum:
+                    icon = self.style().standardIcon(p_enum)
             elif os.path.exists(str(icon_name)):
                 icon = QIcon(icon_name)
-            
+
             if not icon.isNull():
                 btn.setIcon(icon)
                 btn.setIconSize(QSize(22, 22))
 
         # Farben für Effekte berechnen
-        hover_color = self.adjust_color(color, factor_hover) if hasattr(self, "adjust_color") else color
-        pressed_color = self.adjust_color(color, factor_pressed) if hasattr(self, "adjust_color") else color
+        hover_color = (
+            self.adjust_color(color, factor_hover)
+            if hasattr(self, "adjust_color")
+            else color
+        )
+        pressed_color = (
+            self.adjust_color(color, factor_pressed)
+            if hasattr(self, "adjust_color")
+            else color
+        )
 
         # --- STYLESHEET MIT GLOW-EFFEKT ---
-        btn.setStyleSheet(f"""
+        btn.setStyleSheet(
+            f"""
             QPushButton {{
                 background-color: {color}; color: {fg}; border-radius: {radius}px;
                 border: 1px solid rgba(255,255,255,0.1); padding: 5px;
@@ -6843,7 +7011,8 @@ class PatchManagerGUI(QWidget):
                 background-color: {pressed_color};
                 padding-top: 7px; padding-left: 7px; /* Klick-Animation */
             }} 
-        """)
+        """
+        )
 
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -6852,17 +7021,22 @@ class PatchManagerGUI(QWidget):
             # 1. Regenbogen-Progress sofort starten
             pbar = getattr(self, "progress_bar", None)
             if pbar:
-                rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                           "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                           "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-                pbar.setStyleSheet(f"QProgressBar {{ text-align: center; font-weight: 700; border: 2px solid #222; "
-                                   f"border-radius: 6px; background: #111; color: black; font-size: 15pt; }} "
-                                   f"QProgressBar::chunk {{ background: {rainbow}; }}")
+                rainbow = (
+                    "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                    "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                    "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+                )
+                pbar.setStyleSheet(
+                    f"QProgressBar {{ text-align: center; font-weight: 700; border: 2px solid #222; "
+                    f"border-radius: 6px; background: #111; color: black; font-size: 15pt; }} "
+                    f"QProgressBar::chunk {{ background: {rainbow}; }}"
+                )
                 pbar.setValue(15)
                 pbar.show()
-            
+
             # 2. Original-Funktion ausführen
-            if callback: callback()
+            if callback:
+                callback()
 
         if callback:
             btn.clicked.connect(enhanced_callback)
@@ -6870,7 +7044,9 @@ class PatchManagerGUI(QWidget):
         all_buttons_list.append(btn)
         return btn
 
-    def generate_buttons(self, parent, button_definitions, all_buttons_list, info_widget=None):
+    def generate_buttons(
+        self, parent, button_definitions, all_buttons_list, info_widget=None
+    ):
         """Erzeugt Buttons basierend auf Dictionary-Listen (DE/EN tauglich)."""
         buttons = {}
         def_height = getattr(self, "BUTTON_HEIGHT", 42)
@@ -6880,10 +7056,11 @@ class PatchManagerGUI(QWidget):
             # Falls Name "work", "temp" oder "emu" -> Nutze open_custom_folder
             key = bd.get("key", "unknown")
             callback = bd.get("callback", lambda: None)
-            
+
             # Icons übersetzen (SP_ Pfade)
             icon = bd.get("icon")
-            if not icon and "open" in key: icon = "SP_DirIcon"
+            if not icon and "open" in key:
+                icon = "SP_DirIcon"
 
             btn = self.create_action_button(
                 parent=parent,
@@ -6963,16 +7140,86 @@ class PatchManagerGUI(QWidget):
 
         # Button-Definitionen (Key, Text_Key, Farbe, Callback, FG, Icon)
         button_defs = [
-            ("git_status", "git_status", "#1E90FF", self.show_commits, "white", "SP_FileDialogContentsView"),
-            ("plugin_update", "plugin_update", "#FF8C00", self.plugin_update_button_clicked, "white", "SP_ArrowDown"),
-            ("restart_tool", "restart_tool", "#FF4500", self.restart_application_with_info, "white", "SP_BrowserReload"),
-            ("edit_patch_header", "edit_patch_header", "#32CD32", self.edit_patch_header, "white", "SP_FileDialogDetailedView"),
-            ("github_emu_config", "github_emu_config_button", "#FFA500", self.edit_emu_github_config, "black", "SP_ComputerIcon"),
-            ("github_upload_patch", "github_upload_patch", "#1E90FF", github_upload_patch_file, "white", "SP_ArrowUp"),
-            ("github_upload_emu", "github_upload_emu", "#1E90FF", github_upload_oscam_emu_folder, "white", "SP_ArrowUp"),
-            ("oscam_emu_git_patch", "oscam_emu_git_patch", "#32CD32", patch_oscam_emu_git, "white", "SP_DialogApplyButton"),
-            ("oscam_emu_git_clear", "oscam_emu_git_clear", "#FF4500", self.oscam_emu_git_clear, "white", "SP_TrashIcon"),
-            ("s3_menu", " s3_simplebuild", "#EAFF00", self.start_s3_menu, "black", "SP_FileDialogDetailedView"),
+            (
+                "git_status",
+                "git_status",
+                "#1E90FF",
+                self.show_commits,
+                "white",
+                "SP_FileDialogContentsView",
+            ),
+            (
+                "plugin_update",
+                "plugin_update",
+                "#FF8C00",
+                self.plugin_update_button_clicked,
+                "white",
+                "SP_ArrowDown",
+            ),
+            (
+                "restart_tool",
+                "restart_tool",
+                "#FF4500",
+                self.restart_application_with_info,
+                "white",
+                "SP_BrowserReload",
+            ),
+            (
+                "edit_patch_header",
+                "edit_patch_header",
+                "#32CD32",
+                self.edit_patch_header,
+                "white",
+                "SP_FileDialogDetailedView",
+            ),
+            (
+                "github_emu_config",
+                "github_emu_config_button",
+                "#FFA500",
+                self.edit_emu_github_config,
+                "black",
+                "SP_ComputerIcon",
+            ),
+            (
+                "github_upload_patch",
+                "github_upload_patch",
+                "#1E90FF",
+                github_upload_patch_file,
+                "white",
+                "SP_ArrowUp",
+            ),
+            (
+                "github_upload_emu",
+                "github_upload_emu",
+                "#1E90FF",
+                github_upload_oscam_emu_folder,
+                "white",
+                "SP_ArrowUp",
+            ),
+            (
+                "oscam_emu_git_patch",
+                "oscam_emu_git_patch",
+                "#32CD32",
+                patch_oscam_emu_git,
+                "white",
+                "SP_DialogApplyButton",
+            ),
+            (
+                "oscam_emu_git_clear",
+                "oscam_emu_git_clear",
+                "#FF4500",
+                self.oscam_emu_git_clear,
+                "white",
+                "SP_TrashIcon",
+            ),
+            (
+                "s3_menu",
+                " s3_simplebuild",
+                "#EAFF00",
+                self.start_s3_menu,
+                "black",
+                "SP_FileDialogDetailedView",
+            ),
         ]
 
         container = QWidget()
@@ -6980,9 +7227,10 @@ class PatchManagerGUI(QWidget):
         options_grid.setSpacing(6)
         options_grid.setContentsMargins(0, 5, 0, 5)
 
-        if not hasattr(self, "all_buttons"): self.all_buttons = []
+        if not hasattr(self, "all_buttons"):
+            self.all_buttons = []
         self.option_buttons = getattr(self, "option_buttons", {})
-        
+
         cols_per_row = 5
         FLACH_HEIGHT = 35
 
@@ -6991,7 +7239,9 @@ class PatchManagerGUI(QWidget):
             current_icon = rest[1] if len(rest) > 1 else None
 
             # Sprach-Übersetzung
-            raw_text = self.get_t(text_key, text_key) if hasattr(self, "get_t") else text_key
+            raw_text = (
+                self.get_t(text_key, text_key) if hasattr(self, "get_t") else text_key
+            )
 
             def create_cb(c, k=key):
                 def wrapper():
@@ -7002,16 +7252,20 @@ class PatchManagerGUI(QWidget):
                     # --- 2. REGENBOGEN-PROGRESS (15pt, Schwarze Schrift) ---
                     pbar = getattr(self, "progress_bar", None)
                     if pbar:
-                        rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                                   "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                                   "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-                        pbar.setStyleSheet(f"""
+                        rainbow = (
+                            "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                            "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                            "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+                        )
+                        pbar.setStyleSheet(
+                            f"""
                             QProgressBar {{
                                 text-align: center; font-weight: 700; border: 2px solid #222;
                                 border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                             }}
                             QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-                        """)
+                        """
+                        )
                         msg = "Verarbeite..." if is_de else "Processing..."
                         pbar.setFormat(f"⚙️ {msg} %p%")
                         pbar.setValue(15)
@@ -7024,23 +7278,43 @@ class PatchManagerGUI(QWidget):
                             c()
                         else:
                             # Externe Funktionen (z.B. GitHub Upload)
-                            callback_func = getattr(self, "upload_progress_with_speed", pbar.setValue if pbar else None)
-                            c(gui_instance=self, info_widget=self.info_text, progress_callback=callback_func)
-                        
+                            callback_func = getattr(
+                                self,
+                                "upload_progress_with_speed",
+                                pbar.setValue if pbar else None,
+                            )
+                            c(
+                                gui_instance=self,
+                                info_widget=self.info_text,
+                                progress_callback=callback_func,
+                            )
+
                         # --- 4. ERFOLGS-SOUND & RESET ---
-                        if "safe_play" in globals(): safe_play("complete.oga")
+                        if "safe_play" in globals():
+                            safe_play("complete.oga")
                         if pbar:
                             pbar.setValue(100)
                             pbar.setFormat("✅ OK!" if is_de else "✅ Done!")
 
                     except Exception as e:
-                        if "safe_play" in globals(): safe_play("dialog-error.oga")
-                        if pbar: pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
+                        if "safe_play" in globals():
+                            safe_play("dialog-error.oga")
+                        if pbar:
+                            pbar.setStyleSheet(
+                                "QProgressBar { color: red; font-weight: 700; }"
+                            )
                         print(f"Fehler bei {k}: {e}")
 
                     # --- 5. AUTO-RESET NACH 3 SEKUNDEN ---
                     if pbar:
-                        QTimer.singleShot(3000, self.pbar_idle if hasattr(self, "pbar_idle") else lambda: pbar.setValue(0))
+                        QTimer.singleShot(
+                            3000,
+                            (
+                                self.pbar_idle
+                                if hasattr(self, "pbar_idle")
+                                else lambda: pbar.setValue(0)
+                            ),
+                        )
 
                 return wrapper
 
@@ -7057,7 +7331,9 @@ class PatchManagerGUI(QWidget):
                 radius=getattr(self, "BUTTON_RADIUS", 10),
             )
 
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+            btn.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+            )
             btn.setMinimumHeight(FLACH_HEIGHT)
             btn.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
 
@@ -7772,7 +8048,13 @@ class PatchManagerGUI(QWidget):
     def edit_patch_header(self, info_widget=None, progress_callback=None):
         """Öffnet den Header-Editor mit Regenbogen-Progress, Sound und Sprach-Support."""
         import os
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QDialogButtonBox, QApplication
+        from PyQt6.QtWidgets import (
+            QDialog,
+            QVBoxLayout,
+            QTextEdit,
+            QDialogButtonBox,
+            QApplication,
+        )
         from PyQt6.QtCore import QTimer
 
         # 1. Sprache & Progress Setup
@@ -7782,9 +8064,9 @@ class PatchManagerGUI(QWidget):
 
         # Lokalisierte Texte
         T_LOADING = "Editor wird geladen..." if is_de else "Loading editor..."
-        T_SAVED   = "Patch gespeichert!" if is_de else "Patch saved!"
-        T_CANCEL  = "Abgebrochen" if is_de else "Cancelled"
-        T_TITLE   = "Patch-Header Editor"
+        T_SAVED = "Patch gespeichert!" if is_de else "Patch saved!"
+        T_CANCEL = "Abgebrochen" if is_de else "Cancelled"
+        T_TITLE = "Patch-Header Editor"
 
         # --- SOUND BEIM ÖFFNEN ---
         if "safe_play" in globals():
@@ -7792,16 +8074,20 @@ class PatchManagerGUI(QWidget):
 
         if pbar:
             # Regenbogen-Style mit SCHWARZER Schrift (font-size 15pt wie im ZIP-Code)
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
                 QProgressBar {{
                     text-align: center; font-weight: 700; border: 2px solid #222;
                     border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
+            """
+            )
             pbar.setFormat(f"📝 {T_LOADING} %p%")
             pbar.setValue(20)
             pbar.show()
@@ -7812,8 +8098,10 @@ class PatchManagerGUI(QWidget):
         p_file = os.path.join(base, "oscam-emu.patch")
 
         if not os.path.exists(p_file):
-            if pbar: pbar.setValue(0)
-            if "safe_play" in globals(): safe_play("dialog-error.oga")
+            if pbar:
+                pbar.setValue(0)
+            if "safe_play" in globals():
+                safe_play("dialog-error.oga")
             return
 
         # 2. Dialog erstellen
@@ -7821,33 +8109,43 @@ class PatchManagerGUI(QWidget):
         dlg.setWindowTitle(T_TITLE)
         dlg.resize(900, 700)
         ly = QVBoxLayout(dlg)
-        
+
         edit = QTextEdit()
         # Matrix-Style: Schwarz mit grüner Schrift
-        edit.setStyleSheet("background-color: #000; color: #0F0; font-family: monospace; font-size: 11pt; border: 1px solid #333;")
+        edit.setStyleSheet(
+            "background-color: #000; color: #0F0; font-family: monospace; font-size: 11pt; border: 1px solid #333;"
+        )
 
         try:
             with open(p_file, "r", encoding="utf-8", errors="ignore") as f:
                 edit.setPlainText(f.read())
-            if pbar: pbar.setValue(60)
+            if pbar:
+                pbar.setValue(60)
         except Exception:
-            if pbar: pbar.setValue(0)
+            if pbar:
+                pbar.setValue(0)
             return
 
         ly.addWidget(edit)
-        
+
         # --- BUTTONS ÜBERSETZEN ---
-        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        bb = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
         btn_save = bb.button(QDialogButtonBox.StandardButton.Save)
-        if btn_save: btn_save.setText("Speichern" if is_de else "Save")
+        if btn_save:
+            btn_save.setText("Speichern" if is_de else "Save")
         btn_cancel = bb.button(QDialogButtonBox.StandardButton.Cancel)
-        if btn_cancel: btn_cancel.setText("Abbrechen" if is_de else "Cancel")
+        if btn_cancel:
+            btn_cancel.setText("Abbrechen" if is_de else "Cancel")
 
         bb.accepted.connect(dlg.accept)
         bb.rejected.connect(dlg.reject)
         ly.addWidget(bb)
 
-        if pbar: pbar.setValue(90)
+        if pbar:
+            pbar.setValue(90)
 
         # 3. Dialog ausführen
         result = dlg.exec()
@@ -7856,7 +8154,7 @@ class PatchManagerGUI(QWidget):
             try:
                 # --- SOUND BEIM SPEICHERN ---
                 if "safe_play" in globals():
-                    safe_play("complete.oga") # Erfolgs-Sound
+                    safe_play("complete.oga")  # Erfolgs-Sound
 
                 content = edit.toPlainText()
                 with open(p_file, "w", encoding="utf-8") as f:
@@ -7866,13 +8164,15 @@ class PatchManagerGUI(QWidget):
                     pbar.setValue(100)
                     pbar.setFormat(f"✅ {T_SAVED} 100%")
             except Exception:
-                if "safe_play" in globals(): safe_play("dialog-error.oga")
-                if pbar: pbar.setStyleSheet("QProgressBar { color: red; }")
+                if "safe_play" in globals():
+                    safe_play("dialog-error.oga")
+                if pbar:
+                    pbar.setStyleSheet("QProgressBar { color: red; }")
         else:
             # --- SOUND BEIM ABBRECHEN ---
             if "safe_play" in globals():
                 safe_play("dialog-error.oga")
-            
+
             if pbar:
                 pbar.setValue(0)
                 pbar.setFormat(f"↩️ {T_CANCEL}")
@@ -7882,13 +8182,15 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
+                pbar.setStyleSheet(
+                    """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
                     color: white; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
-        
+                """
+                )
+
         QTimer.singleShot(3000, restore_pbar)
 
         if progress_callback:
@@ -9515,21 +9817,33 @@ class PatchManagerGUI(QWidget):
         self.btn_open_work.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_open_work.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_open_work.setStyleSheet(button_style)
-        self.btn_open_work.clicked.connect(lambda checked=False: self.open_custom_folder(getattr(self, "PLUGIN_DIR", ".")))
+        self.btn_open_work.clicked.connect(
+            lambda checked=False: self.open_custom_folder(
+                getattr(self, "PLUGIN_DIR", ".")
+            )
+        )
 
         self.btn_open_temp = QPushButton(" Temp-Repo")
         self.btn_open_temp.setIcon(f_icon)
         self.btn_open_temp.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_open_temp.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_open_temp.setStyleSheet(button_style)
-        self.btn_open_temp.clicked.connect(lambda checked=False: self.open_custom_folder(getattr(self, "TEMP_REPO", ".")))
+        self.btn_open_temp.clicked.connect(
+            lambda checked=False: self.open_custom_folder(
+                getattr(self, "TEMP_REPO", ".")
+            )
+        )
 
         self.btn_open_emu = QPushButton(" Emu-Git")
         self.btn_open_emu.setIcon(f_icon)
         self.btn_open_emu.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_open_emu.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_open_emu.setStyleSheet(button_style)
-        self.btn_open_emu.clicked.connect(lambda checked=False: self.open_custom_folder(getattr(self, "PATCH_EMU_GIT_DIR", ".")))
+        self.btn_open_emu.clicked.connect(
+            lambda checked=False: self.open_custom_folder(
+                getattr(self, "PATCH_EMU_GIT_DIR", ".")
+            )
+        )
 
         # --- 3. Funktions-Buttons (Unten) ---
         self.btn_check_tools = QPushButton("🛠️ Tools prüfen")
