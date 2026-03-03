@@ -1,20 +1,20 @@
 # Änderungen für oscam_patch_manager.py
-Letzte Aktualisierung: 03.03.2026 12:42
+Letzte Aktualisierung: 03.03.2026 12:44
 
 ---
 
 ## 🔧 Änderungen am Script
 
-* Update oscam_patch_manager.py (fd57967)
+* Fix download URL formatting in oscam_patch_manager.py (b73385f)
 ---
 
 ## 📊 Aktueller Tool-Status
 
 ```text
-  File "/home/runner/work/Oscam-Emu-patch-Manager/Oscam-Emu-patch-Manager/oscam_patch_manager.py", line 6709
-    download_url = (
-                   ^
-SyntaxError: '(' was never closed
+Traceback (most recent call last):
+  File "/home/runner/work/Oscam-Emu-patch-Manager/Oscam-Emu-patch-Manager/oscam_patch_manager.py", line 207, in <module>
+    from PyQt6.QtGui import QFont, QColor, QTextCursor, QIcon
+ModuleNotFoundError: No module named 'PyQt6'
 ⚠️ Tool-Ausführung fehlgeschlagen
 ```
 
