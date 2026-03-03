@@ -428,14 +428,11 @@ def get_initial_patch_dir():
     return path
 
 
-OLD_PATCH_DIR = get_initial_patch_dir()
-OLD_PATCH_DIR_PLUGIN_DEFAULT = OLD_PATCH_DIR
-OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
-ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
-PATCH_MANAGER_OLD = os.path.join(OLD_PATCH_DIR, "oscam_patch_manager_old.py")
-CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "config_old.json")
-GITHUB_CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "github_upload_config_old.json")
-# ===================== CACHE & CONFIG =====================
+# 1. Zuerst das Hauptverzeichnis definieren
+PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__)) 
+WORK_DIR = PLUGIN_DIR
+
+# 2. Jetzt alle Pfade definieren, die auf PLUGIN_DIR basieren
 PYC_FILE = os.path.join(PLUGIN_DIR, "oscam_patch_manager.pyc")
 CACHE_DIR = os.path.join(PLUGIN_DIR, "__pycache__")
 CONFIG_FILE = os.path.join(PLUGIN_DIR, "config.json")
@@ -443,12 +440,19 @@ GITHUB_CONF_FILE = os.path.join(PLUGIN_DIR, "github_upload_config.json")
 PATCH_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.patch")
 ZIP_FILE = os.path.join(PLUGIN_DIR, "oscam-emu.zip")
 ICON_DIR = os.path.join(PLUGIN_DIR, "icons")
-PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__)) # Das Hauptverzeichnis des Tools
-WORK_DIR = PLUGIN_DIR
-# 2. Temp-Repo (oscam-svn)
+
+# 3. Verzeichnisse für Repos
 TEMP_REPO = os.path.join(PLUGIN_DIR, "temp_repo")
-# 3. Emu-Git (oscam-emu-patch)
 PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
+
+# 4. Alte/Backup Pfade (Falls get_initial_patch_dir() existiert)
+OLD_PATCH_DIR = get_initial_patch_dir()
+OLD_PATCH_DIR_PLUGIN_DEFAULT = OLD_PATCH_DIR
+OLD_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.patch")
+ALT_PATCH_FILE = os.path.join(OLD_PATCH_DIR, "oscam-emu.altpatch")
+PATCH_MANAGER_OLD = os.path.join(OLD_PATCH_DIR, "oscam_patch_manager_old.py")
+CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "config_old.json")
+GITHUB_CONFIG_OLD = os.path.join(OLD_PATCH_DIR, "github_upload_config_old.json")
 # ===================== TOOLS & REPOS =====================                                                
 CHECK_TOOLS_SCRIPT = os.path.join(PLUGIN_DIR, "check_tools.sh")
 PATCH_MODIFIER = "speedy005"
