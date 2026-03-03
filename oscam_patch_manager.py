@@ -389,7 +389,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.1.5"
+APP_VERSION = "4.1.6"
 
 
 # ===================== PATCH DIRS =====================
@@ -6677,41 +6677,41 @@ class PatchManagerGUI(QWidget):
         current_file = os.path.abspath(__file__)
         backup_file = globals().get("PATCH_MANAGER_OLD", "patch_backup_old.py")
         
-        # --- Zuweisung der Progressbar ---
+        # --- REGENBOGEN & PROGRESSBAR INITIALISIERUNG ---
         pbar = getattr(self, "progress_bar", None)
+        rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                   "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                   "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
+        
+        def set_pbar(value, text):
+            if pbar:
+                pbar.setStyleSheet(f"QProgressBar {{ text-align: center; font-weight: 900; color: black; background: #111; border: 2px solid #222; }} "
+                                   f"QProgressBar::chunk {{ background: {rainbow}; }}")
+                pbar.setValue(value)
+                pbar.setFormat(text)
+                QApplication.processEvents()
 
         def action_log(text_key, level="info", **kwargs):
             if hasattr(self, "info_text"):
                 safe_vars = {"version": latest_version or "???", "current": globals().get("APP_VERSION", "0")}
                 safe_vars.update(kwargs)
                 text_template = lang_pack.get(text_key, text_key)
-                try:
-                    text = text_template.format(**safe_vars)
-                except:
-                    text = text_template
+                try: text = text_template.format(**safe_vars)
+                except: text = text_template
                 color = "#00FF41" if level == "success" else "#FB0A2A" if level == "error" else "cyan"
                 self.info_text.append(f'<span style="color:{color}; font-weight:700;">{text}</span>')
                 QApplication.processEvents()
 
         try:
-            # --- START FEEDBACK ---
-            if pbar:
-                pbar.setValue(10)
-                pbar.setFormat("📦 Backup..." if is_de else "📦 Backup...")
-                QApplication.processEvents()
-
             # --- 1. BACKUP ERSTELLEN ---
+            set_pbar(20, "📦 Backup..." if is_de else "📦 Backup...")
             patch_dir = getattr(self, "OLD_PATCH_DIR", "patch_backup")
             os.makedirs(patch_dir, exist_ok=True)
             shutil.copy2(current_file, backup_file)
             action_log("update_backup_done", "success")
 
-            if pbar:
-                pbar.setValue(30)
-                pbar.setFormat("📡 Download..." if is_de else "📡 Download...")
-                QApplication.processEvents()
-
             # --- 2. DOWNLOAD ---
+            set_pbar(50, "📡 Download..." if is_de else "📡 Download...")
             download_url = (
                 "https://raw.githubusercontent.com/"
                 "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
@@ -6721,39 +6721,26 @@ class PatchManagerGUI(QWidget):
             new_content = resp.content
 
             # --- 3. DATEI ERSETZEN MIT ROLLBACK-SCHUTZ ---
+            set_pbar(80, "⚙️ Install..." if is_de else "⚙️ Installing...")
             try:
                 if len(new_content) < 1000:
                     raise ValueError("Download-Datei korrupt (zu klein).")
-
                 with open(current_file, "wb") as f:
                     f.write(new_content)
-
             except Exception as write_error:
                 if os.path.exists(backup_file):
                     shutil.copy2(backup_file, current_file)
-                    action_log("update_fail", "error", error=f"Rollback: {str(write_error)}")
                 raise write_error
 
-            if pbar:
-                pbar.setValue(90)
-                pbar.setFormat("✅ Fast fertig!" if is_de else "✅ Almost done!")
-                QApplication.processEvents()
-
+            # --- 4. ERFOLG ---
             action_log("update_done", "success", version=latest_version)
-
-            # --- 4. ERFOLGS-SOUND & NEUSTART ---
-            if "safe_play" in globals(): 
-                safe_play("complete.oga") # Erfolg-Sound abspielen
-
-            if pbar:
-                pbar.setValue(100)
-                pbar.setFormat("🏁 Fertig!" if is_de else "🏁 Done!")
+            if "safe_play" in globals(): safe_play("complete.oga")
+            set_pbar(100, "🏁 Fertig!" if is_de else "🏁 Done!")
 
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Information)
             msg_box.setWindowTitle(lang_pack.get("restart_required_title", "Restart"))
             msg_box.setText(f"{lang_pack.get('update_success', 'Update OK')}\n\n{lang_pack.get('restart_tool_question', 'Restart?')}")
-
             yes_btn = msg_box.addButton(lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
             msg_box.addButton(lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
             msg_box.exec()
@@ -6764,9 +6751,45 @@ class PatchManagerGUI(QWidget):
         except Exception as e:
             if "safe_play" in globals(): safe_play("dialog-error.oga")
             if pbar:
-                pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; background: #222; }")
+                pbar.setStyleSheet("QProgressBar { color: white; font-weight: 900; background: #800; }")
                 pbar.setFormat("❌ Fehler!" if is_de else "❌ Error!")
             QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
+
+    def ask_for_update(self, latest_version):
+        """Fragt nach Update mit Sound und bereitet die Regenbogen-Bar vor."""
+        from PyQt6.QtWidgets import QMessageBox, QApplication
+        from PyQt6.QtCore import QTimer
+        
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        is_de = lang == "de"
+        pbar = getattr(self, "progress_bar", None)
+
+        if "safe_play" in globals(): safe_play("dialog-information.oga")
+
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        msg_box.setWindowTitle("Update" if is_de else "Update Available")
+        message = (f"Update {latest_version} verfügbar. Jetzt installieren?" if is_de 
+                   else f"Update {latest_version} available. Install now?")
+        msg_box.setText(message)
+
+        yes_btn = msg_box.addButton("Ja" if is_de else "Yes", QMessageBox.ButtonRole.YesRole)
+        no_btn = msg_box.addButton("Nein" if is_de else "No", QMessageBox.ButtonRole.NoRole)
+        msg_box.setDefaultButton(yes_btn)
+
+        if msg_box.exec() == 0 or msg_box.clickedButton() == yes_btn:
+            if pbar:
+                rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                           "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                           "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
+                pbar.setStyleSheet(f"QProgressBar {{ text-align: center; font-weight: 900; color: black; background: #111; border: 2px solid #222; }} "
+                                   f"QProgressBar::chunk {{ background: {rainbow}; }}")
+                pbar.setFormat("🚀 Starte..." if is_de else "🚀 Starting...")
+                pbar.setValue(5)
+                pbar.show()
+                QApplication.processEvents()
+
+            QTimer.singleShot(200, lambda: self.plugin_update_action(latest_version))
 
 
     def ask_for_update(self, latest_version):
