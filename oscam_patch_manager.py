@@ -245,12 +245,9 @@ class OSCamUpdateWorker(QThread):
 
     def run(self):
         try:
-            # 1. Remote HEAD Hash abrufen (ohne Download, nur Header)
-            # Nutzt 'git ls-remote' - extrem schnell und datensparend
+            # 1. Remote HEAD Hash abrufen
             cmd_remote = ["git", "ls-remote", self.remote_url, "HEAD"]
-            remote_out = subprocess.check_output(
-                cmd_remote, text=True, stderr=subprocess.DEVNULL
-            ).split()
+            remote_out = subprocess.check_output(cmd_remote, text=True, stderr=subprocess.DEVNULL).split()
             if not remote_out:
                 return
             remote_hash = remote_out[0]
@@ -259,17 +256,14 @@ class OSCamUpdateWorker(QThread):
             local_hash = ""
             if os.path.exists(os.path.join(self.local_path, ".git")):
                 cmd_local = ["git", "-C", self.local_path, "rev-parse", "HEAD"]
-                local_hash = subprocess.check_output(
-                    cmd_local, text=True, stderr=subprocess.DEVNULL
-                ).strip()
+                local_hash = subprocess.check_output(cmd_local, text=True, stderr=subprocess.DEVNULL).strip()
 
-            # 3. Vergleich
-            if remote_hash != local_hash:
-                self.status_signal.emit(True, remote_hash[:7])
-            else:
-                self.status_signal.emit(False, "")
-        except:
-            self.status_signal.emit(False, "Error")
+            # 3. Vergleich & Signal senden
+            update_available = (remote_hash != local_hash)
+            self.status_signal.emit(update_available, remote_hash)
+        except Exception as e:
+            print(f"Update-Check Fehler: {e}")
+            self.status_signal.emit(False, "")
 
 
 def check_and_install_dependencies(required_packages):
@@ -6662,9 +6656,9 @@ class PatchManagerGUI(QWidget):
         """
         Vollständiges Update-System: 
         1. Backup in 'backup/' mit Zeitstempel
-        2. RAW-Download mit HTML-Schutz
-        3. Schreib-Garantie (fsync) & Cache-Cleanup
-        4. Regenbogen-Progress & Sound
+        2. RAW-Download mit HTML-Schutz & Verifizierung
+        3. Schreib-Garantie (fsync) & Cache-Cleanup (verhindert Versions-Hänger)
+        4. Regenbogen-Progress (Schwarz, 15pt) & Sound
         """
         import requests, os, shutil, sys
         from PyQt6.QtWidgets import QMessageBox, QApplication
@@ -6674,7 +6668,6 @@ class PatchManagerGUI(QWidget):
         # 1. SETUP & SPRACHE
         current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = current_lang == "de"
-        lang_pack = globals().get("TEXTS", {}).get(current_lang, {})
         
         current_file = os.path.abspath(__file__)
         # Ordner 'backup' im Verzeichnis des Tools erstellen
@@ -6715,6 +6708,7 @@ class PatchManagerGUI(QWidget):
             pbar.setFormat(f"🚀 {T_LOAD} %p%")
             pbar.setValue(10)
             pbar.show()
+            pbar.raise_()
             QApplication.processEvents()
 
         try:
@@ -6722,10 +6716,9 @@ class PatchManagerGUI(QWidget):
             if not os.path.exists(backup_dir):
                 os.makedirs(backup_dir, exist_ok=True)
             shutil.copy2(current_file, backup_file)
-            
             if pbar: pbar.setValue(30)
 
-            # --- Schritt 2: Download von GitHub (RAW) ---
+            # --- Schritt 2: Download von GitHub (RAW-URL) ---
             download_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/oscam_patch_manager.py"
             headers = {"Cache-Control": "no-cache", "User-Agent": "Mozilla/5.0"}
             resp = requests.get(download_url, headers=headers, timeout=30)
@@ -6734,11 +6727,11 @@ class PatchManagerGUI(QWidget):
             new_content = resp.text
             # Sicherheits-Check: Falls GitHub HTML sendet (Webseite statt Code)
             if "<!DOCTYPE html>" in new_content or "<html" in new_content.lower():
-                raise ValueError("GitHub hat HTML gesendet! Update abgebrochen.")
+                raise ValueError("GitHub sent HTML instead of Code!")
 
-            # Plausibilitäts-Check (Script sollte eine gewisse Mindestgröße haben)
+            # Plausibilitäts-Check (Script sollte eine Mindestgröße haben)
             if len(new_content) < 5000:
-                raise ValueError("Download-Datei ist zu klein oder korrupt.")
+                raise ValueError("Download file too small or corrupt.")
 
             if pbar: pbar.setValue(70)
 
@@ -6746,7 +6739,7 @@ class PatchManagerGUI(QWidget):
             with open(current_file, "w", encoding="utf-8") as f:
                 f.write(new_content)
                 f.flush()
-                os.fsync(f.fileno()) # Zwingt Linux/Windows zum sofortigen Schreiben auf Disk
+                os.fsync(f.fileno()) # Zwingt das System zum sofortigen Schreiben auf Disk
 
             # --- Schritt 4: Cache bereinigen ---
             # Alte kompilierte Python-Dateien löschen, damit die neue Version lädt
@@ -6770,7 +6763,6 @@ class PatchManagerGUI(QWidget):
             msg_box.exec()
 
             if msg_box.clickedButton() == yes_btn:
-                # Neustart des Scripts
                 os.execl(sys.executable, sys.executable, *sys.argv)
             else:
                 QTimer.singleShot(2000, restore_style)
@@ -6793,14 +6785,12 @@ class PatchManagerGUI(QWidget):
                 
                 QTimer.singleShot(500, show_err_final)
 
-            # Falls Datei beschädigt wurde: Rollback aus dem Backup-Ordner
+            # Rollback bei Beschädigung
             if os.path.exists(backup_file) and (not os.path.exists(current_file) or os.path.getsize(current_file) < 5000):
                 shutil.copy2(backup_file, current_file)
-                print("Rollback durchgeführt!")
-
-
 
     def ask_for_update(self, latest_version):
+        """Fragt nach Update und startet Installation entkoppelt für flüssige GUI."""
         lang = getattr(self, "LANG", "de").lower()[:2]
         lang_texts = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
 
@@ -6812,7 +6802,6 @@ class PatchManagerGUI(QWidget):
         message = msg_template.format(current=globals().get("APP_VERSION", "3.3.7"), latest=latest_version)
         msg_box.setText(message)
 
-        # Buttons übersetzen
         yes_text = lang_texts.get("yes", "Ja")
         no_text = lang_texts.get("no", "Nein")
         yes_button = msg_box.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
@@ -6822,12 +6811,12 @@ class PatchManagerGUI(QWidget):
         msg_box.exec()
 
         if msg_box.clickedButton() == yes_button:
-            # --- DER FIX: Dialog schließen und Installation entkoppelt starten ---
             msg_box.close()
             QApplication.processEvents() 
             
             if hasattr(self, "plugin_update_action"):
-                # 100ms warten, damit die GUI wieder frei ist für den Regenbogen-Progress
+                # 100ms Verzögerung sorgt dafür, dass der Dialog komplett weg ist 
+                # und der Regenbogen-Balken sofort erscheint.
                 QTimer.singleShot(100, lambda: self.plugin_update_action(latest_version))
 
     # ======= HIER EINSETZEN =======
