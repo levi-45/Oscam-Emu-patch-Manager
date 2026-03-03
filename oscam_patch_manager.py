@@ -389,7 +389,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.1.7"
+APP_VERSION = "4.1.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -6615,8 +6615,8 @@ class PatchManagerGUI(QWidget):
 
 
     def select_patch_path(self):
-        """Öffnet Verzeichnis-Dialog mit Regenbogen-Progress, Sound und DE/EN Support."""
-        import os, json
+        """Öffnet Verzeichnis-Dialog mit Regenbogen-Progress, Sound und Auto-Reset zu Idle."""
+        import os
         from PyQt6.QtWidgets import QFileDialog, QApplication
         from PyQt6.QtCore import QTimer
 
@@ -6629,25 +6629,24 @@ class PatchManagerGUI(QWidget):
         T_TITLE = "Patch-Ordner auswählen" if is_de else "Select Patch Folder"
         T_LOAD  = "Ordner wird gewählt..." if is_de else "Selecting folder..."
         T_DONE  = "Pfad gespeichert!" if is_de else "Path saved!"
-        T_ERR   = "Fehler!" if is_de else "Error!"
 
-        # --- SOUND BEIM ÖFFNEN (Start) ---
+        # --- SOUND START ---
         if "safe_play" in globals():
             safe_play("service-login.oga")
 
-        # 2. REGENBOGEN-PROGRESS AKTIVIEREN (Schwarze Schrift, 15pt)
+        # 2. REGENBOGEN-PROGRESS AKTIVIEREN
         if pbar:
             rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
                        "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
                        "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
             pbar.setStyleSheet(f"""
                 QProgressBar {{
-                    text-align: center; font-weight: 700; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
+                    text-align: center; font-weight: 900; border: 2px solid #222;
+                    border-radius: 8px; background-color: #111; color: black; font-size: 14pt;
                 }}
-                QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
+                QProgressBar::chunk {{ background: {rainbow}; border-radius: 6px; }}
             """)
-            pbar.setFormat(f"📁 {T_LOAD} %p%")
+            pbar.setFormat(f"📁 {T_LOAD}")
             pbar.setValue(20)
             pbar.show()
             QApplication.processEvents()
@@ -6658,52 +6657,46 @@ class PatchManagerGUI(QWidget):
 
         if directory:
             directory = os.path.normpath(directory)
-            if pbar: pbar.setValue(60)
+            
+            # --- INTERNE WERTE UPDATEN ---
+            # Wir nutzen save_config, um die Datei sicher zu schreiben
+            new_cfg_data = {
+                "s3_patch_path": directory,
+                "old_patch_dir": directory
+            }
+            
+            # Falls save_config existiert, nutzen wir sie (triggert auch Sound/Log)
+            if "save_config" in globals():
+                save_config(new_cfg_data, gui_instance=self)
+            else:
+                # Fallback falls save_config nicht global erreichbar
+                self.cfg.update(new_cfg_data)
+                self.OLD_PATCH_DIR = directory
 
-            # Interne Variablen updaten
-            self.cfg["s3_patch_path"] = directory
-            self.OLD_PATCH_DIR = directory
+            # Pfade für die App-Logik setzen
             self.OLD_PATCH_FILE = os.path.join(directory, "oscam-emu.patch")
             self.ALT_PATCH_FILE = os.path.join(directory, "oscam-emu.altpatch")
 
-            # In config.json speichern (Nutzt deine globale CONFIG_FILE)
-            try:
-                conf_path = globals().get("CONFIG_FILE", "config.json")
-                with open(conf_path, "w", encoding="utf-8") as f:
-                    json.dump(self.cfg, f, indent=4)
-
-                # --- SOUND & PROGRESS BEI ERFOLG ---
-                if "safe_play" in globals(): safe_play("complete.oga")
+            if pbar:
+                pbar.setValue(100)
+                pbar.setFormat(f"✅ {T_DONE}")
                 
-                if pbar:
-                    pbar.setValue(100)
-                    pbar.setFormat(f"✅ {T_DONE} 100%")
+            if "safe_play" in globals(): 
+                safe_play("complete.oga")
 
-                if hasattr(self, "append_info"):
-                    self.append_info(self.info_text, f"✅ Speicherort geändert: <b>{directory}</b>" if is_de else f"✅ Path changed: <b>{directory}</b>", "success")
-            
-            except Exception as e:
-                if "safe_play" in globals(): safe_play("dialog-error.oga")
-                if pbar: pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
-                if hasattr(self, "append_info"):
-                    self.append_info(self.info_text, f"❌ {T_ERR}: {e}", "error")
+            if hasattr(self, "log_message"):
+                msg = f"📁 Neuer Patch-Pfad: {directory}" if is_de else f"📁 New Patch Path: {directory}"
+                self.log_message(f"<span style='color:#FFD700; font-weight:bold;'>{msg}</span>")
         else:
-            # Abgebrochen
-            if "safe_play" in globals(): safe_play("dialog-error.oga")
-            if pbar: pbar.setValue(0)
-
-        # 4. AUTO-RESET (3 Sekunden) -> Zurück zu Orange/Gold Style
-        if pbar:
-            def restore_style():
+            # Abgebrochen -> Kurzes Feedback
+            if pbar:
                 pbar.setValue(0)
-                pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
-                    QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: white; text-align: center; font-weight: bold; }
-                    QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
-            QTimer.singleShot(3000, restore_style)
+                pbar.setFormat("❌" if is_de else "❌")
+
+        # 4. AUTO-RESET ZU DEINEM NEUEN IDLE (mit den 5 Blinks)
+        # Wir warten 2 Sekunden, damit der User das "Pfad gespeichert" lesen kann
+        if hasattr(self, "pbar_idle"):
+            QTimer.singleShot(2500, self.pbar_idle)
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """Sichert alle wichtigen Dateien, installiert das Update und bietet Rollback bei Fehlern."""
