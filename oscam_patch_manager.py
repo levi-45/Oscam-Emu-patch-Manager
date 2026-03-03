@@ -389,7 +389,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.1.3"
+APP_VERSION = "4.1.4"
 
 
 # ===================== PATCH DIRS =====================
@@ -6750,14 +6750,15 @@ class PatchManagerGUI(QWidget):
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
         except Exception as e:
-            action_log("update_download_failed", "error", error=str(e))
-            QMessageBox.critical(
-                self,
-                "Update Error",
-                f"Update fehlgeschlagen.\nDas Tool wurde (falls möglich) wiederhergestellt.\n\nFehler: {str(e)}",
-            )
-            if progress_callback:
-                progress_callback(0)
+            # SOUND vor der Error-Box
+            if "safe_play" in globals(): safe_play("dialog-error.oga")
+            
+            if pbar:
+                pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; }")
+                pbar.setFormat("❌ Fehler!" if is_de else "❌ Error!")
+            
+            QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
+
 
     def ask_for_update(self, latest_version):
         """Fragt nach Update mit Sound und bereitet die Regenbogen-Bar vor."""
