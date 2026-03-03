@@ -389,7 +389,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.1.8"
+APP_VERSION = "4.1.9"
 
 
 # ===================== PATCH DIRS =====================
@@ -4387,72 +4387,83 @@ class PatchManagerGUI(QWidget):
         self.idle_blink_timer_obj.start(450)
 
     def export_log(self):
-        """Speichert Log als Textdatei mit Sound beim Start und beim Erfolg."""
+        """Speichert Log als Textdatei mit originalem Sound-Code, Regenbogen und Gold-Reset."""
         import shutil, subprocess, os
         from datetime import datetime
-        from PyQt6.QtWidgets import QFileDialog
+        from PyQt6.QtWidgets import QFileDialog, QApplication
+        from PyQt6.QtCore import QTimer
 
-        # --- 1. SOUND BEIM STARTEN (Klick auf Button) ---
+        # --- 1. ORIGINAL SOUND BEIM STARTEN (Klick) ---
         for player in ["paplay", "pw-play", "aplay"]:
             if shutil.which(player):
-                # Ein dezenter Sound für den Klick/Start (Beispielpfad)
-                start_sound = (
-                    "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
-                )
+                start_sound = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
                 if os.path.exists(start_sound):
-                    subprocess.Popen(
-                        [player, start_sound],
-                        stderr=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                    )
+                    subprocess.Popen([player, start_sound], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
                 break
 
         text = self.info_text.toPlainText()
         if not text.strip():
             return
 
-        lang = getattr(self, "LANG", "de").lower()
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
+        pbar = getattr(self, "progress_bar", None)
 
-        # Texte & Titel
+        # 2. REGENBOGEN-PROGRESS AKTIVIEREN
+        if pbar:
+            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                       "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                       "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
+            pbar.setStyleSheet(f"""
+                QProgressBar {{
+                    text-align: center; font-weight: 900; border: 2px solid #222;
+                    border-radius: 8px; background-color: #111; color: black; font-size: 14pt;
+                }}
+                QProgressBar::chunk {{ background: {rainbow}; border-radius: 6px; }}
+            """)
+            pbar.setFormat("📝 " + ("Speichere Log..." if is_de else "Saving Log..."))
+            pbar.setValue(30)
+            pbar.show()
+            QApplication.processEvents()
+
+        # 3. DATEI-DIALOG
         t_title = "Log speichern" if is_de else "Save Log"
         t_filter = "Textdateien (*.txt)" if is_de else "Text Files (*.txt)"
-        t_success = "Log exportiert nach" if is_de else "Log exported to"
-        t_error = "Fehler beim Speichern" if is_de else "Error saving file"
-
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            t_title,
-            f"oscam_patch_manager_log_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-            t_filter,
-        )
+        filename = f"oscam_patch_manager_log_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
+        
+        file_path, _ = QFileDialog.getSaveFileName(self, t_title, filename, t_filter)
 
         if file_path:
             try:
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(text)
 
-                # Erfolgsmeldung im Log
-                self.append_info(
-                    self.info_text, f"✅ {t_success}: {file_path}", "success"
-                )
+                # Erfolgsmeldung im Log-Fenster
+                if hasattr(self, "append_info"):
+                    self.append_info(self.info_text, f"✅ Log gespeichert: {file_path}", "success")
 
-                # --- 2. SOUND BEIM ERFOLGREICHEN SPEICHERN ---
+                # --- 4. ORIGINAL SOUND BEIM ERFOLG ---
                 for player in ["paplay", "pw-play", "aplay"]:
                     if shutil.which(player):
-                        success_sound = (
-                            "/usr/share/sounds/freedesktop/stereo/complete.oga"
-                        )
+                        success_sound = "/usr/share/sounds/freedesktop/stereo/complete.oga"
                         if os.path.exists(success_sound):
-                            subprocess.Popen(
-                                [player, success_sound],
-                                stderr=subprocess.DEVNULL,
-                                stdout=subprocess.DEVNULL,
-                            )
+                            subprocess.Popen([player, success_sound], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
                         break
 
+                if pbar:
+                    pbar.setValue(100)
+                    pbar.setFormat("✅ " + ("Gespeichert!" if is_de else "Saved!"))
+
             except Exception as e:
-                self.append_info(self.info_text, f"❌ {t_error}: {e}", "error")
+                if hasattr(self, "append_info"):
+                    self.append_info(self.info_text, f"❌ Fehler: {e}", "error")
+        else:
+            # Abgebrochen
+            if pbar: pbar.setValue(0)
+
+        # 5. AUTO-RESET ZU DEINEM GOLD-BLINKEN (pbar_idle)
+        if hasattr(self, "pbar_idle"):
+            QTimer.singleShot(2500, self.pbar_idle)
 
     def copy_to_clipboard(self):
         """Kopiert den Log in die Zwischenablage."""
@@ -10318,18 +10329,17 @@ class PatchManagerGUI(QWidget):
         if cb:
             try:
                 # Wir stylen die Checkbox exakt wie die Buttons oben
-                cb.setStyleSheet(
-                    f"""
+                # Nutzt die Variablen aus dem aktuellen Theme-Zweig (Gold/Matrix/Light)
+                cb.setStyleSheet(f"""
                     QCheckBox {{
                         background-color: {bg_color};
                         color: {text_color};
                         border-radius: 10px;
                         font-weight: 700;
-                        padding: 2px 10px;
+                        padding: 2px 12px;
                         font-size: 13px;
                         border: 1px solid #444;
-                        height: 35px;
-                        min-height: 35px;
+                       min-height: 35px;
                     }}
                     QCheckBox:hover {{
                         background-color: {hover_color};
@@ -10339,16 +10349,20 @@ class PatchManagerGUI(QWidget):
                         width: 16px;
                         height: 16px;
                         border: 1px solid {text_color};
-                        border-radius: 3px;
-                        background: transparent;
+                        border-radius: 4px;
+                       background: #111; /* Dunkler Kontrast für die Box */
                     }}
                     QCheckBox::indicator:checked {{
-                        background-color: {text_color};
+                        background-color: {text_color}; /* Füllt sich in Gold oder Matrix-Grün */
+                        image: url(no_icon); /* Entfernt Standard-Haken für cleanen Look */
+                        border: 1.5px solid white;
+                    }}
+                    QCheckBox::indicator:unchecked:hover {{
                         border: 1px solid white;
                     }}
-                """
-                )
-            except RuntimeError:
+                """)
+            except Exception as e:
+                 # Falls die Checkbox noch nicht existiert oder gelöscht wurde
                 pass
 
         # B) ProgressBar Style (Standard-Zustand)
