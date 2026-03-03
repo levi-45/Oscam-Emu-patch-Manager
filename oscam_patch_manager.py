@@ -6707,7 +6707,13 @@ class PatchManagerGUI(QWidget):
 
             # --- Schritt 2: Download (RAW URL FIX) ---
             # WICHTIG: Hier 'master' statt 'main' nutzen!
-            download_url = "https://raw.githubusercontent.com"
+            download_url = ("https://raw.githubusercontent.com")
+
+            # Diese Zeile MUSS vor resp = requests.get stehen:
+            headers = {"Cache-Control": "no-cache", "User-Agent": "Mozilla/5.0"} 
+
+            resp = requests.get(download_url, headers=headers, timeout=30)
+        
             try:
                 resp = requests.get(download_url, headers=headers, timeout=30)
                 resp.raise_for_status()
