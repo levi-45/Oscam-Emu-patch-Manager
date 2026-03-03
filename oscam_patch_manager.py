@@ -395,7 +395,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.0.8"
+APP_VERSION = "4.0.9"
 
 
 # ===================== PATCH DIRS =====================
@@ -8236,7 +8236,7 @@ class PatchManagerGUI(QWidget):
         C_BLUE = "#00ADFF"
         C_LINE = "#808080"
 
-        v_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+        v_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/master/version.txt"
 
         try:
             # Cache-Busting durch Timestamp
