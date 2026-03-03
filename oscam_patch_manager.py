@@ -6670,6 +6670,7 @@ class PatchManagerGUI(QWidget):
         is_de = current_lang == "de"
         
         current_file = os.path.abspath(__file__)
+        # Ordner 'backup' im Verzeichnis des Tools erstellen
         backup_dir = os.path.join(os.path.dirname(current_file), "backup")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         v_str = str(globals().get("APP_VERSION", "old")).replace(".", "_")
@@ -6692,7 +6693,7 @@ class PatchManagerGUI(QWidget):
 
         if "safe_play" in globals(): safe_play("service-login.oga")
 
-        # 2. REGENBOGEN-PROGRESS STARTEN
+        # 2. REGENBOGEN-PROGRESS STARTEN (Schwarz, 15pt)
         if pbar:
             rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
                        "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
@@ -6711,45 +6712,48 @@ class PatchManagerGUI(QWidget):
             QApplication.processEvents()
 
         try:
-            # --- Schritt 1: Backup ---
+            # --- Schritt 1: Backup erstellen ---
             if not os.path.exists(backup_dir):
                 os.makedirs(backup_dir, exist_ok=True)
             shutil.copy2(current_file, backup_file)
             if pbar: pbar.setValue(30); QApplication.processEvents()
 
-            # --- Schritt 2: Download ---
+            # --- Schritt 2: Download von GitHub (RAW-URL) ---
             download_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/oscam_patch_manager.py"
             headers = {"Cache-Control": "no-cache", "User-Agent": "Mozilla/5.0"}
             resp = requests.get(download_url, headers=headers, timeout=30)
             resp.raise_for_status()
             
             new_content = resp.text
+            # Sicherheits-Check: Falls GitHub HTML sendet (Webseite statt Code)
             if "<!DOCTYPE html>" in new_content or "<html" in new_content.lower():
                 raise ValueError("GitHub HTML Error!")
+
             if len(new_content) < 5000:
                 raise ValueError("File too small!")
 
             if pbar: pbar.setValue(70); QApplication.processEvents()
 
-            # --- Schritt 3: Datei ersetzen (fsync erzwingt Schreiben) ---
+            # --- Schritt 3: Datei sicher ersetzen (Schreibgarantie für Linux) ---
             with open(current_file, "w", encoding="utf-8") as f:
                 f.write(new_content)
                 f.flush()
-                os.fsync(f.fileno())
+                os.fsync(f.fileno()) # Erzwingt sofortiges Schreiben auf die Disk
 
             # --- Schritt 4: Cache-Cleanup ---
+            # Alte kompilierte Python-Dateien löschen, damit die neue Version lädt
             pyc_file = current_file + "c"
             if os.path.exists(pyc_file): os.remove(pyc_file)
             shutil.rmtree(os.path.join(os.path.dirname(current_file), "__pycache__"), ignore_errors=True)
 
-            # --- Schritt 5: Abschluss ---
+            # --- Schritt 5: Erfolg melden ---
             if "safe_play" in globals(): safe_play("complete.oga")
             if pbar:
                 pbar.setValue(100)
                 pbar.setFormat(f"✅ {T_DONE}")
                 QApplication.processEvents()
             
-            # Neustart-Dialog
+            # --- NEUSTART-DIALOG (Fix: Box schließen vor execl) ---
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Restart" if not is_de else "Neustart")
             msg_box.setText("Update fertig! Jetzt neu starten?" if is_de else "Update done! Restart now?")
@@ -6758,25 +6762,35 @@ class PatchManagerGUI(QWidget):
             msg_box.exec()
 
             if msg_box.clickedButton() == yes_btn:
+                msg_box.close()
+                QApplication.processEvents()
+                # Neustart des Scripts mit aktuellem Interpreter
                 os.execl(sys.executable, sys.executable, *sys.argv)
             else:
                 QTimer.singleShot(2000, restore_style)
 
         except Exception as e:
+            # --- FEHLER-ABLAUF: 100% -> Reset -> Rot ---
             if "safe_play" in globals(): safe_play("dialog-error.oga")
             if pbar:
                 pbar.setValue(100); pbar.setFormat("100%"); pbar.repaint()
                 QApplication.processEvents()
-                def show_err():
+                
+                def show_err_final():
                     pbar.setValue(0)
                     pbar.setFormat(f"❌ Error: {str(e)[:30]}")
                     pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; border: 2px solid red; background: #111; font-size: 14pt; text-align: center; }")
+                    pbar.repaint()
                     QTimer.singleShot(4000, restore_style)
-                QTimer.singleShot(500, show_err)
-            if os.path.exists(backup_file): shutil.copy2(backup_file, current_file)
+                
+                QTimer.singleShot(500, show_err_final)
+
+            # Rollback bei Beschädigung
+            if os.path.exists(backup_file) and (not os.path.exists(current_file) or os.path.getsize(current_file) < 5000):
+                shutil.copy2(backup_file, current_file)
 
     def ask_for_update(self, latest_version):
-        """Fragt nach Update und startet Installation entkoppelt."""
+        """Fragt nach Update und startet Installation entkoppelt für flüssige GUI."""
         lang = getattr(self, "LANG", "de").lower()[:2]
         lang_texts = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
 
@@ -6789,15 +6803,17 @@ class PatchManagerGUI(QWidget):
 
         yes_btn = msg_box.addButton(lang_texts.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole)
         no_btn = msg_box.addButton(lang_texts.get("no", "Nein"), QMessageBox.ButtonRole.NoRole)
-        
+        msg_box.setDefaultButton(yes_btn)
+
         msg_box.exec()
 
         if msg_box.clickedButton() == yes_btn:
+            # FIX: Erst Fenster weg, dann UI aktualisieren, dann mit Timer die Action rufen
             msg_box.close()
-            from PyQt6.QtWidgets import QApplication
             QApplication.processEvents() 
-            # 200ms warten, damit die GUI für den Regenbogen frei wird
+            
             if hasattr(self, "plugin_update_action"):
+                # 200ms Verzögerung entkoppelt den schweren Download-Prozess vom Dialog-Thread
                 QTimer.singleShot(200, lambda: self.plugin_update_action(latest_version))
 
 
