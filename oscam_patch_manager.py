@@ -6721,7 +6721,7 @@ class PatchManagerGUI(QWidget):
             if progress_callback: progress_callback(30)
 
             # --- 2. DOWNLOAD ---
-            download_url = "https://raw.githubusercontent.com"
+            download_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/oscam_patch_manager.py"
             resp = requests.get(download_url, timeout=20)
             resp.raise_for_status()
             new_content = resp.content
