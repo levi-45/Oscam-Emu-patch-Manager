@@ -6659,27 +6659,33 @@ class PatchManagerGUI(QWidget):
             QTimer.singleShot(3000, restore_style)
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """Installiert Update: Backup in 'backup/', Regenbogen, Sound & HTML-Schutz."""
+        """
+        Vollständiges Update-System: 
+        1. Backup in 'backup/' mit Zeitstempel
+        2. RAW-Download mit HTML-Schutz
+        3. Schreib-Garantie (fsync) & Cache-Cleanup
+        4. Regenbogen-Progress & Sound
+        """
         import requests, os, shutil, sys
         from PyQt6.QtWidgets import QMessageBox, QApplication
         from PyQt6.QtCore import QTimer
         from datetime import datetime
 
-        # 1. SETUP & PFADE
+        # 1. SETUP & SPRACHE
         current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = current_lang == "de"
         lang_pack = globals().get("TEXTS", {}).get(current_lang, {})
         
         current_file = os.path.abspath(__file__)
-        # FIX: Ordner heißt 'backup' im Tool-Verzeichnis
+        # Ordner 'backup' im Verzeichnis des Tools erstellen
         backup_dir = os.path.join(os.path.dirname(current_file), "backup")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file = os.path.join(backup_dir, f"backup_v{getattr(self, 'APP_VERSION', 'old')}_{timestamp}.py")
+        v_str = str(globals().get("APP_VERSION", "old")).replace(".", "_")
+        backup_file = os.path.join(backup_dir, f"backup_v{v_str}_{timestamp}.py")
         
         pbar = getattr(self, "progress_bar", None)
         T_LOAD = "Update wird installiert..." if is_de else "Installing update..."
         T_DONE = "Update fertig!" if is_de else "Update complete!"
-        T_CANCEL = "Abgebrochen" if is_de else "Cancelled"
 
         def restore_style():
             if pbar:
@@ -6694,7 +6700,7 @@ class PatchManagerGUI(QWidget):
 
         if "safe_play" in globals(): safe_play("service-login.oga")
 
-        # 2. REGENBOGEN-STYLE (Schwarz, 15pt)
+        # 2. REGENBOGEN-PROGRESS STARTEN (Schwarz, 15pt)
         if pbar:
             rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
                        "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
@@ -6712,70 +6718,85 @@ class PatchManagerGUI(QWidget):
             QApplication.processEvents()
 
         try:
-            # --- 1. BACKUP ERSTELLEN (In den 'backup' Ordner) ---
+            # --- Schritt 1: Backup erstellen ---
             if not os.path.exists(backup_dir):
                 os.makedirs(backup_dir, exist_ok=True)
-            
             shutil.copy2(current_file, backup_file)
             
             if pbar: pbar.setValue(30)
 
-            # --- 2. DOWNLOAD MIT DEINER RAW-URL & HTML-SCHUTZ ---
-            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/oscam_patch_manager.py"
+            # --- Schritt 2: Download von GitHub (RAW) ---
+            download_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/oscam_patch_manager.py"
             headers = {"Cache-Control": "no-cache", "User-Agent": "Mozilla/5.0"}
-            resp = requests.get(url, headers=headers, timeout=25)
+            resp = requests.get(download_url, headers=headers, timeout=30)
             resp.raise_for_status()
             
             new_content = resp.text
-            # Sicherheits-Check: Falls GitHub HTML sendet
+            # Sicherheits-Check: Falls GitHub HTML sendet (Webseite statt Code)
             if "<!DOCTYPE html>" in new_content or "<html" in new_content.lower():
-                raise ValueError("GitHub sent HTML instead of Code!")
+                raise ValueError("GitHub hat HTML gesendet! Update abgebrochen.")
+
+            # Plausibilitäts-Check (Script sollte eine gewisse Mindestgröße haben)
+            if len(new_content) < 5000:
+                raise ValueError("Download-Datei ist zu klein oder korrupt.")
 
             if pbar: pbar.setValue(70)
 
-            # --- 3. DATEI ERSETZEN ---
+            # --- Schritt 3: Datei sicher ersetzen (Schreibgarantie) ---
             with open(current_file, "w", encoding="utf-8") as f:
                 f.write(new_content)
+                f.flush()
+                os.fsync(f.fileno()) # Zwingt Linux/Windows zum sofortigen Schreiben auf Disk
 
-            # ERFOLG
+            # --- Schritt 4: Cache bereinigen ---
+            # Alte kompilierte Python-Dateien löschen, damit die neue Version lädt
+            pyc_file = current_file + "c"
+            if os.path.exists(pyc_file): os.remove(pyc_file)
+            shutil.rmtree(os.path.join(os.path.dirname(current_file), "__pycache__"), ignore_errors=True)
+
+            # --- Schritt 5: Erfolg melden ---
             if "safe_play" in globals(): safe_play("complete.oga")
             if pbar:
                 pbar.setValue(100)
                 pbar.setFormat(f"✅ {T_DONE}")
+                QApplication.processEvents()
             
-            # 4. NEUSTART
+            # Neustart-Dialog
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Restart" if not is_de else "Neustart")
-            msg_box.setText("Update erfolgreich! Jetzt neu starten?" if is_de else "Update success! Restart now?")
+            msg_box.setText("Update erfolgreich installiert! Jetzt neu starten um die neue Version zu aktivieren?" if is_de else "Update installed! Restart now to activate the new version?")
             yes_btn = msg_box.addButton("Ja" if is_de else "Yes", QMessageBox.ButtonRole.YesRole)
             msg_box.addButton("Nein" if is_de else "No", QMessageBox.ButtonRole.NoRole)
             msg_box.exec()
 
             if msg_box.clickedButton() == yes_btn:
+                # Neustart des Scripts
                 os.execl(sys.executable, sys.executable, *sys.argv)
             else:
                 QTimer.singleShot(2000, restore_style)
 
         except Exception as e:
-            # --- ABBRUCH / FEHLER ABLAUF: 100% -> Reset -> Rot ---
+            # --- FEHLER-ABLAUF: 100% -> Reset -> Rot ---
             if "safe_play" in globals(): safe_play("dialog-error.oga")
             if pbar:
                 pbar.setValue(100)
                 pbar.setFormat("100%")
                 pbar.repaint()
+                QApplication.processEvents()
                 
                 def show_err_final():
                     pbar.setValue(0)
-                    pbar.setFormat(f"❌ Error: {str(e)[:25]}")
+                    pbar.setFormat(f"❌ Error: {str(e)[:30]}")
                     pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; border: 2px solid red; background: #111; font-size: 14pt; text-align: center; }")
                     pbar.repaint()
                     QTimer.singleShot(4000, restore_style)
                 
                 QTimer.singleShot(500, show_err_final)
 
-            # Falls Datei schon gelöscht, aber Backup da: Rollback
-            if os.path.exists(backup_file) and not os.path.exists(current_file):
+            # Falls Datei beschädigt wurde: Rollback aus dem Backup-Ordner
+            if os.path.exists(backup_file) and (not os.path.exists(current_file) or os.path.getsize(current_file) < 5000):
                 shutil.copy2(backup_file, current_file)
+                print("Rollback durchgeführt!")
 
 
 
