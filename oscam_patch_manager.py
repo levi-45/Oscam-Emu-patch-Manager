@@ -397,6 +397,7 @@ date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
 APP_VERSION = "4.1.0"
 
+
 # ===================== PATCH DIRS =====================
 def get_best_patch_dir():
     """Bestimmt den besten Patch-Ordner (S3, lokal, Home)."""
@@ -6800,33 +6801,33 @@ class PatchManagerGUI(QWidget):
 
 
     def ask_for_update(self, latest_version):
-        # ... (dein bisheriger Code für Texte und Dialog-Setup) ...
-        lang = getattr(self, "LANG", "de").lower()
+        lang = getattr(self, "LANG", "de").lower()[:2]
         lang_texts = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
 
         msg_box = QMessageBox(self)
         msg_box.setIcon(QMessageBox.Icon.Question)
         msg_box.setWindowTitle(lang_texts.get("update_available_title", "Update"))
-        
-        msg_template = lang_texts.get("update_available_msg", "Update {latest}?")
+
+        msg_template = lang_texts.get("update_available_msg", "Update {latest} verfügbar. Jetzt installieren?")
         message = msg_template.format(current=globals().get("APP_VERSION", "3.3.7"), latest=latest_version)
         msg_box.setText(message)
 
+        # Buttons übersetzen
         yes_text = lang_texts.get("yes", "Ja")
         no_text = lang_texts.get("no", "Nein")
         yes_button = msg_box.addButton(yes_text, QMessageBox.ButtonRole.YesRole)
         no_button = msg_box.addButton(no_text, QMessageBox.ButtonRole.NoRole)
-        
+        msg_box.setDefaultButton(yes_button)
+
         msg_box.exec()
 
         if msg_box.clickedButton() == yes_button:
-            # --- WICHTIG: Erst Dialog weg, dann UI atmen lassen, dann Installation ---
-            msg_box.close() 
-            from PyQt6.QtWidgets import QApplication
+            # --- DER FIX: Dialog schließen und Installation entkoppelt starten ---
+            msg_box.close()
             QApplication.processEvents() 
             
             if hasattr(self, "plugin_update_action"):
-                # Nutze QTimer, um die Funktion vom Dialog-Thread zu entkoppeln
+                # 100ms warten, damit die GUI wieder frei ist für den Regenbogen-Progress
                 QTimer.singleShot(100, lambda: self.plugin_update_action(latest_version))
 
     # ======= HIER EINSETZEN =======
