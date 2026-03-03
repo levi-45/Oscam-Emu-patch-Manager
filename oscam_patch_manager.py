@@ -6705,20 +6705,27 @@ class PatchManagerGUI(QWidget):
             shutil.copy2(current_file, backup_file)
             if pbar: pbar.setValue(30); QApplication.processEvents()
 
-            # --- Schritt 2: Download (RAW URL) ---
+            # --- Schritt 2: Download (RAW URL FIX) ---
+            # WICHTIG: Hier 'master' statt 'main' nutzen!
             download_url = (
                 "https://raw.githubusercontent.com/"
-                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py")
-            headers = {"Cache-Control": "no-cache", "User-Agent": "Mozilla/5.0"}
-            resp = requests.get(download_url, headers=headers, timeout=30)
-            resp.raise_for_status()
+                "speedy005/Oscam-Emu-patch-Manager/master/oscam_patch_manager.py")
             
-            # HTML-Schutz
-            if "<!DOCTYPE html>" in resp.text: raise ValueError("GitHub HTML Error")
-            if len(resp.text) < 5000: raise ValueError("Download corrupt")
+            headers = {"Cache-Control": "no-cache", "User-Agent": "OSCam-Patch-Manager-Updater"}
+            try:
+                resp = requests.get(download_url, headers=headers, timeout=30)
+                resp.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                raise ValueError(f"Download fehlgeschlagen: {e}")
 
-            if pbar: pbar.setValue(70); pbar.setFormat("💾 Speichere..." if is_de else "💾 Saving...")
-            QApplication.processEvents()
+            # HTML-Schutz (Falls GitHub eine 404-Seite sendet)
+            if "<!DOCTYPE html>" in resp.text or "<html>" in resp.text:
+                raise ValueError("Fehler: URL ungültig (GitHub liefert HTML statt Code).")
+            
+            # Validierung: Ist die Datei groß genug?
+            if len(resp.text) < 2000: # Etwas niedrigerer Schwellenwert als Sicherheit
+                raise ValueError("Download korrupt: Datei zu klein.")
+
 
             # --- Schritt 3: Datei ersetzen (Atomic Write) ---
             temp_file = current_file + ".tmp"
