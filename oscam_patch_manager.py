@@ -6760,21 +6760,23 @@ class PatchManagerGUI(QWidget):
                 progress_callback(0)
 
     def ask_for_update(self, latest_version):
-        """Fragt nach Update und startet Installation mit Regenbogen-Progress und Sound."""
+        """Fragt nach Update mit Sound und bereitet die Regenbogen-Bar vor."""
         from PyQt6.QtWidgets import QMessageBox, QApplication
         from PyQt6.QtCore import QTimer
         
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
-        lang_texts = globals().get("TEXTS", {}).get(lang, globals().get("TEXTS", {}).get("en", {}))
         pbar = getattr(self, "progress_bar", None)
+
+        # SOUND abspielen, bevor die Box blockiert
+        if "safe_play" in globals(): 
+            safe_play("dialog-information.oga")
 
         msg_box = QMessageBox(self)
         msg_box.setIcon(QMessageBox.Icon.Question)
         msg_box.setWindowTitle("Update" if is_de else "Update Available")
-        
-        message = (f"Ein neues Update ({latest_version}) ist verfügbar.\nJetzt installieren?" if is_de 
-                   else f"A new update ({latest_version}) is available.\nInstall now?")
+        message = (f"Update {latest_version} verfügbar. Jetzt installieren?" if is_de 
+                   else f"Update {latest_version} available. Install now?")
         msg_box.setText(message)
 
         yes_btn = msg_box.addButton("Ja" if is_de else "Yes", QMessageBox.ButtonRole.YesRole)
@@ -6782,28 +6784,19 @@ class PatchManagerGUI(QWidget):
         msg_box.setDefaultButton(yes_btn)
 
         if msg_box.exec() == 0 or msg_box.clickedButton() == yes_btn:
-            # 1. UI Vorbereitung (Regenbogen & Sound)
-            if "safe_play" in globals(): 
-                safe_play("dialog-information.oga") # Start Sound
-
+            # Regenbogen-Style sofort anwenden
             if pbar:
                 rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
                            "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
                            "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-                pbar.setStyleSheet(f"""
-                    QProgressBar {{
-                        text-align: center; font-weight: 900; color: black; 
-                        font-size: 14pt; background: #111; border: 2px solid #444; border-radius: 8px;
-                    }} 
-                    QProgressBar::chunk {{ background: {rainbow}; border-radius: 6px; }}
-                """)
-                pbar.setFormat("⏳ Initialisiere..." if is_de else "⏳ Initializing...")
+                pbar.setStyleSheet(f"QProgressBar {{ text-align: center; font-weight: 900; color: black; background: #111; border: 2px solid #222; }} "
+                                   f"QProgressBar::chunk {{ background: {rainbow}; }}")
+                pbar.setFormat("🚀 Starte..." if is_de else "🚀 Starting...")
                 pbar.setValue(5)
                 pbar.show()
                 QApplication.processEvents()
 
-            # 2. Entkoppelter Aufruf der Installation
-            QTimer.singleShot(500, lambda: self.plugin_update_action(latest_version))
+            QTimer.singleShot(200, lambda: self.plugin_update_action(latest_version))
 
 
 
