@@ -6705,28 +6705,33 @@ class PatchManagerGUI(QWidget):
             shutil.copy2(current_file, backup_file)
             if pbar: pbar.setValue(30); QApplication.processEvents()
 
-            # --- Schritt 2: Download (RAW URL FIX) ---
-            # WICHTIG: Hier 'master' statt 'main' nutzen!
-            download_url = ("https://raw.githubusercontent.com")
+            # --- Schritt 2: Download (KORREKTE URL) ---
+            # Der Pfad muss komplett sein inklusive User, Repo, Branch und Datei!
+            download_url = "https://raw.githubusercontent.com"
 
-            # Diese Zeile MUSS vor resp = requests.get stehen:
-            headers = {"Cache-Control": "no-cache", "User-Agent": "Mozilla/5.0"} 
+            headers = {
+                "Cache-Control": "no-cache", 
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Pragma": "no-cache"
+            } 
 
-            resp = requests.get(download_url, headers=headers, timeout=30)
-        
             try:
+                # Nur ein Aufruf nötig
                 resp = requests.get(download_url, headers=headers, timeout=30)
                 resp.raise_for_status()
             except requests.exceptions.RequestException as e:
                 raise ValueError(f"Download fehlgeschlagen: {e}")
 
-            # HTML-Schutz (Falls GitHub eine 404-Seite sendet)
+            # HTML-Schutz (Prüft ob wir wirklich Code erhalten haben)
             if "<!DOCTYPE html>" in resp.text or "<html>" in resp.text:
                 raise ValueError("Fehler: URL ungültig (GitHub liefert HTML statt Code).")
             
-            # Validierung: Ist die Datei groß genug?
-            if len(resp.text) < 2000: # Etwas niedrigerer Schwellenwert als Sicherheit
-                raise ValueError("Download korrupt: Datei zu klein.")
+            # Sicherheitscheck: Inhalt muss nach Python aussehen
+            if "import" not in resp.text or "def" not in resp.text:
+                raise ValueError("Download korrupt: Kein gültiger Python-Code empfangen.")
+            
+            if len(resp.text) < 5000: 
+                raise ValueError(f"Download korrupt: Datei zu klein ({len(resp.text)} Bytes).")
 
 
             # --- Schritt 3: Datei ersetzen (Atomic Write) ---
