@@ -6708,7 +6708,7 @@ class PatchManagerGUI(QWidget):
             # --- Schritt 2: Download (RAW URL) ---
             download_url = (
                 "https://raw.githubusercontent.com/"
-                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py")
             headers = {"Cache-Control": "no-cache", "User-Agent": "Mozilla/5.0"}
             resp = requests.get(download_url, headers=headers, timeout=30)
             resp.raise_for_status()
