@@ -6653,141 +6653,104 @@ class PatchManagerGUI(QWidget):
             QTimer.singleShot(3000, restore_style)
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """
-        Vollständiges Update-System: 
-        1. Backup in 'backup/' mit Zeitstempel
-        2. RAW-Download mit HTML-Schutz & Verifizierung
-        3. Schreib-Garantie (fsync) & Cache-Cleanup (verhindert Versions-Hänger)
-        4. Regenbogen-Progress (Schwarz, 15pt) & Sound
-        """
-        import requests, os, shutil, sys
+        """Installiert Update: Prüft Schreibrechte, macht Backup und erzwingt Disk-Sync."""
+        import requests, os, shutil, sys, stat
         from PyQt6.QtWidgets import QMessageBox, QApplication
         from PyQt6.QtCore import QTimer
         from datetime import datetime
 
-        # 1. SETUP & SPRACHE
+        # 1. SETUP & ECHTE PFADE ERMITTELN
         current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = current_lang == "de"
         
-        current_file = os.path.abspath(__file__)
-        # Ordner 'backup' im Verzeichnis des Tools erstellen
-        backup_dir = os.path.join(os.path.dirname(current_file), "backup")
+        # sys.argv[0] ist unter Linux der sicherste Weg zum echten Skript-Pfad
+        current_file = os.path.abspath(sys.argv[0])
+        tool_dir = os.path.dirname(current_file)
+        
+        backup_dir = os.path.join(tool_dir, "backup")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         v_str = str(globals().get("APP_VERSION", "old")).replace(".", "_")
         backup_file = os.path.join(backup_dir, f"backup_v{v_str}_{timestamp}.py")
         
         pbar = getattr(self, "progress_bar", None)
-        T_LOAD = "Update wird installiert..." if is_de else "Installing update..."
-        T_DONE = "Update fertig!" if is_de else "Update complete!"
 
-        def restore_style():
-            if pbar:
-                pbar.setValue(0)
-                pbar.setFormat("%p%")
-                pbar.setStyleSheet("""
-                    QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: white; text-align: center; font-weight: bold; }
-                    QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-                """)
+        # --- BERECHTIGUNGS-CHECK (Der wichtigste Teil!) ---
+        if not os.access(tool_dir, os.W_OK) or (os.path.exists(current_file) and not os.access(current_file, os.W_OK)):
+            error_msg = (f"❌ KEINE SCHREIBRECHTE!\n\nDas Tool darf in {tool_dir} nichts ändern.\n"
+                         "Bitte starte das Tool mit 'sudo' oder ändere die Rechte:\n"
+                         f"sudo chmod -R 777 {tool_dir}") if is_de else \
+                        (f"❌ NO WRITE PERMISSIONS!\n\nCannot write to {tool_dir}.\n"
+                         "Please start with 'sudo' or fix permissions.")
+            QMessageBox.critical(self, "Permission Error", error_msg)
+            return
 
         if "safe_play" in globals(): safe_play("service-login.oga")
 
-        # 2. REGENBOGEN-PROGRESS STARTEN (Schwarz, 15pt)
+        # 2. REGENBOGEN-PROGRESS STARTEN
         if pbar:
             rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, "
                        "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
                        "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"""
-                QProgressBar {{
-                    text-align: center; font-weight: 900; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
-                }}
-                QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """)
-            pbar.setFormat(f"🚀 {T_LOAD} %p%")
+            pbar.setStyleSheet(f"QProgressBar {{ text-align: center; font-weight: 900; color: black; font-size: 15pt; background: #111; border: 2px solid #222; }} QProgressBar::chunk {{ background: {rainbow}; }}")
+            pbar.setFormat("🚀 Update: Backup..." if is_de else "🚀 Update: Backup...")
             pbar.setValue(10)
             pbar.show()
             pbar.raise_()
             QApplication.processEvents()
 
         try:
-            # --- Schritt 1: Backup erstellen ---
+            # --- Schritt 1: Backup ---
             if not os.path.exists(backup_dir):
                 os.makedirs(backup_dir, exist_ok=True)
             shutil.copy2(current_file, backup_file)
             if pbar: pbar.setValue(30); QApplication.processEvents()
 
-            # --- Schritt 2: Download von GitHub (RAW-URL) ---
+            # --- Schritt 2: Download (RAW URL) ---
             download_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/oscam_patch_manager.py"
             headers = {"Cache-Control": "no-cache", "User-Agent": "Mozilla/5.0"}
             resp = requests.get(download_url, headers=headers, timeout=30)
             resp.raise_for_status()
             
-            new_content = resp.text
-            # Sicherheits-Check: Falls GitHub HTML sendet (Webseite statt Code)
-            if "<!DOCTYPE html>" in new_content or "<html" in new_content.lower():
-                raise ValueError("GitHub HTML Error!")
+            # HTML-Schutz
+            if "<!DOCTYPE html>" in resp.text: raise ValueError("GitHub HTML Error")
+            if len(resp.text) < 5000: raise ValueError("Download corrupt")
 
-            if len(new_content) < 5000:
-                raise ValueError("File too small!")
+            if pbar: pbar.setValue(70); pbar.setFormat("💾 Speichere..." if is_de else "💾 Saving...")
+            QApplication.processEvents()
 
-            if pbar: pbar.setValue(70); QApplication.processEvents()
-
-            # --- Schritt 3: Datei sicher ersetzen (Schreibgarantie für Linux) ---
-            with open(current_file, "w", encoding="utf-8") as f:
-                f.write(new_content)
+            # --- Schritt 3: Datei ersetzen (Atomic Write) ---
+            temp_file = current_file + ".tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                f.write(resp.text)
                 f.flush()
-                os.fsync(f.fileno()) # Erzwingt sofortiges Schreiben auf die Disk
+                os.fsync(f.fileno())
 
-            # --- Schritt 4: Cache-Cleanup ---
-            # Alte kompilierte Python-Dateien löschen, damit die neue Version lädt
-            pyc_file = current_file + "c"
-            if os.path.exists(pyc_file): os.remove(pyc_file)
-            shutil.rmtree(os.path.join(os.path.dirname(current_file), "__pycache__"), ignore_errors=True)
+            # Alte Datei löschen, neue umbenennen (umgeht File-Locks)
+            if os.path.exists(current_file):
+                os.remove(current_file)
+            os.rename(temp_file, current_file)
+            
+            # Ausführbar machen für Linux
+            os.chmod(current_file, os.stat(current_file).st_mode | stat.S_IEXEC)
 
-            # --- Schritt 5: Erfolg melden ---
-            if "safe_play" in globals(): safe_play("complete.oga")
+            # --- Schritt 4: Erfolg & Neustart ---
             if pbar:
                 pbar.setValue(100)
-                pbar.setFormat(f"✅ {T_DONE}")
+                pbar.setFormat("✅ Fertig!" if is_de else "✅ Done!")
                 QApplication.processEvents()
-            
-            # --- NEUSTART-DIALOG (Fix: Box schließen vor execl) ---
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle("Restart" if not is_de else "Neustart")
-            msg_box.setText("Update fertig! Jetzt neu starten?" if is_de else "Update done! Restart now?")
-            yes_btn = msg_box.addButton("Ja" if is_de else "Yes", QMessageBox.ButtonRole.YesRole)
-            msg_box.addButton("Nein" if is_de else "No", QMessageBox.ButtonRole.NoRole)
-            msg_box.exec()
 
-            if msg_box.clickedButton() == yes_btn:
-                msg_box.close()
-                QApplication.processEvents()
-                # Neustart des Scripts mit aktuellem Interpreter
+            if "safe_play" in globals(): safe_play("complete.oga")
+            
+            msg = "Update erfolgreich! Jetzt neu starten?" if is_de else "Update successful! Restart now?"
+            if QMessageBox.question(self, "Restart", msg) == QMessageBox.StandardButton.Yes:
                 os.execl(sys.executable, sys.executable, *sys.argv)
-            else:
-                QTimer.singleShot(2000, restore_style)
 
         except Exception as e:
-            # --- FEHLER-ABLAUF: 100% -> Reset -> Rot ---
             if "safe_play" in globals(): safe_play("dialog-error.oga")
+            QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
             if pbar:
-                pbar.setValue(100); pbar.setFormat("100%"); pbar.repaint()
-                QApplication.processEvents()
-                
-                def show_err_final():
-                    pbar.setValue(0)
-                    pbar.setFormat(f"❌ Error: {str(e)[:30]}")
-                    pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; border: 2px solid red; background: #111; font-size: 14pt; text-align: center; }")
-                    pbar.repaint()
-                    QTimer.singleShot(4000, restore_style)
-                
-                QTimer.singleShot(500, show_err_final)
-
-            # Rollback bei Beschädigung
-            if os.path.exists(backup_file) and (not os.path.exists(current_file) or os.path.getsize(current_file) < 5000):
-                shutil.copy2(backup_file, current_file)
+                pbar.setStyleSheet("QProgressBar { color: red; font-weight: 900; }")
+                pbar.setFormat("❌ Fehler!")
 
     def ask_for_update(self, latest_version):
         """Fragt nach Update und startet Installation entkoppelt für flüssige GUI."""
