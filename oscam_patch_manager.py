@@ -389,7 +389,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.1.6"
+APP_VERSION = "4.1.7"
 
 
 # ===================== PATCH DIRS =====================
@@ -4057,6 +4057,52 @@ class PatchManagerGUI(QWidget):
             except:
                 continue
 
+    def _run_blink_sequence(self):
+        """Führt genau 10 Farbwechsel (5 Blinks) aus und stoppt dann."""
+        pbar = getattr(self, "progress_bar", None)
+        if not pbar: return
+
+        # Prüfen, ob wir fertig sind (10 Toggles = 5 Mal blinken)
+        if self.blink_count >= 10:
+            self.idle_blink_timer.stop()
+            # Finaler "Steady" Style (Kein Grau!)
+            self._apply_pbar_style(final=True)
+            return
+
+        # Farbwechsel
+        self.blink_count += 1
+        is_on = self.blink_count % 2 == 0
+        self._apply_pbar_style(is_on)
+
+    def _apply_pbar_style(self, is_on=True, final=False):
+        """Hilfsfunktion für das Styling ohne Code-Duplikate."""
+        pbar = getattr(self, "progress_bar", None)
+        
+        # Mode erkennen
+        current_style = self.styleSheet()
+        is_matrix = "#00ff00" in current_style.lower()
+
+        if is_matrix:
+            color = "#00FF00" if is_on else "#002200"
+            bg = "#050505"
+            border = "#00FF00"
+        else:
+            # Gold-Modus: Gold vs. Dunkel-Orange
+            color = "#FFD700" if is_on else "#8B4513"
+            bg = "#111111"
+            border = "#444"
+
+        # Falls wir fertig sind, setzen wir die Textfarbe fest auf Gold/Grün
+        if final: color = "#FFD700" if not is_matrix else "#00FF00"
+
+        pbar.setStyleSheet(f"""
+            QProgressBar {{ 
+                border: 2px solid {border}; border-radius: 8px; background-color: {bg}; 
+                color: {color}; text-align: center; font-weight: 900; font-size: 20px; 
+            }}
+            QProgressBar::chunk {{ background: transparent; }}
+        """)
+
     def open_custom_folder(self, path):
         """Öffnet Ordner mit Regenbogen-Progress und Sound beim Start & Ende."""
         import os, platform, subprocess
@@ -4278,74 +4324,67 @@ class PatchManagerGUI(QWidget):
 
     def pbar_idle(self):
         """
-        Setzt die ProgressBar auf den lockeren 'Was bauen wir heute?'-Modus zurück.
-        Berücksichtigt das aktuell gewählte Farbschema (Matrix, Light oder Gold).
+        Setzt die ProgressBar auf den Idle-Modus mit 5-fachem Blink-Effekt zurück.
+        Startet erst, wenn der Ladevorgang (is_loading) beendet ist.
         """
+        from PyQt6.QtCore import QTimer
         pbar = getattr(self, "progress_bar", None)
-        if not pbar:
+        if not pbar: return
+
+        # --- WICHTIG: PRÜFUNG OB NOCH GELADEN WIRD ---
+        if getattr(self, "is_loading", False):
+            # Falls noch geladen wird, nur Text setzen aber NICHT blinken
+            pbar.setFormat("⏳ Lade Komponenten..." if self.LANG == "de" else "⏳ Loading...")
             return
 
         # 1. Sprache & Text ermitteln
         is_de = getattr(self, "LANG", "de").lower() == "de"
-        idle_msg = (
-            "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?"
-        )
+        idle_msg = "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?"
 
-        # 2. Aktuellen Mode erkennen (Matrix, Light oder Standard)
-        # Wir prüfen das Stylesheet des Hauptfensters oder die aktuelle Farbbox
-        current_style = self.styleSheet()
-        is_matrix = (
-            "Matrix" in str(getattr(self, "current_color_name", ""))
-            or "#00FF00" in current_style
-        )
-        is_light = "#F5F5F5" in current_style or not current_style
-
-        # 3. Stylesheets definieren
-        if is_matrix:
-            # --- MATRIX MODE (Grüner Scanner) ---
-            style = """
-                QProgressBar { 
-                    border: 2px solid #00FF00; border-radius: 8px; background-color: #001100; 
-                    color: #00FF00; text-align: center; font-weight: 700; font-size: 18px; 
-                    min-height: 35px; padding: 2px;
-                }  
-                QProgressBar::chunk { 
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #003300, stop:0.5 #00FF00, stop:1 #003300); 
-                    border-radius: 6px; 
-                }
-            """
-        elif is_light:
-            # --- LIGHT MODE (Dezent Blau/Grau) ---
-            style = """
-                QProgressBar { 
-                    border: 2px solid #BBB; border-radius: 8px; background-color: #EEE; 
-                    color: #222; text-align: center; font-weight: 700; font-size: 18px; 
-                    min-height: 35px; padding: 2px;
-                }
-                QProgressBar::chunk { 
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3498db, stop:1 #2980b9); 
-                    border-radius: 6px; 
-                } 
-            """
-        else:
-            # --- EDLER GOLD/ORANGE STYLE (Dein Standard) ---
-            style = """
-                QProgressBar { 
-                    border: 2px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: #FFD700; text-align: center; font-weight: 700; font-size: 20px; 
-                    min-height: 35px; padding: 2px;
-                }
-                QProgressBar::chunk { 
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F37804, stop:1 #FFD700); 
-                    border-radius: 6px; 
-                }
-            """
-
-        # 4. Werte anwenden
-        pbar.setStyleSheet(style)
+        # 2. Reset & Blink-Vorbereitung
         pbar.setValue(0)
         pbar.setFormat(idle_msg)
         pbar.setTextVisible(True)
+        self.pbar_blink_step = 0
+
+        # Interne Style-Funktion (Kein Grau!)
+        def apply_current_style(is_on=True, is_final=False):
+            current_style = self.styleSheet()
+            is_matrix = "Matrix" in str(getattr(self, "current_color_name", "")) or "#00FF00" in current_style
+            
+            if is_matrix:
+                bg, border = "#050505", "#00FF00"
+                color = "#00FF00" if is_on or is_final else "#003300"
+            else:
+                # EDLER GOLD MODE (Standard) - Fix für grauen Hintergrund
+                bg, border = "#111111", "#444444"
+                color = "#FFD700" if is_on or is_final else "#8B4513"
+
+            pbar.setStyleSheet(f"""
+                QProgressBar {{ 
+                    border: 2px solid {border}; border-radius: 8px; background-color: {bg}; 
+                    color: {color}; text-align: center; font-weight: 900; font-size: 20px; 
+                    min-height: 35px;
+                }}
+                QProgressBar::chunk {{ background: transparent; }}
+            """)
+
+        # Timer-Logik für 5 Blinks (10 Toggles)
+        def run_blink_cycle():
+            self.pbar_blink_step += 1
+            if self.pbar_blink_step >= 10:
+                self.pbar_idle_timer.stop()
+                apply_current_style(is_final=True)
+                return
+            apply_current_style(is_on=(self.pbar_blink_step % 2 == 0))
+
+        # 3. Timer-Setup & Start
+        if not hasattr(self, "pbar_idle_timer"):
+            self.idle_blink_timer_obj = QTimer(self) # Eindeutiger Name
+            self.idle_blink_timer_obj.timeout.connect(run_blink_cycle)
+        
+        self.idle_blink_timer_obj.stop()
+        self.idle_blink_timer_obj.start(450)
 
     def export_log(self):
         """Speichert Log als Textdatei mit Sound beim Start und beim Erfolg."""
