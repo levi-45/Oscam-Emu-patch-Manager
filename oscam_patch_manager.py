@@ -393,7 +393,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.0.2"
+APP_VERSION = "4.1.2"
 
 
 # ===================== PATCH DIRS =====================
