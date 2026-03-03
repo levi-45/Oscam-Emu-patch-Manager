@@ -1,11 +1,11 @@
 # Änderungen für oscam_patch_manager.py
-Letzte Aktualisierung: 03.03.2026 14:54
+Letzte Aktualisierung: 03.03.2026 15:00
 
 ---
 
 ## 🔧 Änderungen am Script
 
-* Refine update prompt and progress bar behavior (a2f2050)
+* Update oscam_patch_manager.py (b59a2e9)
 ---
 
 ## 📊 Aktueller Tool-Status
