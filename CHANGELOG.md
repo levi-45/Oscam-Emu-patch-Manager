@@ -1,11 +1,11 @@
 # Änderungen für oscam_patch_manager.py
-Letzte Aktualisierung: 03.03.2026 12:44
+Letzte Aktualisierung: 03.03.2026 12:50
 
 ---
 
 ## 🔧 Änderungen am Script
 
-* Fix download URL formatting in oscam_patch_manager.py (b73385f)
+* Update oscam_patch_manager.py (6539407)
 ---
 
 ## 📊 Aktueller Tool-Status
