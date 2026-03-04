@@ -11661,62 +11661,42 @@ class PatchManagerGUI(QWidget):
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
-    # --- 1. UMGEBUNG & DPI (ABSOLUT ZUERST) ---
-    import os
-    import sys
-
-    # High-DPI Skalierung für 4K Monitore & Laptops aktivieren
+    # 1. ABSOLUT ZUERST: Umgebungsvariablen
     os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
     os.environ["NO_AT_BRIDGE"] = "1"
 
-    # Importe erst nach den Umgebungsvariablen
+    # 2. ABHÄNGIGKEITEN PRÜFEN (WICHTIG: Ohne GUI-Importe zuerst!)
+    # Diese Funktion muss ganz oben stehen, damit os.execv() 
+    # sauber neustarten kann, ohne alte GUI-Pipes zu hinterlassen.
+    ensure_dependencies()
+
+    # 3. ERST JETZT: PyQt6 Importe & App-Instanz
     from PyQt6.QtWidgets import QApplication, QMessageBox
     from PyQt6.QtCore import Qt
 
-    # Skalierungs-Richtlinie festlegen, BEVOR die App-Instanz erstellt wird
-    # Dies verhindert den "must be called before QGuiApplication" Fehler
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
 
-    # --- 2. QAPPLICATION ERSTELLEN ---
     app = QApplication(sys.argv)
 
-    # --- 3. START-SEQUENZ MIT FEHLER-ABFANG ---
     try:
-        # Hier deine System-Prüfungen (ohne GUI-Elemente zu triggern)
-        # ensure_executable_self()
-        # ensure_dependencies()
-
         # 4. DAS HAUPTFENSTER LADEN
-        # WICHTIG: Die Klasse PatchManagerGUI muss im Code darüber definiert sein
         window = PatchManagerGUI()
-
-        # 5. ANZEIGEMODUS
-        # showMaximized() für Vollbild, show() für Standardgröße
         window.showMaximized()
 
-        # 6. EVENT-LOOP STARTEN
+        # 5. EVENT-LOOP STARTEN
         sys.exit(app.exec())
 
     except Exception as e:
-        # Falls es hier zu einer "Unhandled Exception" kommt, fangen wir sie ab
         import traceback
-
-        error_details = traceback.format_exc()  # Erstellt den kompletten Fehler-Bericht
-
+        error_details = traceback.format_exc()
         print(f"KRITISCHER STARTFEHLER:\n{error_details}")
 
-        # Fehlermeldung für den User anzeigen
         error_box = QMessageBox()
         error_box.setIcon(QMessageBox.Icon.Critical)
         error_box.setWindowTitle("OSCam Patch Manager - Startup Error")
-        error_box.setText("Ein kritischer Fehler ist beim Start aufgetreten.")
-        error_box.setInformativeText(f"Fehler: {str(e)}\n\nDas Programm wird beendet.")
-        error_box.setDetailedText(
-            error_details
-        )  # Zeigt die genaue Zeilennummer bei 'Details'
-        error_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        error_box.setText("Ein kritischer Fehler ist aufgetreten.")
+        error_box.setDetailedText(error_details)
         error_box.exec()
-
         sys.exit(1)
