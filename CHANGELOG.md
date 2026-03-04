@@ -1,18 +1,18 @@
 # Änderungen für oscam_patch_manager.py
-Letzte Aktualisierung: 04.03.2026 09:31
+Letzte Aktualisierung: 04.03.2026 16:03
 
 ---
 
 ## 🔧 Änderungen am Script
 
-* Update oscam_patch_manager.py (9374ec9)
+* Update oscam_patch_manager.py (d11c2dd)
 ---
 
 ## 📊 Aktueller Tool-Status
 
 ```text
 Traceback (most recent call last):
-  File "/home/runner/work/Oscam-Emu-patch-Manager/Oscam-Emu-patch-Manager/oscam_patch_manager.py", line 185, in <module>
+  File "/home/runner/work/Oscam-Emu-patch-Manager/Oscam-Emu-patch-Manager/oscam_patch_manager.py", line 239, in <module>
     from PyQt6.QtGui import QFont, QColor, QTextCursor, QIcon
 ModuleNotFoundError: No module named 'PyQt6'
 ⚠️ Tool-Ausführung fehlgeschlagen
