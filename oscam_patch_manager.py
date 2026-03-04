@@ -476,7 +476,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.2.2"
+APP_VERSION = "4.2.3"
 
 
 # ===================== PATCH DIRS =====================
@@ -8400,11 +8400,13 @@ class PatchManagerGUI(QWidget):
 
     def update_ui_texts(self):
         """Zentrale Text- und Icon-Aktualisierung mit Regenbogen-Progress und S3-Auto-Erkennung."""
+        import os
+        import platform
+        import re
         from PyQt6.QtWidgets import QApplication, QStyle
         from PyQt6.QtCore import QSize, QTimer
-        import re, os, platform
 
-        # 1. Sprache & Progress Setup
+        # --- 1. Sprache & Progress Setup ---
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
         pbar = getattr(self, "progress_bar", None)
@@ -8422,7 +8424,7 @@ class PatchManagerGUI(QWidget):
                     border-radius: 6px; background-color: #111; color: black; font-size: 11pt;
                 }}
                 QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """
+                """
             )
             msg_ui = "UI wird aktualisiert..." if is_de else "Updating UI..."
             pbar.setFormat(f"{msg_ui} %p%")
@@ -8430,6 +8432,7 @@ class PatchManagerGUI(QWidget):
             pbar.show()
             QApplication.processEvents()
 
+        # --- 2. Hilfsfunktion für Buttons ---
         def apply_final_style(btn, text, standard_pixmap):
             if not btn:
                 return
@@ -8443,30 +8446,9 @@ class PatchManagerGUI(QWidget):
             btn.setIcon(QApplication.style().standardIcon(standard_pixmap))
             btn.setIconSize(QSize(20, 20))
             btn.setMinimumSize(185, 48)
+            btn.setStyleSheet("text-align: left; padding-left: 8px; font-weight: bold;")
 
-            # --- SPEZIAL LOGIK FÜR S3 BUTTON (FARBWECHSEL) ---
-            if btn == getattr(self, "btn_s3", None):
-                s3_exe = "s3.exe" if platform.system() == "Windows" else "s3"
-                s3_exists = os.path.exists(
-                    os.path.join(getattr(self, "S3_PATH", ""), s3_exe)
-                )
-
-                if s3_exists:
-                    # GRÜN FÜR UPDATE
-                    btn.setStyleSheet(
-                        "text-align: left; padding-left: 8px; font-weight: bold; color: #00FF00; border: 1px solid #00FF00;"
-                    )
-                else:
-                    # ORANGE FÜR INSTALL
-                    btn.setStyleSheet(
-                        "text-align: left; padding-left: 8px; font-weight: bold; color: orange; border: 1px solid #555;"
-                    )
-            else:
-                btn.setStyleSheet(
-                    "text-align: left; padding-left: 8px; font-weight: bold;"
-                )
-
-        # --- LABELS AKTUALISIEREN ---
+        # --- 3. Labels aktualisieren ---
         if pbar:
             pbar.setValue(40)
 
@@ -8480,65 +8462,47 @@ class PatchManagerGUI(QWidget):
                 lbl.setText(de_t if is_de else en_t)
                 lbl.setFixedWidth(lbl.sizeHint().width() + 10)
 
-        # --- BUTTONS AKTUALISIEREN ---
+        # --- 4. S3-Button Logik ---
         if pbar:
             pbar.setValue(70)
 
-        # --- S3-BUTTON LOGIK IN update_ui_texts ---
         if hasattr(self, "btn_s3") and self.btn_s3:
-            import os, platform
-
             s3_exe = "s3.exe" if platform.system() == "Windows" else "s3"
-            # Prüfen, ob die Datei im S3_PATH existiert
-            s3_exists = os.path.exists(
-                os.path.join(getattr(self, "S3_PATH", ""), s3_exe)
-            )
+            s3_path = getattr(self, "S3_PATH", "")
+            s3_exists = os.path.exists(os.path.join(s3_path, s3_exe))
 
             if s3_exists:
-                # --- FALL A: INSTALLIERT ---
-                s3_text = (
-                    "S3 OK" if is_de else "S3 OK"
-                )  # "S3 OK" bleibt in beiden Sprachen gleich
-                s3_color = "#00FF00"  # Grün
+                s3_text = "S3 OK" if is_de else "S3 OK"
+                s3_tooltip = "S3 ist bereit" if is_de else "S3 is ready"
+                s3_color = "#00FF00"
                 s3_border = "1px solid #00FF00"
             else:
-                # --- FALL B: NICHT INSTALLIERT ---
                 s3_text = "S3 Installieren" if is_de else "Install S3"
-                s3_color = "orange"  # Orange
+                s3_tooltip = "S3 jetzt installieren" if is_de else "Install S3 now"
+                s3_color = "orange"
                 s3_border = "1px solid #555"
 
-            # Button-Style und Text anwenden
             self.btn_s3.setText(f"🚀 {s3_text}")
+            self.btn_s3.setToolTip(s3_tooltip)
             self.btn_s3.setStyleSheet(
                 f"""
-                QPushButton {{ 
-                    color: {s3_color} !important; 
-                    background-color: #3d3d3d; 
-                    border: {s3_border}; 
-                    border-radius: 8px; 
-                    padding: 0 10px;
+                QPushButton {{
+                    text-align: left;
+                    padding-left: 8px;
+                    font-weight: bold;
+                    color: {s3_color};
+                    background-color: #3d3d3d;
+                    border: {s3_border};
+                    border-radius: 8px;
                 }}
-                QPushButton:hover {{ 
-                    background-color: {s3_color}; 
-                    color: black !important; 
+                QPushButton:hover {{
+                    background-color: {s3_color};
+                    color: black;
                 }}
-            """
+                """
             )
 
-            self.btn_s3.setToolTip(
-                "S3 ist bereit"
-                if s3_exists and is_de
-                else (
-                    "S3 is ready"
-                    if s3_exists
-                    else "S3 jetzt installieren" if is_de else "Install S3 now"
-                )
-            )
-
-            self.btn_s3.setText(f"🚀 {strip_icons(s3_label)}")
-            self.btn_s3.setToolTip(s3_tip)
-
-        # 2. Alle anderen Buttons
+        # --- 5. Andere Buttons ---
         mapping = [
             (
                 self.btn_open_work,
@@ -8581,7 +8545,7 @@ class PatchManagerGUI(QWidget):
         for btn, de, en, icon in mapping:
             apply_final_style(btn, de if is_de else en, icon)
 
-        # REIHE 3: Dynamische Buttons (Key-Mapping)
+        # --- 6. Dynamische Buttons ---
         if hasattr(self, "buttons"):
             grid_icons = {
                 "patch_create": QStyle.StandardPixmap.SP_FileIcon,
@@ -8598,7 +8562,7 @@ class PatchManagerGUI(QWidget):
                 if key in grid_icons:
                     apply_final_style(btn, self.get_t(key, key), grid_icons[key])
 
-        # --- ABSCHLUSS ---
+        # --- 7. Abschluss ProgressBar ---
         if pbar:
             pbar.setValue(100)
             pbar.setFormat(f"✅ {'UI bereit!' if is_de else 'UI ready!'} 100%")
