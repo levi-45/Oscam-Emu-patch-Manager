@@ -476,7 +476,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.2.1"
+APP_VERSION = "4.2.2"
 
 
 # ===================== PATCH DIRS =====================
@@ -4513,7 +4513,9 @@ class PatchManagerGUI(QWidget):
 
         # 1. Dynamische Suchliste: Config-Pfad hat immer Vorrang!
         search_list = [
-            os.path.join(getattr(self, "S3_PATH", "/opt/s3"), s3_binary), # Dein gewählter Pfad
+            os.path.join(
+                getattr(self, "S3_PATH", "/opt/s3"), s3_binary
+            ),  # Dein gewählter Pfad
             "/opt/s3_neu/" + s3_binary,
             "/opt/s3/" + s3_binary,
             os.path.expanduser(f"~/s3/{s3_binary}"),
@@ -4532,18 +4534,21 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "append_info"):
                 msg = f"🚀 S3 Menü: {s3_exec}"
                 self.append_info(self.info_text, msg, "info")
-            
+
             # Startet Terminal mit sudo (für Toolchains/Build-Rechte)
             self.open_terminal(s3_path=s3_exec, use_sudo=True)
         else:
             # Sprachabhängige Fehlermeldung
             err_msg = (
-                "❌ Fehler: s3 Startdatei nicht gefunden!" if is_de 
+                "❌ Fehler: s3 Startdatei nicht gefunden!"
+                if is_de
                 else "❌ Error: s3 executable not found!"
             )
             if hasattr(self, "info_text"):
-                self.info_text.append(f'<br><span style="color:red;"><b>{err_msg}</b></span>')
-            
+                self.info_text.append(
+                    f'<br><span style="color:red;"><b>{err_msg}</b></span>'
+                )
+
             # Fallback: Nur leeres Terminal öffnen
             self.open_terminal()
 
@@ -5127,10 +5132,10 @@ class PatchManagerGUI(QWidget):
     def force_user_leds_static(self):
         """User-LEDs statisch setzen (NUR User-LEDs, Farbe passt sich dem Theme an!)"""
         global current_diff_colors
-        
+
         # 1. Aktuelle Akzentfarbe (z.B. Gold oder Matrix-Grün) holen
         fg = current_diff_colors.get("fg", "#EAFF00")
-        
+
         # 2. Status prüfen: Sollen die LEDs leuchten (AN) oder schlafen (AUS)?
         is_enabled = getattr(self, "current_config", {}).get("led_enabled", True)
 
@@ -5150,13 +5155,15 @@ class PatchManagerGUI(QWidget):
         # 4. Stylesheet auf alle User-LEDs anwenden
         for led in getattr(self, "user_leds", []):
             try:
-                led.setStyleSheet(f"""
+                led.setStyleSheet(
+                    f"""
                     QLabel {{
                         background-color: {target_color};
                         border: 1px solid {border_color};
                         border-radius: 4px;
                     }}
-                """)
+                """
+                )
             except:
                 continue
 
@@ -6219,6 +6226,47 @@ class PatchManagerGUI(QWidget):
             if 10 <= speed_val < 950:
                 if hasattr(self, "blink_timer"):
                     self.blink_timer.start(speed_val)
+        # E) Badges & Titel Styling (Dynamisch ans Theme angepasst)
+        badge_style = f"""
+            QFrame {{
+                background-color: {bg}; 
+                border: 1px solid #444; 
+                border-radius: 6px;
+            }}
+            QFrame:hover {{
+                border: 1px solid {fg}; 
+            }}
+        """
+
+        if hasattr(self, "left_badge"):
+            self.left_badge.setStyleSheet(badge_style)
+
+        # HIER DER FIX FÜR DEN TITEL:
+        if hasattr(self, "header_label"):
+            self.header_label.setStyleSheet(
+                f"""
+                QLabel {{
+                    color: {fg}; 
+                    font-weight: bold; 
+                    font-size: 15px; 
+                    background: transparent; 
+                    border: none;
+                }}
+            """
+            )
+
+        if hasattr(self, "right_badge"):
+            # Rechts bleibt der Hintergrund oft transparent für die Animation
+            self.right_badge.setStyleSheet(
+                f"""
+                QFrame {{ background-color: transparent; border: 1px solid #444; border-radius: 6px; }}
+                QFrame:hover {{ border: 1px solid {fg}; }}
+            """
+            )
+            if hasattr(self, "status_label"):
+                self.status_label.setStyleSheet(
+                    f"color: {fg}; font-weight: bold; font-size: 18px; background: transparent;"
+                )
         # =====================================================================
 
         # 5️⃣ ZENTRAL SPEICHERN
@@ -6952,8 +7000,11 @@ class PatchManagerGUI(QWidget):
         pbar = getattr(self, "progress_bar", None)
 
         # Lokalisierte Texte
-        T_LOAD = ("S3 Menü wird geladen..." if s3_path else "Terminal wird geöffnet...") if is_de else \
-                 ("Loading S3 Menu..." if s3_path else "Opening Terminal...")
+        T_LOAD = (
+            ("S3 Menü wird geladen..." if s3_path else "Terminal wird geöffnet...")
+            if is_de
+            else ("Loading S3 Menu..." if s3_path else "Opening Terminal...")
+        )
         T_DONE = "Terminal bereit!" if is_de else "Terminal ready!"
 
         if "safe_play" in globals():
@@ -6961,23 +7012,28 @@ class PatchManagerGUI(QWidget):
 
         # 2. REGENBOGEN-PROGRESS (UI Feedback)
         if pbar:
-            rainbow = ("qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0.0 #FF0000, stop:0.2 #FF7F00, "
-                       "stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);")
-            pbar.setStyleSheet(f"QProgressBar {{ text-align: center; font-weight: 700; border: 2px solid #222; "
-                               f"border-radius: 6px; background-color: #111; color: black; font-size: 15pt; }} "
-                               f"QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}")
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0.0 #FF0000, stop:0.2 #FF7F00, "
+                "stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"QProgressBar {{ text-align: center; font-weight: 700; border: 2px solid #222; "
+                f"border-radius: 6px; background-color: #111; color: black; font-size: 15pt; }} "
+                f"QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}"
+            )
             pbar.setFormat(f"💻 {T_LOAD} %p%")
             pbar.setValue(20)
             pbar.show()
             QApplication.processEvents()
 
         try:
-            if pbar: pbar.setValue(50)
+            if pbar:
+                pbar.setValue(50)
 
             # 3. BEFEHL ZUSAMMENBAUEN
             system = platform.system()
             terminal_opened = False
-            
+
             if s3_path:
                 s3_dir = os.path.dirname(s3_path)
                 s3_cmd = "./s3 menu"
@@ -6995,45 +7051,69 @@ class PatchManagerGUI(QWidget):
                 terminal_opened = True
 
             elif system == "Linux":
-                terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm", "lxterminal"]
+                terminals = [
+                    "gnome-terminal",
+                    "konsole",
+                    "xfce4-terminal",
+                    "xterm",
+                    "lxterminal",
+                ]
                 for term in terminals:
                     if shutil.which(term):
                         if exec_cmd:
                             # Terminal-spezifische Argumente für Command-Execution
                             if term == "gnome-terminal":
-                                args = [term, "--", "bash", "-c", f"{exec_cmd}; exec bash"]
+                                args = [
+                                    term,
+                                    "--",
+                                    "bash",
+                                    "-c",
+                                    f"{exec_cmd}; exec bash",
+                                ]
                             else:
-                                args = [term, "-e", f"bash -c \"{exec_cmd}; exec bash\""]
+                                args = [term, "-e", f'bash -c "{exec_cmd}; exec bash"']
                         else:
                             args = [term]
-                        
+
                         subprocess.Popen(args)
                         terminal_opened = True
                         break
 
             if not terminal_opened:
-                raise FileNotFoundError("Kein Terminal-Emulator gefunden!" if is_de else "No terminal emulator found!")
+                raise FileNotFoundError(
+                    "Kein Terminal-Emulator gefunden!"
+                    if is_de
+                    else "No terminal emulator found!"
+                )
 
-            if "safe_play" in globals(): safe_play("complete.oga")
+            if "safe_play" in globals():
+                safe_play("complete.oga")
             if pbar:
                 pbar.setValue(100)
                 pbar.setFormat(f"✅ {T_DONE} 100%")
 
         except Exception as e:
-            if "safe_play" in globals(): safe_play("dialog-error.oga")
-            if pbar: pbar.setFormat("❌ Error!")
-            if hasattr(self, "append_info"): self.append_info(self.info_text, f"❌ Fehler: {str(e)}", "error")
+            if "safe_play" in globals():
+                safe_play("dialog-error.oga")
+            if pbar:
+                pbar.setFormat("❌ Error!")
+            if hasattr(self, "append_info"):
+                self.append_info(self.info_text, f"❌ Fehler: {str(e)}", "error")
 
         # 5. RESET NACH 3 SEKUNDEN
         if pbar:
+
             def restore_style():
                 pbar.setValue(0)
                 pbar.setFormat("%p%")
-                pbar.setStyleSheet("QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; "
-                                   "color: white; text-align: center; font-weight: bold; } "
-                                   "QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                                   "stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }")
-                if hasattr(self, "pbar_idle"): self.pbar_idle()
+                pbar.setStyleSheet(
+                    "QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; "
+                    "color: white; text-align: center; font-weight: bold; } "
+                    "QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                    "stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }"
+                )
+                if hasattr(self, "pbar_idle"):
+                    self.pbar_idle()
 
             QTimer.singleShot(3000, restore_style)
 
@@ -10492,28 +10572,42 @@ class PatchManagerGUI(QWidget):
         icon_label.setPixmap(icon.pixmap(20, 20))
         left_layout.addWidget(icon_label)
 
-        # Titel (Zwingend WEISSE Schrift)
+        # --- TITEL (Dynamisch ans Theme angepasst) ---
+        # Aktuelle Akzentfarbe aus dem Theme laden (z.B. Neongelb)
+        t_fg = current_diff_colors.get("fg", "#EAFF00")
+
         title_text = " Einstellungen" if self.LANG == "de" else " Settings"
         self.header_label = QLabel(title_text)
+
+        # 'white' durch die Theme-Variable {t_fg} ersetzt
         self.header_label.setStyleSheet(
-            "color: white; font-weight: bold; font-size: 15px; background: transparent; border: none;"
+            f"""
+            QLabel {{
+                color: {t_fg}; 
+                font-weight: bold; 
+                font-size: 15px; 
+                background: transparent; 
+                border: none;
+            }}
+        """
         )
+
         left_layout.addWidget(self.header_label)
         left_layout.addStretch()
         h_layout.addWidget(self.left_badge)
 
         # --- B) RECHTER BADGE (OSCam Status - Länge 280) ---
         self.right_badge = QFrame()
-        self.right_badge.setFixedSize(750, 35)
+        self.right_badge.setFixedSize(600, 45)
         self.right_badge.setStyleSheet(
             f"""
             QFrame {{
-                background-color: {base_bg};
+                background-color: transparent;
                 border: 1px solid #444444;
                 border-radius: 6px;
             }}
             QFrame:hover {{
-                background-color: {hover_bg};
+                background-color: transparent;
                 border: 1px solid #777777;
             }}
         """
