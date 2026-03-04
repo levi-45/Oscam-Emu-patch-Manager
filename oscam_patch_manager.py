@@ -28,12 +28,16 @@ import subprocess
 import stat
 import platform
 import re
+import locale
+import importlib.util
+import threading
+import ctypes
+from datetime import datetime, timezone
 
+# --- GLOBALE VARIABLEN & CONFIG ---
 HAS_SOUND_SUPPORT = False
-
-import subprocess, os, platform, shutil, ctypes
-
-import re
+CONFIG_FILE = "config.json"
+_SETTINGS_CACHE = {}  # Speicher-Cache für bessere Performance
 
 ONLINE_PATCHES = {
     "speedy005 (Master)": "https://raw.githubusercontent.com/speedy005/oscam-emu-patch/refs/heads/master/oscam-emu.patch",
@@ -41,166 +45,140 @@ ONLINE_PATCHES = {
 }
 
 
-def install_font_ubuntu():
-    """Installiert Noto Color Emoji auf Ubuntu-basierten Systemen."""
-    try:
-        # Öffnet ein Terminal für das sudo-Passwort des Nutzers
-        cmd = "sudo apt update && sudo apt install -y fonts-noto-color-emoji && fc-cache -f -v"
-        subprocess.check_call(
-            [
-                "gnome-terminal",
-                "--",
-                "bash",
-                "-c",
-                f"{cmd}; read -p 'Fertig! Drücken Sie Enter...'",
-            ]
-        )
-        return True
-    except Exception:
-        return False
-
-
-def install_font_windows():
-    """Installiert die Emoji-Schriftart für Windows (Admin-Rechte erforderlich)."""
-    import requests
-
-    url = "https://github.com"
-    font_path = os.path.join(os.environ["WINDIR"], "Fonts", "NotoColorEmoji.ttf")
-    try:
-        if not os.path.exists(font_path):
-            r = requests.get(url, timeout=10)
-            with open(font_path, "wb") as f:
-                f.write(r.content)
-            # In Registry registrieren & System informieren
-            ctypes.windll.gdi32.AddFontResourceW(font_path)
-            ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
-        return True
-    except Exception:
-        return False
-
-
-CONFIG_FILE = "config.json"
-
-
-def get_setting(key, default=True):
-    try:
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, "r") as f:
-                return json.load(f).get(key, default)
-    except:
-        pass
-    return default
-
-
-def save_setting(key, value):
-    settings = {}
+# --- SETTINGS LOGIK (Effizient) ---
+def load_settings():
+    """Lädt die Einstellungen einmalig in den Cache."""
+    global _SETTINGS_CACHE
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
-                settings = json.load(f)
+                _SETTINGS_CACHE = json.load(f)
         except:
-            pass
-    settings[key] = value
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(settings, f)
+            _SETTINGS_CACHE = {}
 
+def get_setting(key, default=True):
+    return _SETTINGS_CACHE.get(key, default)
+
+def save_setting(key, value):
+    _SETTINGS_CACHE[key] = value
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(_SETTINGS_CACHE, f, indent=4)
+    except Exception as e:
+        print(f"Fehler beim Speichern: {e}")
+
+# --- SYSTEM FUNKTIONEN ---
+def install_font_linux():
+    """Installiert Noto Color Emoji auf diversen Linux-Distributionen."""
+    cmd = "sudo apt update && sudo apt install -y fonts-noto-color-emoji && fc-cache -f -v"
+    # Liste gängiger Terminals für maximale Kompatibilität
+    terminals = ["x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"]
+    
+    for term in terminals:
+        if shutil.which(term):
+            try:
+                # Terminal-spezifische Argumente
+                args = [term, "--", "bash", "-c", f"{cmd}; read -p 'Fertig!'"] if term == "gnome-terminal" \
+                       else [term, "-e", f"bash -c '{cmd}; read -p \"Fertig!\"'"]
+                subprocess.Popen(args)
+                return True
+            except: continue
+    return False
+
+def install_font_windows():
+    """Installiert die Emoji-Schriftart für Windows asynchron."""
+    def _download():
+        import requests
+        # Korrekter direkter Download-Link zu einer Noto Emoji TTF
+        url = "https://github.com"
+        font_path = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "NotoColorEmoji.ttf")
+        try:
+            if not os.path.exists(font_path):
+                r = requests.get(url, timeout=20)
+                with open(font_path, "wb") as f:
+                    f.write(r.content)
+                ctypes.windll.gdi32.AddFontResourceW(font_path)
+                ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
+        except: pass
+    
+    threading.Thread(target=_download, daemon=True).start()
 
 def ensure_dependencies():
-    """Prüft Python, System-Tools, Sound-Support und zählt die Nutzung (wenn erlaubt)."""
+    """Prüft Abhängigkeiten und startet Telemetrie im Hintergrund."""
     global HAS_SOUND_SUPPORT
-    import importlib.util
-    import shutil
-    import platform
-    import locale
-    import subprocess
-    import sys
-    import os
-    import json
+    load_settings()
 
-    # Zukunftssichere Spracherkennung
+    # 1. Sprache & Texte (Erweitert um fehlende Keys)
     try:
         loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
         lang = loc[:2].lower()
-    except:
-        lang = "en"
+    except: lang = "en"
 
-    # Lokalisierte Texte
-    if lang == "de":
-        T_PY_MISSING = "Fehlende Python-Pakete:"
-        T_PY_PROMPT = "Möchten Sie diese jetzt automatisch installieren? (j/n): "
-        T_SYS_TITLE = "System-Anforderungen"
-        T_SYS_TEXT = "Erforderliche Programme fehlen!"
-        T_SYS_INFO = "Bitte installieren Sie: "
-        T_LINUX_CMD = "Befehl für das Terminal:"
-    else:
-        T_PY_MISSING = "Missing Python packages:"
-        T_PY_PROMPT = "Would you like to install them now? (y/n): "
-        T_SYS_TITLE = "System Requirements"
-        T_SYS_TEXT = "Required programs missing!"
-        T_SYS_INFO = "Please install: "
-        T_LINUX_CMD = "Terminal command:"
+    t_dict = {
+        "de": {
+            "py_m": "Fehlende Pakete:", "py_p": "Jetzt installieren? (j/n): ",
+            "sys_t": "System-Anforderungen", "sys_txt": "Programme fehlen!",
+            "sys_i": "Bitte installieren: ", "l_cmd": "Befehl:"
+        },
+        "en": {
+            "py_m": "Missing packages:", "py_p": "Install now? (y/n): ",
+            "sys_t": "System Requirements", "sys_txt": "Programs missing!",
+            "sys_i": "Please install: ", "l_cmd": "Command:"
+        }
+    }
+    t = t_dict.get(lang, t_dict["en"])
 
-    # 1. PYTHON PAKETE PRÜFEN
-    required_python = ["PyQt6", "requests", "packaging"]
-    missing_python = [
-        pkg for pkg in required_python if importlib.util.find_spec(pkg) is None
-    ]
+    # 2. PYTHON PAKETE PRÜFEN (Mit Schutz gegen Endlos-Neustart)
+    required = ["PyQt6", "requests", "packaging"]
+    missing = [p for p in required if importlib.util.find_spec(p) is None]
 
-    if missing_python:
-        print(f"\n[INFO] {T_PY_MISSING} {', '.join(missing_python)}")
-        choice = input(T_PY_PROMPT)
-        if choice.lower() in ["j", "y"]:
-            for pkg in missing_python:
-                print(f"Installing {pkg}...")
-                subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+    if missing:
+        if "--restarted" in sys.argv:
+            print(f"KRITISCH: Pakete {missing} konnten nicht geladen werden. Abbruch.")
+            sys.exit(1)
+
+        print(f"\n[INFO] {t['py_m']} {', '.join(missing)}")
+        if input(t['py_p']).lower() in ["j", "y"]:
+            for p in missing:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+            # Neustart mit Flag, um Endlosschleife zu verhindern
+            os.execv(sys.executable, [sys.executable] + sys.argv + ["--restarted"])
         sys.exit(1)
 
-    # --- COUNTER LOGIK MIT OPT-OUT PRÜFUNG ---
-    # Prüft beim Start, ob der User in der GUI (JSON) zugestimmt hat
+    # 3. TELEMETRIE (Asynchron)
     if get_setting("allow_telemetry", True):
-        try:
-            import requests
+        def _track():
+            try:
+                import requests
+                requests.get("https://hits.seeyoufarm.com", timeout=10)
+            except: pass
+        threading.Thread(target=_track, daemon=True).start()
 
-            # Nutzt deinen spezifischen Counter-Link für präzise Statistiken
-            tracking_url = "https://hits.seeyoufarm.com"
-
-            # Kurzer Timeout (3s), damit das Tool bei fehlendem Internet nicht hängt
-            requests.get(tracking_url, timeout=3)
-        except Exception:
-            # Lautloser Fehler: Falls offline oder Server down, startet das Tool trotzdem normal
-            pass
-    # -----------------------------------------------------------------
-
-    # 2. SYSTEM TOOLS PRÜFEN (git, patch)
-    required_tools = ["git", "patch"]
-    missing_tools = [t for t in required_tools if shutil.which(t) is None]
+    # 4. SYSTEM TOOLS PRÜFEN (git, patch) - Nur einmal!
+    missing_tools = [tool for tool in ["git", "patch"] if shutil.which(tool) is None]
 
     if missing_tools:
         from PyQt6.QtWidgets import QApplication, QMessageBox
-
+        # Sicherstellen, dass eine App-Instanz existiert
         _ = QApplication.instance() or QApplication(sys.argv)
 
-        msg = f"{T_SYS_INFO} {', '.join(missing_tools)}\n\n"
+        msg = f"{t['sys_i']} {', '.join(missing_tools)}\n\n"
         if platform.system() == "Linux":
-            msg += f"{T_LINUX_CMD}\nsudo apt update && sudo apt install {' '.join(missing_tools)}"
+            msg += f"{t['l_cmd']}\nsudo apt update && sudo apt install {' '.join(missing_tools)}"
         else:
             msg += f"Please install {', '.join(missing_tools)} and add it to your PATH."
 
         box = QMessageBox()
         box.setIcon(QMessageBox.Icon.Critical)
-        box.setWindowTitle(T_SYS_TITLE)
-        box.setText(T_SYS_TEXT)
+        box.setWindowTitle(t['sys_t'])
+        box.setText(t['sys_txt'])
         box.setInformativeText(msg)
         box.setStandardButtons(QMessageBox.StandardButton.Ok)
         box.exec()
         sys.exit(1)
 
-    # 3. SOUND-CHECK
-    if platform.system() == "Linux":
-        HAS_SOUND_SUPPORT = shutil.which("paplay") is not None
-    else:
-        HAS_SOUND_SUPPORT = True
+    # 5. SOUND-CHECK
+    HAS_SOUND_SUPPORT = shutil.which("paplay") is not None if platform.system() == "Linux" else True
 
 
 from datetime import datetime, timezone
@@ -389,7 +367,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.1.9"
+APP_VERSION = "4.2.0"
 
 
 # ===================== PATCH DIRS =====================
