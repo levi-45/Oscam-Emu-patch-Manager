@@ -144,11 +144,11 @@ def install_font_windows():
 
 
 def ensure_dependencies():
-    """Prüft Abhängigkeiten und startet Telemetrie im Hintergrund."""
+    """Prüft Abhängigkeiten, startet Telemetrie und stellt Lokalisierung sicher."""
     global HAS_SOUND_SUPPORT
     load_settings()
 
-    # 1. Sprache & Texte (Erweitert um fehlende Keys)
+    # 1. Sprache & Texte (Erweitert um alle fehlenden Keys)
     try:
         loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
         lang = loc[:2].lower()
@@ -157,20 +157,34 @@ def ensure_dependencies():
 
     t_dict = {
         "de": {
+            # --- Grundlegende Meldungen / Dialoge ---
             "py_m": "Fehlende Pakete:",
             "py_p": "Jetzt installieren? (j/n): ",
             "sys_t": "System-Anforderungen",
             "sys_txt": "Programme fehlen!",
             "sys_i": "Bitte installieren: ",
             "l_cmd": "Befehl:",
+            # --- GUI / Labels ---
+            "features_head": "Hauptmerkmale",
+            "final_label": "🛠️ Was bauen wir heute?",
+            "lang_label": "Sprache",
+            "lang_name": "Deutsch",
+            "kernel": "System Kernel",
         },
         "en": {
+            # --- Grundlegende Meldungen / Dialoge ---
             "py_m": "Missing packages:",
             "py_p": "Install now? (y/n): ",
             "sys_t": "System Requirements",
             "sys_txt": "Programs missing!",
             "sys_i": "Please install: ",
             "l_cmd": "Command:",
+            # --- GUI / Labels ---
+            "features_head": "Features",
+            "final_label": "🛠️ What are we building today?",
+            "lang_label": "Language",
+            "lang_name": "English",
+            "kernel": "System Kernel",
         },
     }
     t = t_dict.get(lang, t_dict["en"])
@@ -233,6 +247,9 @@ def ensure_dependencies():
     HAS_SOUND_SUPPORT = (
         shutil.which("paplay") is not None if platform.system() == "Linux" else True
     )
+
+    # 6. T zurückgeben für GUI oder spätere Verwendung
+    return t
 
 
 from datetime import datetime, timezone
@@ -476,7 +493,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.2.4"
+APP_VERSION = "4.3.0"
 
 
 # ===================== PATCH DIRS =====================
@@ -1224,6 +1241,8 @@ TEXTS = {
         "log_dep_check": "Prüfung: Git ({}), Patch ({}), Sound ({})",
         "log_status_ok": "Status: Alle Abhängigkeiten geladen. Bereit.",
         "ok": "OK",
+        "language_done": "✅ Language switched!",
+        "language_switch": "Switching language...",
         "missing": "FEHLT",
         "active": "Aktiv",
         "inactive": "Inaktiv",
@@ -1452,6 +1471,7 @@ TEXTS = {
         "temp_repo_already_deleted": "Temporary repository not found (already clean): {path}",
         # Labels
         "language_label": "Language:",
+        "final_label": "🛠️ What are we building today?",
         "color_label": "Color",
         "commit_count_label": "Commits to show",
         "info_tooltip": "Info / Help",
@@ -1674,6 +1694,9 @@ TEXTS = {
         "net_online": "Online",
         "net_offline": "Offline",
         "upd_check": "🔍 Tool Update Check...",
+        "final_label": "🛠️ Was bauen wir heute?",
+        "language_done": "✅ Sprache umgestellt!",
+        "language_switch": "Sprache wird angepasst...",
         "sound_active": "Aktiv",
         "sound_inactive": "Inaktiv",
         # --- Status Meldungen ---
@@ -2063,7 +2086,7 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
                     pbar.setStyleSheet(
                         f"""
                         QProgressBar {{ 
-                            text-align: center; color: white; font-weight: 900; 
+                            text-align: center; color: black; font-weight: 900; 
                             background: #111; border: 1px solid #333; 
                         }}
                         {pbar_style}
@@ -2165,6 +2188,9 @@ def load_config():
 def github_upload_patch_file(
     gui_instance=None, info_widget=None, progress_callback=None
 ):
+    # --- Final Label verstecken ---
+    if gui_instance and hasattr(gui_instance, "hide_final_label"):
+        gui_instance.hide_final_label()
     """
     Lädt die Patch-Datei auf GitHub hoch mit Regenbogen-Progressbar.
     """
@@ -2386,6 +2412,9 @@ import os, subprocess, shutil
 
 
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
+    # --- Final Label verstecken ---
+    if gui_instance:
+        gui_instance.hide_final_label()
     """
     Erstellt den Patch im TEMP_REPO mit Regenbogen-ProgressBar und Error-Feedback.
     Löscht statische Texte wie 'Einsatzbereit' beim Start.
@@ -2603,6 +2632,9 @@ import shutil, os, re
 
 
 def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback=None):
+    # --- Final Label verstecken ---
+    if hasattr(self, "hide_final_label"):
+        self.hide_final_label()
     """
     Sichert den alten Patch und aktualisiert ihn mit Fortschrittsanzeige.
     Verhalten identisch zu zip_patch:
@@ -2705,7 +2737,7 @@ def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback
                 border: 2px solid #222;
                 border-radius: 6px;
                 background-color: #111;
-                color: orange;
+                color: black;
                 font-size: 15pt;
             }
             QProgressBar::chunk {
@@ -2811,6 +2843,8 @@ import shutil, os
 
 
 def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=None):
+    if gui_instance:
+        gui_instance.hide_final_label()
     """
     Löscht temporäre Repos und Dateien mit Regenbogen-ProgressBar,
     schwarzer Schrift und zweisprachigem Abschluss.
@@ -3000,15 +3034,40 @@ def get_icon_for(name):
 
 
 # ===================== OSCAM-EMU GIT FUNCTIONS =====================
-def clean_oscam_emu_git(progress_callback=None):
-    """Löscht den Emu-Git Ordner stumm im Log, aber mit Sound-Feedback (Absturzsicher)."""
-    import os, shutil, stat, platform, subprocess
+def clean_oscam_emu_git(gui_instance=None, progress_callback=None):
+    """
+    Löscht den Emu-Git Ordner stumm im Log mit Sound
+    und zeigt eine finale Meldung dauerhaft an.
+    DE/EN Texte werden aus gui_instance.TEXT geladen.
+    """
 
+    import os
+    import shutil
+    import stat
+    from PyQt6.QtGui import QTextCursor
+
+    # --- Sprachtexte holen ---
+    lang_dict = {}
+    if gui_instance and hasattr(gui_instance, "TEXT"):
+        lang_dict = gui_instance.TEXT
+
+    # --- Final Label verstecken ---
+    if gui_instance:
+        if hasattr(gui_instance, "hide_final_label"):
+            gui_instance.hide_final_label()
+        elif hasattr(gui_instance, "final_label") and gui_instance.final_label:
+            gui_instance.final_label.hide()
+
+    # --- Git Pfad bestimmen ---
     path = globals().get("PATCH_EMU_GIT_DIR") or globals().get("TEMP_PATCH_GIT")
 
+    # --- ProgressBar starten ---
     if progress_callback:
         progress_callback(30)
 
+    result = "not_found"
+
+    # --- Ordner löschen ---
     if path and os.path.exists(path):
         try:
 
@@ -3016,32 +3075,56 @@ def clean_oscam_emu_git(progress_callback=None):
                 try:
                     os.chmod(p, stat.S_IWRITE)
                     func(p)
-                except:
+                except Exception:
                     pass
 
-            # Ordner rekursiv löschen
             shutil.rmtree(path, onerror=on_error)
-
-            # --- SICHERER SOUND BEI ERFOLG ---
-            # safe_play übernimmt den Linux-Check und den paplay-Check automatisch
             safe_play("trash-empty.oga")
-
-            if progress_callback:
-                progress_callback(100)
-            return "success"
+            result = "success"
 
         except Exception:
-            # --- SICHERER SOUND BEI FEHLER ---
             safe_play("dialog-error.oga")
-            return "error"
+            result = "error"
 
     if progress_callback:
         progress_callback(100)
-    return "not_found"
+
+    # --- Log Nachricht ---
+    if gui_instance and hasattr(gui_instance, "info_text") and gui_instance.info_text:
+        info_widget = gui_instance.info_text
+        final_msg = lang_dict.get("emu_git_cleaned", "✅ Emu-Git Ordner wurde geleert.")
+        info_widget.append(final_msg)
+        info_widget.moveCursor(QTextCursor.MoveOperation.End)
+
+    # --- ProgressBar final ---
+    if (
+        gui_instance
+        and hasattr(gui_instance, "progress_bar")
+        and gui_instance.progress_bar
+    ):
+        gui_instance.progress_bar.setValue(100)
+        gui_instance.progress_bar.setTextVisible(True)
+
+    # --- Final Label anzeigen ---
+    if (
+        gui_instance
+        and hasattr(gui_instance, "final_label")
+        and gui_instance.final_label
+    ):
+        gui_instance.final_label.show()
+        gui_instance.final_label.setText(
+            lang_dict.get("final_label", "✅ Vorgang abgeschlossen!")
+        )
+
+    return result
 
 
 # ===================== patch_oscam_emu_git=====================
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
+    # --- Final Label verstecken ---
+    if gui_instance and hasattr(gui_instance, "hide_final_label"):
+        gui_instance.hide_final_label()
+
     """
     Klont das Streamboard Git, wendet oscam-emu.patch an und zeigt Regenbogen-Progress.
     Formatiert die Revision sauber: Version (Neuer-Hash) ohne Duplikate.
@@ -3257,6 +3340,9 @@ def _github_upload(
     branch="master",
     commit_msg="Apply OSCam Emu Patch",
 ):
+    # --- Final Label verstecken ---
+    if gui_instance and hasattr(gui_instance, "hide_final_label"):
+        gui_instance.hide_final_label()
     from PyQt6.QtWidgets import QApplication
     import os, shutil
 
@@ -3449,6 +3535,9 @@ def run_bash(cmd, cwd=None, info_widget=None, lang="DE", logger=None):
 def github_upload_oscam_emu_folder(
     gui_instance=None, info_widget=None, progress_callback=None
 ):
+    # --- Final Label verstecken ---
+    if gui_instance and hasattr(gui_instance, "hide_final_label"):
+        gui_instance.hide_final_label()
     """
     Lädt den gesamten Inhalt des OSCam-EMU-Git-Ordners auf GitHub hoch.
     Mit Regenbogen-Progressbar, schwarzer Schrift und DE/EN Support.
@@ -4136,8 +4225,21 @@ class PatchManagerGUI(QWidget):
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
 
+    def hide_final_label(self):
+        if hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
+            from PyQt6.QtWidgets import QApplication
+
+            QApplication.processEvents()
+
     def select_s3_path_manually(self, pos=None):
         """Öffnet einen Dialog, um den S3-Ordner manuell auszuwählen (DE/EN Support)."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtWidgets import QFileDialog, QMessageBox
         import os
 
@@ -4203,6 +4305,12 @@ class PatchManagerGUI(QWidget):
 
     def auto_detect_s3_path(self):
         """Sucht an gängigen Orten nach einer S3-Installation."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import platform, os
 
         # Liste der Pfade, die wir prüfen wollen
@@ -4227,6 +4335,12 @@ class PatchManagerGUI(QWidget):
 
     def start_s3_install(self):
         """Startet die S3-Installation mit dem zentralen Pfad."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         is_de = getattr(self, "LANG", "de") == "de"
         self.btn_s3.setEnabled(False)
         self.btn_s3.setText("⏳ ..." if is_de else "⏳ Busy...")
@@ -4347,13 +4461,13 @@ class PatchManagerGUI(QWidget):
             border = "#00FF00"
         else:
             # Gold-Modus: Gold vs. Dunkel-Orange
-            color = "#FFD700" if is_on else "#8B4513"
+            color = "#050504" if is_on else "#8B4513"
             bg = "#111111"
             border = "#444"
 
         # Falls wir fertig sind, setzen wir die Textfarbe fest auf Gold/Grün
         if final:
-            color = "#FFD700" if not is_matrix else "#00FF00"
+            color = "#0BF641" if not is_matrix else "#00FF00"
 
         pbar.setStyleSheet(
             f"""
@@ -4367,6 +4481,12 @@ class PatchManagerGUI(QWidget):
 
     def open_custom_folder(self, path):
         """Öffnet Ordner mit Regenbogen-Progress und Sound beim Start & Ende."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import os, platform, subprocess
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
@@ -4445,7 +4565,7 @@ class PatchManagerGUI(QWidget):
                 pbar.setStyleSheet(
                     """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: white; text-align: center; font-weight: bold; }
+                    color: black; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
                 """
@@ -4527,6 +4647,12 @@ class PatchManagerGUI(QWidget):
 
     def start_s3_menu(self):
         """Sucht s3 (bevorzugt Config-Pfad) und startet das Terminal mit 'sudo ./s3 menu'."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import os, shutil, platform
 
         s3_exec = None
@@ -4617,81 +4743,6 @@ class PatchManagerGUI(QWidget):
         """
         # Dies überschreibt die Button-Styles im gesamten Fenster
         self.setStyleSheet(self.styleSheet() + style)
-
-    def pbar_idle(self):
-        """
-        Setzt die ProgressBar auf den Idle-Modus mit 5-fachem Blink-Effekt zurück.
-        Startet erst, wenn der Ladevorgang (is_loading) beendet ist.
-        """
-        from PyQt6.QtCore import QTimer
-
-        pbar = getattr(self, "progress_bar", None)
-        if not pbar:
-            return
-
-        # --- WICHTIG: PRÜFUNG OB NOCH GELADEN WIRD ---
-        if getattr(self, "is_loading", False):
-            # Falls noch geladen wird, nur Text setzen aber NICHT blinken
-            pbar.setFormat(
-                "⏳ Lade Komponenten..." if self.LANG == "de" else "⏳ Loading..."
-            )
-            return
-
-        # 1. Sprache & Text ermitteln
-        is_de = getattr(self, "LANG", "de").lower() == "de"
-        idle_msg = (
-            "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?"
-        )
-
-        # 2. Reset & Blink-Vorbereitung
-        pbar.setValue(0)
-        pbar.setFormat(idle_msg)
-        pbar.setTextVisible(True)
-        self.pbar_blink_step = 0
-
-        # Interne Style-Funktion (Kein Grau!)
-        def apply_current_style(is_on=True, is_final=False):
-            current_style = self.styleSheet()
-            is_matrix = (
-                "Matrix" in str(getattr(self, "current_color_name", ""))
-                or "#00FF00" in current_style
-            )
-
-            if is_matrix:
-                bg, border = "#050505", "#00FF00"
-                color = "#00FF00" if is_on or is_final else "#003300"
-            else:
-                # EDLER GOLD MODE (Standard) - Fix für grauen Hintergrund
-                bg, border = "#111111", "#444444"
-                color = "#FFD700" if is_on or is_final else "#8B4513"
-
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{ 
-                    border: 2px solid {border}; border-radius: 8px; background-color: {bg}; 
-                    color: {color}; text-align: center; font-weight: 900; font-size: 20px; 
-                    min-height: 35px;
-                }}
-                QProgressBar::chunk {{ background: transparent; }}
-            """
-            )
-
-        # Timer-Logik für 5 Blinks (10 Toggles)
-        def run_blink_cycle():
-            self.pbar_blink_step += 1
-            if self.pbar_blink_step >= 10:
-                self.pbar_idle_timer.stop()
-                apply_current_style(is_final=True)
-                return
-            apply_current_style(is_on=(self.pbar_blink_step % 2 == 0))
-
-        # 3. Timer-Setup & Start
-        if not hasattr(self, "pbar_idle_timer"):
-            self.idle_blink_timer_obj = QTimer(self)  # Eindeutiger Name
-            self.idle_blink_timer_obj.timeout.connect(run_blink_cycle)
-
-        self.idle_blink_timer_obj.stop()
-        self.idle_blink_timer_obj.start(450)
 
     def export_log(self):
         """Speichert Log als Textdatei mit originalem Sound-Code, Regenbogen und Gold-Reset."""
@@ -4985,7 +5036,7 @@ class PatchManagerGUI(QWidget):
                 pbar.setStyleSheet(
                     """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: white; text-align: center; font-weight: bold; }
+                    color: black; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
                 """
@@ -5096,6 +5147,12 @@ class PatchManagerGUI(QWidget):
 
     def run_patch_process(self, patch_data, is_dry_run=True):
         """Führt den Patch-Befehl per Pipe aus (Simulation oder echt)."""
+
+        # --- Final Label sofort ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import subprocess
 
         cmd = ["patch", "-p1"]
@@ -5229,6 +5286,12 @@ class PatchManagerGUI(QWidget):
 
     def show_language_animation(self, lang_code):
         """Animation mit automatischem Fallback für fehlende Emoji-Fonts."""
+
+        # --- Final Label sofort ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect
         from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer, Qt
         from PyQt6.QtGui import QFont, QFontInfo
@@ -5557,6 +5620,12 @@ class PatchManagerGUI(QWidget):
         Schaltet das neon-grüne Matrix-Theme um.
         Inklusive Sofort-Update für die Analog-Uhr und Header-Elemente.
         """
+
+        # --- Final Label sofort ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         if not hasattr(self, "btn_matrix") or not self.btn_matrix:
             return
 
@@ -5652,6 +5721,12 @@ class PatchManagerGUI(QWidget):
 
     def toggle_theme(self):
         """Schaltet zwischen Matrix-Mode (Dark) und System-Style (Light) um."""
+
+        # --- Final Label ausblenden, falls sichtbar ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtCore import QTimer
         from PyQt6.QtWidgets import QApplication
 
@@ -5783,6 +5858,12 @@ class PatchManagerGUI(QWidget):
         Schaltet zwischen Light, Dark und Matrix Mode um, aktualisiert die UI
         und speichert die Auswahl dauerhaft in der Config-Datei.
         """
+
+        # --- Final Label ausblenden, falls sichtbar ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import json
 
         # Aktuellen Modus aus den globalen Variablen holen (geladen durch load_config)
@@ -5966,28 +6047,61 @@ class PatchManagerGUI(QWidget):
             # Fehlerfall: Nur lokalen Stand zeigen
             self.on_update_check_finished(False, self.current_rev)
 
-    def on_update_check_finished(self, update_available, new_rev):
-        """Aktualisiert das UI: Icons, Neon-Branding, Scanner-Effekt + neongrünes Revisions-Blinken."""
-        from datetime import datetime
-        import os
-        from PyQt6.QtCore import QVariantAnimation, QTimer
+    def on_update_check_finished(self, update_available=False, new_rev=None):
+        """
+        Aktualisiert das UI:
+        - Status Label (Update / aktuell)
+        - Neongrün-Blinken der Revision (3 Mal)
+        - ProgressBar bleibt unverändert
+        - Am Ende: Label "Was bauen wir heute?" in Kasten
+        """
 
-        # --- ZENTRALE STYLING EINSTELLUNGEN ---
-        F_SIZE = "24px"
-        C_NEON_YELLOW = "#EAFF00"  # Erfolg / Aktuell
-        C_NEON_PINK = "#FF00FF"  # Update gefunden
-        C_NEON_GREEN = "#00FF00"  # Blink-Farbe für Revision
-        C_WHITE = "#FFFFFF"
-        F_EMOJI = (
-            "'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
-        )
-        # --------------------------------------
+        from datetime import datetime
+        from PyQt6.QtCore import QTimer, Qt
+        from PyQt6.QtWidgets import QLabel
+
+        # Hide final label if exists
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
 
         txt = getattr(self, "TEXT", {})
         timestamp = datetime.now().strftime("%H:%M:%S")
         old_rev = getattr(self, "current_rev", "11943")
         self.last_remote_rev = new_rev
 
+        # --- Zentrale Farben & Schriftarten ---
+        C_TIME = "#FF0000"
+        F_TIME = "Arial, Segoe UI, sans-serif"
+        F_TIME_SIZE = "24px"
+        F_TIME_WEIGHT = "bold"
+
+        C_REV = "#00FF00"
+        F_REV = "Arial, Segoe UI, sans-serif"
+        F_REV_SIZE = "24px"
+        F_REV_WEIGHT = "bold"
+
+        C_BLINK = "#F70606"
+        C_FINAL_COLOR = "cyan"
+        BG_FINAL_LABEL = "black"
+        F_FINAL_LABEL = "Arial, Segoe UI, sans-serif"
+        F_FINAL_LABEL_SIZE = "24px"
+        F_FINAL_LABEL_WEIGHT = "bold"
+        FINAL_LABEL_BORDER_RADIUS = 6
+
+        # Nachrichten
+        MSG_UPTODATE_COLOR = "#00FF00"
+        MSG_UPTODATE_FONT = "Arial, Segoe UI, sans-serif"
+        MSG_UPTODATE_SIZE = "24px"
+        MSG_UPTODATE_WEIGHT = "bold"
+
+        MSG_UPDATE_COLOR = "#FFAA00"
+        MSG_UPDATE_FONT = "Arial, Segoe UI, sans-serif"
+        MSG_UPDATE_SIZE = "24px"
+        MSG_UPDATE_WEIGHT = "bold"
+
+        # --- System Sound Helper ---
         def play_system_sound(sound_type="info"):
             safe_play = globals().get("safe_play")
             if safe_play:
@@ -5997,121 +6111,153 @@ class PatchManagerGUI(QWidget):
                     "beep": "bell.oga",
                 }
                 safe_play(sounds.get(sound_type, "complete.oga"))
-            else:
-                import subprocess, shutil
 
-                player = next(
-                    (p for p in ["paplay", "pw-play", "aplay"] if shutil.which(p)), None
+        # --- Status Label ---
+        status_label = getattr(self, "status_label", None)
+        msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
+
+        def set_status_ui(rev_color=C_REV, opacity=1.0):
+            """Aktualisiert Status Label mit Farben, Fonts und optional Blink"""
+            if status_label:
+                html = (
+                    f"✅ <span style='font-size:{F_TIME_SIZE}; font-family:{F_TIME}; color:{C_TIME}; font-weight:{F_TIME_WEIGHT};'>[{timestamp}]</span> "
+                    f"<span style='font-size:{MSG_UPTODATE_SIZE}; font-family:{MSG_UPTODATE_FONT}; font-weight:{MSG_UPTODATE_WEIGHT}; color:{MSG_UPTODATE_COLOR};'>{msg}</span> "
+                    f"<span style='color:{rev_color}; opacity:{opacity}; font-size:{F_REV_SIZE}; font-family:{F_REV}; font-weight:{F_REV_WEIGHT};'>(r{old_rev})</span>"
                 )
-                if player:
-                    s_path = (
-                        "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
-                    )
-                    subprocess.Popen(
-                        [player, s_path],
-                        stderr=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                    )
+                status_label.setText(html)
+                status_label.show()
 
         if update_available:
-            # --- FALL: UPDATE GEFUNDEN ---
-            upd_title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
-            status_html = (
-                f'<span style="font-family:{F_EMOJI}; font-size:{F_SIZE}; vertical-align: middle;">🚀</span> '
-                f'<span style="font-size:{F_SIZE}; color:{C_NEON_PINK}; vertical-align: middle;"><b>[{timestamp}]</b></span> '
-                f'<span style="font-size:{F_SIZE}; color:{C_WHITE}; vertical-align: middle;"><b> {upd_title}</b></span> '
-                f'<span style="font-size:{F_SIZE}; color:#AAAAAA; vertical-align: middle;"> (r{old_rev} ➔ r{new_rev})</span>'
-            )
-            if hasattr(self, "status_label"):
-                self.status_label.setText(status_html)
-            play_system_sound("update")
-        else:
-            # --- FALL: AKTUELL (Mit Neongrün-Blinken für Revision) ---
-            success_msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
-
-            def set_status_ui(rev_color, opacity=1.0):
+            title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
+            if status_label:
                 html = (
-                    f'<span style="font-family:{F_EMOJI}; font-size:{F_SIZE}; vertical-align: middle;">✅</span> '
-                    f'<span style="font-size:{F_SIZE}; color:{C_NEON_YELLOW}; vertical-align: middle;"><b>[{timestamp}]</b></span> '
-                    f'<span style="font-size:{F_SIZE}; color:{C_NEON_YELLOW}; vertical-align: middle;"><b> {success_msg}</b></span> '
-                    f'<span style="font-size:{F_SIZE}; color:{rev_color}; opacity:{opacity}; vertical-align: middle;"><b> (r{old_rev})</b></span>'
+                    f"🚀 <span style='font-size:{F_TIME_SIZE}; font-family:{F_TIME}; color:{C_TIME}; font-weight:{F_TIME_WEIGHT};'>[{timestamp}]</span> "
+                    f"<span style='font-size:{MSG_UPDATE_SIZE}; font-family:{MSG_UPDATE_FONT}; font-weight:{MSG_UPDATE_WEIGHT}; color:{MSG_UPDATE_COLOR};'><b>{title}</b></span> "
+                    f"<span style='color:{C_REV}; font-size:{F_REV_SIZE}; font-family:{F_REV}; font-weight:{F_REV_WEIGHT};'>(r{old_rev} ➔ r{new_rev})</span>"
                 )
-                if hasattr(self, "status_label"):
-                    self.status_label.setText(html)
+                status_label.setText(html)
+            play_system_sound("update")
 
-            # Initialer Zustand & Sounds
-            set_status_ui(C_NEON_GREEN)
-            if hasattr(self, "status_label"):
-                self.status_label.show()
+            # --- Blink-Sequenz 3x ---
+            delays = [300, 600, 900, 1200, 1500, 1800]
+            blink_colors = [
+                "transparent",
+                C_BLINK,
+                "transparent",
+                C_BLINK,
+                "transparent",
+                C_BLINK,
+            ]
+            for i, delay in enumerate(delays):
+                QTimer.singleShot(delay, lambda c=blink_colors[i]: set_status_ui(c))
+
+        else:
+            # --- Up-to-date ---
+            set_status_ui()
             play_system_sound("uptodate" if new_rev else "error")
 
-            # Blink-Sequenz (3 Mal blinken)
-            # Delays: 300(Aus), 600(An), 900(Aus), 1200(An), 1500(Aus), 1800(Finale)
-            for i, delay in enumerate([300, 600, 900, 1200, 1500, 1800]):
-                if i == 5:  # Letzter Schritt: Finales dezentes Gelb
-                    QTimer.singleShot(
-                        delay, lambda: set_status_ui(C_NEON_YELLOW, opacity=0.7)
-                    )
-                else:
-                    color = "transparent" if i % 2 == 0 else C_NEON_GREEN
-                    QTimer.singleShot(delay, lambda c=color: set_status_ui(c))
+            # --- Blink-Sequenz für Revision ---
+            delays = [300, 600, 900, 1200, 1500, 1800]
+            blink_colors = [
+                "transparent",
+                C_BLINK,
+                "transparent",
+                C_BLINK,
+                "transparent",
+                C_BLINK,
+            ]
+            for i, delay in enumerate(delays):
+                QTimer.singleShot(delay, lambda c=blink_colors[i]: set_status_ui(c))
 
-        # --- PROGRESSBAR FINALE ---
+        # --- ProgressBar ---
         pbar = getattr(self, "progress_bar", None)
         if pbar:
             pbar.setValue(100)
-            if hasattr(self, "pbar_idle"):
-                QTimer.singleShot(4000, self.pbar_idle)
-
-            lang = getattr(self, "LANG", "de").lower()
-            f_text = "Tool einsatzbereit" if lang == "de" else "Tool ready for use"
-            pbar.setFormat(f_text)
             pbar.setTextVisible(True)
 
-            base_style = (
-                "QProgressBar { text-align: center; font-weight: 900; border: 2px solid #222; "
-                "border-radius: 6px; background-color: #111; font-size: 15pt; color: black; }"
+        # --- Final Label ---
+        def show_final_label():
+            if hasattr(self, "final_label") and self.final_label:
+                final_label = self.final_label
+                final_label.show()
+            else:
+                final_label = QLabel(self)
+                self.final_label = final_label
+                final_label.setText(
+                    self.TEXT.get("final_label", "🛠️ Was bauen wir heute?")
+                )
+                final_label.setAlignment(
+                    Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
+                )
+                pbar = getattr(self, "progress_bar", None)
+                if pbar:
+                    final_label.setGeometry(pbar.geometry())
+                else:
+                    final_label.setGeometry(20, 20, 400, 40)
+                final_label.setStyleSheet(
+                    f"""
+                    QLabel {{
+                        border: 2px solid {C_FINAL_COLOR};
+                        background-color: {BG_FINAL_LABEL};
+                        color: {C_FINAL_COLOR};
+                        font-weight: {F_FINAL_LABEL_WEIGHT};
+                        font-size: {F_FINAL_LABEL_SIZE};
+                        font-family: {F_FINAL_LABEL};
+                        border-radius: {FINAL_LABEL_BORDER_RADIUS}px;
+                    }}
+                    """
+                )
+                final_label.show()
+
+            # --- Blink-Sequenz 3x für Text ---
+            delays = [0, 300, 600, 900, 1200, 1500]  # ms
+            blink_colors = [
+                "transparent",
+                C_FINAL_COLOR,
+                "transparent",
+                C_FINAL_COLOR,
+                "transparent",
+                C_FINAL_COLOR,
+            ]
+
+            for i, delay in enumerate(delays):
+                QTimer.singleShot(
+                    delay,
+                    lambda c=blink_colors[i]: final_label.setStyleSheet(
+                        f"""
+                        QLabel {{
+                            border: 2px solid {C_FINAL_COLOR};
+                            background-color: {BG_FINAL_LABEL};
+                            color: {c};
+                            font-weight: {F_FINAL_LABEL_WEIGHT};
+                            font-size: {F_FINAL_LABEL_SIZE};
+                            font-family: {F_FINAL_LABEL};
+                            border-radius: {FINAL_LABEL_BORDER_RADIUS}px;
+                        }}
+                        """
+                    ),
+                )
+
+            # Text am Ende wieder dauerhaft anzeigen
+            QTimer.singleShot(
+                delays[-1] + 100,
+                lambda: final_label.setStyleSheet(
+                    f"""
+                QLabel {{
+                    border: 2px solid {C_FINAL_COLOR};
+                    background-color: {BG_FINAL_LABEL};
+                    color: {C_FINAL_COLOR};
+                    font-weight: {F_FINAL_LABEL_WEIGHT};
+                    font-size: {F_FINAL_LABEL_SIZE};
+                    font-family: {F_FINAL_LABEL};
+                    border-radius: {FINAL_LABEL_BORDER_RADIUS}px;
+                }}
+                """
+                ),
             )
 
-            self._scanner_anim = QVariantAnimation(self)
-            self._scanner_anim.setDuration(1000)
-            self._scanner_anim.setStartValue(0.0)
-            self._scanner_anim.setEndValue(1.0)
-            self._scanner_anim.setLoopCount(3)
-
-            def update_scanner(val):
-                pos = val if val <= 0.5 else 1.0 - val
-                pos *= 2
-                p1, p2, p3 = max(0, pos - 0.3), pos, min(1, pos + 0.3)
-                gradient = (
-                    f"qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                    f"stop:0 #111, stop:{p1} {C_NEON_PINK}, stop:{p2} {C_NEON_YELLOW}, stop:{p3} #00FFFF, stop:1 #111);"
-                )
-                txt_color = "black" if 0.2 < val < 0.8 else "transparent"
-                pbar.setStyleSheet(
-                    base_style + f"QProgressBar {{ color: {txt_color}; }} "
-                    f"QProgressBar::chunk {{ background-color: {gradient}; border-radius: 4px; }}"
-                )
-
-            self._scanner_anim.valueChanged.connect(update_scanner)
-            self._scanner_anim.currentLoopChanged.connect(
-                lambda: play_system_sound("beep")
-            )
-
-            def on_done():
-                final_rainbow = (
-                    "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                    "stop:0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                    "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1 #8B00FF)"
-                )
-                pbar.setStyleSheet(
-                    base_style + "QProgressBar { color: black; } "
-                    f"QProgressBar::chunk {{ background-color: {final_rainbow}; border-radius: 4px; }}"
-                )
-
-            self._scanner_anim.finished.connect(on_done)
-            play_system_sound("beep")
-            self._scanner_anim.start()
+        # --- Label anzeigen und Blink starten ---
+        QTimer.singleShot(800, show_final_label)
 
     def trigger_alert_animation(self, widget):
         """Lässt ein Widget dezent rot pulsieren."""
@@ -6159,6 +6305,12 @@ class PatchManagerGUI(QWidget):
         Aktualisiert das Farbschema und erzwingt den LED-Status.
         FIX: Verhindert Ghost-Blinking, indem LED-Zustände NACH dem Repaint erzwungen werden.
         """
+
+        # --- Final-Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         global current_diff_colors, current_color_name
 
         # 1️⃣ Aktuelle Farbe ermitteln
@@ -6471,6 +6623,12 @@ class PatchManagerGUI(QWidget):
 
     def show_update_dialog(self, latest_version, current_version):
         """Öffnet das Pop-up Fenster für das verfügbare Update."""
+
+        # --- Final-Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtWidgets import QMessageBox
 
         txt = getattr(self, "TEXT", {})
@@ -6505,6 +6663,12 @@ class PatchManagerGUI(QWidget):
 
     def change_emu_repo(self):
         """Repository-Auswahl mit Regenbogen-Progress, Sound und DE/EN Support."""
+
+        # --- Final-Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtWidgets import QInputDialog, QApplication
         from PyQt6.QtCore import QTimer
 
@@ -6632,6 +6796,12 @@ class PatchManagerGUI(QWidget):
 
     def change_modifier_name(self):
         """Öffnet Autor-Dialog mit Regenbogen-Progress, Sound und DE/EN Support."""
+
+        # --- Final-Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtWidgets import QInputDialog, QLineEdit, QApplication
         from PyQt6.QtCore import QTimer
 
@@ -6656,7 +6826,7 @@ class PatchManagerGUI(QWidget):
                 pbar.setStyleSheet(
                     """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: white; text-align: center; font-weight: bold; }
+                    color: black; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
                 """
@@ -6794,6 +6964,12 @@ class PatchManagerGUI(QWidget):
 
     def manual_tool_check(self):
         """System-Check mit Regenbogen-Progress, Sound und DE/EN Support."""
+
+        # --- Final-Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import time, shutil, os, platform
         from datetime import datetime
         from PyQt6.QtWidgets import QApplication
@@ -6914,7 +7090,7 @@ class PatchManagerGUI(QWidget):
                 pbar.setStyleSheet(
                     """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: white; text-align: center; font-weight: bold; }
+                    color: black; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
                 """
@@ -7010,6 +7186,13 @@ class PatchManagerGUI(QWidget):
 
     def open_terminal(self, **kwargs):
         """Öffnet Terminal (S3 oder leer) mit Sudo-Support, Regenbogen-Progress und Sound."""
+
+        # --- Final-Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
+
         import subprocess, platform, shutil, os
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
@@ -7130,7 +7313,7 @@ class PatchManagerGUI(QWidget):
                 pbar.setFormat("%p%")
                 pbar.setStyleSheet(
                     "QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; "
-                    "color: white; text-align: center; font-weight: bold; } "
+                    "color: black text-align: center; font-weight: bold; } "
                     "QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
                     "stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }"
                 )
@@ -7141,6 +7324,12 @@ class PatchManagerGUI(QWidget):
 
     def select_patch_path(self):
         """Öffnet Verzeichnis-Dialog mit Regenbogen-Progress, Sound und Auto-Reset zu Idle."""
+
+        # --- Final-Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import os
         from PyQt6.QtWidgets import QFileDialog, QApplication
         from PyQt6.QtCore import QTimer
@@ -7232,6 +7421,12 @@ class PatchManagerGUI(QWidget):
 
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """Sichert alle wichtigen Dateien, installiert das Update und bietet Rollback bei Fehlern."""
+
+        # --- Final-Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import requests, os, shutil, sys
         from PyQt6.QtWidgets import QMessageBox, QApplication
 
@@ -7343,7 +7538,7 @@ class PatchManagerGUI(QWidget):
                 safe_play("dialog-error.oga")
             if pbar:
                 pbar.setStyleSheet(
-                    "QProgressBar { color: white; font-weight: 900; background: #800; }"
+                    "QProgressBar { color: black; font-weight: 900; background: #800; }"
                 )
                 pbar.setFormat("❌ Fehler!" if is_de else "❌ Error!")
             QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
@@ -7461,6 +7656,10 @@ class PatchManagerGUI(QWidget):
         radius=8,
         icon_name=None,
     ):
+        # --- Final Label verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+
         from PyQt6.QtGui import QIcon
         from PyQt6.QtCore import QSize, Qt
         from PyQt6.QtWidgets import QStyle, QSizePolicy, QPushButton
@@ -7977,7 +8176,15 @@ class PatchManagerGUI(QWidget):
     ):
         """
         Sichert alle Daten und startet das Tool plattformübergreifend neu.
+        Final-Label wird vorher ausgeblendet.
         """
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
+
         from PyQt6.QtWidgets import QMessageBox, QApplication
         import sys
         import os
@@ -8071,6 +8278,13 @@ class PatchManagerGUI(QWidget):
                     pass
 
     def restart_application(self, *args, **kwargs):
+        """Startet die Anwendung neu und versteckt vorher das Final-Label."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import subprocess
         import sys
         import os
@@ -8100,6 +8314,12 @@ class PatchManagerGUI(QWidget):
     # ===================== ZIP PATCH =====================
     def zip_patch(self, info_widget=None, progress_callback=None):
         """Erstellt ein ZIP des Patches mit Regenbogen-Progress und Auto-Reset."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtWidgets import QTextEdit, QApplication
         from PyQt6.QtCore import QTimer
         import zipfile
@@ -8205,7 +8425,7 @@ class PatchManagerGUI(QWidget):
             # QTimer.singleShot(3000, lambda: pbar.setFormat("%p%"))
             # Optional: Original-Style (Orange/Gold) wiederherstellen
             default_style = """
-                QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; color: orange; text-align: center; font-weight: bold; }
+                QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; color: black; text-align: center; font-weight: bold; }
                 QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
             """
             QTimer.singleShot(3000, lambda: pbar.setStyleSheet(default_style))
@@ -8285,6 +8505,12 @@ class PatchManagerGUI(QWidget):
         Ändert den Speicherort des alten Patch-Ordners mit Regenbogen-Progress.
         Text während des Vorgangs sichtbar, am Ende 3 Sekunden stehen lassen.
         """
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtWidgets import QFileDialog, QApplication
         from PyQt6.QtCore import QTimer
         import json, os
@@ -8355,7 +8581,7 @@ class PatchManagerGUI(QWidget):
                     """
                 QProgressBar {
                     text-align: center; font-weight: bold; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: orange; font-size: 15pt;
+                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }
                 QProgressBar::chunk {
                     background-color: transparent;
@@ -8422,6 +8648,13 @@ class PatchManagerGUI(QWidget):
 
     def update_ui_texts(self):
         """Zentrale Text- und Icon-Aktualisierung mit Regenbogen-Progress und S3-Auto-Erkennung."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
+
         import os
         import platform
         import re
@@ -8601,6 +8834,12 @@ class PatchManagerGUI(QWidget):
 
     def edit_patch_header(self, info_widget=None, progress_callback=None):
         """Öffnet den Header-Editor mit Regenbogen-Progress, Sound und Sprach-Support."""
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         import os
         from PyQt6.QtWidgets import (
             QDialog,
@@ -8739,7 +8978,7 @@ class PatchManagerGUI(QWidget):
                 pbar.setStyleSheet(
                     """
                     QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: white; text-align: center; font-weight: bold; }
+                    color: black; text-align: center; font-weight: bold; }
                     QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
                     stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
                 """
@@ -8861,6 +9100,12 @@ class PatchManagerGUI(QWidget):
         Zentrierte Log-Ausgabe und korrekte URL-Verarbeitung.
         Erzwingt Ja/Nein Buttons passend zur gewählten Sprache.
         """
+
+        # --- Final Label sofort ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         from PyQt6.QtWidgets import QTextEdit, QApplication, QMessageBox
         from PyQt6.QtGui import QTextCursor
         import requests, time, re
@@ -9193,54 +9438,36 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtGui import QTextCursor
         import subprocess, re, requests
+        import platform
+        import socket
+        from datetime import datetime, timedelta
+        import psutil  # Für CPU, RAM, Uptime
+
+        # --- Final Label zu Beginn verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
 
         # --- Funktion für flüssige ProgressBar ---
-        def smooth_set_value(pbar, target, step=1, delay=0.01):
+        def smooth_set_value(pbar, target, step=1, delay=0.005):
+            """
+            Bewegt die ProgressBar flüssig von aktuellem Wert bis target.
+            Schrittweite step und delay zwischen Updates können angepasst werden.
+            """
+            if not pbar:
+                return
             current = pbar.value()
             if target < current:
                 current = target
-            for v in range(current, target + 1, step):
-                pbar.setValue(v)
+            while current < target:
+                current += step
+                if current > target:
+                    current = target
+                pbar.setValue(current)
                 QApplication.processEvents()
                 time.sleep(delay)
             pbar.setValue(target)
-
-        if getattr(self, "_checking_active", False):
-            return
-        self.is_loading = True
-        self._checking_active = True
-
-        # --- ProgressBar Setup ---
-        pbar = getattr(self, "progress_bar", None)
-        if pbar:
-            rainbow_style = (
-                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-            )
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center;
-                    font-weight: 900;
-                    border: 2px solid #222;
-                    border-radius: 6px;
-                    background-color: #111;
-                    color: black;
-                    font-size: 14pt;
-                }}
-                QProgressBar::chunk {{
-                    background-color: {rainbow_style};
-                    border-radius: 4px;
-                }}
-                """
-            )
-            pbar.setFormat("%p%")
-            pbar.setTextVisible(True)
-            pbar.setRange(0, 100)
-            pbar.setValue(0)
-            pbar.show()
-            smooth_set_value(pbar, 0)
 
         try:
             # --- Styles & Farben ---
@@ -9275,29 +9502,95 @@ class PatchManagerGUI(QWidget):
             lang = getattr(self, "LANG", "de").lower()
             is_de = lang == "de"
 
-            # --- Texte ---
             T = {
+                # --- Grundlegende Labels ---
                 "live": "LIVE",
                 "monitor": "System Monitor",
+                "features_head": "Hauptmerkmale" if is_de else "Main Features",
+                "greeting": "Grüße, speedy005" if is_de else "Regards, speedy005",
                 "autor": "Autor" if is_de else "Author",
                 "version": "Version",
+                "tool_name": "OSCam Emu Patch Generator",
+                "copyright": (
+                    "© 2026 speedy005 - Alle Rechte vorbehalten."
+                    if is_de
+                    else "© 2026 speedy005 - All rights reserved."
+                ),
                 "features_head": "Hauptmerkmale:" if is_de else "Key Features:",
+                # --- Feature Texte ---
+                # --- Tool / Patch Labels ---
+                "tool_name": "OSCam Emu Patch Generator",
+                "feat_1": "Erstellt .patch" if is_de else "Generates .patch",
+                "feat_2": "Patch-Dateien",
+                "feat_3": "Lokalisierung",
+                "feat_4": "-Log",
+                "features_head": "Hauptmerkmale",
+                # --- Systeminfos ---
+                "lang_label": "Sprache",
+                "lang_name": "Deutsch" if is_de else "English",
+                "kernel": "System Kernel",
+                "ram": "RAM",
+                "os_version": "OS Version",
+                "host_ip": "Hostname / IP",
+                "uptime": "Uptime",
+                # --- Stats Labels ---
+                "stats_title": "STATISTICS",
+                "stats_github": "GitHub:",
+                "stats_local": "Local:",
+                "stats_total": "Total:",
+                # --- Footer Labels ---
+                "foot_ok": "Alles OK",
+                "foot_ready": "Bereit",
+                # --- OSCam Labels ---
+                "oscam_uptodate": (
+                    "OSCam ist aktuell." if is_de else "OSCam is up-to-date."
+                ),
+                "oscam_update_found": (
+                    "UPDATE VERFÜGBAR" if is_de else "UPDATE AVAILABLE"
+                ),
                 "feat_1": "Erstellt .patch" if is_de else "Generates .patch",
                 "feat_2": "GitHub Patches" if is_de else "GitHub patches",
                 "feat_3": "DE/EN Lokalisierung" if is_de else "DE/EN Localization",
                 "feat_4": "Echtzeit-Log" if is_de else "Real-time log",
-                "start": (
-                    "Starte System Check..." if is_de else "Starting System Check..."
+                # --- Patch Generator Texte ---
+                "patch_1": (
+                    "Automatisches Patching: Erstellt .patch Dateien direkt vom Streamboard."
+                    if is_de
+                    else "Automated Patching: Generates .patch files directly from Streamboard."
                 ),
+                "patch_2": (
+                    "Commit Monitor: Echtzeit-Tracking von neuen Änderungen."
+                    if is_de
+                    else "Commit Monitor: Real-time tracking of new changes."
+                ),
+                "patch_3": (
+                    "Lokalisierung: Vollständige Unterstützung für DE/EN."
+                    if is_de
+                    else "Localization: Full support for DE/EN."
+                ),
+                "patch_4": (
+                    "Smart Logging: Farblich kodiertes Feedback-System."
+                    if is_de
+                    else "Smart Logging: Color-coded feedback system."
+                ),
+                "patch_footer": (
+                    f"{'Autor' if is_de else 'Author'}: speedy005 | Version: {globals().get('APP_VERSION', '2.7.6')} | "
+                    f"{'Lizenz' if is_de else 'License'}: MIT"
+                ),
+                # --- Start Text ---
+                "start": "Starte System Check…" if is_de else "Starting System Check…",
+                # --- Sprache / System ---
                 "lang_name": "Deutsch" if is_de else "English",
                 "lang_label": "Sprache" if is_de else "Language",
                 "kernel": "System Kern" if is_de else "System Kernel",
+                # --- Status / Netzwerk ---
                 "ok": "OK",
                 "missing": "FEHLT" if is_de else "MISSING",
                 "online": "Online",
                 "offline": "Offline",
                 "network": "Netzwerk" if is_de else "Network",
                 "ping": "Ping Test",
+                # --- Footer ---
                 "foot_ok": "System-Check OK." if is_de else "System Check OK.",
                 "foot_ready": "Bereit." if is_de else "Ready.",
             }
@@ -9308,6 +9601,8 @@ class PatchManagerGUI(QWidget):
             if clear_log:
                 widget.setHtml("")
 
+            html = []
+
             def make_safe_row(icon, label, status, label_col, status_col, size=S_NORM):
                 return (
                     f'<div style="white-space: nowrap; margin:0; padding:0; line-height:1.2; text-align:center;">'
@@ -9316,69 +9611,137 @@ class PatchManagerGUI(QWidget):
                     f'<span style="font-family:{F_MONO}; font-size:{size}; color:{status_col};"><b>{status}</b></span></div>'
                 )
 
-            html = []
+            def refresh_ui():
+                widget.setHtml("".join(html))
+                widget.moveCursor(QTextCursor.MoveOperation.End)
+                QApplication.processEvents()
 
-            # --- Header ---
+            # --- ProgressBar vorbereiten ---
+            pbar = getattr(self, "progress_bar", None)
+            if pbar:
+                pbar.setStyleSheet(
+                    f"""
+                    QProgressBar {{
+                        border: 2px solid #444444;
+                        border-radius: 8px;
+                        background-color: #0A0A0A;
+                        color: black;
+                        text-align: center;
+                        font-weight: 900;
+                        font-size: 20px;
+                        min-height: 35px;
+                    }}
+                    QProgressBar::chunk {{
+                        background-color: qlineargradient(
+                            spread:pad, x1:0, y1:0, x2:1, y2:0,
+                            stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14
+                        );
+                        border-radius: 6px;
+                    }}
+                    """
+                )
+            pbar.setRange(0, 100)
+            pbar.setValue(0)
+            pbar.setTextVisible(True)
+            pbar.show()
+            smooth_set_value(pbar, 5)
+
             html.append(
-                f'<div style="line-height:1.0; text-align:center;">'
-                f'<div style="margin-bottom:2px;">'
-                f'<span style="color:{C_GREEN}; font-size:26pt;">●</span>'
-                f'<span style="color:{C_RED}; font-family:\'Arial Black\',sans-serif; font-size:20pt; font-weight:bold;"> {T["live"]}</span> | '
-                f'<span style="color:{C_BLUE}; font-family:\'Arial Black\',sans-serif; font-size:20pt; font-weight:bold;">{T["monitor"]}</span>'
+                f'<div style="text-align:center; line-height:1.2; margin-bottom:12px;">'
+                # © Copyright
+                f"<div>"
+                f"<span style=\"font-family:'Arial Black', sans-serif; font-size:18pt; font-weight:bold;\">"
+                f'<span style="color:#39FF14; text-shadow:0 0 6px #39FF14,0 0 12px #00FFFF;">© 2026 speedy005</span>'
+                f'<span style="color:#ff0039; text-shadow:0 0 6px #FF00FF,0 0 12px #FF1493;"> - Alle Rechte vorbehalten.</span>'
+                f"</span>"
+                f"</div>"
+                # ● LIVE | System Monitor
+                f'<div style="margin-bottom:8px;">'
+                f'<span style="color:{C_GREEN}; font-size:32pt;">●</span>'
+                f'<span style="color:{C_RED}; font-family:\'Arial Black\', sans-serif; font-size:28pt; font-weight:900;"> {T["live"]}</span> | '
+                f'<span style="color:{C_BLUE}; font-family:\'Arial Black\', sans-serif; font-size:28pt; font-weight:900;">{T["monitor"]}</span>'
+                f"</div>"
+                # 🚀 Tool Name
+                f'<div style="margin-bottom:12px;">'
+                f'<span style="font-family:{F_EMOJI}; font-size:32pt;">🚀</span> '
+                f'<span style="color:{C_ORANGE}; font-family:\'Arial Black\',sans-serif; font-size:32pt; font-weight:900;">{T["tool_name"]}</span>'
+                f"</div>"
+                # Signatur
+                f"<div style=\"font-family:'Arial', sans-serif; font-size:16pt; font-weight:bold; margin-top:6px;\">"
+                f'<span style="color:#FF0033;">{T["greeting"].split(",")[0]}</span>'
+                f'<span style="color:#00ADFF;">,{T["greeting"].split(",")[1]}</span>'
+                f"</div>"
                 f"</div>"
             )
 
-            html.append(
-                f'<div style="margin:0;">'
-                f'<span style="font-family:{F_EMOJI}; font-size:26pt; display:inline-block; width:42px;">⏳</span> '
-                f'<span style="color:{C_START_TEXT}; font-family:\'Arial Black\',\'Segoe UI Black\',sans-serif; font-size:{S_NORM}; font-weight:bold;">{T["start"]}</span> '
-                f"<span style=\"color:{C_START_TIME}; font-family:'Arial Black','Segoe UI Black',sans-serif; font-size:{S_NORM}; font-weight:bold;\">[{timestamp}]</span>"
-                f"</div>"
-            )
+            refresh_ui()
+            if pbar:
+                smooth_set_value(pbar, 10)
 
+            # --- Autor / Version ---
             html.append(
-                f'<div style="font-size:{S_AV_SIZE}; '
-                f"font-family:'Arial Black','Segoe UI Black',sans-serif; "
-                f'font-weight:bold; margin:1px 0; text-align: center;">'
+                f"<div style=\"font-size:{S_AV_SIZE}; font-family:'Arial Black'; font-weight:bold; margin:1px 0; text-align:center;\">"
                 f'<span style="color:{C_AV_LABEL_AUTOR};">{T["autor"]}:</span> '
                 f'<span style="color:{C_AV_VALUE_AUTOR};">speedy005</span> | '
                 f'<span style="color:{C_AV_LABEL_VER};">{T["version"]}:</span> '
                 f'<span style="color:{C_AV_VALUE_VER};">{app_ver}</span>'
                 f"</div>"
             )
-
-            html.append(
-                f'<div style="border-top:1px solid {C_LINE}; margin:3px 0;"></div>'
-            )
-
-            # --- Features ---
-            html.append(
-                f'<div style="color:{C_ORANGE}; font-size:{S_HEADER}; font-weight:bold;">{T["features_head"]}</div>'
-                f"<div style='font-size:{S_FEAT}; font-weight:bold; line-height:1.1; margin-left:5px;'>"
-                f"➤ <span style='color:{C_GREEN};'>Auto-Patching:</span> <span style='color:{C_BLUE};'>{T['feat_1']}</span><br>"
-                f"➤ <span style='color:{C_GREEN};'>Online-Laden:</span> <span style='color:{C_BLUE};'>{T['feat_2']}</span><br>"
-                f"➤ <span style='color:{C_GREEN};'>Lokalisierung:</span> <span style='color:{C_BLUE};'>{T['feat_3']}</span><br>"
-                f"➤ <span style='color:{C_GREEN};'>Smart Logging:</span> <span style='color:{C_BLUE};'>{T['feat_4']}</span>"
-                f"</div>"
-            )
-            html.append(
-                f'<div style="border-top:1px solid {C_LINE}; margin:3px 0;"></div>'
-            )
-
-            # --- Start ---
-            html.append(
-                f'<div style="margin:0;">⏳ '
-                f"<span style='color:{C_START_TEXT}; font-weight:bold;'>{T['start']}</span> "
-                f"<span style='color:{C_START_TIME}; font-weight:bold;'>[{timestamp}]</span></div>"
-            )
+            refresh_ui()
             if pbar:
                 smooth_set_value(pbar, 15)
 
-            # --- System Infos ---
+            html.append(
+                f'<div style="text-align:center; line-height:1.5; margin-bottom:12px;">'
+                # Features Überschrift
+                f'<div style="color:#FF0000; font-size:{S_HEADER}; font-weight:bold; text-align:center; margin-bottom:6px;">'
+                f'{T["features_head"] if is_de else T.get("features_head_en", "Features")}'
+                f"</div>"
+                # Features Liste
+                f"<div style='font-size:{S_FEAT};'>"
+                # Feature 1
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:#FF0000;'>➤</span> "
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:{C_GREEN};'>{T['feat_1']}</span> "
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:{C_BLUE};'>.patch</span><br>"
+                # Feature 2
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:#FF0000;'>➤</span> "
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:{C_GREEN};'>{T['feat_2']}</span> "
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:{C_BLUE};'>Patches</span><br>"
+                # Feature 3 DE/EN Lokalisierung (farblich getrennt)
+            )
+            feat3_parts = T["feat_3"].split(
+                " "
+            )  # ["DE/EN", "Lokalisierung"] oder ["DE/EN", "Localization"]
+            html.append(
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:#FF0000;'>➤</span> "
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:{C_GREEN};'>{feat3_parts[0]}</span> "
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:{C_BLUE};'>{feat3_parts[1]}</span><br>"
+            )
+            html.append(
+                # Feature 4
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:#FF0000;'>➤</span> "
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:{C_GREEN};'>{T['feat_4']}</span> "
+                f"<span style='font-family:Arial Black, sans-serif; font-weight:bold; color:{C_BLUE};'>-Log</span>"
+                f"</div>"
+                # Trennlinie
+                f'<div style="border-top:1px solid {C_LINE}; margin:3px 0;"></div>'
+                # Start Text mit Emoji
+                f"<div style='margin:4px 0; text-align:center;'>"
+                f"<span style='font-family:{F_EMOJI}; font-size:{S_EMOJI};'>⏳ </span> "
+                f"<span style='color:{C_START_TEXT}; font-family:Arial Black, sans-serif; font-size:{S_NORM}; font-weight:bold;'>{T['start']}</span>"
+                f"</div>"
+                f"</div>"
+            )
+            refresh_ui()
+            if pbar:
+                smooth_set_value(pbar, 20)
+
+            # --- Systeminfos ---
             l_icon = "🇩🇪" if is_de else "🇬🇧"
             html.append(
                 make_safe_row(l_icon, T["lang_label"], T["lang_name"], C_GREEN, C_BLUE)
             )
+            # --- Systeminfos ---
             html.append(
                 make_safe_row(
                     "💻",
@@ -9388,61 +9751,142 @@ class PatchManagerGUI(QWidget):
                     C_BLUE,
                 )
             )
+
+            # CPU / Architektur
+            cpu_arch = platform.machine()
+            cpu_count = psutil.cpu_count(logical=True)
+            html.append(
+                make_safe_row(
+                    "💻",
+                    "CPU / Architektur",
+                    f"{cpu_arch}, {cpu_count} Kerne",
+                    C_GREEN,
+                    C_BLUE,
+                )
+            )
+
+            # RAM / Speicher
+            ram_total = round(psutil.virtual_memory().total / (1024**3))  # GB
+            ram_free = round(psutil.virtual_memory().available / (1024**3))  # GB
+            html.append(
+                make_safe_row(
+                    "💾",
+                    "RAM",
+                    f"{ram_total}GB / {ram_free}GB frei",
+                    C_GREEN,
+                    C_BLUE,
+                )
+            )
+
+            # Hostname / IP
+            hostname = socket.gethostname()
+            ip_address = socket.gethostbyname(hostname)
+            html.append(
+                make_safe_row(
+                    "🌐",
+                    "Hostname / IP",
+                    f"{hostname} ({ip_address})",
+                    C_GREEN,
+                    C_BLUE,
+                )
+            )
+
+            # Uptime
+            uptime_seconds = (
+                datetime.now() - datetime.fromtimestamp(psutil.boot_time())
+            ).total_seconds()
+            uptime_str = str(timedelta(seconds=int(uptime_seconds))).split(".")[
+                0
+            ]  # hh:mm:ss
+            html.append(
+                make_safe_row(
+                    "⏱️",
+                    "Uptime",
+                    uptime_str,
+                    C_GREEN,
+                    C_BLUE,
+                )
+            )
+            refresh_ui()
             if pbar:
                 smooth_set_value(pbar, 30)
 
-            # --- Tools prüfen ---
-            for t in ["git", "patch", "zip"]:
+            # --- Tools ---
+            for i, t in enumerate(
+                [
+                    "git",
+                    "patch",
+                    "zip",
+                    "nmap",
+                    "hydra",
+                    "john",
+                    "python3",
+                    "pip",
+                    "ssh",
+                    "sqlmap",
+                    "wireshark",
+                    "nikto",
+                    "tcpdump",
+                    "aircrack-ng",
+                    "hashcat",
+                ]
+            ):
                 path = shutil.which(t)
                 ok = bool(path)
-                info = "nicht gefunden"
+                info = "FEHLT"
+
                 if ok:
                     try:
-                        info_raw = subprocess.getoutput(f"{t} --version").strip()
+                        cmd = (
+                            f"{t} --list=build-info"
+                            if t == "john"
+                            else f"{t} --version"
+                        )
+                        info_raw = subprocess.getoutput(cmd).strip()
                         match = re.search(r"\d+(?:\.\d+)+|\d+", info_raw)
-                        version = match.group(0) if match else "unbekannt"
-                        info = f"Version {version}"
-                    except:
-                        info = path
+                        info = f"V{match.group(0)}" if match else "OK"
+                    except Exception:
+                        info = "OK"
+
                 html.append(
                     make_safe_row(
                         "✅" if ok else "❌",
                         t.capitalize(),
-                        f"{'OK' if ok else 'FEHLT'} – {info}",
+                        info,
                         C_GREEN if ok else C_RED,
                         C_BLUE if ok else C_RED,
                     )
                 )
-            if pbar:
-                smooth_set_value(pbar, 45)
+                refresh_ui()
+                if pbar:
+                    smooth_set_value(pbar, 35 + (i + 1) * 5)
 
-            # --- Python Pakete prüfen ---
-            for pkg in ["PyQt6", "requests"]:
-                spec = importlib.util.find_spec(pkg)
-                ok = spec is not None
-                version = "unknown"
+            # --- Python Pakete ---
+            for i, pkg in enumerate(["PyQt6", "requests"]):
+                ok = importlib.util.find_spec(pkg) is not None
+                version = "OK"
                 if ok:
                     try:
                         module = importlib.import_module(pkg)
                         version = (
-                            getattr(module, "__version__", "unknown")
+                            getattr(module, "__version__", "OK")
                             if pkg != "PyQt6"
-                            else __import__("PyQt6").QtCore.QT_VERSION_STR
+                            else "V6"
                         )
                     except:
                         pass
-                status_text = f"OK – {version}" if ok else "FEHLT"
                 html.append(
                     make_safe_row(
                         "📦" if ok else "❌",
                         pkg.capitalize(),
-                        status_text,
+                        version,
                         C_GREEN if ok else C_RED,
                         C_BLUE if ok else C_RED,
                     )
                 )
-            if pbar:
-                smooth_set_value(pbar, 55)
+                refresh_ui()
+                if pbar:
+                    smooth_set_value(pbar, 50 + (i + 1) * 5)
 
             # --- Netzwerk ---
             try:
@@ -9545,25 +9989,29 @@ class PatchManagerGUI(QWidget):
 
             # --- Statistik HTML ---
             html.append(
-                f'<div style="text-align:center; font-family:sans-serif; margin-top:20px;">'
-                f'<div style="font-size:28pt; font-weight:bold;">'
+                f"<div style=\"text-align:center; font-family:'Arial Black', sans-serif; margin-top:20px;\">"
+                # Titel
+                f'<div style="font-size:32pt; font-weight:bold; margin-bottom:10px;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">📊</span> "
-                f'<span style="color:#FFFF00;">{T.get("stats_title", "STATISTICS")}</span>'
+                f'<span style="color:#FFFF00; font-weight:bold;">{T.get("stats_title", "STATISTICS")}</span>'
                 f"</div>"
-                f'<div style="font-size:24pt; margin:10px 0;">'
+                # GitHub Statistik
+                f'<div style="font-size:28pt; font-weight:bold; margin:12px 0;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">🐙</span> "
                 f'<span style="color:#00FF00; font-weight:bold;">{T.get("stats_github", "GitHub:")}</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{git_count}</span>'
                 f"</div>"
-                f'<div style="font-size:24pt; margin:10px 0;">'
+                # Local Install Statistik
+                f'<div style="font-size:28pt; font-weight:bold; margin:12px 0;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">💾</span> "
                 f'<span style="color:#F57A08; font-weight:bold;">{T.get("stats_local", "Local:")}</span> '
                 f'<span style="color:{C_BLUE}; font-weight:bold;">{install_count}</span>'
                 f"</div>"
-                f'<div style="font-size:26pt; font-weight:bold; margin-top:10px;">'
+                # Total Statistik
+                f'<div style="font-size:30pt; font-weight:bold; margin-top:15px;">'
                 f"<span style=\"font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;\">📊</span> "
-                f'<span style="color:#FFFF00;">{T.get("stats_total", "Total:")}</span> '
-                f'<span style="color:{C_BLUE}; font-weight:900;">{usage_count}</span>'
+                f'<span style="color:#FFFF00; font-weight:bold;">{T.get("stats_total", "Total:")}</span> '
+                f'<span style="color:{C_BLUE}; font-weight:bold;">{usage_count}</span>'
                 f"</div>"
                 f"</div>"
             )
@@ -9572,10 +10020,10 @@ class PatchManagerGUI(QWidget):
 
             # --- Footer ---
             footer_html = (
-                f'<div style="text-align:center; font-family:sans-serif; margin-top:10px;">'
+                f'<div style="text-align:center; line-height:1.2; margin-top:10px;">'
                 f'<span style="font-family:{F_EMOJI}; font-size:{S_EMOJI};">✅ </span>'
-                f'<span style="font-size:{S_FOOTER}; color:{C_GREEN}; font-weight:bold;">{T["foot_ok"]}&nbsp;</span>'
-                f'<span style="font-size:{S_FOOTER}; color:{C_BLUE}; font-weight:bold;">{T["foot_ready"]}</span>'
+                f'<span style="font-family:\'Arial Black\', sans-serif; font-size:{S_NORM}; font-weight:bold; color:{C_GREEN};">{T["foot_ok"]}</span>'
+                f'<span style="font-family:\'Arial Black\', sans-serif; font-size:{S_NORM}; font-weight:bold; color:{C_BLUE};">&nbsp;{T["foot_ready"]}</span>'
                 f"</div>"
             )
             html.append(footer_html)
@@ -9593,7 +10041,6 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 smooth_set_value(pbar, 100)
             QApplication.processEvents()
-
         # =====================
         # INIT UI
         # =====================
@@ -9947,7 +10394,7 @@ class PatchManagerGUI(QWidget):
         """
         )
         main_layout.addWidget(self.progress_bar)
-        self.pbar_idle()
+        # self.pbar_idle()
         # ---------------------------------------------------------
         # STATUS-BAR (MAXIMALER AUSBAU: GROSSE ANZEIGEN & ZIP)
         # ---------------------------------------------------------
@@ -10872,6 +11319,14 @@ class PatchManagerGUI(QWidget):
         self.infoscreen.moveCursor(QTextCursor.MoveOperation.End)
 
     def check_for_new_commit(self):
+        """
+        Prüft, ob ein neuer Commit im Repository verfügbar ist.
+        UI-Updates, Regenbogen-ProgressBar und Sound werden verwendet.
+        """
+
+        # --- Final Label verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
         import requests
         import re
         from PyQt6.QtWidgets import QMessageBox, QApplication
@@ -10928,7 +11383,7 @@ class PatchManagerGUI(QWidget):
                     """
                 QProgressBar {
                     text-align: center; font-weight: bold; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: orange; font-size: 15pt;
+                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }
                 QProgressBar::chunk {
                     background-color: transparent;
@@ -11629,6 +12084,11 @@ class PatchManagerGUI(QWidget):
                     )
                 )
                 self.btn_patch_online.setText(f"🌐 {text}")
+            if hasattr(self, "final_label") and self.final_label:
+                self.final_label.show()
+                self.final_label.setText(
+                    self.TEXT.get("final_label", "🛠️ Was bauen wir heute?")
+                )
 
             # GroupBoxes
             from PyQt6.QtWidgets import QGroupBox
@@ -11820,6 +12280,140 @@ class PatchManagerGUI(QWidget):
             progress_callback(100)
 
     # =====================
+    # GITHUB EMU CREDENTIALS
+    # =====================
+    def check_emu_credentials(self):
+        cfg = load_github_config()
+        if not all([cfg.get("emu_repo_url"), cfg.get("username"), cfg.get("token")]):
+            lang = getattr(self, "LANG", LANG)
+            self.append_info(
+                self.info_text,
+                TEXTS[lang].get(
+                    "github_emu_credentials_missing", "GitHub-Emu-Zugangsdaten fehlen!"
+                ),
+                "warning",
+            )
+
+    def edit_emu_github_config(self, info_widget=None, progress_callback=None):
+        """Öffnet den GitHub-Konfigurationsdialog mit Regenbogen-ProgressBar und Sound."""
+
+        # --- Final Label verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        import os, subprocess, platform
+        from PyQt6.QtWidgets import QFormLayout, QLabel, QDialogButtonBox, QApplication
+
+        # 1. Sprache & ProgressBar sicherstellen
+        current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        is_de = current_lang == "de"
+        pbar = getattr(self, "progress_bar", None)
+
+        if pbar:
+            # Regenbogen Style mit schwarzer Schrift
+            rainbow = (
+                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+            )
+            pbar.setStyleSheet(
+                f"""
+                QProgressBar {{
+                    text-align: center;
+                    font-weight: bold;
+                    border: 2px solid #222;
+                    border-radius: 6px;
+                    background-color: #111;
+                    color: black;
+                    font-size: 11pt;
+                }}
+                QProgressBar::chunk {{
+                    background-color: {rainbow};
+                    border-radius: 4px;
+                }}
+            """
+            )
+            msg = (
+                "Konfiguration wird geladen..." if is_de else "Loading configuration..."
+            )
+            pbar.setFormat(f"{msg} %p%")
+            pbar.setValue(20)
+            pbar.show()
+            QApplication.processEvents()
+
+        def play_config_sound(sound_type="open"):
+            sound = "dialog-information.oga" if sound_type == "open" else "complete.oga"
+            safe_play(sound)
+
+        play_config_sound("open")
+        dialog = GithubConfigDialog(self)
+        if pbar:
+            pbar.setValue(50)
+
+        # 2. Hilfsfunktion für Texte
+        def get_txt(key, default=""):
+            try:
+                lang_pkg = TEXTS.get(current_lang, TEXTS.get("de", {}))
+                return lang_pkg.get(key, default)
+            except:
+                return default
+
+        # 3. UI Texte anpassen
+        dialog.setWindowTitle(get_txt("github_dialog_title", "GitHub Configuration"))
+        form_layout = dialog.layout()
+        if isinstance(form_layout, QFormLayout):
+            mapping = [
+                (dialog.patch_repo, "patch_repo_label", "Patch Repo:"),
+                (dialog.patch_branch, "patch_branch_label", "Patch Branch:"),
+                (dialog.emu_repo, "emu_repo_label", "EMU Repo:"),
+                (dialog.emu_branch, "emu_branch_label", "EMU Branch:"),
+                (dialog.username, "github_username_label", "GitHub User:"),
+                (dialog.token, "github_token_label", "Token:"),
+                (dialog.user_name, "github_user_name_label", "Git Name:"),
+                (dialog.user_email, "github_user_email_label", "Git Email:"),
+            ]
+            for field, key, default_text in mapping:
+                label = form_layout.labelForField(field)
+                if label and isinstance(label, QLabel):
+                    label.setText(get_txt(key, default_text))
+
+        # Buttons
+        button_box = dialog.findChild(QDialogButtonBox)
+        if button_box:
+            save_btn = button_box.button(QDialogButtonBox.StandardButton.Save)
+            cancel_btn = button_box.button(QDialogButtonBox.StandardButton.Cancel)
+            if save_btn:
+                save_btn.setText(get_txt("save", "Speichern"))
+            if cancel_btn:
+                cancel_btn.setText(get_txt("cancel", "Abbrechen"))
+
+        if pbar:
+            pbar.setValue(80)
+
+        # 4. Dialog ausführen
+        if dialog.exec():
+            msg_save = get_txt(
+                "github_config_saved", "GitHub Konfiguration gespeichert."
+            )
+            self.append_info(info_widget or self.info_text, msg_save, "success")
+            play_config_sound("save")
+            if pbar:
+                finish_msg = "Gespeichert!" if is_de else "Saved!"
+                pbar.setFormat(f"✅ {finish_msg} 100%")
+        else:
+            if pbar:
+                pbar.setFormat("%p%")
+
+        # 5. Abschluss
+        if pbar:
+            pbar.setValue(100)
+        from PyQt6.QtCore import QTimer
+
+        # Nach 3 Sekunden (3000ms) zurücksetzen
+        QTimer.singleShot(3000, self.pbar_idle)
+        if progress_callback:
+            progress_callback(100)
+
+    # =====================
     # RUN ACTION WRAPPER
     # =====================
     def run_action(self, action_func):
@@ -11862,6 +12456,11 @@ class PatchManagerGUI(QWidget):
         Zeigt die letzten Commits an mit Regenbogen-ProgressBar und Sound.
         Text während des Vorgangs sichtbar, am Ende 3 Sekunden stehen lassen.
         """
+
+        # --- Final Label verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+
         from PyQt6.QtWidgets import QTextEdit, QApplication
         from PyQt6.QtCore import QTimer
         import os
@@ -11935,7 +12534,7 @@ class PatchManagerGUI(QWidget):
                     """
                 QProgressBar {
                     text-align: center; font-weight: bold; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: orange; font-size: 15pt;
+                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
                 }
                 QProgressBar::chunk {
                     background-color: transparent;
@@ -11994,6 +12593,10 @@ class PatchManagerGUI(QWidget):
     # ===================== OSCam-EMU BUTTON WRAPPERS =====================
     def oscam_emu_git_patch(self, info_widget=None, progress_callback=None):
         """Zentraler Fix: Übernimmt die funktionierende Logik der Clear-Methode."""
+
+        # --- Final Label verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
         from PyQt6.QtWidgets import QApplication
 
         # 1. Referenzen
@@ -12078,6 +12681,10 @@ class PatchManagerGUI(QWidget):
 
     def oscam_emu_git_clear(self, info_widget=None, progress_callback=None):
         """Zentrales Logging für die Emu-Git Bereinigung mit schwarzer Schrift & Regenbogen."""
+
+        # --- Final Label verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
         from PyQt6.QtWidgets import QApplication
 
         info_widget = info_widget or self.info_text
@@ -12180,6 +12787,9 @@ class PatchManagerGUI(QWidget):
             QApplication.processEvents()
 
     def check_patch(self, info_widget=None, progress_callback=None):
+        # --- Final Label verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
         """
         Prüft den Patch-Status sauber mit Regenbogen-ProgressBar und Sound-Feedback.
         """
@@ -12378,6 +12988,9 @@ class PatchManagerGUI(QWidget):
         QApplication.processEvents()
 
     def change_old_(self, info_widget=None, progress_callback=None):
+        # --- Final Label verstecken ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
         global OLD_, OLD_PATCH_FILE, ALT_PATCH_FILE
 
         info_widget = info_widget or self.info_text
@@ -12444,9 +13057,16 @@ class PatchManagerGUI(QWidget):
 
     def closeEvent(self, event):
         """
-        Wird beim Schließen aufgerufen. Zeigt kurz die 'Beendet'-Meldung,
-        spielt den Sound ab und schließt dann zeitverzögert das Fenster.
+        Wird beim Schließen des Fensters aufgerufen.
+        Zeigt kurz die 'Beendet'-Meldung, spielt Sound und blendet Final-Label aus.
         """
+        from PyQt6.QtCore import QTimer
+
+        # --- Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label:
+            self.final_label.hide()
         try:
             # 1. Status für die UI-Logik setzen
             self.is_closing = True
