@@ -33,7 +33,27 @@ import importlib.util
 import threading
 import ctypes
 from datetime import datetime, timezone
-import resource
+
+try:
+    import resource
+except ImportError:
+    # Dummy-Klasse für Windows, damit das Skript nicht abstürzt
+    class resource:
+        RLIMIT_NOFILE = 0
+
+        @staticmethod
+        def getrlimit(*args):
+            return (0, 0)
+
+        @staticmethod
+        def setrlimit(*args):
+            pass
+
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 
 def raise_file_limit():
@@ -148,7 +168,21 @@ def ensure_dependencies():
     global HAS_SOUND_SUPPORT
     load_settings()
 
-    # 1. Sprache & Texte (Erweitert um alle fehlenden Keys)
+    # 0. FIX FÜR WINDOWS (resource Modul existiert dort nicht)
+    if platform.system() != "Linux":
+
+        class MockResource:
+            def getrlimit(self, *args):
+                return (0, 0)
+
+            def setrlimit(self, *args):
+                pass
+
+            RLIMIT_NOFILE = 0
+
+        sys.modules["resource"] = MockResource()
+
+    # 1. Sprache & Texte
     try:
         loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
         lang = loc[:2].lower()
@@ -157,14 +191,12 @@ def ensure_dependencies():
 
     t_dict = {
         "de": {
-            # --- Grundlegende Meldungen / Dialoge ---
-            "py_m": "Fehlende Pakete:",
+            "py_m": "Fehlende Python-Pakete:",
             "py_p": "Jetzt installieren? (j/n): ",
             "sys_t": "System-Anforderungen",
-            "sys_txt": "Programme fehlen!",
-            "sys_i": "Bitte installieren: ",
-            "l_cmd": "Befehl:",
-            # --- GUI / Labels ---
+            "sys_txt": "Programme fehlen im System!",
+            "sys_i": "Bitte installiere diese Tools:",
+            "l_cmd": "Befehl für Terminal:",
             "features_head": "Hauptmerkmale",
             "final_label": "🛠️ Was bauen wir heute?",
             "lang_label": "Sprache",
@@ -172,14 +204,12 @@ def ensure_dependencies():
             "kernel": "System Kernel",
         },
         "en": {
-            # --- Grundlegende Meldungen / Dialoge ---
-            "py_m": "Missing packages:",
+            "py_m": "Missing Python packages:",
             "py_p": "Install now? (y/n): ",
             "sys_t": "System Requirements",
-            "sys_txt": "Programs missing!",
-            "sys_i": "Please install: ",
-            "l_cmd": "Command:",
-            # --- GUI / Labels ---
+            "sys_txt": "System programs missing!",
+            "sys_i": "Please install these tools:",
+            "l_cmd": "Terminal command:",
             "features_head": "Features",
             "final_label": "🛠️ What are we building today?",
             "lang_label": "Language",
@@ -189,20 +219,22 @@ def ensure_dependencies():
     }
     t = t_dict.get(lang, t_dict["en"])
 
-    # 2. PYTHON PAKETE PRÜFEN (Mit Schutz gegen Endlos-Neustart)
-    required = ["PyQt6", "requests", "packaging"]
+    # 2. PYTHON PAKETE PRÜFEN
+    required = ["PyQt6", "requests", "packaging", "psutil", "urllib3"]
     missing = [p for p in required if importlib.util.find_spec(p) is None]
 
     if missing:
         if "--restarted" in sys.argv:
-            print(f"KRITISCH: Pakete {missing} konnten nicht geladen werden. Abbruch.")
+            print(
+                f"KRITISCH: Pakete {missing} konnten nicht installiert werden. Abbruch."
+            )
             sys.exit(1)
 
         print(f"\n[INFO] {t['py_m']} {', '.join(missing)}")
         if input(t["py_p"]).lower() in ["j", "y"]:
             for p in missing:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", p])
-            # Neustart mit Flag, um Endlosschleife zu verhindern
+            # Skript neu starten, um neue Pakete zu laden
             os.execv(sys.executable, [sys.executable] + sys.argv + ["--restarted"])
         sys.exit(1)
 
@@ -219,20 +251,38 @@ def ensure_dependencies():
 
         threading.Thread(target=_track, daemon=True).start()
 
-    # 4. SYSTEM TOOLS PRÜFEN (git, patch) - Nur einmal!
-    missing_tools = [tool for tool in ["git", "patch"] if shutil.which(tool) is None]
+    # 4. SYSTEM TOOLS PRÜFEN (Erweiterte Liste aus deinem Code)
+    tools_to_check = [
+        "git",
+        "patch",
+        "zip",
+        "nmap",
+        "hydra",
+        "john",
+        "ssh",
+        "sqlmap",
+        "wireshark",
+        "nikto",
+        "tcpdump",
+        "aircrack-ng",
+        "hashcat",
+    ]
+    missing_tools = [tool for tool in tools_to_check if shutil.which(tool) is None]
 
     if missing_tools:
+        # PyQt6 muss hier bereits geladen sein (wurde in Schritt 2 geprüft)
         from PyQt6.QtWidgets import QApplication, QMessageBox
 
-        # Sicherstellen, dass eine App-Instanz existiert
         _ = QApplication.instance() or QApplication(sys.argv)
 
-        msg = f"{t['sys_i']} {', '.join(missing_tools)}\n\n"
+        msg = f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n"
         if platform.system() == "Linux":
-            msg += f"{t['l_cmd']}\nsudo apt update && sudo apt install {' '.join(missing_tools)}"
+            # Speziell für Kali/Ubuntu optimierter Befehl
+            msg += f"{t['l_cmd']}\nsudo apt update && sudo apt install -y {' '.join(missing_tools)}"
         else:
-            msg += f"Please install {', '.join(missing_tools)} and add it to your PATH."
+            msg += (
+                f"Please install {', '.join(missing_tools)} and add them to your PATH."
+            )
 
         box = QMessageBox()
         box.setIcon(QMessageBox.Icon.Critical)
@@ -241,6 +291,7 @@ def ensure_dependencies():
         box.setInformativeText(msg)
         box.setStandardButtons(QMessageBox.StandardButton.Ok)
         box.exec()
+        # Bei fehlenden System-Tools beenden, da das Skript sonst abstürzt
         sys.exit(1)
 
     # 5. SOUND-CHECK
@@ -248,7 +299,6 @@ def ensure_dependencies():
         shutil.which("paplay") is not None if platform.system() == "Linux" else True
     )
 
-    # 6. T zurückgeben für GUI oder spätere Verwendung
     return t
 
 
@@ -493,7 +543,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.3.0"
+APP_VERSION = "4.3.1"
 
 
 # ===================== PATCH DIRS =====================
@@ -1276,6 +1326,9 @@ TEXTS = {
         "zip_success": "✅ Patch successfully zipped: {zip_file}",
         "zip_failed": "❌ Error while zipping: {error}",
         # OSCam-Emu Git Patch
+        "patch_emu_git_done": "🎉 OScam-Emu Git successfully patched!",
+        "patch_emu_git_start": "🚀 Starting OScam-Emu patch process...",
+        "patch_emu_git_clone_failed": "❌ Error: Clone failed!",
         "patch_emu_git_start": "🔹 Creating OSCam-Emu Git Patch... (Path: {path})",
         "patch_emu_git_deleted": "✅ Old OSCam-Emu Git folder deleted: {path}",
         "delete_failed": "❌ Failed to delete folder: {path}",
@@ -1283,7 +1336,7 @@ TEXTS = {
         "patch_emu_git_apply_failed": "❌ Failed to apply patch",
         "patch_emu_git_applied": "✅ Patch successfully committed: {commit_msg}",
         "patch_emu_git_revision_failed": "⚠️ Failed to get Git revision: {error}",
-        "patch_emu_git_done": "✅ Oscam Emu Git successfully patched",
+        "donepatch_emu_git_": "✅ Oscam Emu Git successfully patched",
         "patch_emu_git_revision": "🧾 Git revision: {sha}",
         "github_patch_uploaded": "✅ Patch successfully uploaded: {patch_version}",
         "github_upload_failed": "❌ GitHub upload failed.",
@@ -1324,7 +1377,8 @@ TEXTS = {
         "net_online": "Online",
         "net_offline": "Offline",
         "patch_file_missing": "❌ Patch file missing: {path}",
-        "patch_emu_git_done": "✅ Patch applied successfully!",
+        "patch_emu_git_done": "🎉 OScam-Emu Git successfully patched!",
+        "rev_label": "📝 Git Revision:",
         "patch_emu_git_apply_failed": "❌ Failed to apply patch!",
         # Tool Start
         "start": "Starting System-Check...",
@@ -1581,6 +1635,9 @@ TEXTS = {
         "patch_path_label": "Patch speichern",
         "change_old_dir": "S3 Patch-Ordner auswählen",
         # OSCam-Emu Git Patch
+        "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich gepatcht!",
+        "patch_emu_git_start": "🚀 Starte OScam-Emu Patch-Prozess...",
+        "patch_emu_git_clone_failed": "❌ Fehler: Clone fehlgeschlagen!",
         "patch_emu_git_start": "🔹 OSCam-Emu Git Patch wird erstellt... (Pfad: {path})",
         "patch_emu_git_deleted": "✅ Alter OSCam-Emu Git Ordner gelöscht: {path}",
         "delete_failed": "❌ Löschen des Ordners fehlgeschlagen: {path}",
@@ -1662,6 +1719,16 @@ TEXTS = {
         "github_emu_git_uploaded": "✅ OSCam-Emu Git erfolgreich hochgeladen!",
         "github_emu_git_revision": "📊 Aktueller Stand: Revision {sha} ({commit_msg})",
         "github_emu_git_revision_failed": "⚠️ Revision konnte nicht ausgelesen werden: {error}",
+        # oscam em git patch
+        "patch_emu_git_start": "🚀 Starte OScam-Emu Patch-Prozess...\n📂 Pfad: {path}",
+        "patch_emu_git_clone_failed": "❌ Fehler: Streamboard-Repository konnte nicht geklont werden!",
+        "patch_file_missing": "⚠️ Fehler: Die Patch-Datei wurde nicht gefunden!",
+        "patch_emu_git_apply_failed": "❌ Fehler: Der oscam-emu.patch konnte nicht angewendet werden!",
+        "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich vorbereitet und lokal committed!",
+        "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich gepatcht!",
+        "rev_label": "📝 Git-Revision:",
+        # Falls du weitere Keys aus der Log-Funktion brauchst:
+        "git_rev_info": "📝 Git-Revision: {revision}",
         # online check
         "net_check": "Prüfe Internetverbindung...",
         "net_online": "Online",
@@ -3178,12 +3245,18 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
         QApplication.processEvents()
 
     def log(text_key, level="info", **kwargs):
+        # Holt das richtige Sprach-Paket (Default: Englisch)
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
+        # Holt den langen Satz (z.B. "🎉 OScam-Emu..."), falls nicht gefunden, nimm den Key selbst
         text_template = lang_dict.get(text_key, text_key)
+
         try:
+            # Versucht Platzhalter wie {path} zu füllen
             text = text_template.format(**kwargs)
-        except:
-            text = text_key
+        except Exception:
+            # Falls .format() scheitert, nimm zumindest die Vorlage (den langen Satz)
+            text = text_template
+
         if gui and hasattr(gui, "append_info"):
             gui.append_info(widget, text, level)
         QApplication.processEvents()
@@ -3290,17 +3363,19 @@ def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=N
         pass
 
     # --- 7. FINALE ---
-    # Erstellt das gewünschte Format: 2.26.02-11943-802 (7b6371d1)
     full_revision = f"{clean_version} ({rev_hash})"
 
+    # Progress-Bar Text (Lokalisiert)
     done_txt = "✅ Fertig!" if lang == "de" else "✅ Done!"
     set_progress(100, done_txt)
+
+    # Hauptmeldung (aus dem TEXTS Dictionary oben)
     log("patch_emu_git_done", "success")
 
-    # Detaillierte Meldung im Info-Screen (Deutsch / Englisch)
-    rev_label = "📝 Git-Revision:" if lang == "de" else "📝 Git Revision:"
+    # Detail-Meldung mit Revision (ebenfalls lokalisiert)
+    rev_text = TEXTS.get(lang, TEXTS["en"]).get("rev_label", "Revision:")
     if gui:
-        gui.append_info(widget, f"{rev_label} {full_revision}", "success")
+        gui.append_info(widget, f"{rev_text} {full_revision}", "success")
 
     if "safe_play" in globals():
         safe_play("complete.oga")
@@ -4008,6 +4083,9 @@ class PatchManagerGUI(QWidget):
 
         # --- TIMER-SEKTION ---
         # 3. INFOSCREEN & REDIRECTOR FIX
+        self.current_rev = getattr(
+            self, "current_rev", "11943"
+        )  # Falls nicht schon gesetzt
         self.info_text = QTextEdit()
         self.info_text.setReadOnly(True)
         try:
@@ -4224,6 +4302,46 @@ class PatchManagerGUI(QWidget):
     # =====================================================================
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
+
+    def blink_oscam_revision(self):
+        """Lässt die Revision im Status-Label 3x rot blinken."""
+        status_label = getattr(self, "status_label", None)
+        if not status_label:
+            return
+
+        from PyQt6.QtCore import QTimer
+
+        # Farben & Werte
+        C_REV = "#00FF00"  # Grün
+        C_BLINK = "#F70606"  # Rot
+
+        def set_blink_ui(rev_color):
+            # Aktuellen Text parsen und Farbe der Revision rXXXX austauschen
+            import re
+
+            current_html = status_label.text()
+            # Ersetzt die Farbe im letzten span-Tag (die Revision)
+            new_html = re.sub(
+                r"(color:)[^;']+(;[^>]*>\(r\d+\)</span>)$",
+                f"\\1{rev_color}\\2",
+                current_html,
+            )
+            status_label.setText(new_html)
+
+        # Blink-Sequenz (300ms Intervalle)
+        delays = [300, 600, 900, 1200, 1500, 1800]
+        blink_colors = [
+            "transparent",
+            C_BLINK,
+            "transparent",
+            C_BLINK,
+            "transparent",
+            C_BLINK,
+            C_REV,
+        ]
+
+        for i, delay in enumerate(delays):
+            QTimer.singleShot(delay, lambda c=blink_colors[i]: set_blink_ui(c))
 
     def hide_final_label(self):
         if hasattr(self, "final_label") and self.final_label:
@@ -5284,101 +5402,133 @@ class PatchManagerGUI(QWidget):
         if "save_config" in globals():
             save_config({"led_enabled": enable}, gui_instance=self, silent=True)
 
-    def show_language_animation(self, lang_code):
-        """Animation mit automatischem Fallback für fehlende Emoji-Fonts."""
+    def show_language_animation(self, lang_code, callback=None):
+        """Flaggen-Animation über neon-orangem Text 'Sprache wird umgestellt...' mit sauberem Fade-Out"""
 
-        # --- Final Label sofort ausblenden ---
+        # Final Label ausblenden
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
         elif hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
+
         from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect
-        from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer, Qt
+        from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer
         from PyQt6.QtGui import QFont, QFontInfo
 
-        # 1. PRÜFUNG: Ist ein Emoji-Font installiert?
+        is_de = lang_code.lower() == "de"
+        text_message = (
+            "Sprache wird umgestellt..." if is_de else "Switching language..."
+        )
+        flag_char = "🇩🇪" if is_de else "🇺🇸"
+
+        # --- Text-Label ---
+        text_label = QLabel(text_message, self)
+        text_font = QFont("Segoe UI", 32, QFont.Weight.Bold)
+        text_label.setFont(text_font)
+        text_label.setStyleSheet(
+            """
+            color: #FF6F00;  /* neon-orange */
+            padding: 4px 8px;
+            background: transparent;
+            """
+        )
+        text_label.adjustSize()
+        text_x = (self.width() - text_label.width()) // 2
+        text_y = (self.height() - text_label.height()) // 2 + 30
+        text_label.move(text_x, text_y)
+
+        text_op = QGraphicsOpacityEffect(text_label)
+        text_label.setGraphicsEffect(text_op)
+        text_op.setOpacity(0.0)
+
+        # --- Flaggen-Label (über Text) ---
+        flag_label = QLabel(flag_char, self)
         emoji_font = QFont("Noto Color Emoji", 65)
-        # Wir prüfen, ob das System den Font wirklich geladen hat
         has_emoji = QFontInfo(emoji_font).family().lower() == "noto color emoji"
+        if not has_emoji:
+            emoji_font = QFont("Segoe UI", 50, QFont.Weight.Bold)
+        flag_label.setFont(emoji_font)
+        flag_label.setStyleSheet("background: transparent;")
+        flag_label.adjustSize()
+        flag_x = (self.width() - flag_label.width()) // 2
+        flag_y = text_y - flag_label.height() - 20  # Über dem Text
+        flag_label.move(flag_x, flag_y)
 
-        # 2. STYLING & TEXT-WEICHE
-        if has_emoji:
-            # EMOJI MODUS (Wenn Schriftart vorhanden)
-            display_text = "🇩🇪" if lang_code == "de" else "🇺🇸"
-            style = "background: transparent; border: none;"
-            emoji_font.setFamilies(
-                ["Noto Color Emoji", "Segoe UI Emoji", "Apple Color Emoji"]
-            )
-        else:
-            # TEXT MODUS (Fallback für saubere Optik ohne Vierecke)
-            if lang_code == "de":
-                display_text = " DE "
-                style = """
-                    color: #FFCC00; 
-                    background-color: #000000; 
-                    border: 3px solid #FF0000; 
-                    border-radius: 12px; 
-                    font-size: 45px; 
-                    font-weight: bold; 
-                    padding: 8px;
-                """
-            else:
-                display_text = " EN "
-                style = """
-                    color: #FFFFFF; 
-                    background-color: #00247D; 
-                    border: 3px solid #CF142B; 
-                    border-radius: 12px; 
-                    font-size: 45px; 
-                    font-weight: bold; 
-                    padding: 8px;
-                """
-            emoji_font = QFont("Segoe UI", 45, QFont.Weight.Bold)
+        flag_op = QGraphicsOpacityEffect(flag_label)
+        flag_label.setGraphicsEffect(flag_op)
+        flag_op.setOpacity(0.0)
 
-        # 3. LABEL ERSTELLEN
-        self.flag_label = QLabel(display_text, self)
-        self.flag_label.setFont(emoji_font)
-        self.flag_label.setStyleSheet(style)
-        self.flag_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.flag_label.adjustSize()
-
-        # 4. POSITIONIERUNG (Zentriert)
-        start_x = (self.width() - self.flag_label.width()) // 2
-        start_y = (self.height() - self.flag_label.height()) // 2
-
-        # Opacity Effekt für sanftes Ausblenden
-        op = QGraphicsOpacityEffect(self.flag_label)
-        self.flag_label.setGraphicsEffect(op)
-
-        # 5. ANIMATIONEN (Dauer: 1.2 Sekunden)
-        # Bewegung nach oben
-        self.anim = QPropertyAnimation(self.flag_label, b"geometry")
-        self.anim.setDuration(1200)
-        self.anim.setStartValue(
-            QRect(
-                start_x, start_y + 50, self.flag_label.width(), self.flag_label.height()
-            )
+        # --- Animationen speichern ---
+        self.anim_flag_geo = QPropertyAnimation(flag_label, b"geometry")
+        self.anim_flag_geo.setDuration(1000)
+        self.anim_flag_geo.setStartValue(
+            QRect(flag_x, flag_y + 30, flag_label.width(), flag_label.height())
         )
-        self.anim.setEndValue(
-            QRect(
-                start_x, start_y - 70, self.flag_label.width(), self.flag_label.height()
-            )
+        self.anim_flag_geo.setEndValue(
+            QRect(flag_x, flag_y, flag_label.width(), flag_label.height())
         )
-        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim_flag_geo.setEasingCurve(QEasingCurve.Type.OutBack)
 
-        # Fade Out (Verschwinden)
-        self.op_anim = QPropertyAnimation(op, b"opacity")
-        self.op_anim.setDuration(1200)
-        self.op_anim.setStartValue(1.0)
-        self.op_anim.setEndValue(0.0)
+        self.anim_flag_op = QPropertyAnimation(flag_op, b"opacity")
+        self.anim_flag_op.setDuration(1000)
+        self.anim_flag_op.setStartValue(0.0)
+        self.anim_flag_op.setEndValue(1.0)
 
-        # 6. START & CLEANUP
-        self.flag_label.show()
-        self.anim.start()
-        self.op_anim.start()
+        self.anim_text_op = QPropertyAnimation(text_op, b"opacity")
+        self.anim_text_op.setDuration(1000)
+        self.anim_text_op.setStartValue(0.0)
+        self.anim_text_op.setEndValue(1.0)
 
-        # Nach Abschluss das Label aus dem Speicher löschen
-        QTimer.singleShot(1300, self.flag_label.deleteLater)
+        # --- Starten ---
+        text_label.show()
+        flag_label.show()
+        self.anim_text_op.start()
+        self.anim_flag_geo.start()
+        self.anim_flag_op.start()
+
+        # --- Pulsierender Glow für Text ---
+        def pulse_glow(times=6, interval=200):
+            state = [0]
+
+            def toggle_glow():
+                glow_value = 5 + (state[0] % 2) * 10
+                text_label.setStyleSheet(
+                    f"""
+                    color: #FF6F00;
+                    padding: 4px 8px;
+                    background: transparent;
+                    text-shadow: 0 0 {glow_value}px #FF6F00, 0 0 {glow_value*2}px #FF6F00, 0 0 {glow_value*3}px #FF6F00;
+                    """
+                )
+                state[0] += 1
+                if state[0] < times * 2:
+                    QTimer.singleShot(interval, toggle_glow)
+
+            toggle_glow()
+
+        pulse_glow()
+
+        # --- Fade-Out von Text + Flagge nach 2 Sekunden ---
+        def fade_out_all():
+            self.anim_text_out_op = QPropertyAnimation(text_op, b"opacity")
+            self.anim_text_out_op.setDuration(3000)
+            self.anim_text_out_op.setStartValue(1.0)
+            self.anim_text_out_op.setEndValue(0.0)
+            self.anim_text_out_op.start()
+            self.anim_text_out_op.finished.connect(lambda: text_label.deleteLater())
+
+            self.anim_flag_out_op = QPropertyAnimation(flag_op, b"opacity")
+            self.anim_flag_out_op.setDuration(3000)
+            self.anim_flag_out_op.setStartValue(1.0)
+            self.anim_flag_out_op.setEndValue(0.0)
+            self.anim_flag_out_op.start()
+            self.anim_flag_out_op.finished.connect(lambda: flag_label.deleteLater())
+
+            # --- Callback aufrufen, damit GUI aktualisiert wird ---
+            if callback:
+                callback()
+
+        QTimer.singleShot(4500, fade_out_all)
 
     def show_tool_help(self, tool_id):
         """Zeigt Status-Infos (Grün) oder Hilfe (Rot) für System-Tools an."""
@@ -6068,7 +6218,15 @@ class PatchManagerGUI(QWidget):
 
         txt = getattr(self, "TEXT", {})
         timestamp = datetime.now().strftime("%H:%M:%S")
+        self.last_timestamp = timestamp  # Für Sprachwechsel speichern!
+
+        # 1. Die alte Revision für die Anzeige zwischenspeichern
         old_rev = getattr(self, "current_rev", "11943")
+
+        # 2. Die neue Revision für die Zukunft speichern
+        if update_available and new_rev:
+            self.current_rev = new_rev
+
         self.last_remote_rev = new_rev
 
         # --- Zentrale Farben & Schriftarten ---
@@ -9473,11 +9631,11 @@ class PatchManagerGUI(QWidget):
             # --- Styles & Farben ---
             S_TITEL, S_HEADER, S_NORM, S_EMOJI, S_FEAT, S_FOOTER = (
                 "32pt",
-                "20pt",
-                "20pt",
-                "20pt",
-                "20pt",
-                "20pt",
+                "22pt",
+                "22pt",
+                "22pt",
+                "22pt",
+                "22pt",
             )
             C_GREEN, C_BLUE, C_YELLOW, C_RED, C_LINE, C_ORANGE = (
                 "#00FF00",
@@ -9488,7 +9646,11 @@ class PatchManagerGUI(QWidget):
                 "#F57A08",
             )
             C_START_TEXT, C_START_TIME = C_ORANGE, C_RED
-            S_AV_SIZE, F_AV_STYLE, F_AV_WEIGHT = "22pt", "'Bold', sans-serif", "bold"
+            S_AV_SIZE, F_AV_STYLE, F_AV_WEIGHT = (
+                "22pt",
+                "'Arial Black', sans-serif",
+                "bold",
+            )
             C_AV_LABEL_AUTOR, C_AV_VALUE_AUTOR = C_RED, C_YELLOW
             C_AV_LABEL_VER, C_AV_VALUE_VER = C_ORANGE, C_BLUE
             S_REPO, C_REPO_NAME, C_REPO_VAL = "20pt", C_GREEN, C_BLUE
@@ -9647,12 +9809,15 @@ class PatchManagerGUI(QWidget):
             smooth_set_value(pbar, 5)
 
             html.append(
-                f'<div style="text-align:center; line-height:1.2; margin-bottom:12px;">'
-                # © Copyright
-                f"<div>"
+                f'<div style="text-align:center; width:100%; font-family:sans-serif;">'
+                # © 2026 speedy005 (Grün) - All rights reserved (Rot)
+                f'<div style="line-height:1.2; margin-bottom:16px;">'
                 f"<span style=\"font-family:'Arial Black', sans-serif; font-size:18pt; font-weight:bold;\">"
-                f'<span style="color:#39FF14; text-shadow:0 0 6px #39FF14,0 0 12px #00FFFF;">© 2026 speedy005</span>'
-                f'<span style="color:#ff0039; text-shadow:0 0 6px #FF00FF,0 0 12px #FF1493;"> - Alle Rechte vorbehalten.</span>'
+                f'<span style="color:#39FF14; text-shadow:0 0 6px #39FF14, 0 0 12px #00FFFF;">'
+                f'{T["copyright"].split("-")[0].strip()}</span>'
+                f'<span style="color:#ffffff;"> - </span>'
+                f'<span style="color:#ff0039; text-shadow:0 0 6px #FF00FF, 0 0 12px #FF1493;">'
+                f'{T["copyright"].split("-")[1].strip() if "-" in T["copyright"] else ""}</span>'
                 f"</span>"
                 f"</div>"
                 # ● LIVE | System Monitor
@@ -10036,6 +10201,7 @@ class PatchManagerGUI(QWidget):
                 widget.append(f"<br><b style='color:red;'>Check Error: {e}</b>")
 
         finally:
+            self.check_for_update_on_start()
             self.is_loading = False
             self._checking_active = False
             if pbar:
@@ -11944,31 +12110,65 @@ class PatchManagerGUI(QWidget):
 
     def change_language(self):
         """
-        Zentrale Steuerung für den Sprachwechsel.
-        Overlay → Flaggen-Animation → Sound → UI Update → S3-Status Check
-        ohne LED-Blinken.
+        Sprachwechsel mit Ablauf:
+
+        Overlay
+        → Flaggenanimation
+        → UI Update
+        → Systemcheck
+        → Autor Ansicht
+        → Overlay schließen
         """
+
         from PyQt6.QtWidgets import QApplication, QGroupBox
         from PyQt6.QtCore import QTimer
         import re, os, platform
 
         if not hasattr(self, "language_box") or self.language_box is None:
             return
+
         if getattr(self, "_block_language_change", False):
             return
+
         self._block_language_change = True
 
         try:
-            # --- A) Sprache bestimmen ---
+
+            # ---------------- Helper Funktionen ----------------
+
+            def strip_icons(text):
+                return re.sub(r"^[^\w\s]+", "", str(text)).strip()
+
+            def blink_widget(widget, times=6, interval=300):
+                """Blinkt Widget sichtbar/unsichtbar, bleibt am Ende sichtbar"""
+                if not widget:
+                    return
+                from PyQt6.QtCore import QTimer
+
+                def toggle(state=[True], count=[0]):
+                    widget.setVisible(state[0])
+                    state[0] = not state[0]
+                    count[0] += 1
+                    if count[0] < times:
+                        QTimer.singleShot(interval, toggle)
+                    else:
+                        widget.setVisible(True)
+
+                toggle()
+
+            # ---------------- Sprache bestimmen ----------------
+
             selected = self.language_box.currentText().upper()
             target_is_de = any(x in selected for x in ["DE", "DEU", "DEUTSCH"])
+
             self.LANG = "de" if target_is_de else "en"
             is_de = self.LANG == "de"
             wait_text = (
                 "Sprache wird angepasst..." if is_de else "Switching language..."
             )
 
-            # --- Overlay anzeigen ---
+            # ---------------- Overlay anzeigen ----------------
+
             if hasattr(self, "loading_overlay"):
                 self.loading_overlay.setGeometry(self.rect())
                 self.loading_label.setText(f"⏳ {wait_text}")
@@ -11976,35 +12176,38 @@ class PatchManagerGUI(QWidget):
                 self.loading_overlay.raise_()
                 QApplication.processEvents()
 
-            # --- B) Sound abspielen ---
+            # ---------------- Sound ----------------
+
             safe_play_func = globals().get("safe_play")
             if safe_play_func:
                 safe_play_func("service-logout.oga")
 
-            # --- Hilfsfunktion für Icons/Buttons ---
-            def strip_icons(text):
-                return re.sub(r"^[^\w\s]+", "", str(text)).strip()
+            # ---------------- Flaggen Animation ----------------
 
-            # --- C) Flaggenanimation ---
             if hasattr(self, "show_language_animation"):
                 self.show_language_animation(self.LANG)
 
-            # --- D) Texte laden ---
+            # ---------------- Texte laden ----------------
+
             all_texts = globals().get("TEXTS", {})
             self.TEXT = all_texts.get(self.LANG, {})
             lang_dict = self.TEXT
 
-            # --- E) ProgressBar starten ---
-            if hasattr(self, "progress_bar") and self.progress_bar:
-                self.progress_bar.setValue(20)
-                self.progress_bar.setFormat(f"⏳ {wait_text} %p%")
+            # ---------------- ProgressBar Start ----------------
+
+            pbar = getattr(self, "progress_bar", None)
+            if pbar:
+                pbar.setValue(20)
+                pbar.setFormat(f"⏳ {wait_text} %p%")
                 QApplication.processEvents()
 
-            # --- F) UI aktualisieren ---
+            # ---------------- UI Update ----------------
+
             if hasattr(self, "update_language"):
                 self.update_language()
 
-            # --- G) S3-Button Check (nur bei Statusänderung) ---
+            # ---------------- S3 Button Check ----------------
+
             if hasattr(self, "btn_s3") and self.btn_s3:
                 s3_exe = "s3.exe" if platform.system() == "Windows" else "s3"
                 s3_path = getattr(self, "S3_PATH", "/opt/s3")
@@ -12016,132 +12219,160 @@ class PatchManagerGUI(QWidget):
                     else ("S3 Installieren" if is_de else "Install S3")
                 )
                 new_color = "#00FF00" if s3_exists else "orange"
-
-                # Nur aktualisieren, wenn sich etwas geändert hat
-                if (
-                    self.btn_s3.text() != f"🚀 {new_label}"
-                    or self.btn_s3.property("current_color") != new_color
-                ):
-                    self.btn_s3.setText(f"🚀 {new_label}")
-                    self.btn_s3.setProperty("current_color", new_color)
-                    self.btn_s3.setStyleSheet(
-                        f"""
-                        QPushButton {{
-                            text-align: left;
-                            padding-left: 8px;
-                            font-weight: bold;
-                            color: {new_color};
-                            background-color: #3d3d3d;
-                            border: 1px solid {new_color};
-                            border-radius: 8px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: {new_color};
-                            color: black;
-                         }}
-                       """
-                    )
-
-            # --- H) Labels & Buttons aktualisieren ---
-            if hasattr(self, "commit_label") and self.commit_label:
-                text = lang_dict.get("commit_count_label", "Commits:")
-                self.commit_label.setText(text)
-                self.commit_label.setFixedWidth(
-                    self.commit_label.sizeHint().width() + 10
+                self.btn_s3.setText(f"🚀 {new_label}")
+                self.btn_s3.setStyleSheet(
+                    f"""
+                    QPushButton {{
+                        text-align:left;
+                        padding-left:8px;
+                        font-weight:bold;
+                        color:{new_color};
+                        background-color:#3d3d3d;
+                        border:1px solid {new_color};
+                        border-radius:8px;
+                    }}
+                    QPushButton:hover {{
+                        background-color:{new_color};
+                        color:black;
+                    }}
+                """
                 )
 
-            if hasattr(self, "color_label") and self.color_label:
-                text = lang_dict.get("color_label", "Farbe:" if is_de else "Color:")
-                self.color_label.setText(text)
-                self.color_label.setFixedWidth(self.color_label.sizeHint().width() + 10)
+            # ---------------- Labels aktualisieren ----------------
 
-            if hasattr(self, "log_button") and self.log_button:
-                text = lang_dict.get(
-                    "log_button_text", " Log speichern" if is_de else " Save Log"
+            if hasattr(self, "commit_label"):
+                self.commit_label.setText(
+                    lang_dict.get("commit_count_label", "Commits:")
                 )
-                self.log_button.setText(text)
 
-            if hasattr(self, "header_label") and self.header_label:
-                text = lang_dict.get(
-                    "settings_header", "Einstellungen" if is_de else "Settings"
+            if hasattr(self, "color_label"):
+                self.color_label.setText(
+                    lang_dict.get("color_label", "Farbe:" if is_de else "Color:")
                 )
-                self.header_label.setText(strip_icons(text))
 
-            if hasattr(self, "btn_modifier") and self.btn_modifier:
-                text = strip_icons(
+            if hasattr(self, "log_button"):
+                self.log_button.setText(
                     lang_dict.get(
-                        "modifier_button_text",
-                        "Patch Autor" if is_de else "Patch Author",
+                        "log_button_text", " Log speichern" if is_de else " Save Log"
                     )
                 )
-                self.btn_modifier.setText(f"👤 {text}")
 
-            if hasattr(self, "btn_patch_online") and self.btn_patch_online:
-                text = strip_icons(
-                    lang_dict.get(
-                        "patch_online_download",
-                        "Patch Online" if is_de else "Load Patch",
+            if hasattr(self, "header_label"):
+                self.header_label.setText(
+                    strip_icons(
+                        lang_dict.get(
+                            "settings_header", "Einstellungen" if is_de else "Settings"
+                        )
                     )
                 )
-                self.btn_patch_online.setText(f"🌐 {text}")
-            if hasattr(self, "final_label") and self.final_label:
-                self.final_label.show()
-                self.final_label.setText(
-                    self.TEXT.get("final_label", "🛠️ Was bauen wir heute?")
+
+            # --- OSCam Status aktualisieren + Versionsnummer blinkend ---
+            if hasattr(self, "status_label") and self.status_label:
+                rev = getattr(self, "current_rev", "----")
+                timestamp = getattr(self, "last_timestamp", "--:--:--")
+                msg = lang_dict.get(
+                    "oscam_uptodate",
+                    "OSCam ist aktuell." if is_de else "OSCam is up to date.",
                 )
 
-            # GroupBoxes
-            from PyQt6.QtWidgets import QGroupBox
+                # Farbe der blinkenden Versionsnummer
+                blink_color = "#FF0000"  # hier einstellbar
+
+                # HTML mit Versionsnummer in eigenem <span> für Blink
+                html = (
+                    f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
+                    f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
+                    f"<span id='rev_span' style='font-size:24px;color:{blink_color};font-weight:bold;'>{rev}</span>"
+                )
+                self.status_label.setText(html)
+
+                # Blink-Funktion nur für Versionsnummer
+                def blink_version(times=6, interval=300):
+                    state = [0]
+
+                    def toggle():
+                        current_color = blink_color if state[0] % 2 == 0 else "#00FF00"
+                        # Versionsnummer in rot/anders blinken
+                        new_html = (
+                            f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
+                            f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
+                            f"<span style='font-size:24px;color:{current_color};font-weight:bold;'>{rev}</span>"
+                        )
+                        self.status_label.setText(new_html)
+                        state[0] += 1
+                        if state[0] < times * 2:
+                            QTimer.singleShot(interval, toggle)
+
+                    toggle()
+
+                blink_version()
+
+            # ---------------- GroupBox Titel ----------------
 
             for box in self.findChildren(QGroupBox):
                 title = box.title()
-                if any(word in title for word in ["Einstellungen", "Settings"]):
+                if any(x in title for x in ["Settings", "Einstellungen"]):
                     box.setTitle("Einstellungen" if is_de else "Settings")
-                elif any(
-                    word in title
-                    for word in ["GitHub", "Configuration", "Konfiguration"]
+                if any(
+                    x in title for x in ["Configuration", "Konfiguration", "GitHub"]
                 ):
                     box.setTitle(
                         "GitHub Konfiguration" if is_de else "GitHub Configuration"
                     )
 
-            # --- I) Config speichern ---
-            if hasattr(self, "cfg"):
-                self.cfg["language"] = self.LANG.upper()
-                save_func = globals().get("save_config")
-                if save_func:
-                    save_func(self.cfg, gui_instance=self, silent=True)
+            # ---------------- Autor Ansicht vorbereiten ----------------
 
-            # --- J) Systemmonitor vorbereiten ---
-            if hasattr(self, "info_text") and self.info_text:
-                self.info_text.clear()
-                msg = lang_dict.get(
-                    "restarting_check",
-                    (
-                        "System-Check wird neu gestartet..."
-                        if is_de
-                        else "Restarting system check..."
-                    ),
-                )
-                self.info_text.setHtml(
-                    f"<div style='margin-top:10px; color:#F37804; font-size:15pt; font-family:sans-serif;'><b>⏳ {msg}</b></div>"
-                )
+            def show_author_view():
+                """Setzt Texte für Autor-Buttons und final_label (Blinken passiert später)"""
+                if hasattr(self, "btn_modifier"):
+                    self.btn_modifier.setText(
+                        f"👤 {strip_icons(lang_dict.get('modifier_button_text', 'Patch Autor' if is_de else 'Patch Author'))}"
+                    )
+                if hasattr(self, "btn_patch_online"):
+                    self.btn_patch_online.setText(
+                        f"🌐 {strip_icons(lang_dict.get('patch_online_download', 'Patch Online' if is_de else 'Load Patch'))}"
+                    )
+                if hasattr(self, "final_label") and self.final_label:
+                    self.final_label.setText(
+                        lang_dict.get("final_label", "🛠️ Was bauen wir heute?")
+                    )
+                    self.final_label.hide()  # erst nach ProgressBar sichtbar
 
-            # --- K) Timer-Kette final ---
+            # ---------------- Sounds während Ablauf ----------------
+
             if safe_play_func:
                 QTimer.singleShot(400, lambda: safe_play_func("dialog-information.oga"))
 
-            # Systemcheck & Overlay ausblenden
-            QTimer.singleShot(1000, lambda: self.run_full_system_check(clear_log=True))
-            QTimer.singleShot(1800, self.hide_language_overlay)
+            # ---------------- Systemcheck starten ----------------
 
-            # ProgressBar finalisieren ohne Blinken
-            if hasattr(self, "progress_bar") and self.progress_bar:
-                QTimer.singleShot(1200, lambda: self.progress_bar.setValue(100))
-                QTimer.singleShot(1400, lambda: self.progress_bar.setFormat("✅ OK"))
-                # Format erst nach längerer Pause zurücksetzen, um kein Blinken zu erzeugen
-                QTimer.singleShot(5000, lambda: self.progress_bar.setFormat("%p%"))
+            if hasattr(self, "run_full_system_check"):
+                QTimer.singleShot(
+                    1200, lambda: self.run_full_system_check(clear_log=True)
+                )
 
+            # ---------------- Finale Blink-Sequenz ----------------
+
+            def final_blink_sequence():
+                # Autor Buttons setzen
+                show_author_view()
+
+                # ProgressBar ausblenden
+                if hasattr(self, "progress_bar") and self.progress_bar:
+                    self.progress_bar.hide()
+
+                # final_label blinkt
+                if hasattr(self, "final_label") and self.final_label:
+                    blink_widget(self.final_label, times=6, interval=300)
+
+                # Overlay schließen
+                if hasattr(self, "hide_language_overlay"):
+                    self.hide_language_overlay()
+
+            QTimer.singleShot(3500, final_blink_sequence)
+            QTimer.singleShot(1200, lambda: self.progress_bar.setValue(100))
+            QTimer.singleShot(1400, lambda: self.progress_bar.setFormat("✅ OK"))
+            # Format erst nach längerer Pause zurücksetzen, um kein Blinken zu erzeugen
+            QTimer.singleShot(5000, lambda: self.progress_bar.setFormat("%p%"))
         except Exception as e:
             print(f"Fehler beim Sprachwechsel: {e}")
 
@@ -13127,6 +13358,7 @@ if __name__ == "__main__":
     ensure_dependencies()
 
     # 3. ERST JETZT: PyQt6 Importe & App-Instanz
+    import sys
     from PyQt6.QtWidgets import QApplication, QMessageBox
     from PyQt6.QtCore import Qt
 
