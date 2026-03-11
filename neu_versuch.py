@@ -172,24 +172,23 @@ def install_font_windows():
             pass
 
     threading.Thread(target=_download, daemon=True).start()
+import os, shutil, subprocess, platform
+
 def fix_windows_path():
-    import os, platform
-
-    if platform.system() != "Windows":
-        return
-
+    """
+    Fügt Standard-Pfade von Tools zur PATH-Variable für die aktuelle Session hinzu.
+    """
     extra_paths = [
-        r"C:\Program Files\Git\usr\bin",
-        r"C:\Program Files\Git\bin",
         r"C:\Program Files\7-Zip",
+        r"C:\Program Files\Git\cmd",
         r"C:\Program Files (x86)\Nmap",
         r"C:\Program Files\Wireshark",
-        r"C:\Windows\System32"
+        r"C:\Program Files\hashcat"
     ]
-
     for p in extra_paths:
         if os.path.exists(p) and p not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + p
+
 def get_tools_for_platform():
     import platform
 
@@ -231,12 +230,13 @@ def tool_exists(name):
             return shutil.which("patch") or shutil.which("patch.exe")
 
     return shutil.which(name)    
+
 def install_missing_tools_windows(missing_tools):
-
-    import subprocess, shutil, os
-
+    """
+    Installiert bekannte Windows-Tools via WinGet und passt PATH an.
+    """
     if shutil.which("winget") is None:
-        print("[!] WinGet nicht gefunden.")
+        print("[!] WinGet nicht gefunden. Bitte Tools manuell installieren:", missing_tools)
         return False
 
     winget_ids = {
@@ -250,72 +250,66 @@ def install_missing_tools_windows(missing_tools):
     }
 
     for tool in missing_tools:
-
         pkg = winget_ids.get(tool)
-
         if not pkg:
-            print(f"[!] Kein WinGet Paket für {tool}")
+            print(f"[!] Kein WinGet-Paket für {tool} bekannt. Bitte manuell installieren.")
             continue
 
-        print(f"[*] Installiere {tool}...")
+        if shutil.which(tool):
+            print(f"[✓] {tool} ist bereits installiert.")
+            continue
 
+        print(f"[*] Installiere {tool} via WinGet...")
         try:
-            subprocess.run(
-                [
-                    "winget",
-                    "install",
-                    "--id",
-                    pkg,
-                    "-e",
-                    "--silent",
-                    "--accept-source-agreements",
-                    "--accept-package-agreements",
-                ],
-                check=False,
-                timeout=300
-            )
-
+            subprocess.run([
+                "winget", "install", "--id", pkg, "-e", "--silent",
+                "--accept-source-agreements", "--accept-package-agreements"
+            ], check=False, timeout=300)
         except Exception as e:
-            print(f"[!] Fehler bei {tool}: {e}")
+            print(f"[!] Fehler bei Installation von {tool}: {e}")
 
     fix_windows_path()
-
     return True
+
+def tool_exists(name):
+    """
+    Prüft, ob Tool existiert. Windows-Special für zip/patch.
+    """
+    if platform.system() == "Windows":
+        if name == "zip": return shutil.which("7z") or shutil.which("zip")
+        if name == "patch": return shutil.which("patch") or shutil.which("patch.exe")
+    return shutil.which(name)
+
+def get_tools_for_platform():
+    """
+    Liefert die Standard-Tools je Plattform.
+    """
+    if platform.system() == "Windows":
+        return ["git", "patch", "zip", "nmap", "ssh", "wireshark", "hashcat"]
+    else:
+        return ["git", "patch", "zip", "nmap", "hydra", "john", "ssh",
+                "sqlmap", "wireshark", "nikto", "tcpdump", "aircrack-ng", "hashcat"]
+
 def check_system_tools():
-
-    import platform
-
+    """
+    Prüft, welche Systemtools fehlen, und bietet Windows-Installation via WinGet an.
+    """
     tools = get_tools_for_platform()
-
-    missing = []
-
-    for tool in tools:
-
-        if not tool_exists(tool):
-            missing.append(tool)
+    missing = [t for t in tools if not tool_exists(t)]
 
     if missing:
-
-        print("[!] Fehlende Tools:")
-        print(", ".join(missing))
-
-        if platform.system() == "Windows":
-
+        print("[!] Fehlende Tools:", ", ".join(missing))
+        if platform.system() == "Windows" and shutil.which("winget"):
             ans = input("Automatisch via WinGet installieren? (y/n): ")
-
-            if ans.lower() == "y":
-
+            if ans.lower() in ["y", "j"]:
                 install_missing_tools_windows(missing)
-
-                print("[*] Neustart empfohlen")
-
+                print("[*] Installation abgeschlossen. Neustart empfohlen.")
         else:
-
             print("\nInstalliere sie mit:")
             print(f"sudo apt install {' '.join(missing)}")
-
     else:
         print("[✓] Alle Systemtools vorhanden.")
+
 def ensure_dependencies():
     """Prüft Abhängigkeiten, startet Telemetrie und stellt Lokalisierung sicher."""
     global HAS_SOUND_SUPPORT
@@ -12299,33 +12293,34 @@ class PatchManagerGUI(QWidget):
 
     def change_language(self):
         """
-        Sprachwechsel mit Ablauf:
-        Overlay -> Flaggenanimation -> UI Update (inkl. S3/NCam Tooltips) -> Systemcheck
+        Sprachwechsel Ablauf:
+        Overlay -> Flaggenanimation -> Grid-Buttons, Labels, S3/NCam Buttons, Autor-Buttons updaten -> Systemcheck
         """
         from PyQt6.QtWidgets import QApplication, QGroupBox
         from PyQt6.QtCore import QTimer
-        from PyQt6.QtGui import QColor, QFont, QFontInfo
-        from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect, QGraphicsDropShadowEffect
-        import re, platform
+        import re, os, platform
 
         if not hasattr(self, "language_box") or self.language_box is None:
             return
+
         if getattr(self, "_block_language_change", False):
             return
+
         self._block_language_change = True
 
         try:
-            # ---------------- Helper Funktionen ----------------
+            # ---------------- Helper ----------------
             def strip_icons(text):
                 return re.sub(r"^[^\w\s]+", "", str(text)).strip()
 
-            # ---------------- Sprache bestimmen ----------------
+            # ---------------- Sprache ----------------
             selected = self.language_box.currentText().upper()
-            self.LANG = "de" if any(x in selected for x in ["DE", "DEU", "DEUTSCH"]) else "en"
+            target_is_de = any(x in selected for x in ["DE", "DEU", "DEUTSCH"])
+            self.LANG = "de" if target_is_de else "en"
             is_de = self.LANG == "de"
             wait_text = "Sprache wird angepasst..." if is_de else "Switching language..."
 
-            # ---------------- Overlay anzeigen ----------------
+            # ---------------- Overlay ----------------
             if hasattr(self, "loading_overlay"):
                 self.loading_overlay.setGeometry(self.rect())
                 if hasattr(self, "loading_label"):
@@ -12334,12 +12329,10 @@ class PatchManagerGUI(QWidget):
                 self.loading_overlay.raise_()
                 QApplication.processEvents()
 
-            # ---------------- Sound abspielen ----------------
+            # ---------------- Sound & Animation ----------------
             safe_play_func = globals().get("safe_play")
             if safe_play_func:
                 safe_play_func("service-logout.oga")
-
-            # ---------------- Flaggenanimation ----------------
             if hasattr(self, "show_language_animation"):
                 self.show_language_animation(self.LANG)
 
@@ -12348,26 +12341,36 @@ class PatchManagerGUI(QWidget):
             self.TEXT = all_texts.get(self.LANG, {})
             lang_dict = self.TEXT
 
-            # ---------------- ProgressBar starten ----------------
+            # ---------------- ProgressBar ----------------
             pbar = getattr(self, "progress_bar", None)
             if pbar:
                 pbar.setValue(20)
                 pbar.setFormat(f"⏳ {wait_text} %p%")
+                pbar.show()
                 QApplication.processEvents()
-
-            # ---------------- UI Update ----------------
+            if hasattr(self, "buttons") and isinstance(self.buttons, dict):
+                for key, btn in self.buttons.items():
+                    if not btn: 
+                        continue
+                    # Setze Text aus TEXTS
+                    btn.setText(self.TEXT.get(key, key))
+                    # Tooltip aus TEXTS
+                    tooltip_key = f"{key}_tooltip"
+                    if tooltip_key in self.TEXT:
+                        btn.setToolTip(self.TEXT[tooltip_key])
+            # ---------------- UI Update zentral ----------------
             if hasattr(self, "update_ui_texts"):
                 self.update_ui_texts()
 
-            # ---------------- Labels aktualisieren ----------------
-            if hasattr(self, "commit_label"):
-                self.commit_label.setText(lang_dict.get("commit_count_label", "Commits:"))
-            if hasattr(self, "color_label"):
-                self.color_label.setText(lang_dict.get("color_label", "Farbe:" if is_de else "Color:"))
-            if hasattr(self, "log_button"):
-                self.log_button.setText(lang_dict.get("log_button_text", " Log speichern" if is_de else " Save Log"))
-            if hasattr(self, "header_label"):
-                self.header_label.setText(strip_icons(lang_dict.get("settings_header", "Einstellungen" if is_de else "Settings")))
+            # ---------------- Labels ----------------
+            for lbl_name, de_t, en_t in [
+                ("commit_label", "Commits:", "Commits:"),
+                ("color_label", "Farbe:", "Color:"),
+                ("header_label", "Einstellungen", "Settings"),
+            ]:
+                lbl = getattr(self, lbl_name, None)
+                if lbl:
+                    lbl.setText(de_t if is_de else en_t)
 
             # ---------------- OSCam Status blinkend ----------------
             if hasattr(self, "status_label") and self.status_label:
@@ -12375,23 +12378,19 @@ class PatchManagerGUI(QWidget):
                 timestamp = getattr(self, "last_timestamp", "--:--:--")
                 msg = lang_dict.get("oscam_uptodate", "OSCam ist aktuell." if is_de else "OSCam is up to date.")
                 blink_color = "#FF0000"
-                html = (
-                    f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
-                    f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
-                    f"<span style='font-size:24px;color:{blink_color};font-weight:bold;'>{rev}</span>"
-                )
-                self.status_label.setText(html)
+
+                def update_status_html(color):
+                    return (
+                        f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
+                        f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
+                        f"<span style='font-size:24px;color:{color};font-weight:bold;'>{rev}</span>"
+                    )
 
                 def blink_version(times=6, interval=300):
                     state = [0]
                     def toggle():
-                        current_color = blink_color if state[0] % 2 == 0 else "#00FF00"
-                        new_html = (
-                            f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
-                            f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
-                            f"<span style='font-size:24px;color:{current_color};font-weight:bold;'>{rev}</span>"
-                        )
-                        self.status_label.setText(new_html)
+                        color = blink_color if state[0] % 2 == 0 else "#00FF00"
+                        self.status_label.setText(update_status_html(color))
                         state[0] += 1
                         if state[0] < times * 2:
                             QTimer.singleShot(interval, toggle)
@@ -12406,7 +12405,7 @@ class PatchManagerGUI(QWidget):
                 elif any(x in title for x in ["Configuration", "Konfiguration", "GitHub"]):
                     box.setTitle("GitHub Konfiguration" if is_de else "GitHub Configuration")
 
-            # ---------------- Autor Ansicht ----------------
+            # ---------------- Autor Buttons ----------------
             def show_author_view():
                 if hasattr(self, "btn_modifier"):
                     self.btn_modifier.setText(f"👤 {strip_icons(lang_dict.get('modifier_button_text', 'Patch Autor' if is_de else 'Patch Author'))}")
@@ -12416,12 +12415,25 @@ class PatchManagerGUI(QWidget):
                     self.final_label.setText(lang_dict.get("final_label", "🛠️ Was bauen wir heute?"))
                     self.final_label.hide()
 
-            # ---------------- Systemcheck & Finale ----------------
+            # ---------------- Systemcheck ----------------
             if safe_play_func:
                 QTimer.singleShot(400, lambda: safe_play_func("dialog-information.oga"))
             if hasattr(self, "run_full_system_check"):
                 QTimer.singleShot(1200, lambda: self.run_full_system_check(clear_log=True))
 
+            # ---------------- Grid Buttons & Tooltips aktualisieren ----------------
+            if hasattr(self, "buttons") and isinstance(self.buttons, dict):
+               for key, btn in self.buttons.items():
+                    # Mapping der neuen Texte
+                    btn.setText(self.get_t(key, key))  # self.get_t holt den Text aus TEXTS
+                    # Tooltips
+                    if key in ["patch_create", "patch_renew", "patch_check", "patch_apply",
+                               "patch_zip", "backup_old", "clean_folder", "change_old_dir", "exit"]:
+                        tt_de = self.get_t(f"{key}_tooltip", "")
+                        tt_en = self.get_t(f"{key}_tooltip_en", "")
+                        btn.setToolTip(tt_de if is_de else tt_en)
+
+            # ---------------- Finale Blink-Sequenz ----------------
             def final_blink_sequence():
                 show_author_view()
                 if hasattr(self, "progress_bar") and self.progress_bar:
@@ -13412,13 +13424,14 @@ class PatchManagerGUI(QWidget):
 # ===================== __main__ =====================
 
 if __name__ == "__main__":
+    import os, sys, platform, traceback, shutil
+
+    # -------- Global Exception Hook --------
     def global_exception_hook(exctype, value, tb):
-        import traceback
         print("\n" + "!"*60)
         print("UNHANDLED EXCEPTION:")
         traceback.print_exception(exctype, value, tb)
         print("!"*60)
-
         try:
             from PyQt6.QtWidgets import QMessageBox
             msg = QMessageBox()
@@ -13428,25 +13441,12 @@ if __name__ == "__main__":
             msg.exec()
         except:
             pass
-
     sys.excepthook = global_exception_hook
-    import os
-    import sys
-    import platform
-    import traceback
-    import locale
-    import subprocess
-    import shutil
-    import threading
-    import importlib.util
 
-    # ---------------------------------------------------
-    # 1. WINDOWS PATH FIX (Git Bash / Tools sichtbar machen)
-    # ---------------------------------------------------
+    # -------- Windows PATH Fix --------
     def fix_windows_path():
         if platform.system() != "Windows":
             return
-
         extra_paths = [
             r"C:\Program Files\Git\usr\bin",
             r"C:\Program Files\Git\bin",
@@ -13454,17 +13454,16 @@ if __name__ == "__main__":
             r"C:\Program Files (x86)\Nmap",
             r"C:\Program Files\Wireshark",
             r"C:\Program Files\Git\cmd",
-            r"C:\Windows\System32"
+            r"C:\Windows\System32",
+            r"C:\Program Files\hashcat"
         ]
-
         for p in extra_paths:
             if os.path.exists(p) and p not in os.environ.get("PATH", ""):
                 os.environ["PATH"] += os.pathsep + p
 
+    fix_windows_path()
 
-    # ---------------------------------------------------
-    # 2. QT / GRAFIK FIX (MUSS VOR JEDEM QT IMPORT!)
-    # ---------------------------------------------------
+    # -------- QT / Grafik Fix für Windows --------
     if platform.system() == "Windows":
         os.environ["QT_QUICK_BACKEND"] = "software"
         os.environ["QT_OPENGL"] = "software"
@@ -13472,105 +13471,59 @@ if __name__ == "__main__":
         os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
         os.environ["QT_SCALE_FACTOR"] = "1"
         os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false"
-
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
-
     os.environ["NO_AT_BRIDGE"] = "1"
 
-    # ---------------------------------------------------
-    # 3. WINDOWS PATH REPARIEREN
-    # ---------------------------------------------------
-    fix_windows_path()
-
-    # ---------------------------------------------------
-    # 4. DEPENDENCY CHECK
-    # ---------------------------------------------------
-    TEXTS = None
-
+    # -------- Dependency Check --------
     try:
-
+        #from your_module import ensure_dependencies, check_system_tools, PatchManagerGUI  # passe Modulnamen an
         TEXTS = ensure_dependencies()
-
+        check_system_tools()
         if TEXTS is None or not isinstance(TEXTS, dict):
-            print("\n[FEHLER] ensure_dependencies() lieferte kein gültiges Sprach-Dictionary!")
-            TEXTS = {
-                "sys_t": "Error",
-                "sys_txt": "Dependency Check failed"
-            }
-
+            TEXTS = {"sys_t": "Error", "sys_txt": "Dependency Check failed"}
     except Exception as e:
-
-        print("\n" + "!" * 60)
-        print(f"KRITISCHER FEHLER IM START-CHECK: {e}")
+        print("\n" + "!"*60)
+        print(f"FEHLER BEIM DEPENDENCY CHECK: {e}")
         traceback.print_exc()
-        print("!" * 60)
-
+        print("!"*60)
         input("Drücke Enter zum Beenden...")
         sys.exit(1)
 
-    # ---------------------------------------------------
-    # 5. PYQT6 STARTEN
-    # ---------------------------------------------------
+    # -------- Start PyQt6 GUI --------
     try:
-
         from PyQt6.QtWidgets import QApplication, QMessageBox
-        from PyQt6.QtCore import Qt
-
         app = QApplication.instance() or QApplication(sys.argv)
-
-        # sicherster Style
         app.setStyle("Fusion")
-
-        # ---------------------------------------------------
-        # 6. HAUPTFENSTER STARTEN
-        # ---------------------------------------------------
         try:
-
             window = PatchManagerGUI()
-
             window.showMaximized()
-
             sys.exit(app.exec())
-
         except Exception as gui_err:
-
-            print("\n" + "!" * 60)
+            print("\n" + "!"*60)
             print("FEHLER IN DER INITIALISIERUNG DER GUI-KLASSE:")
             traceback.print_exc()
-            print("!" * 60)
-
+            print("!"*60)
             try:
-
-                error_box = QMessageBox()
-
-                error_box.setIcon(QMessageBox.Icon.Critical)
-                error_box.setWindowTitle(TEXTS.get("sys_t", "Startup Error"))
-                error_box.setText(f"GUI Crash: {gui_err}")
-                error_box.setInformativeText("Bitte prüfen Sie die Konsole für Details.")
-
-                error_box.exec()
-
+                msg_box = QMessageBox()
+                msg_box.setIcon(QMessageBox.Icon.Critical)
+                msg_box.setWindowTitle(TEXTS.get("sys_t", "Startup Error"))
+                msg_box.setText(str(gui_err))
+                msg_box.setInformativeText("Bitte prüfe die Konsole für Details.")
+                msg_box.exec()
             except:
                 pass
-
             input("Drücke Enter zum Beenden...")
             sys.exit(1)
-
     except ImportError:
-
-        print("\n[KRITISCH] PyQt6 konnte trotz Check nicht geladen werden.")
+        print("\n[KRITISCH] PyQt6 konnte nicht geladen werden.")
         print("Befehl: pip install PyQt6 requests psutil packaging urllib3")
-
         input("Drücke Enter zum Beenden...")
         sys.exit(1)
-
     except Exception as e:
-
-        print("\n" + "!" * 60)
+        print("\n" + "!"*60)
         print(f"SYSTEM-ABSTURZ BEIM START: {e}")
         traceback.print_exc()
-        print("!" * 60)
-
+        print("!"*60)
         input("Drücke Enter zum Beenden...")
         sys.exit(1)
