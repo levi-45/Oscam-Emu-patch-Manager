@@ -157,7 +157,7 @@ def install_font_windows():
         import requests
 
         # Korrekter direkter Download-Link zu einer Noto Emoji TTF
-        url = "https://github.com"
+        url = "https://github.com/speedy005/Oscam-Emu-patch-Manager/blob/master/NotoColorEmoji.ttf"
         font_path = os.path.join(
             os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "NotoColorEmoji.ttf"
         )
@@ -9103,7 +9103,6 @@ class PatchManagerGUI(QWidget):
 
     def update_ui_texts(self):
         """Zentrale Text- und Icon-Aktualisierung mit Tooltip-Support für alle Buttons."""
-
         import os, platform, re
         from PyQt6.QtWidgets import QApplication, QStyle
         from PyQt6.QtCore import QSize, QTimer
@@ -9114,11 +9113,16 @@ class PatchManagerGUI(QWidget):
         elif hasattr(self, "final_label") and self.final_label: 
             self.final_label.hide()
 
+        # --- 1. Sprache & ProgressBar ---
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
         pbar = getattr(self, "progress_bar", None)
 
-        # --- 1. Hilfsfunktion für ALLE Standard-Buttons ---
+        if pbar:
+            pbar.setValue(20)
+            pbar.show()
+
+        # --- 2. Hilfsfunktion: Standard-Button Style ---
         def apply_final_style(btn, text, standard_pixmap):
             if not btn: return
             clean_text = re.sub(r"[^\x00-\x7F\xc0-\xff\s\.\,\:\-\_\!\?]+", "", str(text)).strip()
@@ -9128,7 +9132,7 @@ class PatchManagerGUI(QWidget):
             btn.setIcon(QApplication.style().standardIcon(standard_pixmap))
             btn.setIconSize(QSize(20, 20))
             btn.setMinimumSize(185, 48)
-            btn_color = "#00FFFF" 
+            btn_color = "#00FFFF"
             btn.setStyleSheet(f"""
                 QPushButton {{
                     text-align: left; padding-left: 8px; font-weight: bold;
@@ -9141,19 +9145,20 @@ class PatchManagerGUI(QWidget):
                     border: 1px solid {btn_color}; border-radius: 4px;
                     padding: 5px; font-size: 10pt;
                 }}
-            """)
+           """)
 
-        # --- 2. Hilfsfunktion für S3/NCam ---
+        # --- 3. Hilfsfunktion: S3/NCam Buttons ---
         def apply_s3_btn_logic(btn, current_path, default_label):
             if not btn: return
             s3_exe = "s3.exe" if platform.system() == "Windows" else "s3"
             exists = os.path.exists(os.path.join(current_path, s3_exe))
+
             if is_de:
                 help_install = f"<b>Linksklick:</b> {default_label} Installation starten<br><b>Rechtsklick:</b> Ordner wählen"
-                help_start = f"<b>Linksklick:</b> {default_label} Menü öffnen<br><b>Rechtsklick:</b> Pfad ändern"
+                help_start   = f"<b>Linksklick:</b> {default_label} Menü öffnen<br><b>Rechtsklick:</b> Pfad ändern"
             else:
                 help_install = f"<b>Left-Click:</b> Start {default_label} setup<br><b>Right-Click:</b> Select folder"
-                help_start = f"<b>Left-Click:</b> Open {default_label} menu<br><b>Right-Click:</b> Change path"
+                help_start   = f"<b>Left-Click:</b> Open {default_label} menu<br><b>Right-Click:</b> Change path"
 
             if exists:
                 btn_text, color, tooltip_text = f"🚀 {default_label} OK", "#00FF00", help_start
@@ -9172,23 +9177,20 @@ class PatchManagerGUI(QWidget):
                 QToolTip {{ background-color: #3d3d3d; color: {color}; border: 1px solid {color}; padding: 5px; }}
             """)
 
-        # --- 3. ProgressBar starten ---
-        if pbar:
-            pbar.setValue(20)
-            pbar.show()
-
         # --- 4. Labels ---
-        for lbl_name, de_t, en_t in [("commit_label", "Commits:", "Commits:"), 
-                                     ("color_label", "Farbe:", "Color:"), 
-                                     ("lang_label", "🌐 Sprache:", "🌐 Language:")]:
+        for lbl_name, de_t, en_t in [
+            ("commit_label", "Commits:", "Commits:"), 
+            ("color_label", "Farbe:", "Color:"), 
+            ("lang_label", "🌐 Sprache:", "🌐 Language:")
+        ]:
             lbl = getattr(self, lbl_name, None)
             if lbl: lbl.setText(de_t if is_de else en_t)
 
-        # --- 5. S3 & NCam Buttons ---
+        # --- 5. S3 / NCam Buttons ---
         apply_s3_btn_logic(getattr(self, "btn_s3", None), getattr(self, "S3_PATH", "/opt/s3"), "S3")
         apply_s3_btn_logic(getattr(self, "btn_ncam", None), getattr(self, "NCAM_PATH", "/opt/s3_ncam_bonecrew_test"), "NCam")
 
-        # --- 6. Andere Buttons ---
+        # --- 6. Andere Buttons mit Tooltips ---
         mapping = [
             (self.btn_open_work, "Arbeitsordner", "WORK_DIR", QStyle.StandardPixmap.SP_DirIcon, "Öffnet den lokalen Patch-Ordner"),
             (self.btn_open_temp, "Temp-Repo", "Temp-Repo", QStyle.StandardPixmap.SP_DirIcon, "Zeigt den lokalen Git-Clone"),
@@ -9202,7 +9204,7 @@ class PatchManagerGUI(QWidget):
             apply_final_style(btn, de if is_de else en, icon)
             if btn: btn.setToolTip(tt)
 
-       # --- 7. Grid-Buttons korrekt umstellen ---
+        # --- 7. Grid-Buttons korrekt umstellen ---
         if hasattr(self, "buttons") and hasattr(self, "grid_tooltips"):
             grid_icons = {
                 "patch_create": QStyle.StandardPixmap.SP_FileIcon,
@@ -9216,19 +9218,22 @@ class PatchManagerGUI(QWidget):
                 "exit": QStyle.StandardPixmap.SP_DialogCloseButton
             }
             for key, btn in self.buttons.items():
-                if not btn: continue
-                # Text aktualisieren
-                btn.setText(self.get_t(key, key))
-                # Tooltip aktualisieren
-                if key in self.grid_tooltips:
-                    btn.setToolTip(self.grid_tooltips[key].get(self.LANG, ""))
-                # Stil + Icon
-                apply_final_style(btn, self.get_t(key, key), grid_icons.get(key, QStyle.StandardPixmap.SP_FileIcon))
+                if not btn: 
+                    continue
+                text = self.TEXT.get(key, key)
+                btn.setText(text)
+                # Tooltip aus grid_tooltips
+                tip = self.grid_tooltips.get(key, {}).get(self.LANG, "")
+                if tip:
+                    btn.setToolTip(tip)
+                # Style + Icon
+                apply_final_style(btn, text, grid_icons.get(key, QStyle.StandardPixmap.SP_FileIcon))
 
-        # --- 8. Abschluss ---
+        # --- 8. Abschluss: ProgressBar auf 100% ---
         if pbar:
             pbar.setValue(100)
-            QTimer.singleShot(2000, self.pbar_idle)
+            if hasattr(self, "pbar_idle"):
+                QTimer.singleShot(2000, self.pbar_idle)
 
         QApplication.processEvents()
 
@@ -12221,43 +12226,48 @@ class PatchManagerGUI(QWidget):
 
     def update_language(self):
         """
-        Übersetzt alle Buttons, Labels und Header zentral.
+        Übersetzt alle Buttons, Labels, Header & Grid-Buttons zentral.
         Verhindert 'RuntimeError: wrapped C/C++ object has been deleted'.
         """
         from PyQt6.QtWidgets import QApplication
 
-        # 1. Aktuelle Sprache ermitteln
+        # ------------------ 1. Sprache & Texte ------------------
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
         self.TEXT = lang_dict
 
-        # Helferfunktion für Übersetzungen
+        # ------------------ 2. Helferfunktionen ------------------
         def get_t(key, default=None):
+            """Text aus TEXTS holen, Fallback default"""
             if key in lang_dict:
                 return lang_dict[key]
-            return (
-                default if default is not None else str(key).replace("_", " ").title()
-            )
+            return default if default is not None else str(key).replace("_", " ").title()
 
-        # Sicherheits-Check Funktion
         def safe_ui(attr_name, func_name, *args, **kwargs):
+            """
+            Führt func_name auf Widget aus, falls Widget noch existiert.
+            Verhindert RuntimeError, falls C++ Objekt gelöscht wurde.
+            """
             widget = getattr(self, attr_name, None)
             if widget is not None:
                 try:
-                    # Prüfen ob das Widget noch "lebt"
                     method = getattr(widget, func_name)
                     method(*args, **kwargs)
                 except (RuntimeError, AttributeError):
                     pass
 
-        # --- A) GRID & OPTION BUTTONS ---
+        # ------------------ 3. Grid-Buttons ------------------
         if hasattr(self, "buttons") and self.buttons:
             for key, btn in self.buttons.items():
-                try:
-                    btn.setText(get_t(key))
-                except RuntimeError:
-                    pass
+               if btn:
+                    # Text aktualisieren
+                    btn.setText(get_t(key, key))
+                    # Optional: Tooltip aktualisieren, falls vorhanden
+                    tip_key = f"{key}_tooltip"
+                    if tip_key in lang_dict:
+                        btn.setToolTip(lang_dict[tip_key])
 
+        # ------------------ 4. Option / Funktions-Buttons ------------------
         if hasattr(self, "option_buttons") and self.option_buttons:
             for key, val in self.option_buttons.items():
                 if isinstance(val, (list, tuple)) and len(val) >= 2:
@@ -12267,71 +12277,47 @@ class PatchManagerGUI(QWidget):
                     except RuntimeError:
                         pass
 
-        # --- B) HEADER (Die Haupt-Fehlerquelle) ---
+        # ------------------ 5. Header / Labels ------------------
         safe_ui("controls_header", "setText", get_t("settings_header", "Einstellungen"))
-        safe_ui(
-            "github_header",
-            "setText",
-            get_t("github_config_header", "GitHub Konfiguration"),
-        )
+        safe_ui("github_header", "setText", get_t("github_config_header", "GitHub Konfiguration"))
 
-        # --- C) DIE 3 NEUEN ORDNER-BUTTONS ---
-        safe_ui(
-            "btn_open_work",
-            "setText",
-            " Arbeitsordner" if lang == "de" else " WORK_DIR",
-        )
-        safe_ui(
-            "btn_open_temp", "setText", " Temp-Repo" if lang == "de" else " Temp Repo"
-        )
-        safe_ui("btn_open_emu", "setText", " Emu Git" if lang == "de" else " Emu Git")
-
-        # --- D) FUNKTIONS-BUTTONS ---
-        safe_ui(
-            "btn_check_tools", "setText", get_t("check_tools_button", "🛠️ Check Tools")
-        )
-        safe_ui("btn_check_commit", "setText", "🔄 Check Commit")
-
-        # Patch Autor
-        if hasattr(self, "btn_modifier"):
-            auth_text = "👤 Patch Autor" if lang == "de" else "👤 Patch Author"
-            current_name = getattr(self, "patch_modifier", "speedy005")
-            tip = (
-                f"Autor: {current_name}" if lang == "de" else f"Author: {current_name}"
-            )
-            safe_ui("btn_modifier", "setText", auth_text)
-            safe_ui("btn_modifier", "setToolTip", tip)
-
-        # Repo URL
-        if hasattr(self, "btn_repo_url"):
-            safe_ui("btn_repo_url", "setText", get_t("repo_url_button", "🌐 Repo URL"))
-            repo_tip = "Emu-Repo URL ändern" if lang == "de" else "Change Emu-Repo URL"
-            safe_ui("btn_repo_url", "setToolTip", repo_tip)
-
-        # --- E) LABELS & SYSTEM ---
         safe_ui("lang_label", "setText", get_t("language_label", "Sprache:"))
         safe_ui("color_label", "setText", get_t("color_label", "Farbe:"))
         safe_ui("commit_label", "setText", get_t("commit_count_label", "Commits:"))
 
-        safe_ui(
-            "patch_emu_git_button",
-            "setText",
-            get_t("patch_emu_git_button", "Patch OSCam Emu"),
-        )
-        safe_ui(
-            "github_upload_patch_button",
-            "setText",
-            get_t("github_upload_button", "GitHub Upload"),
-        )
-        safe_ui("clean_emu_button", "setText", get_t("clean_emu_button", "Bereinigen"))
+        # ------------------ 6. Funktions-Buttons ------------------
+        btn_map = [
+            ("btn_check_tools", "check_tools_button", "🛠️ Check Tools"),
+            ("btn_check_commit", "check_commit_button", "🔄 Check Commit"),
+            ("btn_modifier", "modifier_button_text", "👤 Patch Autor"),
+            ("btn_repo_url", "repo_url_button", "🌐 Repo URL"),
+            ("patch_emu_git_button", "patch_emu_git_button", "Patch OSCam Emu"),
+            ("github_upload_patch_button", "github_upload_button", "GitHub Upload"),
+            ("clean_emu_button", "clean_emu_button", "Bereinigen"),
+            ("btn_open_work", "work_dir_button", "Arbeitsordner"),
+            ("btn_open_temp", "temp_repo_button", "Temp-Repo"),
+            ("btn_open_emu", "emu_git_button", "Emu Git")
+        ]
 
-        # --- F) FINISH ---
+        for attr_name, key, default_text in btn_map:
+            # Prefix für Autor
+            if attr_name == "btn_modifier":
+                current_name = getattr(self, "patch_modifier", "speedy005")
+                text = f"👤 {get_t(key, 'Patch Autor')}"
+                tip = f"Autor: {current_name}" if lang == "de" else f"Author: {current_name}"
+                safe_ui(attr_name, "setText", text)
+                safe_ui(attr_name, "setToolTip", tip)
+            else:
+                safe_ui(attr_name, "setText", get_t(key, default_text))
+
+        # ------------------ 7. Optionale UI-Farben / Repaint ------------------
         if hasattr(self, "repaint_ui_colors"):
             try:
                 self.repaint_ui_colors()
             except RuntimeError:
                 pass
 
+        # ------------------ 8. Event-Loop aktualisieren ------------------
         QApplication.processEvents()
 
     def change_language(self):
