@@ -173,29 +173,52 @@ def install_font_windows():
 
     threading.Thread(target=_download, daemon=True).start()
 
+def install_missing_tools_windows(missing_tools):
+    """Installiert fehlende Windows-Tools via winget."""
+    # Mapping deiner Tool-Namen auf offizielle WinGet IDs
+    winget_ids = {
+        "git": "Git.Git",
+        "nmap": "Insecure.Nmap",
+        "zip": "7zip.7zip",  # Oder GnuWin32.Zip
+        "ssh": "Microsoft.OpenSSH.Beta", # Meist schon da, sonst WinGet
+        "wireshark": "WiresharkFoundation.Wireshark",
+        "hashcat": "hashcat.hashcat"
+    }
 
-import platform, sys, os
+    # Prüfen, ob winget überhaupt installiert ist
+    if shutil.which("winget") is None:
+        print("WinGet nicht gefunden. Bitte Tools manuell installieren.")
+        return False
 
-# --- DIESER BLOCK MUSS GANZ OBEN IN DIE DATEI ---
-if platform.system() != "Linux":
-    import types
-    resource = types.ModuleType("resource")
-    resource.RLIMIT_NOFILE = 7
-    resource.getrlimit = lambda *args: (1024, 1024)
-    resource.setrlimit = lambda *args: None
-    sys.modules["resource"] = resource
-# -----------------------------------------------
+    for tool in missing_tools:
+        win_id = winget_ids.get(tool)
+        if win_id:
+            print(f"Installiere {tool} ({win_id})...")
+            try:
+                # --silent und --accept-source-agreements für Automatisierung
+                subprocess.check_call([
+                    "winget", "install", "--id", win_id, 
+                    "-e", "--silent", "--accept-source-agreements", "--accept-package-agreements"
+                ])
+            except Exception as e:
+                print(f"Fehler bei Installation von {tool}: {e}")
+    return True
 
 def ensure_dependencies():
     """Prüft Abhängigkeiten, startet Telemetrie und stellt Lokalisierung sicher."""
     global HAS_SOUND_SUPPORT
-    
-    # 0. NATIVE IMPORTS (Ganz oben in der Funktion)
-    import shutil, platform, sys, os, locale, threading, importlib.util, subprocess
-    
-    # 1. SPRACHE & TEXTE (Sofort definieren, damit 't' immer existiert)
+    load_settings()
+
+    # 0. FIX FÜR WINDOWS (resource Modul existiert dort nicht)
+    if platform.system() != "Linux":
+        class MockResource:
+            def getrlimit(self, *args): return (0, 0)
+            def setrlimit(self, *args): pass
+            RLIMIT_NOFILE = 0
+        sys.modules["resource"] = MockResource()
+
+    # 1. Sprache & Texte
     try:
-        # Sicherer Sprach-Check
         loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
         lang = loc[:2].lower()
     except:
@@ -203,58 +226,116 @@ def ensure_dependencies():
 
     t_dict = {
         "de": {
-            "py_m": "Fehlende Python-Pakete:", "py_p": "Jetzt installieren? (j/n): ",
-            "sys_t": "System-Anforderungen", "sys_txt": "Programme fehlen im System!",
-            "sys_i": "Bitte installiere diese Tools:", "l_cmd": "Befehl:",
-            "features_head": "Hauptmerkmale", "final_label": "🛠️ Was bauen wir heute?",
-            "lang_label": "Sprache", "lang_name": "Deutsch", "kernel": "System Kernel",
+            "py_m": "Fehlende Python-Pakete:",
+            "py_p": "Jetzt installieren? (j/n): ",
+            "sys_t": "System-Anforderungen",
+            "sys_txt": "Programme fehlen im System!",
+            "sys_i": "Bitte installiere diese Tools:",
+            "l_cmd": "Befehl für Terminal:",
+            "win_ask": "Sollen diese automatisch via WinGet installiert werden?",
+            "features_head": "Hauptmerkmale",
+            "final_label": "🛠️ Was bauen wir heute?",
+            "lang_label": "Sprache",
+            "lang_name": "Deutsch",
+            "kernel": "System Kernel",
         },
         "en": {
-            "py_m": "Missing packages:", "py_p": "Install now? (y/n): ",
-            "sys_t": "System Requirements", "sys_txt": "System programs missing!",
-            "sys_i": "Please install these tools:", "l_cmd": "Command:",
-            "features_head": "Features", "final_label": "🛠️ What are we building today?",
-            "lang_label": "Language", "lang_name": "English", "kernel": "System Kernel",
-        }
+            "py_m": "Missing Python packages:",
+            "py_p": "Install now? (y/n): ",
+            "sys_t": "System Requirements",
+            "sys_txt": "System programs missing!",
+            "sys_i": "Please install these tools:",
+            "l_cmd": "Terminal command:",
+            "win_ask": "Should these be installed automatically via WinGet?",
+            "features_head": "Features",
+            "final_label": "🛠️ What are we building today?",
+            "lang_label": "Language",
+            "lang_name": "English",
+            "kernel": "System Kernel",
+        },
     }
     t = t_dict.get(lang, t_dict["en"])
 
-    # 2. PYTHON PAKETE PRÜFEN
+    # 2. PYTHON PAKETE PRÜFEN (Mit GUI-Fallback via tkinter)
     required = ["PyQt6", "requests", "packaging", "psutil", "urllib3"]
     missing = [p for p in required if importlib.util.find_spec(p) is None]
 
     if missing:
-        print(f"\n[INFO] {t['py_m']} {', '.join(missing)}")
-        # Nur fortfahren, wenn stdin ein Terminal ist (verhindert Absturz in Skripten)
-        if sys.stdin.isatty() and input(t["py_p"]).lower() in ["j", "y"]:
-            for p in missing:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", p])
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+        if "--restarted" in sys.argv:
+            print(f"KRITISCH: Pakete {missing} konnten nicht installiert werden.")
+            sys.exit(1)
+
+        # Versuche grafische Abfrage via tkinter (Standard bei Windows)
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+            root = tk.Tk()
+            root.withdraw()
+            ans = messagebox.askyesno(t["sys_t"], f"{t['py_m']}\n{', '.join(missing)}\n\n{t['py_p']}")
+            root.destroy()
+            if ans:
+                for p in missing:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+                subprocess.Popen([sys.executable] + sys.argv + ["--restarted"])
+                sys.exit(0)
+        except:
+            # Fallback Terminal
+            print(f"\n[INFO] {t['py_m']} {', '.join(missing)}")
+            if input(t["py_p"]).lower() in ["j", "y"]:
+                for p in missing:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+                os.execv(sys.executable, [sys.executable] + sys.argv + ["--restarted"])
         sys.exit(1)
 
-    # 3. SYSTEM TOOLS PRÜFEN (Hier liegt oft der Windows-Fehler)
-    tools_to_check = ["git", "patch", "zip", "nmap", "hydra", "john", "ssh", "sqlmap", "wireshark", "nikto", "tcpdump", "aircrack-ng", "hashcat"]
+    # 3. TELEMETRIE (Asynchron)
+    if get_setting("allow_telemetry", True):
+        def _track():
+            try:
+                import requests
+                requests.get("https://hits.seeyoufarm.com", timeout=10)
+            except:
+                pass
+        threading.Thread(target=_track, daemon=True).start()
+
+    # 4. SYSTEM TOOLS PRÜFEN
+    tools_to_check = [
+        "git", "patch", "zip", "nmap", "hydra", "john", "ssh",
+        "sqlmap", "wireshark", "nikto", "tcpdump", "aircrack-ng", "hashcat",
+    ]
     missing_tools = [tool for tool in tools_to_check if shutil.which(tool) is None]
 
     if missing_tools:
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+        _ = QApplication.instance() or QApplication(sys.argv)
+        
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Icon.Question if platform.system() == "Windows" else QMessageBox.Icon.Critical)
+        box.setWindowTitle(t["sys_t"])
+        box.setText(t["sys_txt"])
+        
         if platform.system() == "Windows":
-            # WICHTIG: KEIN GUI-AUFRUF HIER!
-            print(f"\n[HINWEIS] Fehlende Tools: {', '.join(missing_tools)}")
-            print("Programm startet mit eingeschränkten Funktionen.")
+            box.setInformativeText(f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n{t['win_ask']}")
+            box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            
+            if box.exec() == QMessageBox.StandardButton.Yes:
+                install_missing_tools_windows(missing_tools)
+                # Nach Installation neu starten (für PATH-Aktualisierung)
+                subprocess.Popen([sys.executable] + sys.argv)
+                sys.exit(0)
         else:
-            # Nur auf Linux GUI nutzen (Sicher für Kali)
-            from PyQt6.QtWidgets import QApplication, QMessageBox
-            _ = QApplication.instance() or QApplication(sys.argv)
-            box = QMessageBox()
-            box.setIcon(QMessageBox.Icon.Critical)
-            box.setText(t['sys_txt'])
-            box.setInformativeText(f"{t['sys_i']}\n{', '.join(missing_tools)}")
+            msg = f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n"
+            msg += f"{t['l_cmd']}\nsudo apt update && sudo apt install -y {' '.join(missing_tools)}"
+            box.setInformativeText(msg)
+            box.setStandardButtons(QMessageBox.StandardButton.Ok)
             box.exec()
+            # Auf Linux beenden wir hier meist, da apt oft manuell bestätigt werden muss
             sys.exit(1)
 
-    # 4. SOUND-CHECK
-    HAS_SOUND_SUPPORT = (shutil.which("paplay") is not None if platform.system() == "Linux" else True)
-    
+    # 5. SOUND-CHECK
+    HAS_SOUND_SUPPORT = (
+        shutil.which("paplay") is not None if platform.system() == "Linux" else True
+    )
+
     return t
 
 
@@ -12032,27 +12113,6 @@ class PatchManagerGUI(QWidget):
 
         QApplication.processEvents()
 
-    def blink_widget(self, widget, times=6, interval=300):
-        """Lässt ein Widget durch Umschalten der Sichtbarkeit blinken."""
-        if not widget:
-            return
-
-        state = [0]
-        def toggle():
-            # Wechselt zwischen sichtbar und unsichtbar
-            is_visible = state[0] % 2 == 0
-            widget.setVisible(is_visible)
-        
-            state[0] += 1
-            if state[0] < times * 2:
-                from PyQt6.QtCore import QTimer
-                QTimer.singleShot(interval, toggle)
-            else:
-                # Am Ende sicherstellen, dass es sichtbar bleibt
-                widget.show()
-
-        toggle()
-    
     def change_language(self):
         """
         Sprachwechsel mit Ablauf:
@@ -13180,6 +13240,7 @@ class PatchManagerGUI(QWidget):
         sys.exit(0)
 
 
+# ===================== __main__ =====================
 # ===================== __main__ =====================
 if __name__ == "__main__":
     import os
