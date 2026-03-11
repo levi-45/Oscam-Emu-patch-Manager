@@ -172,55 +172,177 @@ def install_font_windows():
             pass
 
     threading.Thread(target=_download, daemon=True).start()
+def fix_windows_path():
+    import os, platform
 
+    if platform.system() != "Windows":
+        return
+
+    extra_paths = [
+        r"C:\Program Files\Git\usr\bin",
+        r"C:\Program Files\Git\bin",
+        r"C:\Program Files\7-Zip",
+        r"C:\Program Files (x86)\Nmap",
+        r"C:\Program Files\Wireshark",
+        r"C:\Windows\System32"
+    ]
+
+    for p in extra_paths:
+        if os.path.exists(p) and p not in os.environ["PATH"]:
+            os.environ["PATH"] += os.pathsep + p
+def get_tools_for_platform():
+    import platform
+
+    if platform.system() == "Windows":
+        return [
+            "git",
+            "patch",
+            "nmap",
+            "ssh",
+            "wireshark",
+            "hashcat"
+        ]
+
+    return [
+        "git",
+        "patch",
+        "zip",
+        "nmap",
+        "hydra",
+        "john",
+        "ssh",
+        "sqlmap",
+        "wireshark",
+        "nikto",
+        "tcpdump",
+        "aircrack-ng",
+        "hashcat"
+    ]
+def tool_exists(name):
+    import shutil
+    import platform
+
+    if platform.system() == "Windows":
+
+        if name == "zip":
+            return shutil.which("7z") or shutil.which("zip")
+
+        if name == "patch":
+            return shutil.which("patch") or shutil.which("patch.exe")
+
+    return shutil.which(name)    
 def install_missing_tools_windows(missing_tools):
-    """Installiert fehlende Windows-Tools via winget."""
-    # Mapping deiner Tool-Namen auf offizielle WinGet IDs
+
+    import subprocess, shutil, os
+
+    if shutil.which("winget") is None:
+        print("[!] WinGet nicht gefunden.")
+        return False
+
     winget_ids = {
         "git": "Git.Git",
         "nmap": "Insecure.Nmap",
-        "zip": "7zip.7zip",  # Oder GnuWin32.Zip
-        "ssh": "Microsoft.OpenSSH.Beta", # Meist schon da, sonst WinGet
+        "zip": "7zip.7zip",
         "wireshark": "WiresharkFoundation.Wireshark",
-        "hashcat": "hashcat.hashcat"
+        "ssh": "Microsoft.OpenSSH.Beta",
+        "patch": "GnuWin32.Patch",
+        "hashcat": "hashcat.hashcat",
     }
 
-    # Prüfen, ob winget überhaupt installiert ist
-    if shutil.which("winget") is None:
-        print("WinGet nicht gefunden. Bitte Tools manuell installieren.")
-        return False
-
     for tool in missing_tools:
-        win_id = winget_ids.get(tool)
-        if win_id:
-            print(f"Installiere {tool} ({win_id})...")
-            try:
-                # --silent und --accept-source-agreements für Automatisierung
-                subprocess.check_call([
-                    "winget", "install", "--id", win_id, 
-                    "-e", "--silent", "--accept-source-agreements", "--accept-package-agreements"
-                ])
-            except Exception as e:
-                print(f"Fehler bei Installation von {tool}: {e}")
-    return True
 
+        pkg = winget_ids.get(tool)
+
+        if not pkg:
+            print(f"[!] Kein WinGet Paket für {tool}")
+            continue
+
+        print(f"[*] Installiere {tool}...")
+
+        try:
+            subprocess.run(
+                [
+                    "winget",
+                    "install",
+                    "--id",
+                    pkg,
+                    "-e",
+                    "--silent",
+                    "--accept-source-agreements",
+                    "--accept-package-agreements",
+                ],
+                check=False,
+                timeout=300
+            )
+
+        except Exception as e:
+            print(f"[!] Fehler bei {tool}: {e}")
+
+    fix_windows_path()
+
+    return True
+def check_system_tools():
+
+    import platform
+
+    tools = get_tools_for_platform()
+
+    missing = []
+
+    for tool in tools:
+
+        if not tool_exists(tool):
+            missing.append(tool)
+
+    if missing:
+
+        print("[!] Fehlende Tools:")
+        print(", ".join(missing))
+
+        if platform.system() == "Windows":
+
+            ans = input("Automatisch via WinGet installieren? (y/n): ")
+
+            if ans.lower() == "y":
+
+                install_missing_tools_windows(missing)
+
+                print("[*] Neustart empfohlen")
+
+        else:
+
+            print("\nInstalliere sie mit:")
+            print(f"sudo apt install {' '.join(missing)}")
+
+    else:
+        print("[✓] Alle Systemtools vorhanden.")
 def ensure_dependencies():
     """Prüft Abhängigkeiten, startet Telemetrie und stellt Lokalisierung sicher."""
     global HAS_SOUND_SUPPORT
     load_settings()
 
-    # 0. FIX FÜR WINDOWS (resource Modul existiert dort nicht)
+    is_windows = platform.system() == "Windows"
+
+    # optionale Tools (kein Fehler wenn sie fehlen)
+    optional_tools = ["hashcat"] if is_windows else []
+
+    # --------------------------------------------------
+    # 0. Windows Fix (resource Modul existiert dort nicht)
+    # --------------------------------------------------
     if platform.system() != "Linux":
         class MockResource:
             def getrlimit(self, *args): return (0, 0)
             def setrlimit(self, *args): pass
             RLIMIT_NOFILE = 0
+
         sys.modules["resource"] = MockResource()
 
-    # 1. Sprache & Texte
+    # --------------------------------------------------
+    # 1. Sprache erkennen
+    # --------------------------------------------------
     try:
-        loc = locale.getlocale()[0] or locale.getdefaultlocale()[0] or "en"
-        lang = loc[:2].lower()
+        loc = locale.getlocale() or locale.getdefaultlocale()
+        lang = loc[0][:2].lower() if (loc and loc[0]) else "en"
     except:
         lang = "en"
 
@@ -233,11 +355,7 @@ def ensure_dependencies():
             "sys_i": "Bitte installiere diese Tools:",
             "l_cmd": "Befehl für Terminal:",
             "win_ask": "Sollen diese automatisch via WinGet installiert werden?",
-            "features_head": "Hauptmerkmale",
-            "final_label": "🛠️ Was bauen wir heute?",
-            "lang_label": "Sprache",
-            "lang_name": "Deutsch",
-            "kernel": "System Kernel",
+            "loop_warn": "Tool startet mit eingeschränkten Funktionen..."
         },
         "en": {
             "py_m": "Missing Python packages:",
@@ -247,93 +365,185 @@ def ensure_dependencies():
             "sys_i": "Please install these tools:",
             "l_cmd": "Terminal command:",
             "win_ask": "Should these be installed automatically via WinGet?",
-            "features_head": "Features",
-            "final_label": "🛠️ What are we building today?",
-            "lang_label": "Language",
-            "lang_name": "English",
-            "kernel": "System Kernel",
+            "loop_warn": "Starting with limited features..."
         },
     }
+
     t = t_dict.get(lang, t_dict["en"])
 
-    # 2. PYTHON PAKETE PRÜFEN (Mit GUI-Fallback via tkinter)
+    # --------------------------------------------------
+    # 2. Python Pakete prüfen
+    # --------------------------------------------------
     required = ["PyQt6", "requests", "packaging", "psutil", "urllib3"]
-    missing = [p for p in required if importlib.util.find_spec(p) is None]
+    missing_py = [p for p in required if importlib.util.find_spec(p) is None]
 
-    if missing:
+    if missing_py:
         if "--restarted" in sys.argv:
-            print(f"KRITISCH: Pakete {missing} konnten nicht installiert werden.")
             sys.exit(1)
 
-        # Versuche grafische Abfrage via tkinter (Standard bei Windows)
         try:
             import tkinter as tk
             from tkinter import messagebox
+
             root = tk.Tk()
             root.withdraw()
-            ans = messagebox.askyesno(t["sys_t"], f"{t['py_m']}\n{', '.join(missing)}\n\n{t['py_p']}")
+
+            ans = messagebox.askyesno(
+                t["sys_t"],
+                f"{t['py_m']}\n{', '.join(missing_py)}\n\n{t['py_p']}"
+            )
+
             root.destroy()
+
             if ans:
-                for p in missing:
+                for p in missing_py:
                     subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+
                 subprocess.Popen([sys.executable] + sys.argv + ["--restarted"])
                 sys.exit(0)
+
         except:
-            # Fallback Terminal
-            print(f"\n[INFO] {t['py_m']} {', '.join(missing)}")
+            print(f"[INFO] {t['py_m']} {', '.join(missing_py)}")
+
             if input(t["py_p"]).lower() in ["j", "y"]:
-                for p in missing:
+                for p in missing_py:
                     subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+
                 os.execv(sys.executable, [sys.executable] + sys.argv + ["--restarted"])
+
         sys.exit(1)
 
-    # 3. TELEMETRIE (Asynchron)
+    # --------------------------------------------------
+    # 3. Telemetrie
+    # --------------------------------------------------
     if get_setting("allow_telemetry", True):
+
         def _track():
             try:
                 import requests
                 requests.get("https://hits.seeyoufarm.com", timeout=10)
             except:
                 pass
+
         threading.Thread(target=_track, daemon=True).start()
 
-    # 4. SYSTEM TOOLS PRÜFEN
-    tools_to_check = [
-        "git", "patch", "zip", "nmap", "hydra", "john", "ssh",
-        "sqlmap", "wireshark", "nikto", "tcpdump", "aircrack-ng", "hashcat",
-    ]
-    missing_tools = [tool for tool in tools_to_check if shutil.which(tool) is None]
+    # --------------------------------------------------
+    # 4. System Tools prüfen
+    # --------------------------------------------------
+    if is_windows:
+        tools_to_check = [
+            "git",
+            "patch",
+            "zip",
+            "nmap",
+            "ssh",
+            "wireshark",
+            "hashcat",
+        ]
+    else:
+        tools_to_check = [
+            "git",
+            "patch",
+            "zip",
+            "nmap",
+            "hydra",
+            "john",
+            "ssh",
+            "sqlmap",
+            "wireshark",
+            "nikto",
+            "tcpdump",
+            "aircrack-ng",
+            "hashcat",
+        ]
 
+    def tool_exists(name):
+        if is_windows:
+            if name == "zip":
+                return shutil.which("7z") or shutil.which("zip")
+            if name == "patch":
+                return shutil.which("patch") or shutil.which("patch.exe")
+
+        return shutil.which(name)
+
+    missing_tools = []
+    missing_optional = []
+
+    for tool in tools_to_check:
+        if not tool_exists(tool):
+
+            if tool in optional_tools:
+                missing_optional.append(tool)
+            else:
+                missing_tools.append(tool)
+
+    # Optional nur warnen
+    if missing_optional:
+        print(f"[INFO] Optionale Tools fehlen: {', '.join(missing_optional)}")
+
+    # --------------------------------------------------
+    # 5. Fehlende Tools behandeln
+    # --------------------------------------------------
     if missing_tools:
+
+        if "--tools-tried" in sys.argv:
+            print(f"[!] {t['loop_warn']} {missing_tools}")
+            return t
+
         from PyQt6.QtWidgets import QApplication, QMessageBox
-        _ = QApplication.instance() or QApplication(sys.argv)
-        
+
+        app = QApplication.instance() or QApplication(sys.argv)
+
         box = QMessageBox()
-        box.setIcon(QMessageBox.Icon.Question if platform.system() == "Windows" else QMessageBox.Icon.Critical)
         box.setWindowTitle(t["sys_t"])
         box.setText(t["sys_txt"])
-        
-        if platform.system() == "Windows":
-            box.setInformativeText(f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n{t['win_ask']}")
-            box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            
+
+        if is_windows:
+
+            box.setIcon(QMessageBox.Icon.Information)
+
+            box.setInformativeText(
+                f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n{t['win_ask']}"
+            )
+
+            box.setStandardButtons(
+                QMessageBox.StandardButton.Yes |
+                QMessageBox.StandardButton.No
+            )
+
             if box.exec() == QMessageBox.StandardButton.Yes:
+
                 install_missing_tools_windows(missing_tools)
-                # Nach Installation neu starten (für PATH-Aktualisierung)
-                subprocess.Popen([sys.executable] + sys.argv)
+
+                subprocess.Popen(
+                    [sys.executable] + sys.argv + ["--tools-tried"]
+                )
+
                 sys.exit(0)
+
+            return t
+
         else:
-            msg = f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n"
-            msg += f"{t['l_cmd']}\nsudo apt update && sudo apt install -y {' '.join(missing_tools)}"
+
+            box.setIcon(QMessageBox.Icon.Critical)
+
+            msg = (
+                f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n"
+                f"{t['l_cmd']}\n"
+                f"sudo apt update && sudo apt install -y {' '.join(missing_tools)}"
+            )
+
             box.setInformativeText(msg)
             box.setStandardButtons(QMessageBox.StandardButton.Ok)
+
             box.exec()
-            # Auf Linux beenden wir hier meist, da apt oft manuell bestätigt werden muss
             sys.exit(1)
 
-    # 5. SOUND-CHECK
+    # --------------------------------------------------
+    # 6. Sound Support
+    # --------------------------------------------------
     HAS_SOUND_SUPPORT = (
-        shutil.which("paplay") is not None if platform.system() == "Linux" else True
+        shutil.which("paplay") is not None if not is_windows else True
     )
 
     return t
@@ -13241,88 +13451,167 @@ class PatchManagerGUI(QWidget):
 
 
 # ===================== __main__ =====================
-# ===================== __main__ =====================
+
 if __name__ == "__main__":
+    def global_exception_hook(exctype, value, tb):
+        import traceback
+        print("\n" + "!"*60)
+        print("UNHANDLED EXCEPTION:")
+        traceback.print_exception(exctype, value, tb)
+        print("!"*60)
+
+        try:
+            from PyQt6.QtWidgets import QMessageBox
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.setWindowTitle("Application Crash")
+            msg.setText(str(value))
+            msg.exec()
+        except:
+            pass
+
+    sys.excepthook = global_exception_hook
     import os
     import sys
     import platform
     import traceback
+    import locale
+    import subprocess
+    import shutil
+    import threading
+    import importlib.util
 
-    # 1. ABSOLUTE GRAFIK-BREMSE (Muss VOR JEDEM Qt-Import stehen!)
+    # ---------------------------------------------------
+    # 1. WINDOWS PATH FIX (Git Bash / Tools sichtbar machen)
+    # ---------------------------------------------------
+    def fix_windows_path():
+        if platform.system() != "Windows":
+            return
+
+        extra_paths = [
+            r"C:\Program Files\Git\usr\bin",
+            r"C:\Program Files\Git\bin",
+            r"C:\Program Files\7-Zip",
+            r"C:\Program Files (x86)\Nmap",
+            r"C:\Program Files\Wireshark",
+            r"C:\Program Files\Git\cmd",
+            r"C:\Windows\System32"
+        ]
+
+        for p in extra_paths:
+            if os.path.exists(p) and p not in os.environ.get("PATH", ""):
+                os.environ["PATH"] += os.pathsep + p
+
+
+    # ---------------------------------------------------
+    # 2. QT / GRAFIK FIX (MUSS VOR JEDEM QT IMPORT!)
+    # ---------------------------------------------------
     if platform.system() == "Windows":
-        # Diese Variablen zwingen Qt6, die Grafikkarte komplett zu ignorieren
         os.environ["QT_QUICK_BACKEND"] = "software"
         os.environ["QT_OPENGL"] = "software"
         os.environ["QT_QPA_PLATFORM"] = "windows"
         os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
         os.environ["QT_SCALE_FACTOR"] = "1"
         os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false"
-        
-        # Windows CMD/Bash Fix für Sonderzeichen
-        if hasattr(sys.stdout, 'reconfigure'):
-            sys.stdout.reconfigure(encoding='utf-8')
+
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
 
     os.environ["NO_AT_BRIDGE"] = "1"
 
-    # 2. ABHÄNGIGKEITEN PRÜFEN
+    # ---------------------------------------------------
+    # 3. WINDOWS PATH REPARIEREN
+    # ---------------------------------------------------
+    fix_windows_path()
+
+    # ---------------------------------------------------
+    # 4. DEPENDENCY CHECK
+    # ---------------------------------------------------
+    TEXTS = None
+
     try:
-        # Falls PatchManagerGUI global auf TEXTS zugreift:
+
         TEXTS = ensure_dependencies()
-        if TEXTS is None:
-            print("\n[FEHLER] ensure_dependencies() gab kein Dictionary zurück!")
-            input("Drücke Enter zum Beenden...")
-            sys.exit(1)
+
+        if TEXTS is None or not isinstance(TEXTS, dict):
+            print("\n[FEHLER] ensure_dependencies() lieferte kein gültiges Sprach-Dictionary!")
+            TEXTS = {
+                "sys_t": "Error",
+                "sys_txt": "Dependency Check failed"
+            }
+
     except Exception as e:
-        print("\n" + "!"*60)
+
+        print("\n" + "!" * 60)
         print(f"KRITISCHER FEHLER IM START-CHECK: {e}")
         traceback.print_exc()
-        print("!"*60)
+        print("!" * 60)
+
         input("Drücke Enter zum Beenden...")
         sys.exit(1)
 
-    # 3. PyQt6 IMPORTE & APP-INSTANZ
+    # ---------------------------------------------------
+    # 5. PYQT6 STARTEN
+    # ---------------------------------------------------
     try:
-        # Erst JETZT laden wir die schweren Grafik-Module
+
         from PyQt6.QtWidgets import QApplication, QMessageBox
         from PyQt6.QtCore import Qt
 
         app = QApplication.instance() or QApplication(sys.argv)
-        
-        # 4. DAS HAUPTFENSTER LADEN
+
+        # sicherster Style
+        app.setStyle("Fusion")
+
+        # ---------------------------------------------------
+        # 6. HAUPTFENSTER STARTEN
+        # ---------------------------------------------------
         try:
-            # Hier vermuten wir den Crash, falls Icons oder Stylesheets geladen werden
+
             window = PatchManagerGUI()
+
             window.showMaximized()
-            
-            # 5. EVENT-LOOP STARTEN
+
             sys.exit(app.exec())
 
         except Exception as gui_err:
-            print("\n" + "!"*60)
-            print("FEHLER IN DER KLASSE PatchManagerGUI (Initialisierung):")
+
+            print("\n" + "!" * 60)
+            print("FEHLER IN DER INITIALISIERUNG DER GUI-KLASSE:")
             traceback.print_exc()
-            print("!"*60)
-            
-            if QApplication.instance():
-                try:
-                    error_box = QMessageBox()
-                    error_box.setIcon(QMessageBox.Icon.Critical)
-                    error_box.setWindowTitle("Startup Error")
-                    error_box.setText(f"GUI Fehler: {gui_err}")
-                    error_box.exec()
-                except: pass
+            print("!" * 60)
+
+            try:
+
+                error_box = QMessageBox()
+
+                error_box.setIcon(QMessageBox.Icon.Critical)
+                error_box.setWindowTitle(TEXTS.get("sys_t", "Startup Error"))
+                error_box.setText(f"GUI Crash: {gui_err}")
+                error_box.setInformativeText("Bitte prüfen Sie die Konsole für Details.")
+
+                error_box.exec()
+
+            except:
+                pass
+
             input("Drücke Enter zum Beenden...")
             sys.exit(1)
 
     except ImportError:
-        print("\n[KRITISCH] PyQt6 fehlt. Installieren mit: pip install PyQt6")
+
+        print("\n[KRITISCH] PyQt6 konnte trotz Check nicht geladen werden.")
+        print("Befehl: pip install PyQt6 requests psutil packaging urllib3")
+
         input("Drücke Enter zum Beenden...")
         sys.exit(1)
+
     except Exception as e:
-        # Dieser Block fängt den "Unhandled" Absturz ab, falls möglich
-        print("\n" + "!"*60)
+
+        print("\n" + "!" * 60)
         print(f"SYSTEM-ABSTURZ BEIM START: {e}")
         traceback.print_exc()
-        print("!"*60)
+        print("!" * 60)
+
         input("Drücke Enter zum Beenden...")
         sys.exit(1)
