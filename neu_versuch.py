@@ -5804,27 +5804,19 @@ class PatchManagerGUI(QWidget):
         elif hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
 
-        from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect
+        from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect, QGraphicsDropShadowEffect
         from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer
-        from PyQt6.QtGui import QFont, QFontInfo
+        from PyQt6.QtGui import QFont, QFontInfo, QColor
 
         is_de = lang_code.lower() == "de"
-        text_message = (
-            "Sprache wird umgestellt..." if is_de else "Switching language..."
-        )
+        text_message = "Sprache wird umgestellt..." if is_de else "Switching language..."
         flag_char = "🇩🇪" if is_de else "🇺🇸"
 
         # --- Text-Label ---
         text_label = QLabel(text_message, self)
         text_font = QFont("Segoe UI", 32, QFont.Weight.Bold)
         text_label.setFont(text_font)
-        text_label.setStyleSheet(
-            """
-            color: #FF6F00;  /* neon-orange */
-            padding: 4px 8px;
-            background: transparent;
-            """
-        )
+        text_label.setStyleSheet("color: #FF6F00; padding: 4px 8px; background: transparent;")
         text_label.adjustSize()
         text_x = (self.width() - text_label.width()) // 2
         text_y = (self.height() - text_label.height()) // 2 + 30
@@ -5834,97 +5826,79 @@ class PatchManagerGUI(QWidget):
         text_label.setGraphicsEffect(text_op)
         text_op.setOpacity(0.0)
 
-        # --- Flaggen-Label (über Text) ---
+        # --- Flaggen-Label ---
         flag_label = QLabel(flag_char, self)
         emoji_font = QFont("Noto Color Emoji", 65)
-        has_emoji = QFontInfo(emoji_font).family().lower() == "noto color emoji"
-        if not has_emoji:
+        if QFontInfo(emoji_font).family().lower() != "noto color emoji":
             emoji_font = QFont("Segoe UI", 50, QFont.Weight.Bold)
         flag_label.setFont(emoji_font)
         flag_label.setStyleSheet("background: transparent;")
         flag_label.adjustSize()
         flag_x = (self.width() - flag_label.width()) // 2
-        flag_y = text_y - flag_label.height() - 20  # Über dem Text
+        flag_y = text_y - flag_label.height() - 20
         flag_label.move(flag_x, flag_y)
 
         flag_op = QGraphicsOpacityEffect(flag_label)
         flag_label.setGraphicsEffect(flag_op)
         flag_op.setOpacity(0.0)
 
-        # --- Animationen speichern ---
-        self.anim_flag_geo = QPropertyAnimation(flag_label, b"geometry")
-        self.anim_flag_geo.setDuration(1000)
-        self.anim_flag_geo.setStartValue(
-            QRect(flag_x, flag_y + 30, flag_label.width(), flag_label.height())
-        )
-        self.anim_flag_geo.setEndValue(
-            QRect(flag_x, flag_y, flag_label.width(), flag_label.height())
-        )
-        self.anim_flag_geo.setEasingCurve(QEasingCurve.Type.OutBack)
+        # --- Animationen ---
+        anim_flag_geo = QPropertyAnimation(flag_label, b"geometry")
+        anim_flag_geo.setDuration(1000)
+        anim_flag_geo.setStartValue(QRect(flag_x, flag_y + 30, flag_label.width(), flag_label.height()))
+        anim_flag_geo.setEndValue(QRect(flag_x, flag_y, flag_label.width(), flag_label.height()))
+        anim_flag_geo.setEasingCurve(QEasingCurve.Type.OutBack)
 
-        self.anim_flag_op = QPropertyAnimation(flag_op, b"opacity")
-        self.anim_flag_op.setDuration(1000)
-        self.anim_flag_op.setStartValue(0.0)
-        self.anim_flag_op.setEndValue(1.0)
+        anim_flag_op = QPropertyAnimation(flag_op, b"opacity")
+        anim_flag_op.setDuration(1000)
+        anim_flag_op.setStartValue(0.0)
+        anim_flag_op.setEndValue(1.0)
 
-        self.anim_text_op = QPropertyAnimation(text_op, b"opacity")
-        self.anim_text_op.setDuration(1000)
-        self.anim_text_op.setStartValue(0.0)
-        self.anim_text_op.setEndValue(1.0)
+        anim_text_op = QPropertyAnimation(text_op, b"opacity")
+        anim_text_op.setDuration(1000)
+        anim_text_op.setStartValue(0.0)
+        anim_text_op.setEndValue(1.0)
 
-        # --- Starten ---
         text_label.show()
         flag_label.show()
-        self.anim_text_op.start()
-        self.anim_flag_geo.start()
-        self.anim_flag_op.start()
+        anim_text_op.start()
+        anim_flag_geo.start()
+        anim_flag_op.start()
 
-        # 1. Effekt einmalig erstellen und dem Label zuweisen
-        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
-        from PyQt6.QtGui import QColor
-
+        # --- Glow-Effekt ---
         glow = QGraphicsDropShadowEffect()
         glow.setOffset(0, 0)
         glow.setColor(QColor("#FF6F00"))
         glow.setBlurRadius(5)
         text_label.setGraphicsEffect(glow)
 
-        # 2. Die pulsierende Logik (Ersetzt dein CSS-Blinken)
+        # Pulsierender Glow (sicher für Windows)
+        times = 4
+        interval = 400
         def toggle_glow(state=[0]):
-            # Wechselt den Radius zwischen 5 (schwach) und 20 (stark leuchtend)
             glow_radius = 5 + (state[0] % 2) * 15
-            
-            # Nur die Grundfarben im CSS lassen (kein text-shadow!)
-            text_label.setStyleSheet("color: #FF6F00; padding: 4px 8px; background: transparent; font-weight: bold;")
-            
-            # Den Glow-Radius direkt am Grafik-Effekt ändern
-            text_label.graphicsEffect().setBlurRadius(glow_radius)
-            
+            glow.setBlurRadius(glow_radius)
             state[0] += 1
             if state[0] < times * 2:
                 QTimer.singleShot(interval, toggle_glow)
-
         toggle_glow()
 
-        pulse_glow()
-
-        # --- Fade-Out von Text + Flagge nach 2 Sekunden ---
+        # --- Fade-Out nach 4,5 Sekunden ---
         def fade_out_all():
-            self.anim_text_out_op = QPropertyAnimation(text_op, b"opacity")
-            self.anim_text_out_op.setDuration(3000)
-            self.anim_text_out_op.setStartValue(1.0)
-            self.anim_text_out_op.setEndValue(0.0)
-            self.anim_text_out_op.start()
-            self.anim_text_out_op.finished.connect(lambda: text_label.deleteLater())
+            anim_text_out_op = QPropertyAnimation(text_op, b"opacity")
+            anim_text_out_op.setDuration(2000)
+            anim_text_out_op.setStartValue(1.0)
+            anim_text_out_op.setEndValue(0.0)
+            anim_text_out_op.start()
+            anim_text_out_op.finished.connect(lambda: text_label.deleteLater())
 
-            self.anim_flag_out_op = QPropertyAnimation(flag_op, b"opacity")
-            self.anim_flag_out_op.setDuration(3000)
-            self.anim_flag_out_op.setStartValue(1.0)
-            self.anim_flag_out_op.setEndValue(0.0)
-            self.anim_flag_out_op.start()
-            self.anim_flag_out_op.finished.connect(lambda: flag_label.deleteLater())
+            anim_flag_out_op = QPropertyAnimation(flag_op, b"opacity")
+            anim_flag_out_op.setDuration(2000)
+            anim_flag_out_op.setStartValue(1.0)
+            anim_flag_out_op.setEndValue(0.0)
+            anim_flag_out_op.start()
+            anim_flag_out_op.finished.connect(lambda: flag_label.deleteLater())
 
-            # --- Callback aufrufen, damit GUI aktualisiert wird ---
             if callback:
                 callback()
 
@@ -12330,14 +12304,14 @@ class PatchManagerGUI(QWidget):
         """
         from PyQt6.QtWidgets import QApplication, QGroupBox
         from PyQt6.QtCore import QTimer
-        import re, os, platform
+        from PyQt6.QtGui import QColor, QFont, QFontInfo
+        from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect, QGraphicsDropShadowEffect
+        import re, platform
 
         if not hasattr(self, "language_box") or self.language_box is None:
             return
-
         if getattr(self, "_block_language_change", False):
             return
-
         self._block_language_change = True
 
         try:
@@ -12347,25 +12321,25 @@ class PatchManagerGUI(QWidget):
 
             # ---------------- Sprache bestimmen ----------------
             selected = self.language_box.currentText().upper()
-            target_is_de = any(x in selected for x in ["DE", "DEU", "DEUTSCH"])
-
-            self.LANG = "de" if target_is_de else "en"
+            self.LANG = "de" if any(x in selected for x in ["DE", "DEU", "DEUTSCH"]) else "en"
             is_de = self.LANG == "de"
-            wait_text = ("Sprache wird angepasst..." if is_de else "Switching language...")
+            wait_text = "Sprache wird angepasst..." if is_de else "Switching language..."
 
             # ---------------- Overlay anzeigen ----------------
             if hasattr(self, "loading_overlay"):
                 self.loading_overlay.setGeometry(self.rect())
-                self.loading_label.setText(f"⏳ {wait_text}")
+                if hasattr(self, "loading_label"):
+                    self.loading_label.setText(f"⏳ {wait_text}")
                 self.loading_overlay.show()
                 self.loading_overlay.raise_()
                 QApplication.processEvents()
 
-            # ---------------- Sound & Animation ----------------
+            # ---------------- Sound abspielen ----------------
             safe_play_func = globals().get("safe_play")
             if safe_play_func:
                 safe_play_func("service-logout.oga")
 
+            # ---------------- Flaggenanimation ----------------
             if hasattr(self, "show_language_animation"):
                 self.show_language_animation(self.LANG)
 
@@ -12374,42 +12348,33 @@ class PatchManagerGUI(QWidget):
             self.TEXT = all_texts.get(self.LANG, {})
             lang_dict = self.TEXT
 
-            # ---------------- ProgressBar Start ----------------
+            # ---------------- ProgressBar starten ----------------
             pbar = getattr(self, "progress_bar", None)
             if pbar:
                 pbar.setValue(20)
                 pbar.setFormat(f"⏳ {wait_text} %p%")
                 QApplication.processEvents()
 
-            # ---------------- UI Update (Zentral für alle Buttons & Tooltips) ----------------
-            # WICHTIG: Hier rufen wir deine neue Methode auf, die S3, NCam 
-            # und alle Mapping-Buttons mit den richtigen Tooltips versorgt.
+            # ---------------- UI Update ----------------
             if hasattr(self, "update_ui_texts"):
                 self.update_ui_texts()
 
             # ---------------- Labels aktualisieren ----------------
             if hasattr(self, "commit_label"):
                 self.commit_label.setText(lang_dict.get("commit_count_label", "Commits:"))
-
             if hasattr(self, "color_label"):
                 self.color_label.setText(lang_dict.get("color_label", "Farbe:" if is_de else "Color:"))
-
             if hasattr(self, "log_button"):
                 self.log_button.setText(lang_dict.get("log_button_text", " Log speichern" if is_de else " Save Log"))
-
             if hasattr(self, "header_label"):
                 self.header_label.setText(strip_icons(lang_dict.get("settings_header", "Einstellungen" if is_de else "Settings")))
 
-            # --- OSCam Status aktualisieren + Versionsnummer blinkend ---
+            # ---------------- OSCam Status blinkend ----------------
             if hasattr(self, "status_label") and self.status_label:
                 rev = getattr(self, "current_rev", "----")
                 timestamp = getattr(self, "last_timestamp", "--:--:--")
-                # Nutzt die neue Sprache aus lang_dict
                 msg = lang_dict.get("oscam_uptodate", "OSCam ist aktuell." if is_de else "OSCam is up to date.")
-
-                blink_color = "#FF0000" 
-
-                # Initiales HTML setzen
+                blink_color = "#FF0000"
                 html = (
                     f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
                     f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
@@ -12417,7 +12382,6 @@ class PatchManagerGUI(QWidget):
                 )
                 self.status_label.setText(html)
 
-                # Blink-Funktion (lokal definiert für den Aufruf)
                 def blink_version(times=6, interval=300):
                     state = [0]
                     def toggle():
@@ -12432,7 +12396,6 @@ class PatchManagerGUI(QWidget):
                         if state[0] < times * 2:
                             QTimer.singleShot(interval, toggle)
                     toggle()
-
                 blink_version()
 
             # ---------------- GroupBox Titel ----------------
@@ -12443,9 +12406,8 @@ class PatchManagerGUI(QWidget):
                 elif any(x in title for x in ["Configuration", "Konfiguration", "GitHub"]):
                     box.setTitle("GitHub Konfiguration" if is_de else "GitHub Configuration")
 
-            # ---------------- Autor Ansicht vorbereiten ----------------
+            # ---------------- Autor Ansicht ----------------
             def show_author_view():
-                """Texte für Autor-Buttons setzen (Icons bleiben erhalten)"""
                 if hasattr(self, "btn_modifier"):
                     self.btn_modifier.setText(f"👤 {strip_icons(lang_dict.get('modifier_button_text', 'Patch Autor' if is_de else 'Patch Author'))}")
                 if hasattr(self, "btn_patch_online"):
@@ -12454,10 +12416,9 @@ class PatchManagerGUI(QWidget):
                     self.final_label.setText(lang_dict.get("final_label", "🛠️ Was bauen wir heute?"))
                     self.final_label.hide()
 
-            # ---------------- System & Finale Sequenz ----------------
+            # ---------------- Systemcheck & Finale ----------------
             if safe_play_func:
                 QTimer.singleShot(400, lambda: safe_play_func("dialog-information.oga"))
-
             if hasattr(self, "run_full_system_check"):
                 QTimer.singleShot(1200, lambda: self.run_full_system_check(clear_log=True))
 
@@ -12466,16 +12427,14 @@ class PatchManagerGUI(QWidget):
                 if hasattr(self, "progress_bar") and self.progress_bar:
                     self.progress_bar.hide()
                 if hasattr(self, "final_label") and self.final_label:
-                    # Blinkt das final_label als Abschluss-Effekt
                     blink_widget(self.final_label, times=6, interval=300)
                 if hasattr(self, "hide_language_overlay"):
                     self.hide_language_overlay()
 
-            # Zeitlich gestaffelter Abschluss
-            QTimer.singleShot(1200, lambda: self.progress_bar.setValue(100) if hasattr(self, "progress_bar") else None)
-            QTimer.singleShot(1400, lambda: self.progress_bar.setFormat("✅ OK") if hasattr(self, "progress_bar") else None)
+            QTimer.singleShot(1200, lambda: pbar.setValue(100) if pbar else None)
+            QTimer.singleShot(1400, lambda: pbar.setFormat("✅ OK") if pbar else None)
             QTimer.singleShot(3500, final_blink_sequence)
-            QTimer.singleShot(5000, lambda: self.progress_bar.setFormat("%p%") if hasattr(self, "progress_bar") else None)
+            QTimer.singleShot(5000, lambda: pbar.setFormat("%p%") if pbar else None)
 
         except Exception as e:
             print(f"Fehler beim Sprachwechsel: {e}")
