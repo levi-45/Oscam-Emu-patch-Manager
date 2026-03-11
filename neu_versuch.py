@@ -4550,6 +4550,11 @@ class PatchManagerGUI(QWidget):
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
 
+    def pbar_idle(self):
+        """Setzt die ProgressBar nach kurzer Verzögerung zurück oder blendet sie aus."""
+        if hasattr(self, "progress_bar") and self.progress_bar:
+            self.progress_bar.hide()
+    
     def check_ncam_updates(self):
         """Startet den Update-Check speziell für NCam Bonecrew."""
         # Remote URL für das NCam/S3 Git (Beispiel-URL, bitte anpassen)
@@ -5798,19 +5803,27 @@ class PatchManagerGUI(QWidget):
         elif hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
 
-        from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect, QGraphicsDropShadowEffect
+        from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect
         from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer
-        from PyQt6.QtGui import QFont, QFontInfo, QColor
+        from PyQt6.QtGui import QFont, QFontInfo
 
         is_de = lang_code.lower() == "de"
-        text_message = "Sprache wird umgestellt..." if is_de else "Switching language..."
+        text_message = (
+            "Sprache wird umgestellt..." if is_de else "Switching language..."
+        )
         flag_char = "🇩🇪" if is_de else "🇺🇸"
 
         # --- Text-Label ---
         text_label = QLabel(text_message, self)
         text_font = QFont("Segoe UI", 32, QFont.Weight.Bold)
         text_label.setFont(text_font)
-        text_label.setStyleSheet("color: #FF6F00; padding: 4px 8px; background: transparent;")
+        text_label.setStyleSheet(
+            """
+            color: #FF6F00;  /* neon-orange */
+            padding: 4px 8px;
+            background: transparent;
+            """
+        )
         text_label.adjustSize()
         text_x = (self.width() - text_label.width()) // 2
         text_y = (self.height() - text_label.height()) // 2 + 30
@@ -5820,79 +5833,97 @@ class PatchManagerGUI(QWidget):
         text_label.setGraphicsEffect(text_op)
         text_op.setOpacity(0.0)
 
-        # --- Flaggen-Label ---
+        # --- Flaggen-Label (über Text) ---
         flag_label = QLabel(flag_char, self)
         emoji_font = QFont("Noto Color Emoji", 65)
-        if QFontInfo(emoji_font).family().lower() != "noto color emoji":
+        has_emoji = QFontInfo(emoji_font).family().lower() == "noto color emoji"
+        if not has_emoji:
             emoji_font = QFont("Segoe UI", 50, QFont.Weight.Bold)
         flag_label.setFont(emoji_font)
         flag_label.setStyleSheet("background: transparent;")
         flag_label.adjustSize()
         flag_x = (self.width() - flag_label.width()) // 2
-        flag_y = text_y - flag_label.height() - 20
+        flag_y = text_y - flag_label.height() - 20  # Über dem Text
         flag_label.move(flag_x, flag_y)
 
         flag_op = QGraphicsOpacityEffect(flag_label)
         flag_label.setGraphicsEffect(flag_op)
         flag_op.setOpacity(0.0)
 
-        # --- Animationen ---
-        anim_flag_geo = QPropertyAnimation(flag_label, b"geometry")
-        anim_flag_geo.setDuration(1000)
-        anim_flag_geo.setStartValue(QRect(flag_x, flag_y + 30, flag_label.width(), flag_label.height()))
-        anim_flag_geo.setEndValue(QRect(flag_x, flag_y, flag_label.width(), flag_label.height()))
-        anim_flag_geo.setEasingCurve(QEasingCurve.Type.OutBack)
+        # --- Animationen speichern ---
+        self.anim_flag_geo = QPropertyAnimation(flag_label, b"geometry")
+        self.anim_flag_geo.setDuration(1000)
+        self.anim_flag_geo.setStartValue(
+            QRect(flag_x, flag_y + 30, flag_label.width(), flag_label.height())
+        )
+        self.anim_flag_geo.setEndValue(
+            QRect(flag_x, flag_y, flag_label.width(), flag_label.height())
+        )
+        self.anim_flag_geo.setEasingCurve(QEasingCurve.Type.OutBack)
 
-        anim_flag_op = QPropertyAnimation(flag_op, b"opacity")
-        anim_flag_op.setDuration(1000)
-        anim_flag_op.setStartValue(0.0)
-        anim_flag_op.setEndValue(1.0)
+        self.anim_flag_op = QPropertyAnimation(flag_op, b"opacity")
+        self.anim_flag_op.setDuration(1000)
+        self.anim_flag_op.setStartValue(0.0)
+        self.anim_flag_op.setEndValue(1.0)
 
-        anim_text_op = QPropertyAnimation(text_op, b"opacity")
-        anim_text_op.setDuration(1000)
-        anim_text_op.setStartValue(0.0)
-        anim_text_op.setEndValue(1.0)
+        self.anim_text_op = QPropertyAnimation(text_op, b"opacity")
+        self.anim_text_op.setDuration(1000)
+        self.anim_text_op.setStartValue(0.0)
+        self.anim_text_op.setEndValue(1.0)
 
+        # --- Starten ---
         text_label.show()
         flag_label.show()
-        anim_text_op.start()
-        anim_flag_geo.start()
-        anim_flag_op.start()
+        self.anim_text_op.start()
+        self.anim_flag_geo.start()
+        self.anim_flag_op.start()
 
-        # --- Glow-Effekt ---
+        # 1. Effekt einmalig erstellen und dem Label zuweisen
+        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+        from PyQt6.QtGui import QColor
+
         glow = QGraphicsDropShadowEffect()
         glow.setOffset(0, 0)
         glow.setColor(QColor("#FF6F00"))
         glow.setBlurRadius(5)
         text_label.setGraphicsEffect(glow)
 
-        # Pulsierender Glow (sicher für Windows)
-        times = 4
-        interval = 400
+        # 2. Die pulsierende Logik (Ersetzt dein CSS-Blinken)
         def toggle_glow(state=[0]):
+            # Wechselt den Radius zwischen 5 (schwach) und 20 (stark leuchtend)
             glow_radius = 5 + (state[0] % 2) * 15
-            glow.setBlurRadius(glow_radius)
+            
+            # Nur die Grundfarben im CSS lassen (kein text-shadow!)
+            text_label.setStyleSheet("color: #FF6F00; padding: 4px 8px; background: transparent; font-weight: bold;")
+            
+            # Den Glow-Radius direkt am Grafik-Effekt ändern
+            text_label.graphicsEffect().setBlurRadius(glow_radius)
+            
             state[0] += 1
             if state[0] < times * 2:
                 QTimer.singleShot(interval, toggle_glow)
+
         toggle_glow()
 
-        # --- Fade-Out nach 4,5 Sekunden ---
+        pulse_glow()
+
+        # --- Fade-Out von Text + Flagge nach 2 Sekunden ---
         def fade_out_all():
-            anim_text_out_op = QPropertyAnimation(text_op, b"opacity")
-            anim_text_out_op.setDuration(2000)
-            anim_text_out_op.setStartValue(1.0)
-            anim_text_out_op.setEndValue(0.0)
-            anim_text_out_op.start()
-            anim_text_out_op.finished.connect(lambda: text_label.deleteLater())
+            self.anim_text_out_op = QPropertyAnimation(text_op, b"opacity")
+            self.anim_text_out_op.setDuration(3000)
+            self.anim_text_out_op.setStartValue(1.0)
+            self.anim_text_out_op.setEndValue(0.0)
+            self.anim_text_out_op.start()
+            self.anim_text_out_op.finished.connect(lambda: text_label.deleteLater())
 
-            anim_flag_out_op = QPropertyAnimation(flag_op, b"opacity")
-            anim_flag_out_op.setDuration(2000)
-            anim_flag_out_op.setStartValue(1.0)
-            anim_flag_out_op.setEndValue(0.0)
-            anim_flag_out_op.start()
-            anim_flag_out_op.finished.connect(lambda: flag_label.deleteLater())
+            self.anim_flag_out_op = QPropertyAnimation(flag_op, b"opacity")
+            self.anim_flag_out_op.setDuration(3000)
+            self.anim_flag_out_op.setStartValue(1.0)
+            self.anim_flag_out_op.setEndValue(0.0)
+            self.anim_flag_out_op.start()
+            self.anim_flag_out_op.finished.connect(lambda: flag_label.deleteLater())
 
+            # --- Callback aufrufen, damit GUI aktualisiert wird ---
             if callback:
                 callback()
 
@@ -9072,12 +9103,16 @@ class PatchManagerGUI(QWidget):
 
     def update_ui_texts(self):
         """Zentrale Text- und Icon-Aktualisierung mit Tooltip-Support für alle Buttons."""
-        if hasattr(self, "hide_final_label"): self.hide_final_label()
-        elif hasattr(self, "final_label") and self.final_label: self.final_label.hide()
 
         import os, platform, re
         from PyQt6.QtWidgets import QApplication, QStyle
         from PyQt6.QtCore import QSize, QTimer
+
+        # --- 0. Final Label ausblenden ---
+        if hasattr(self, "hide_final_label"): 
+            self.hide_final_label()
+        elif hasattr(self, "final_label") and self.final_label: 
+            self.final_label.hide()
 
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
@@ -9089,13 +9124,10 @@ class PatchManagerGUI(QWidget):
             clean_text = re.sub(r"[^\x00-\x7F\xc0-\xff\s\.\,\:\-\_\!\?]+", "", str(text)).strip()
             if len(clean_text) > 18 and " " in clean_text:
                 clean_text = clean_text.replace(" ", "\n", 1)
-
             btn.setText(clean_text)
             btn.setIcon(QApplication.style().standardIcon(standard_pixmap))
             btn.setIconSize(QSize(20, 20))
             btn.setMinimumSize(185, 48)
-            
-            # Zentrales Styling: Cyan/Aqua für Standard-Buttons
             btn_color = "#00FFFF" 
             btn.setStyleSheet(f"""
                 QPushButton {{
@@ -9111,12 +9143,11 @@ class PatchManagerGUI(QWidget):
                 }}
             """)
 
-        # --- 2. Hilfsfunktion für S3/NCam (Spezialfarben & Tooltips) ---
+        # --- 2. Hilfsfunktion für S3/NCam ---
         def apply_s3_btn_logic(btn, current_path, default_label):
             if not btn: return
             s3_exe = "s3.exe" if platform.system() == "Windows" else "s3"
             exists = os.path.exists(os.path.join(current_path, s3_exe))
-            
             if is_de:
                 help_install = f"<b>Linksklick:</b> {default_label} Installation starten<br><b>Rechtsklick:</b> Ordner wählen"
                 help_start = f"<b>Linksklick:</b> {default_label} Menü öffnen<br><b>Rechtsklick:</b> Pfad ändern"
@@ -9125,12 +9156,10 @@ class PatchManagerGUI(QWidget):
                 help_start = f"<b>Left-Click:</b> Open {default_label} menu<br><b>Right-Click:</b> Change path"
 
             if exists:
-                btn_text, color = f"🚀 {default_label} OK", "#00FF00"
-                tooltip_text = help_start
+                btn_text, color, tooltip_text = f"🚀 {default_label} OK", "#00FF00", help_start
             else:
                 label_inst = "Installieren" if is_de else "Install"
-                btn_text, color = f"🚀 {default_label} {label_inst}", "orange"
-                tooltip_text = help_install
+                btn_text, color, tooltip_text = f"🚀 {default_label} {label_inst}", "orange", help_install
 
             btn.setText(btn_text)
             btn.setToolTip(tooltip_text)
@@ -9143,23 +9172,23 @@ class PatchManagerGUI(QWidget):
                 QToolTip {{ background-color: #3d3d3d; color: {color}; border: 1px solid {color}; padding: 5px; }}
             """)
 
-        # --- 3. UI Aktualisierung starten ---
+        # --- 3. ProgressBar starten ---
         if pbar:
             pbar.setValue(20)
             pbar.show()
 
-        # Labels
+        # --- 4. Labels ---
         for lbl_name, de_t, en_t in [("commit_label", "Commits:", "Commits:"), 
                                      ("color_label", "Farbe:", "Color:"), 
                                      ("lang_label", "🌐 Sprache:", "🌐 Language:")]:
             lbl = getattr(self, lbl_name, None)
             if lbl: lbl.setText(de_t if is_de else en_t)
 
-        # --- 4. S3 & NCam ---
+        # --- 5. S3 & NCam Buttons ---
         apply_s3_btn_logic(getattr(self, "btn_s3", None), getattr(self, "S3_PATH", "/opt/s3"), "S3")
         apply_s3_btn_logic(getattr(self, "btn_ncam", None), getattr(self, "NCAM_PATH", "/opt/s3_ncam_bonecrew_test"), "NCam")
 
-        # --- 5. Andere Buttons mit Tooltips ---
+        # --- 6. Andere Buttons ---
         mapping = [
             (self.btn_open_work, "Arbeitsordner", "WORK_DIR", QStyle.StandardPixmap.SP_DirIcon, "Öffnet den lokalen Patch-Ordner"),
             (self.btn_open_temp, "Temp-Repo", "Temp-Repo", QStyle.StandardPixmap.SP_DirIcon, "Zeigt den lokalen Git-Clone"),
@@ -9173,20 +9202,34 @@ class PatchManagerGUI(QWidget):
             apply_final_style(btn, de if is_de else en, icon)
             if btn: btn.setToolTip(tt)
 
-        # --- 6. Grid Buttons ---
-        if hasattr(self, "buttons"):
-            grid_icons = {"patch_create": QStyle.StandardPixmap.SP_FileIcon, "patch_renew": QStyle.StandardPixmap.SP_BrowserReload,
-                          "patch_check": QStyle.StandardPixmap.SP_DialogApplyButton, "patch_apply": QStyle.StandardPixmap.SP_MediaPlay,
-                          "patch_zip": QStyle.StandardPixmap.SP_DriveFDIcon, "backup_old": QStyle.StandardPixmap.SP_DialogSaveButton,
-                          "clean_folder": QStyle.StandardPixmap.SP_TrashIcon, "change_old_dir": QStyle.StandardPixmap.SP_DirOpenIcon,
-                          "exit": QStyle.StandardPixmap.SP_DialogCloseButton}
+       # --- 7. Grid-Buttons korrekt umstellen ---
+        if hasattr(self, "buttons") and hasattr(self, "grid_tooltips"):
+            grid_icons = {
+                "patch_create": QStyle.StandardPixmap.SP_FileIcon,
+                "patch_renew": QStyle.StandardPixmap.SP_BrowserReload,
+                "patch_check": QStyle.StandardPixmap.SP_DialogApplyButton,
+                "patch_apply": QStyle.StandardPixmap.SP_MediaPlay,
+                "patch_zip": QStyle.StandardPixmap.SP_DriveFDIcon,
+                "backup_old": QStyle.StandardPixmap.SP_DialogSaveButton,
+                "clean_folder": QStyle.StandardPixmap.SP_TrashIcon,
+                "change_old_dir": QStyle.StandardPixmap.SP_DirOpenIcon,
+                "exit": QStyle.StandardPixmap.SP_DialogCloseButton
+            }
             for key, btn in self.buttons.items():
-                if key in grid_icons: apply_final_style(btn, self.get_t(key, key), grid_icons[key])
+                if not btn: continue
+                # Text aktualisieren
+                btn.setText(self.get_t(key, key))
+                # Tooltip aktualisieren
+                if key in self.grid_tooltips:
+                    btn.setToolTip(self.grid_tooltips[key].get(self.LANG, ""))
+                # Stil + Icon
+                apply_final_style(btn, self.get_t(key, key), grid_icons.get(key, QStyle.StandardPixmap.SP_FileIcon))
 
-        # --- 7. Abschluss ---
+        # --- 8. Abschluss ---
         if pbar:
             pbar.setValue(100)
             QTimer.singleShot(2000, self.pbar_idle)
+
         QApplication.processEvents()
 
     def edit_patch_header(self, info_widget=None, progress_callback=None):
@@ -12293,8 +12336,8 @@ class PatchManagerGUI(QWidget):
 
     def change_language(self):
         """
-        Sprachwechsel Ablauf:
-        Overlay -> Flaggenanimation -> Grid-Buttons, Labels, S3/NCam Buttons, Autor-Buttons updaten -> Systemcheck
+        Sprachwechsel mit Ablauf:
+        Overlay -> Flaggenanimation -> UI Update (inkl. S3/NCam Tooltips) -> Systemcheck
         """
         from PyQt6.QtWidgets import QApplication, QGroupBox
         from PyQt6.QtCore import QTimer
@@ -12309,22 +12352,22 @@ class PatchManagerGUI(QWidget):
         self._block_language_change = True
 
         try:
-            # ---------------- Helper ----------------
+            # ---------------- Helper Funktionen ----------------
             def strip_icons(text):
                 return re.sub(r"^[^\w\s]+", "", str(text)).strip()
 
-            # ---------------- Sprache ----------------
+            # ---------------- Sprache bestimmen ----------------
             selected = self.language_box.currentText().upper()
             target_is_de = any(x in selected for x in ["DE", "DEU", "DEUTSCH"])
+
             self.LANG = "de" if target_is_de else "en"
             is_de = self.LANG == "de"
-            wait_text = "Sprache wird angepasst..." if is_de else "Switching language..."
+            wait_text = ("Sprache wird angepasst..." if is_de else "Switching language...")
 
-            # ---------------- Overlay ----------------
+            # ---------------- Overlay anzeigen ----------------
             if hasattr(self, "loading_overlay"):
                 self.loading_overlay.setGeometry(self.rect())
-                if hasattr(self, "loading_label"):
-                    self.loading_label.setText(f"⏳ {wait_text}")
+                self.loading_label.setText(f"⏳ {wait_text}")
                 self.loading_overlay.show()
                 self.loading_overlay.raise_()
                 QApplication.processEvents()
@@ -12333,6 +12376,7 @@ class PatchManagerGUI(QWidget):
             safe_play_func = globals().get("safe_play")
             if safe_play_func:
                 safe_play_func("service-logout.oga")
+
             if hasattr(self, "show_language_animation"):
                 self.show_language_animation(self.LANG)
 
@@ -12341,60 +12385,65 @@ class PatchManagerGUI(QWidget):
             self.TEXT = all_texts.get(self.LANG, {})
             lang_dict = self.TEXT
 
-            # ---------------- ProgressBar ----------------
+            # ---------------- ProgressBar Start ----------------
             pbar = getattr(self, "progress_bar", None)
             if pbar:
                 pbar.setValue(20)
                 pbar.setFormat(f"⏳ {wait_text} %p%")
-                pbar.show()
                 QApplication.processEvents()
-            if hasattr(self, "buttons") and isinstance(self.buttons, dict):
-                for key, btn in self.buttons.items():
-                    if not btn: 
-                        continue
-                    # Setze Text aus TEXTS
-                    btn.setText(self.TEXT.get(key, key))
-                    # Tooltip aus TEXTS
-                    tooltip_key = f"{key}_tooltip"
-                    if tooltip_key in self.TEXT:
-                        btn.setToolTip(self.TEXT[tooltip_key])
-            # ---------------- UI Update zentral ----------------
+
+            # ---------------- UI Update (Zentral für alle Buttons & Tooltips) ----------------
+            # WICHTIG: Hier rufen wir deine neue Methode auf, die S3, NCam 
+            # und alle Mapping-Buttons mit den richtigen Tooltips versorgt.
             if hasattr(self, "update_ui_texts"):
                 self.update_ui_texts()
 
-            # ---------------- Labels ----------------
-            for lbl_name, de_t, en_t in [
-                ("commit_label", "Commits:", "Commits:"),
-                ("color_label", "Farbe:", "Color:"),
-                ("header_label", "Einstellungen", "Settings"),
-            ]:
-                lbl = getattr(self, lbl_name, None)
-                if lbl:
-                    lbl.setText(de_t if is_de else en_t)
+            # ---------------- Labels aktualisieren ----------------
+            if hasattr(self, "commit_label"):
+                self.commit_label.setText(lang_dict.get("commit_count_label", "Commits:"))
 
-            # ---------------- OSCam Status blinkend ----------------
+            if hasattr(self, "color_label"):
+                self.color_label.setText(lang_dict.get("color_label", "Farbe:" if is_de else "Color:"))
+
+            if hasattr(self, "log_button"):
+                self.log_button.setText(lang_dict.get("log_button_text", " Log speichern" if is_de else " Save Log"))
+
+            if hasattr(self, "header_label"):
+                self.header_label.setText(strip_icons(lang_dict.get("settings_header", "Einstellungen" if is_de else "Settings")))
+
+            # --- OSCam Status aktualisieren + Versionsnummer blinkend ---
             if hasattr(self, "status_label") and self.status_label:
                 rev = getattr(self, "current_rev", "----")
                 timestamp = getattr(self, "last_timestamp", "--:--:--")
+                # Nutzt die neue Sprache aus lang_dict
                 msg = lang_dict.get("oscam_uptodate", "OSCam ist aktuell." if is_de else "OSCam is up to date.")
-                blink_color = "#FF0000"
 
-                def update_status_html(color):
-                    return (
-                        f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
-                        f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
-                        f"<span style='font-size:24px;color:{color};font-weight:bold;'>{rev}</span>"
-                    )
+                blink_color = "#FF0000" 
 
+                # Initiales HTML setzen
+                html = (
+                    f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
+                    f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
+                    f"<span style='font-size:24px;color:{blink_color};font-weight:bold;'>{rev}</span>"
+                )
+                self.status_label.setText(html)
+
+                # Blink-Funktion (lokal definiert für den Aufruf)
                 def blink_version(times=6, interval=300):
                     state = [0]
                     def toggle():
-                        color = blink_color if state[0] % 2 == 0 else "#00FF00"
-                        self.status_label.setText(update_status_html(color))
+                        current_color = blink_color if state[0] % 2 == 0 else "#00FF00"
+                        new_html = (
+                            f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
+                            f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
+                            f"<span style='font-size:24px;color:{current_color};font-weight:bold;'>{rev}</span>"
+                        )
+                        self.status_label.setText(new_html)
                         state[0] += 1
                         if state[0] < times * 2:
                             QTimer.singleShot(interval, toggle)
                     toggle()
+
                 blink_version()
 
             # ---------------- GroupBox Titel ----------------
@@ -12405,8 +12454,9 @@ class PatchManagerGUI(QWidget):
                 elif any(x in title for x in ["Configuration", "Konfiguration", "GitHub"]):
                     box.setTitle("GitHub Konfiguration" if is_de else "GitHub Configuration")
 
-            # ---------------- Autor Buttons ----------------
+            # ---------------- Autor Ansicht vorbereiten ----------------
             def show_author_view():
+                """Texte für Autor-Buttons setzen (Icons bleiben erhalten)"""
                 if hasattr(self, "btn_modifier"):
                     self.btn_modifier.setText(f"👤 {strip_icons(lang_dict.get('modifier_button_text', 'Patch Autor' if is_de else 'Patch Author'))}")
                 if hasattr(self, "btn_patch_online"):
@@ -12415,38 +12465,28 @@ class PatchManagerGUI(QWidget):
                     self.final_label.setText(lang_dict.get("final_label", "🛠️ Was bauen wir heute?"))
                     self.final_label.hide()
 
-            # ---------------- Systemcheck ----------------
+            # ---------------- System & Finale Sequenz ----------------
             if safe_play_func:
                 QTimer.singleShot(400, lambda: safe_play_func("dialog-information.oga"))
+
             if hasattr(self, "run_full_system_check"):
                 QTimer.singleShot(1200, lambda: self.run_full_system_check(clear_log=True))
 
-            # ---------------- Grid Buttons & Tooltips aktualisieren ----------------
-            if hasattr(self, "buttons") and isinstance(self.buttons, dict):
-               for key, btn in self.buttons.items():
-                    # Mapping der neuen Texte
-                    btn.setText(self.get_t(key, key))  # self.get_t holt den Text aus TEXTS
-                    # Tooltips
-                    if key in ["patch_create", "patch_renew", "patch_check", "patch_apply",
-                               "patch_zip", "backup_old", "clean_folder", "change_old_dir", "exit"]:
-                        tt_de = self.get_t(f"{key}_tooltip", "")
-                        tt_en = self.get_t(f"{key}_tooltip_en", "")
-                        btn.setToolTip(tt_de if is_de else tt_en)
-
-            # ---------------- Finale Blink-Sequenz ----------------
             def final_blink_sequence():
                 show_author_view()
                 if hasattr(self, "progress_bar") and self.progress_bar:
                     self.progress_bar.hide()
                 if hasattr(self, "final_label") and self.final_label:
+                    # Blinkt das final_label als Abschluss-Effekt
                     blink_widget(self.final_label, times=6, interval=300)
                 if hasattr(self, "hide_language_overlay"):
                     self.hide_language_overlay()
 
-            QTimer.singleShot(1200, lambda: pbar.setValue(100) if pbar else None)
-            QTimer.singleShot(1400, lambda: pbar.setFormat("✅ OK") if pbar else None)
+            # Zeitlich gestaffelter Abschluss
+            QTimer.singleShot(1200, lambda: self.progress_bar.setValue(100) if hasattr(self, "progress_bar") else None)
+            QTimer.singleShot(1400, lambda: self.progress_bar.setFormat("✅ OK") if hasattr(self, "progress_bar") else None)
             QTimer.singleShot(3500, final_blink_sequence)
-            QTimer.singleShot(5000, lambda: pbar.setFormat("%p%") if pbar else None)
+            QTimer.singleShot(5000, lambda: self.progress_bar.setFormat("%p%") if hasattr(self, "progress_bar") else None)
 
         except Exception as e:
             print(f"Fehler beim Sprachwechsel: {e}")
