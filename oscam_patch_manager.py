@@ -569,7 +569,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.3.3"
+APP_VERSION = "4.3.4"
 
 
 # ===================== PATCH DIRS =====================
@@ -5620,139 +5620,105 @@ class PatchManagerGUI(QWidget):
     from PyQt6.QtGui import QFont, QColor
 
     def show_language_animation(self, lang_code, callback=None):
-        """
-        High-End Sprachwechsel Animation
-        Fade-In → Slide → Neon Glow → Fade-Out
-        """
+        from PyQt6.QtWidgets import (
+            QLabel,
+            QGraphicsOpacityEffect,
+            QGraphicsDropShadowEffect,
+        )
+        from PyQt6.QtCore import (
+            QPropertyAnimation,
+            QRect,
+            QEasingCurve,
+            QTimer,
+            QVariantAnimation,
+        )
+        from PyQt6.QtGui import QFont, QFontInfo, QColor
 
-        from PyQt6.QtWidgets import QLabel, QGraphicsOpacityEffect
-        from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer
-        from PyQt6.QtGui import QFont, QFontInfo
-
-        # ---------------------------
-        # Alte Animation löschen
-        # ---------------------------
-        if hasattr(self, "text_label"):
+        # 1. Cleanup
+        if hasattr(self, "text_label") and self.text_label:
             self.text_label.deleteLater()
-
-        if hasattr(self, "flag_label"):
+        if hasattr(self, "flag_label") and self.flag_label:
             self.flag_label.deleteLater()
-
-        # final_label verstecken
         if hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
 
-        # ---------------------------
-        # Sprache bestimmen
-        # ---------------------------
         is_de = lang_code.lower() == "de"
-
-        text_message = (
-            "Sprache wird umgestellt..." if is_de else "Switching language..."
-        )
+        text_msg = "Sprache wird umgestellt..." if is_de else "Switching language..."
         flag_char = "🇩🇪" if is_de else "🇺🇸"
 
-        # ---------------------------
-        # Text Label
-        # ---------------------------
-        self.text_label = QLabel(text_message, self)
+        # 2. Text Label Setup (Neon Glow vorbereitet)
+        self.text_label = QLabel(text_msg, self)
         self.text_label.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
-        self.text_label.setStyleSheet("color:#FF6F00;background:transparent;")
+        self.text_label.setStyleSheet(
+            "color: rgba(255, 111, 0, 0); background: transparent;"
+        )
         self.text_label.adjustSize()
+        t_x, t_y = (self.width() - self.text_label.width()) // 2, (
+            self.height() - self.text_label.height()
+        ) // 2 + 30
+        self.text_label.move(t_x, t_y)
 
-        text_x = (self.width() - self.text_label.width()) // 2
-        text_y = (self.height() - self.text_label.height()) // 2 + 30
-
-        self.text_label.move(text_x, text_y)
-
-        text_opacity = QGraphicsOpacityEffect(self.text_label)
-        self.text_label.setGraphicsEffect(text_opacity)
-        text_opacity.setOpacity(0)
-
+        self.shadow = QGraphicsDropShadowEffect(self.text_label)
+        self.shadow.setColor(QColor("#FF6F00"))
+        self.shadow.setOffset(0, 0)
+        self.shadow.setBlurRadius(0)
+        self.text_label.setGraphicsEffect(self.shadow)
         self.text_label.show()
-        self.text_label.raise_()
 
-        # ---------------------------
-        # Flag Label
-        # ---------------------------
+        # 3. Flag Label Setup (Slide & Fade)
         self.flag_label = QLabel(flag_char, self)
-
-        emoji_font = QFont("Noto Color Emoji", 70)
-
-        if QFontInfo(emoji_font).family().lower() != "noto color emoji":
-            emoji_font = QFont("Segoe UI", 52, QFont.Weight.Bold)
-
-        self.flag_label.setFont(emoji_font)
-        self.flag_label.setStyleSheet("background:transparent;")
+        f_font = (
+            QFont("Noto Color Emoji", 70)
+            if QFontInfo(QFont("Noto Color Emoji")).family().lower()
+            == "noto color emoji"
+            else QFont("Segoe UI", 52, QFont.Weight.Bold)
+        )
+        self.flag_label.setFont(f_font)
         self.flag_label.adjustSize()
-
-        flag_x = (self.width() - self.flag_label.width()) // 2
-        flag_y = text_y - self.flag_label.height() - 20
-
-        self.flag_label.move(flag_x, flag_y)
+        f_x, f_y = (
+            self.width() - self.flag_label.width()
+        ) // 2, t_y - self.flag_label.height() - 20
 
         flag_opacity = QGraphicsOpacityEffect(self.flag_label)
-        self.flag_label.setGraphicsEffect(flag_opacity)
         flag_opacity.setOpacity(0)
-
+        self.flag_label.setGraphicsEffect(flag_opacity)
         self.flag_label.show()
-        self.flag_label.raise_()
 
-        # ---------------------------
-        # Fade-In Text
-        # ---------------------------
-        self.anim_text_fade = QPropertyAnimation(text_opacity, b"opacity")
-        self.anim_text_fade.setDuration(900)
-        self.anim_text_fade.setStartValue(0)
-        self.anim_text_fade.setEndValue(1)
-
-        # ---------------------------
-        # Fade-In Flag
-        # ---------------------------
-        self.anim_flag_fade = QPropertyAnimation(flag_opacity, b"opacity")
-        self.anim_flag_fade.setDuration(900)
-        self.anim_flag_fade.setStartValue(0)
-        self.anim_flag_fade.setEndValue(1)
-
-        # ---------------------------
-        # Slide Animation
-        # ---------------------------
-        self.anim_flag_slide = QPropertyAnimation(self.flag_label, b"geometry")
-        self.anim_flag_slide.setDuration(900)
-        self.anim_flag_slide.setStartValue(
-            QRect(
-                flag_x, flag_y + 40, self.flag_label.width(), self.flag_label.height()
+        # 4. Animationen: Neon-Puls & Fade-Out
+        def fade_out():
+            # Text und Flagge sanft ausblenden
+            self.out_anim = QVariantAnimation(self)
+            self.out_anim.setDuration(600)
+            self.out_anim.setStartValue(QColor(255, 111, 0, 255))
+            self.out_anim.setEndValue(QColor(255, 111, 0, 0))
+            self.out_anim.valueChanged.connect(
+                lambda c: self.text_label.setStyleSheet(
+                    f"color: {c.name(QColor.NameFormat.HexArgb)}; background: transparent;"
+                )
             )
-        )
-        self.anim_flag_slide.setEndValue(
-            QRect(flag_x, flag_y, self.flag_label.width(), self.flag_label.height())
-        )
-        self.anim_flag_slide.setEasingCurve(QEasingCurve.Type.OutBack)
 
-        # ---------------------------
-        # Neon Glow Pulse
-        # ---------------------------
-        def glow(times=6):
+            self.f_out = QPropertyAnimation(flag_opacity, b"opacity")
+            self.f_out.setDuration(600)
+            self.f_out.setStartValue(1)
+            self.f_out.setEndValue(0)
 
+            self.f_out.finished.connect(
+                lambda: (
+                    self.text_label.hide(),
+                    self.flag_label.hide(),
+                    callback() if callback else None,
+                )
+            )
+            self.out_anim.start()
+            self.f_out.start()
+
+        def start_glow_pulse(times=6):
             state = {"i": 0}
 
             def toggle():
-
-                glow_val = 5 + (state["i"] % 2) * 12
-
-                self.text_label.setStyleSheet(
-                    f"""
-                    color:#FF6F00;
-                    background:transparent;
-                    text-shadow:
-                    0 0 {glow_val}px #FF6F00,
-                    0 0 {glow_val*2}px #FF6F00,
-                    0 0 {glow_val*3}px #FF6F00;
-                    """
-                )
-
+                val = 5 + (state["i"] % 2) * 25
+                self.shadow.setBlurRadius(val)
                 state["i"] += 1
-
                 if state["i"] < times * 2:
                     QTimer.singleShot(180, toggle)
                 else:
@@ -5760,45 +5726,40 @@ class PatchManagerGUI(QWidget):
 
             toggle()
 
-        # ---------------------------
-        # Fade-Out
-        # ---------------------------
-        def fade_out():
+        # 5. Start: Text-Farbe Animation (Echter Fade-In)
+        self.text_fade_in = QVariantAnimation(self)
+        self.text_fade_in.setDuration(900)
+        self.text_fade_in.setStartValue(QColor(255, 111, 0, 0))
+        self.text_fade_in.setEndValue(QColor(255, 111, 0, 255))
+        self.text_fade_in.valueChanged.connect(
+            lambda c: self.text_label.setStyleSheet(
+                f"color: {c.name(QColor.NameFormat.HexArgb)}; background: transparent;"
+            )
+        )
 
-            self.anim_text_out = QPropertyAnimation(text_opacity, b"opacity")
-            self.anim_text_out.setDuration(700)
-            self.anim_text_out.setStartValue(1)
-            self.anim_text_out.setEndValue(0)
+        # Flagge Fade & Slide
+        self.flag_fade_in = QPropertyAnimation(flag_opacity, b"opacity")
+        self.flag_fade_in.setDuration(900)
+        self.flag_fade_in.setStartValue(0)
+        self.flag_fade_in.setEndValue(1)
 
-            self.anim_flag_out = QPropertyAnimation(flag_opacity, b"opacity")
-            self.anim_flag_out.setDuration(700)
-            self.anim_flag_out.setStartValue(1)
-            self.anim_flag_out.setEndValue(0)
+        self.flag_slide = QPropertyAnimation(self.flag_label, b"geometry")
+        self.flag_slide.setDuration(900)
+        self.flag_slide.setStartValue(
+            QRect(f_x, f_y + 40, self.flag_label.width(), self.flag_label.height())
+        )
+        self.flag_slide.setEndValue(
+            QRect(f_x, f_y, self.flag_label.width(), self.flag_label.height())
+        )
+        self.flag_slide.setEasingCurve(QEasingCurve.Type.OutBack)
 
-            def finish():
+        self.flag_fade_in.finished.connect(
+            lambda: QTimer.singleShot(100, start_glow_pulse)
+        )
 
-                self.text_label.hide()
-                self.flag_label.hide()
-
-                if callback:
-                    callback()
-
-            self.anim_text_out.finished.connect(finish)
-
-            self.anim_text_out.start()
-            self.anim_flag_out.start()
-
-        # ---------------------------
-        # Start Animation
-        # ---------------------------
-        def start_glow():
-            glow()
-
-        QTimer.singleShot(30, self.anim_text_fade.start)
-        QTimer.singleShot(30, self.anim_flag_fade.start)
-        QTimer.singleShot(30, self.anim_flag_slide.start)
-
-        self.anim_text_fade.finished.connect(start_glow)
+        self.text_fade_in.start()
+        self.flag_fade_in.start()
+        self.flag_slide.start()
 
     def show_tool_help(self, tool_id):
         """Zeigt Status-Infos (Grün) oder Hilfe (Rot) für System-Tools an."""
@@ -10225,7 +10186,18 @@ class PatchManagerGUI(QWidget):
                     C_BLUE,
                 )
             )
+            # Holt einen kompakten String wie "Windows-10-10.0.19041-SP0" oder "Linux-5.15.0-generic..."
+            os_info = platform.platform(terse=True)  # terse=True hält es noch kürzer
 
+            html.append(
+                make_safe_row(
+                    "🪟",
+                    "Betriebssystem",
+                    os_info,
+                    C_GREEN,
+                    C_BLUE,
+                )
+            )
             # CPU / Architektur
             cpu_arch = platform.machine()
             cpu_count = psutil.cpu_count(logical=True)
