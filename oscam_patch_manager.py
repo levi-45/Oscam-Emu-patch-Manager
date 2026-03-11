@@ -12762,6 +12762,31 @@ class PatchManagerGUI(QWidget):
         else:
             after_animation()
 
+            QTimer.singleShot(
+                1200,
+                lambda: (
+                    self.progress_bar.setValue(100)
+                    if hasattr(self, "progress_bar")
+                    else None
+                ),
+            )
+            QTimer.singleShot(
+                1400,
+                lambda: (
+                    self.progress_bar.setFormat("✅ OK")
+                    if hasattr(self, "progress_bar")
+                    else None
+                ),
+            )
+            QTimer.singleShot(3500, final_blink_sequence)
+            QTimer.singleShot(
+                5000,
+                lambda: (
+                    self.progress_bar.setFormat("%p%")
+                    if hasattr(self, "progress_bar")
+                    else None
+                ),
+            )
         # ---------------- Cleanup ----------------
         self._block_language_change = False
         QApplication.processEvents()
