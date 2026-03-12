@@ -4273,7 +4273,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 import os, random, platform, subprocess
 
-class FullScreenMatrixSplash(QWidget):
+class CinematicMatrixSplash(QWidget):
     finished = pyqtSignal()
 
     def __init__(self, duration=5000, logo_path=None, lang="de", start_sound=None, end_sound=None):
@@ -4282,7 +4282,7 @@ class FullScreenMatrixSplash(QWidget):
         self.start_sound = start_sound
         self.end_sound = end_sound
 
-        # Texte
+        # ---------------- Texte ----------------
         texts = {
             "de": {"loading": "🚀 OSCam Patch Manager wird gestartet...", "ready": "✅ Bereit!"},
             "en": {"loading": "🚀 OSCam Patch Manager loading...", "ready": "✅ Ready!"}
@@ -4290,20 +4290,20 @@ class FullScreenMatrixSplash(QWidget):
         self.text_loading = texts.get(lang.lower(), texts["de"])["loading"]
         self.text_ready = texts.get(lang.lower(), texts["de"])["ready"]
 
-        # Widget Setup
+        # ---------------- Widget Setup ----------------
         self.setWindowFlags(Qt.WindowType.SplashScreen | Qt.WindowType.FramelessWindowHint)
-        self.setStyleSheet("background-color: black; border-radius: 0px;")
-        self.resize(600, 400)
+        self.setStyleSheet("background-color: black; border-radius: 12px; border: 2px solid #222;")
+        self.resize(800, 450)  # mittlere coole Größe
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(5)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
 
         # Ping-Pong Label oben
         self.lbl_pingpong = QLabel(self.text_loading)
         self.lbl_pingpong.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_pingpong.setFont(QFont("Consolas", 18, QFont.Weight.Bold))
-        self.lbl_pingpong.setStyleSheet("color: #00FF00;")
+        self.lbl_pingpong.setStyleSheet("color: #00FF00;")  # Matrix-Grün
         layout.addWidget(self.lbl_pingpong)
 
         # Matrix Label
@@ -4317,13 +4317,14 @@ class FullScreenMatrixSplash(QWidget):
         self.pbar = QProgressBar()
         self.pbar.setMaximum(100)
         self.pbar.setValue(0)
+        self.pbar.setFormat("0%")
         self.pbar.setStyleSheet("""
             QProgressBar {
                 text-align: center; font-weight: bold;
                 border: 2px solid #222;
-                border-radius: 4px;
+                border-radius: 6px;
                 background-color: #222;
-                color: #FF0000;
+                color: black;  /* Prozentzahl jetzt schwarz */
                 font-size: 12pt;
             }
             QProgressBar::chunk {
@@ -4340,21 +4341,21 @@ class FullScreenMatrixSplash(QWidget):
         self.opacity = 0.0
         self.fade_in()
 
-        # Ping-Pong
+        # Ping-Pong Animation
         self.pp_index = 0
         self.ping_pong = ["🚀","💫","✨","🌟","🔥","💥"]
         self.animate_pingpong()
 
-        # Progressbar
+        # Progressbar Animation
         self.progress = 0
         self.update_progress()
 
         # Matrix-Fall Setup
         self.matrix_chars = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*")
-        self.cols = 40  # Anzahl der Spalten
-        self.lines = 20  # Anzahl der Zeilen
+        self.cols = 50  # mittlere Spaltenanzahl
+        self.lines = 20
         self.matrix_grid = [[" " for _ in range(self.cols)] for _ in range(self.lines)]
-        self.matrix_speed = [random.randint(1, 3) for _ in range(self.cols)]  # unterschiedliche Geschwindigkeit pro Spalte
+        self.matrix_speed = [random.randint(1, 3) for _ in range(self.cols)]
         self.matrix_timer = QTimer()
         self.matrix_timer.timeout.connect(self.matrix_update)
         self.matrix_timer.start(100)
@@ -4366,47 +4367,49 @@ class FullScreenMatrixSplash(QWidget):
         # Auto-Close
         QTimer.singleShot(duration, self.finish_splash)
 
-    # Fade-In
+    # ---------------- Fade-In ----------------
     def fade_in(self):
         self.opacity += 0.05
-        self.setWindowOpacity(min(self.opacity,1.0))
+        self.setWindowOpacity(min(self.opacity, 1.0))
         if self.opacity < 1.0:
             QTimer.singleShot(50, self.fade_in)
 
-    # Ping-Pong Animation
+    # ---------------- Ping-Pong Animation ----------------
     def animate_pingpong(self):
         self.lbl_pingpong.setText(f"{self.ping_pong[self.pp_index % len(self.ping_pong)]} {self.text_loading}")
         self.pp_index += 1
         QTimer.singleShot(250, self.animate_pingpong)
 
-    # Progressbar Animation
+    # ---------------- Progressbar ----------------
     def update_progress(self):
         if self.progress >= 100:
             self.lbl_pingpong.setText(self.text_ready)
+            self.pbar.setValue(100)
+            self.pbar.setFormat("100%")
             return
         step = random.uniform(0.5, 2.0)
         self.progress = min(self.progress + step, 100)
         self.pbar.setValue(int(self.progress))
+        self.pbar.setFormat(f"{int(self.progress)}%")
         QTimer.singleShot(60, self.update_progress)
 
-    # Matrix Update für alle Spalten
+    # ---------------- Matrix Update ----------------
     def matrix_update(self):
         for col in range(self.cols):
-            for row in range(self.lines-1, 0, -1):
-                self.matrix_grid[row][col] = self.matrix_grid[row-1][col]
+            for row in range(self.lines - 1, 0, -1):
+                self.matrix_grid[row][col] = self.matrix_grid[row - 1][col]
             self.matrix_grid[0][col] = random.choice(self.matrix_chars) if random.random() < 0.3 else " "
-        # Text setzen
         display = "\n".join("".join(self.matrix_grid[row]) for row in range(self.lines))
         self.lbl_matrix.setText(display)
 
-    # Finish Splash
+    # ---------------- Finish Splash ----------------
     def finish_splash(self):
         if self.end_sound:
             self.play_sound(self.end_sound)
         self.close()
         self.finished.emit()
 
-    # Sound abspielen
+    # ---------------- Sound ----------------
     def play_sound(self, sound_file):
         if not os.path.exists(sound_file):
             return
@@ -14274,7 +14277,7 @@ if __name__ == "__main__":
     end_sound_file   = str(Path("end.wav").resolve())
 
     # SplashScreen starten
-    splash = FullScreenMatrixSplash(
+    splash = CinematicMatrixSplash(
         duration=5000,       # 5 Sekunden
         logo_path=splash_logo,
         lang=lang,
