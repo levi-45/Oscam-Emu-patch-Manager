@@ -4267,6 +4267,165 @@ class AnalogClock(QWidget):
         painter.setBrush(color_accent)
         painter.drawEllipse(-5, -5, 10, 10)
 
+# ---------------- MATRIX CINEMATIC SPLASH ----------------
+from PyQt6.QtWidgets import QWidget, QLabel, QProgressBar, QVBoxLayout
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QFont
+import os, random, platform, subprocess
+
+class FullScreenMatrixSplash(QWidget):
+    finished = pyqtSignal()
+
+    def __init__(self, duration=5000, logo_path=None, lang="de", start_sound=None, end_sound=None):
+        super().__init__()
+        self.duration = duration
+        self.start_sound = start_sound
+        self.end_sound = end_sound
+
+        # Texte
+        texts = {
+            "de": {"loading": "🚀 OSCam Patch Manager wird gestartet...", "ready": "✅ Bereit!"},
+            "en": {"loading": "🚀 OSCam Patch Manager loading...", "ready": "✅ Ready!"}
+        }
+        self.text_loading = texts.get(lang.lower(), texts["de"])["loading"]
+        self.text_ready = texts.get(lang.lower(), texts["de"])["ready"]
+
+        # Widget Setup
+        self.setWindowFlags(Qt.WindowType.SplashScreen | Qt.WindowType.FramelessWindowHint)
+        self.setStyleSheet("background-color: black; border-radius: 0px;")
+        self.resize(600, 400)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(5)
+
+        # Ping-Pong Label oben
+        self.lbl_pingpong = QLabel(self.text_loading)
+        self.lbl_pingpong.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_pingpong.setFont(QFont("Consolas", 18, QFont.Weight.Bold))
+        self.lbl_pingpong.setStyleSheet("color: #00FF00;")
+        layout.addWidget(self.lbl_pingpong)
+
+        # Matrix Label
+        self.lbl_matrix = QLabel()
+        self.lbl_matrix.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.lbl_matrix.setFont(QFont("Consolas", 12, QFont.Weight.Bold))
+        self.lbl_matrix.setStyleSheet("color: #00FF00;")
+        layout.addWidget(self.lbl_matrix, stretch=1)
+
+        # Progressbar
+        self.pbar = QProgressBar()
+        self.pbar.setMaximum(100)
+        self.pbar.setValue(0)
+        self.pbar.setStyleSheet("""
+            QProgressBar {
+                text-align: center; font-weight: bold;
+                border: 2px solid #222;
+                border-radius: 4px;
+                background-color: #222;
+                color: #FF0000;
+                font-size: 12pt;
+            }
+            QProgressBar::chunk {
+                background-color: #FF0000; border-radius: 4px;
+            }
+        """)
+        layout.addWidget(self.pbar)
+
+        self.setLayout(layout)
+        self.setWindowOpacity(0.0)
+        self.show()
+
+        # Fade-In
+        self.opacity = 0.0
+        self.fade_in()
+
+        # Ping-Pong
+        self.pp_index = 0
+        self.ping_pong = ["🚀","💫","✨","🌟","🔥","💥"]
+        self.animate_pingpong()
+
+        # Progressbar
+        self.progress = 0
+        self.update_progress()
+
+        # Matrix-Fall Setup
+        self.matrix_chars = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*")
+        self.cols = 40  # Anzahl der Spalten
+        self.lines = 20  # Anzahl der Zeilen
+        self.matrix_grid = [[" " for _ in range(self.cols)] for _ in range(self.lines)]
+        self.matrix_speed = [random.randint(1, 3) for _ in range(self.cols)]  # unterschiedliche Geschwindigkeit pro Spalte
+        self.matrix_timer = QTimer()
+        self.matrix_timer.timeout.connect(self.matrix_update)
+        self.matrix_timer.start(100)
+
+        # Start-Sound
+        if self.start_sound:
+            QTimer.singleShot(50, lambda: self.play_sound(self.start_sound))
+
+        # Auto-Close
+        QTimer.singleShot(duration, self.finish_splash)
+
+    # Fade-In
+    def fade_in(self):
+        self.opacity += 0.05
+        self.setWindowOpacity(min(self.opacity,1.0))
+        if self.opacity < 1.0:
+            QTimer.singleShot(50, self.fade_in)
+
+    # Ping-Pong Animation
+    def animate_pingpong(self):
+        self.lbl_pingpong.setText(f"{self.ping_pong[self.pp_index % len(self.ping_pong)]} {self.text_loading}")
+        self.pp_index += 1
+        QTimer.singleShot(250, self.animate_pingpong)
+
+    # Progressbar Animation
+    def update_progress(self):
+        if self.progress >= 100:
+            self.lbl_pingpong.setText(self.text_ready)
+            return
+        step = random.uniform(0.5, 2.0)
+        self.progress = min(self.progress + step, 100)
+        self.pbar.setValue(int(self.progress))
+        QTimer.singleShot(60, self.update_progress)
+
+    # Matrix Update für alle Spalten
+    def matrix_update(self):
+        for col in range(self.cols):
+            for row in range(self.lines-1, 0, -1):
+                self.matrix_grid[row][col] = self.matrix_grid[row-1][col]
+            self.matrix_grid[0][col] = random.choice(self.matrix_chars) if random.random() < 0.3 else " "
+        # Text setzen
+        display = "\n".join("".join(self.matrix_grid[row]) for row in range(self.lines))
+        self.lbl_matrix.setText(display)
+
+    # Finish Splash
+    def finish_splash(self):
+        if self.end_sound:
+            self.play_sound(self.end_sound)
+        self.close()
+        self.finished.emit()
+
+    # Sound abspielen
+    def play_sound(self, sound_file):
+        if not os.path.exists(sound_file):
+            return
+        try:
+            system = platform.system()
+            if system == "Windows":
+                import winsound
+                winsound.PlaySound(sound_file, winsound.SND_FILENAME | winsound.SND_ASYNC)
+            elif system == "Linux":
+                subprocess.Popen(["aplay", sound_file])
+            elif system == "Darwin":
+                subprocess.Popen(["afplay", sound_file])
+        except Exception as e:
+            print(f"Sound konnte nicht abgespielt werden: {e}")
+
+    # ---------------- Splash fertig ----------------
+    def finish(self):
+        self.close()
+        self.finished.emit()
 
 class PatchManagerGUI(QWidget):
     def __init__(self):
@@ -14063,17 +14222,15 @@ class PatchManagerGUI(QWidget):
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
-    import os, sys, platform, shutil, traceback
+    import os, sys, platform, traceback
+    from pathlib import Path
     from PyQt6.QtWidgets import QApplication, QMessageBox
-    from PyQt6.QtCore import Qt
+    from PyQt6.QtCore import QTimer
 
-    # 1. WINDOWS & GRAFIK FIXES (Muss vor der App-Erstellung passieren!)
+    # ---------------- 1. WINDOWS & GRAFIK FIXES ----------------
     if platform.system() == "Windows":
-        # UTF-8 für Emojis in der Konsole
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
-        
-        # PATH-Erweiterungen für Tools
         extra_paths = [
             r"C:\Program Files\Git\usr\bin",
             r"C:\Program Files\Git\bin",
@@ -14087,8 +14244,9 @@ if __name__ == "__main__":
             if os.path.exists(p) and p not in path_env:
                 os.environ["PATH"] += os.pathsep + p
 
-    # --- WICHTIG: POLICY VOR DER APP-INSTANZ SETZEN ---
+    # ---------------- 2. HIGH DPI POLICY ----------------
     try:
+        from PyQt6.QtCore import Qt
         if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
             QApplication.setHighDpiScaleFactorRoundingPolicy(
                 Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
@@ -14096,32 +14254,63 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"DPI Policy Error: {e}")
 
-    # 2. QAPPLICATION ERSTELLEN
+    # ---------------- 3. QAPPLICATION ERSTELLEN ----------------
     os.environ["NO_AT_BRIDGE"] = "1"
-    app = QApplication.instance()
-    if not app:
-        app = QApplication(sys.argv)
-    
+    app = QApplication.instance() or QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    # 3. DEPENDENCIES PRÜFEN
+    # ---------------- 4. DEPENDENCIES CHECK ----------------
     try:
-        ensure_dependencies() 
+        ensure_dependencies()  # Muss vorher definiert sein
     except Exception as e:
         print(f"Dependency-Check: {e}")
 
-    # 4. GUI START
-    try:
-        window = PatchManagerGUI()
-        window.showMaximized()
-        sys.exit(app.exec())
-    except Exception as e:
-        error_details = traceback.format_exc()
-        if QApplication.instance():
+    # ---------------- 5. SPLASHSCREEN ----------------
+    splash_logo = "logo.png"  # Optionales Logo
+    lang = "de"  # Kann aus Config automatisch kommen
+
+    # Start- und End-Sound Pfade
+    start_sound_file = str(Path("start.wav").resolve())
+    end_sound_file   = str(Path("end.wav").resolve())
+
+    # SplashScreen starten
+    splash = FullScreenMatrixSplash(
+        duration=5000,       # 5 Sekunden
+        logo_path=splash_logo,
+        lang=lang,
+        start_sound=start_sound_file,
+        end_sound=end_sound_file
+    )
+
+    # ---------------- 6. GUI START ----------------
+    main_window = None
+    def start_gui():
+        global main_window
+        try:
+            main_window = PatchManagerGUI()
+            main_window.showMaximized()
+        except Exception:
+            error_details = traceback.format_exc()
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.setWindowTitle("Startup Error")
-            msg.setText("Kritischer Fehler beim Start.")
+            msg.setText("Kritischer Fehler beim Start der GUI.")
             msg.setDetailedText(error_details)
             msg.exec()
+            sys.exit(1)
+
+    # GUI starten, sobald der Splash fertig ist
+    splash.finished.connect(start_gui)
+
+    # ---------------- 7. APP EXEC ----------------
+    try:
+        sys.exit(app.exec())
+    except Exception:
+        error_details = traceback.format_exc()
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Critical)
+        msg.setWindowTitle("Startup Error")
+        msg.setText("Kritischer Fehler beim Start.")
+        msg.setDetailedText(error_details)
+        msg.exec()
         sys.exit(1)
