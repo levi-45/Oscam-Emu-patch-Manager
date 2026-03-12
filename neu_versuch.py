@@ -272,15 +272,6 @@ def install_missing_tools_windows(missing_tools):
     fix_windows_path()
     return True
 
-def tool_exists(name):
-    """
-    Prüft, ob Tool existiert. Windows-Special für zip/patch.
-    """
-    if platform.system() == "Windows":
-        if name == "zip": return shutil.which("7z") or shutil.which("zip")
-        if name == "patch": return shutil.which("patch") or shutil.which("patch.exe")
-    return shutil.which(name)
-
 def get_tools_for_platform():
     """
     Liefert die Standard-Tools je Plattform.
