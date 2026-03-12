@@ -685,7 +685,9 @@ def safe_play(sound_name):
 
     QApplication.beep()
 
-
+from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtWidgets import QFileDialog, QMessageBox, QApplication
+import os, platform, shutil, subprocess, tempfile
 class S3InstallWorker(QThread):
     finished_signal = pyqtSignal(bool, str)
 
@@ -694,67 +696,45 @@ class S3InstallWorker(QThread):
         self.target_dir = target_dir
 
     def run(self):
-        import os, shutil, platform, subprocess
+        import os, shutil, platform, subprocess, tempfile
 
         try:
-            # --- LOGIK: Welches Repo laden? ---
-            # Prüft, ob 'ncam' im Pfadnamen vorkommt
             if "ncam" in self.target_dir.lower():
-                # HIER DEINE NCAM REPO URL EINTRAGEN
                 repo_url = "https://github.com/speedy005/s3_ncam_bonecrew_test"
                 proj_name = "NCam Bonecrew"
             else:
-                # Standard S3 Repo
                 repo_url = "https://github.com/gorgone/s3_releases"
                 proj_name = "S3 Standard"
 
-            temp_clone = os.path.join(os.getcwd(), "s3_temp_clone")
+            # Temporärer Clone im Benutzer-TEMP
+            temp_clone = tempfile.mkdtemp(prefix="s3_clone_")
 
-            # 1. Temporär klonen
-            if os.path.exists(temp_clone):
-                shutil.rmtree(temp_clone)
+            # Git Clone mit --depth 1
+            subprocess.check_call(["git", "clone", "--depth", "1", repo_url, temp_clone])
 
-            # Clone mit Fortschritts-Check
-            subprocess.check_call(
-                ["git", "clone", "--depth", "1", repo_url, temp_clone]
-            )
+            # Zielordner erstellen (falls nicht vorhanden)
+            os.makedirs(self.target_dir, exist_ok=True)
 
-            # 2. Kopieren nach Zielpfad (Systemabhängig)
+            # Inhalte kopieren
+            for item in os.listdir(temp_clone):
+                s = os.path.join(temp_clone, item)
+                d = os.path.join(self.target_dir, item)
+                if os.path.isdir(s):
+                    shutil.copytree(s, d, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(s, d)
+
+            # Linux: Rechte setzen, nur für Benutzer, keine Admin-Rechte
             if platform.system() == "Linux":
-                # Erstellt Ziel, kopiert ALLES (inkl. versteckter .git Dateien) und setzt Rechte
-                # 'cp -a' erhält Attribute, '.' am Ende kopiert Inhalt statt Ordner
-                cmd = (
-                    f"mkdir -p '{self.target_dir}' && "
-                    f"cp -a {temp_clone}/. '{self.target_dir}/' && "
-                    f"chmod -R 755 '{self.target_dir}'"
-                )
+                subprocess.call(["chmod", "-R", "755", self.target_dir])
 
-                # pkexec für Rechte, falls /opt genutzt wird
-                subprocess.check_call(["pkexec", "bash", "-c", cmd])
-            else:
-                # Windows Logik
-                os.makedirs(self.target_dir, exist_ok=True)
-                for item in os.listdir(temp_clone):
-                    s = os.path.join(temp_clone, item)
-                    d = os.path.join(self.target_dir, item)
-                    if os.path.isdir(s):
-                        shutil.copytree(s, d, dirs_exist_ok=True)
-                    else:
-                        shutil.copy2(s, d)
-
-            # 3. Cleanup
-            if os.path.exists(temp_clone):
-                shutil.rmtree(temp_clone)
-
+            shutil.rmtree(temp_clone)
             self.finished_signal.emit(True, f"{proj_name} erfolgreich installiert!")
 
         except Exception as e:
-            # Sicherstellen, dass Temp-Ordner bei Fehler gelöscht wird
             if os.path.exists(temp_clone):
                 shutil.rmtree(temp_clone, ignore_errors=True)
-            self.finished_signal.emit(
-                False, f"Installation von {proj_name} fehlgeschlagen: {str(e)}"
-            )
+            self.finished_signal.emit(False, f"{proj_name} Installation fehlgeschlagen: {str(e)}")
 
 
 # ===================== VERSION HANDLING =====================
@@ -812,7 +792,7 @@ now = QDateTime.currentDateTime()
 time_str = now.toString("HH:mm:ss")
 date_str = now.toString("dd.MM.yyyy")
 # ===================== APP CONFIG =====================
-APP_VERSION = "4.3.4"
+APP_VERSION = "4.3.8"
 
 
 # ===================== PATCH DIRS =====================
@@ -4599,49 +4579,66 @@ class PatchManagerGUI(QWidget):
         self._idle_anim.start()
     
     def check_ncam_updates(self):
-        """Startet den Update-Check speziell für NCam Bonecrew."""
-        # Remote URL für das NCam/S3 Git (Beispiel-URL, bitte anpassen)
-        ncam_git_url = "https://github.com"
+        """
+        Startet den Update-Check für NCam Bonecrew.
+        Arbeitet plattformübergreifend (Linux/Windows) mit NCAM_PATH.
+        """
+        import os
 
-        # Lokaler Pfad (aus deiner NCAM_PATH Variable)
+        # Remote Git-URL (Beispiel)
+        ncam_git_url = "https://github.com/speedy005/NCam-speedy_dany"
+
+        # Lokaler Pfad
         local_path = getattr(self, "NCAM_PATH", "/opt/s3_ncam_bonecrew_test")
+        if not os.path.exists(local_path):
+            print(f"[NCAM] Lokaler Pfad existiert nicht: {local_path}")
+            return
 
-        # Worker erstellen
+        # Worker starten (OSCUpdateWorker plattformunabhängig implementiert)
         self.ncam_update_worker = OSCamUpdateWorker(ncam_git_url, local_path)
-        # WICHTIG: Eigenes Callback-Signal für NCam verbinden
         self.ncam_update_worker.status_signal.connect(self.on_ncam_update_status)
         self.ncam_update_worker.start()
 
+
     def on_ncam_update_status(self, update_available, remote_hash):
-        """Reagiert auf das Ergebnis des NCam-Checks."""
+        """Reagiert auf das Ergebnis des NCam-Update-Checks."""
+        from PyQt6.QtWidgets import QPushButton
+
+        btn = getattr(self, "btn_ncam", None)
+        if not btn:
+            return
+
         if update_available:
             print(f"[NCAM] Update verfügbar! Neuer Hash: {remote_hash[:7]}")
-            # Button orange färben oder Text ändern
-            self.btn_ncam.setText("🚀 NCam Update!")
-            self.btn_ncam.setStyleSheet(
+            btn.setText("🚀 NCam Update!")
+            btn.setStyleSheet(
                 "background-color: orange; color: black; font-weight: bold; border-radius: 8px;"
             )
         else:
             print("[NCAM] Aktuell.")
+            btn.setText("NCam OK")
+            btn.setStyleSheet(
+                "background-color: #00FF00; color: black; font-weight: bold; border-radius: 8px;"
+            )
+
 
     def blink_oscam_revision(self):
-        """Lässt die Revision im Status-Label 3x rot blinken."""
+        """Lässt die Revision im Status-Label 3x rot blinken (plattformsicher)."""
         status_label = getattr(self, "status_label", None)
         if not status_label:
             return
 
         from PyQt6.QtCore import QTimer
 
-        # Farben & Werte
-        C_REV = "#00FF00"  # Grün
-        C_BLINK = "#F70606"  # Rot
+        # Farben
+        C_REV = "#00FF00"  # Grün (Endfarbe)
+        C_BLINK = "#F70606"  # Rot (Blink)
 
         def set_blink_ui(rev_color):
-            # Aktuellen Text parsen und Farbe der Revision rXXXX austauschen
             import re
 
             current_html = status_label.text()
-            # Ersetzt die Farbe im letzten span-Tag (die Revision)
+            # Ersetzt die Farbe der letzten rXXXX-Revision
             new_html = re.sub(
                 r"(color:)[^;']+(;[^>]*>\(r\d+\)</span>)$",
                 f"\\1{rev_color}\\2",
@@ -4649,7 +4646,7 @@ class PatchManagerGUI(QWidget):
             )
             status_label.setText(new_html)
 
-        # Blink-Sequenz (300ms Intervalle)
+        # Blink-Sequenz in ms
         delays = [300, 600, 900, 1200, 1500, 1800]
         blink_colors = [
             "transparent",
@@ -4664,15 +4661,53 @@ class PatchManagerGUI(QWidget):
         for i, delay in enumerate(delays):
             QTimer.singleShot(delay, lambda c=blink_colors[i]: set_blink_ui(c))
 
+
     def hide_final_label(self):
+        """Blendet das finale Status-Label aus."""
         if hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
             from PyQt6.QtWidgets import QApplication
 
             QApplication.processEvents()
 
-    def select_ncam_path_manually(self, pos=None):
-        """Eigener Dialog NUR für den NCam Bonecrew Pfad."""
+        def find_existing_path(possible_paths):
+            """Utility: Gibt den ersten existierenden, nicht-leeren Pfad zurück oder None."""
+            import os
+            for path in possible_paths:
+                try:
+                   if os.path.exists(path) and os.listdir(path):
+                        return path
+                except Exception:
+                    continue
+            return None
+
+
+    # ========================== NCam ==========================
+    def auto_detect_ncam_path(self):
+        """Sucht den NCam Bonecrew Pfad automatisch auf Linux & Windows."""
+        import os, platform
+
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+
+        project = "s3_ncam_bonecrew_test"
+        base = "/opt" if platform.system() != "Windows" else "C:\\opt"
+        search_paths = [
+            os.path.join(base, project),
+            os.path.join(os.path.expanduser("~"), project),
+            os.path.join(os.getcwd(), project),
+        ]
+
+        found = find_existing_path([os.path.join(p, "s3") for p in search_paths])
+        if found:
+            self.NCAM_PATH = os.path.dirname(found)
+            print(f"[AUTO-DETECT] NCam gefunden: {self.NCAM_PATH}")
+            return True
+        return False
+
+
+    def select_ncam_path_manually(self):
+        """Dialog zur manuellen Auswahl des NCam Bonecrew Pfads."""
         from PyQt6.QtWidgets import QFileDialog, QMessageBox
         import os
 
@@ -4682,219 +4717,170 @@ class PatchManagerGUI(QWidget):
             "en": {"hint": "Select NCam Bonecrew folder", "ok": "NCam path set"},
         }.get(lang, {"hint": "Select NCam Bonecrew folder", "ok": "NCam path set"})
 
-        # Nutzt NCAM_PATH statt S3_PATH
         start_path = getattr(self, "NCAM_PATH", "/opt/s3_ncam_bonecrew_test")
         chosen_dir = QFileDialog.getExistingDirectory(self, t["hint"], start_path)
 
-        if chosen_dir:
-            if os.path.exists(os.path.join(chosen_dir, "s3")):
-                self.NCAM_PATH = chosen_dir
-                # Speichert unter eigenem Key "ncam_custom_path"
-                save_config({"ncam_custom_path": self.NCAM_PATH}, gui_instance=self)
+        if chosen_dir and os.path.exists(os.path.join(chosen_dir, "s3")):
+            self.NCAM_PATH = chosen_dir
+            save_config({"ncam_custom_path": self.NCAM_PATH}, gui_instance=self)
+            self.update_ui_texts()
+            QMessageBox.information(self, "OK", f"{t['ok']}:\n{chosen_dir}")
+        else:
+            QMessageBox.warning(self, "Error", "Datei 's3' nicht im Ordner gefunden!")
 
-                self.update_ui_texts()  # Aktualisiert den Button auf GRÜN
-                QMessageBox.information(self, "OK", f"{t['ok']}:\n{chosen_dir}")
-            else:
-                QMessageBox.warning(
-                    self, "Error", "Datei 's3' nicht im Ordner gefunden!"
-                )
-
-    def auto_detect_ncam_path(self):
-        """Sucht gezielt nach der Bonecrew-Testumgebung."""
-        import platform, os
-
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
-
-        project = "s3_ncam_bonecrew_test"
-        base = "/opt" if platform.system() == "Linux" else "C:\\opt"
-
-        search_paths = [
-            os.path.join(base, project),
-            os.path.join(os.path.expanduser("~"), project),
-            os.path.join(os.getcwd(), project),
-        ]
-
-        for path in search_paths:
-            # Prüfen ob Ordner da ist UND die Startdatei 's3' existiert
-            if os.path.exists(os.path.join(path, "s3")):
-                self.NCAM_PATH = path
-                print(f"[AUTO-DETECT] NCam gefunden: {path}")
-                return True
-        return False
 
     def start_ncam_install(self):
-        """Startet die NCam-Installation explizit in den NCAM_PATH."""
-        # Check ob bereits installiert (Falls Button-Text auf "Start" steht)
-        if "Start" in self.btn_ncam.text() or "OK" in self.btn_ncam.text():
-            self.start_ncam_menu()
-            return
-
+        """Startet die NCam Installation über Worker, Pfad wählbar."""
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
         is_de = getattr(self, "LANG", "de") == "de"
 
-        # 1. Feedback am Button
+        # Pfad wählen
+        start_path = getattr(self, "NCAM_PATH", os.path.expanduser("~"))
+        chosen_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Wähle NCam Installationsordner" if is_de else "Select NCam Installation Folder",
+            start_path
+        )
+
+        if not chosen_dir:
+            return  # Abbruch, falls Nutzer nichts wählt
+
+        self.NCAM_PATH = chosen_dir
+        os.makedirs(self.NCAM_PATH, exist_ok=True)
+
+        # UI Feedback
         self.btn_ncam.setEnabled(False)
         self.btn_ncam.setText("⏳ ..." if is_de else "⏳ Busy...")
 
-        # 2. Zielpfad aus der neuen Variable nehmen
-        target = getattr(self, "NCAM_PATH", "/opt/s3_ncam_bonecrew_test")
-
-        # 3. Worker starten
-        # Falls dein Worker eine URL benötigt: S3InstallWorker(target, url="...")
-        self.ncam_worker = S3InstallWorker(target)
+        # Worker starten
+        self.ncam_worker = S3InstallWorker(self.NCAM_PATH)
         self.ncam_worker.finished_signal.connect(self.on_ncam_finished)
         self.ncam_worker.start()
 
-        # Log-Info
-        if hasattr(self, "log_message"):
-            msg = (
-                "NCam Installation gestartet..."
-                if is_de
-                else "NCam Installation started..."
-            )
-            self.log_message(f"<span style='color:orange;'>{msg}</span>")
 
     def on_ncam_finished(self, success, message):
-        """Wird nach der NCam-Installation ausgeführt und färbt den Button GRÜN."""
-        self.btn_ncam.setEnabled(True)
+        """Nach Abschluss des Workers für NCam."""
         is_de = getattr(self, "LANG", "de") == "de"
-
-        # UI aktualisieren (triggert update_ui_texts und prüft NCAM_PATH)
-        if hasattr(self, "update_ui_texts"):
-            self.update_ui_texts()
+        self.btn_ncam.setEnabled(True)
 
         if success:
-            title = "NCam Setup"
-            msg = (
-                "NCam erfolgreich installiert!"
-                if is_de
-                else "NCam successfully installed!"
-            )
-            from PyQt6.QtWidgets import QMessageBox
-
-            QMessageBox.information(self, title, msg)
+            self.btn_ncam.setStyleSheet("background-color: green; color: white; font-weight: bold;")
+            self.btn_ncam.setText("✅ Fertig" if is_de else "✅ Done")
+            QMessageBox.information(
+                self,
+                "NCam Installation" if is_de else "NCam Setup",
+                message
+           )
         else:
-            from PyQt6.QtWidgets import QMessageBox
+            self.btn_ncam.setStyleSheet("background-color: red; color: white; font-weight: bold;")
+            self.btn_ncam.setText("❌ Fehler" if is_de else "❌ Error")
+            QMessageBox.critical(
+                self,
+                "NCam Installation" if is_de else "NCam Setup",
+                message
+            )
 
-            QMessageBox.critical(self, "Error", f"NCam: {message}")
 
-    def select_s3_path_manually(self, pos=None):
-        """Rechtsklick NUR für Standard S3 (s3_custom_path)."""
+    # ========================== S3 ==========================
+    def auto_detect_s3_path(self):
+        """Sucht S3 Installation automatisch auf Linux & Windows."""
+        import os, platform
+
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+
+        search_base = "/opt" if platform.system() != "Windows" else "C:\\opt"
+        search_paths = [
+            getattr(self, "S3_PATH", search_base),
+            os.path.join(os.path.expanduser("~"), "s3"),
+            os.path.join(os.getcwd(), "s3"),
+            "/usr/local/bin/s3" if platform.system() != "Windows" else "C:\\s3",
+        ]
+
+        found = find_existing_path(search_paths)
+        if found:
+            self.S3_PATH = found
+            print(f"[AUTO-DETECT] S3 gefunden: {self.S3_PATH}")
+            return True
+        return False
+
+
+    def select_s3_path_manually(self):
+        """Dialog zur manuellen Auswahl des S3 Pfads."""
         from PyQt6.QtWidgets import QFileDialog, QMessageBox
         import os
 
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
         lang = getattr(self, "LANG", "de").lower()
-
-        # Nutzt strikt S3_PATH
         start_path = getattr(self, "S3_PATH", "/opt/s3")
-        chosen_dir = QFileDialog.getExistingDirectory(
-            self, "S3 Ordner wählen", start_path
-        )
+        chosen_dir = QFileDialog.getExistingDirectory(self, "S3 Ordner wählen", start_path)
 
-        if chosen_dir:
-            # Validierung: Muss Datei 's3' enthalten
-            if os.path.exists(os.path.join(chosen_dir, "s3")):
-                self.S3_PATH = chosen_dir
-                # Speichert unter s3_custom_path
-                save_config({"s3_custom_path": self.S3_PATH}, gui_instance=self)
-                self.update_ui_texts()
-                QMessageBox.information(
-                    self, "S3 Pfad", f"S3 erkannt in:\n{chosen_dir}"
-                )
-            else:
-                QMessageBox.warning(self, "Fehler", "Keine 's3' Startdatei gefunden!")
+        if chosen_dir and os.path.exists(os.path.join(chosen_dir, "s3")):
+            self.S3_PATH = chosen_dir
+            save_config({"s3_custom_path": self.S3_PATH}, gui_instance=self)
+            self.update_ui_texts()
+            QMessageBox.information(self, "S3 Pfad", f"S3 erkannt in:\n{chosen_dir}")
+        else:
+            QMessageBox.warning(self, "Fehler", "Keine 's3' Startdatei gefunden!")
 
-    def auto_detect_s3_path(self):
-        import os, platform
-
-        # Suche in /opt nach allem, was mit "s3" anfängt
-        search_base = "/opt" if platform.system() == "Linux" else "C:\\opt"
-
-        if os.path.exists(search_base):
-            for folder in os.listdir(search_base):
-                # Erkennt "s3", "s3_neu", "s3_releases", etc.
-                if folder.lower().startswith("s3"):
-                    full_path = os.path.join(search_base, folder)
-                    if os.path.isdir(full_path) and os.listdir(full_path):
-                        self.S3_PATH = full_path
-                        print(f"[AUTO-DETECT] S3 gefunden in: {self.S3_PATH}")
-                        return True
-        return False
-
-    def auto_detect_s3_path(self):
-        """Sucht an gängigen Orten nach einer S3-Installation."""
-
-        # --- Final Label ausblenden ---
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
-        elif hasattr(self, "final_label") and self.final_label:
-            self.final_label.hide()
-        import platform, os
-
-        # Liste der Pfade, die wir prüfen wollen
-        search_paths = [
-            getattr(self, "S3_PATH", "/opt/s3"),  # Dein Standard
-            os.path.join(os.path.expanduser("~"), "s3"),  # Home-Verzeichnis/s3
-            os.path.join(os.getcwd(), "s3"),  # Programm-Ordner/s3
-            "/usr/local/bin/s3",
-            "C:\\s3" if platform.system() == "Windows" else "/opt/s3",
-        ]
-
-        for path in search_paths:
-            try:
-                # Wenn der Ordner existiert und nicht leer ist
-                if os.path.exists(path) and os.listdir(path):
-                    self.S3_PATH = path
-                    print(f"[INFO] S3 automatisch gefunden in: {path}")
-                    return True
-            except:
-                continue
-        return False
 
     def start_s3_install(self):
-        """Startet die S3-Installation mit dem zentralen Pfad."""
-
-        # --- Final Label ausblenden ---
+        """Startet die S3 Installation über Worker, Pfad wählbar."""
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
-        elif hasattr(self, "final_label") and self.final_label:
-            self.final_label.hide()
+
         is_de = getattr(self, "LANG", "de") == "de"
+
+        # 1. Zielpfad auswählen (Windows / Linux)
+        start_path = getattr(self, "S3_PATH", os.path.expanduser("~"))
+        chosen_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Wähle Installationsordner" if is_de else "Select Installation Folder",
+            start_path
+        )
+
+        if not chosen_dir:
+            # Abbruch, falls Nutzer nichts wählt
+            return
+
+        self.S3_PATH = chosen_dir
+        os.makedirs(self.S3_PATH, exist_ok=True)
+
+        # 2. UI Feedback
         self.btn_s3.setEnabled(False)
         self.btn_s3.setText("⏳ ..." if is_de else "⏳ Busy...")
 
-        # Holt den Pfad aus der __init__ (z.B. /opt/s3)
-        target = getattr(self, "S3_PATH", "/opt/s3")
-
-        # WICHTIG: Wir übergeben den Pfad jetzt an den Worker!
-        self.s3_worker = S3InstallWorker(target)
+        # 3. Worker starten
+        self.s3_worker = S3InstallWorker(self.S3_PATH)
         self.s3_worker.finished_signal.connect(self.on_s3_finished)
         self.s3_worker.start()
 
+
+
     def on_s3_finished(self, success, message):
-        """Wird nach der Installation ausgeführt und färbt den Button sofort GRÜN."""
-        self.btn_s3.setEnabled(True)
+        """Nach Abschluss des Workers."""
         is_de = getattr(self, "LANG", "de") == "de"
+        self.btn_s3.setEnabled(True)
 
-        # --- DER TRICK: UI NEU LADEN ---
-        # Das triggert update_ui_texts, findet die neuen Dateien
-        # und macht den Button sofort GRÜN (Update).
-        if hasattr(self, "update_ui_texts"):
-            self.update_ui_texts()
-
-        title = "S3 Installation" if is_de else "S3 Setup"
         if success:
-            msg = "Erfolgreich installiert!" if is_de else "Successfully installed!"
-            QMessageBox.information(self, title, msg)
+            self.btn_s3.setStyleSheet("background-color: green; color: white; font-weight: bold;")
+            self.btn_s3.setText("✅ Fertig" if is_de else "✅ Done")
+            QMessageBox.information(
+                self,
+                "S3 Installation" if is_de else "S3 Setup",
+                message
+            )
         else:
-            QMessageBox.critical(self, title, message)
+            self.btn_s3.setStyleSheet("background-color: red; color: white; font-weight: bold;")
+            self.btn_s3.setText("❌ Fehler" if is_de else "❌ Error")
+            QMessageBox.critical(
+                self,
+                "S3 Installation" if is_de else "S3 Setup",
+                message
+            )
 
-    from PyQt6.QtCore import QTimer
+        from PyQt6.QtCore import QTimer
 
     def smooth_progress(pbar, start, end, duration=500):
         """
