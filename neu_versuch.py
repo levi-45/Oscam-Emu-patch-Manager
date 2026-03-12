@@ -1757,6 +1757,7 @@ TEXTS = {
         "no": "No",
         "save": "Save",
         # patch ordner leeren
+        "matrix_btn_exit": "🔙 EXIT MATRIX",
         # Statistik
         "STATS_TITLE": "TOOL STATISTICS",
         "STATS_GITHUB": "GitHub:",
@@ -1994,6 +1995,8 @@ TEXTS = {
         # --- Header & GroupBoxes ---
         "settings_header": "⚙️ Einstellungen",
         "github_config_header": "📁 GitHub Konfiguration",
+        # Matrix mode
+        "matrix_btn_exit": "🔙 MATRIX BEENDEN",
         # --- Labels ---
         "language_label": "Sprache:",
         "color_label": "Design / Farbe:",
@@ -9658,7 +9661,28 @@ class PatchManagerGUI(QWidget):
             for key, btn in self.buttons.items():
                 if key in grid_icons:
                     apply_final_style(btn, self.get_t(key, key), grid_icons[key])
+        # --- 6.5 Matrix Button ---
+        if hasattr(self, "btn_matrix") and self.btn_matrix:
+            txt = "🔙 MATRIX VERLASSEN" if is_de else "🔙 EXIT MATRIX"
+            self.btn_matrix.setText(txt)
 
+            self.btn_matrix.setStyleSheet(
+                """
+                QPushButton {
+                    text-align:left;
+                   padding-left:8px;
+                    font-weight:bold;
+                    color:#00FFFF;
+                    background-color:#3d3d3d;
+                    border:1px solid #00FFFF;
+                    border-radius:8px;
+                }
+                QPushButton:hover {
+                    background-color:#00FFFF;
+                    color:black;
+                }
+                """
+            )
         # --- 7. Abschluss ---
         if pbar:
             pbar.setValue(100)
@@ -11393,14 +11417,14 @@ class PatchManagerGUI(QWidget):
         self.lbl_speed_val.setStyleSheet(
             "color: #aaa; font-size: 12px; font-weight: bold; border: none;"
         )
-        self.lbl_speed_val.setFixedWidth(55)
+        self.lbl_speed_val.setFixedWidth(85)
         status_bar_layout.addWidget(self.lbl_speed_val)
 
         # ---------------------------------------------------------
         # BUTTONS
         # ---------------------------------------------------------
         self.btn_matrix = QPushButton("📟 MATRIX MODE")
-        self.btn_matrix.setFixedSize(130, 35)
+        self.btn_matrix.setFixedSize(170, 40)
         self.btn_matrix.setStyleSheet(
             "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; }"
         )
@@ -11409,7 +11433,7 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.addWidget(self.btn_matrix)
 
         self.btn_theme = QPushButton("🌓 THEME")
-        self.btn_theme.setFixedSize(100, 35)
+        self.btn_theme.setFixedSize(115, 40)
         self.btn_theme.setStyleSheet(
             "QPushButton { background-color: #444; color: red; border: 1px solid #666; border-radius: 6px; font-size: 18px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
         )
