@@ -2332,45 +2332,59 @@ fill_missing_keys(TEXTS)
 def save_config(cfg_updates, gui_instance=None, silent=False):
     """
     Speichert Config-Updates und synchronisiert Timer, ProgressBar sowie S3 & NCam Pfade.
+    Automatisch wird theme_mode basierend auf dem Theme gesetzt.
+    Plattformübergreifend: Windows + Linux.
     """
-    import os, json
+    import os, json, platform
+    from PyQt6.QtCore import QTimer
 
     try:
-        # 1. Bestehende Config laden
+        # ---------------- Pfad zur Config Datei bestimmen ----------------
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        if platform.system() == "Windows":
+            cfg_dir = os.path.join(os.environ.get("APPDATA", base_dir), "MeinProgramm")
+            os.makedirs(cfg_dir, exist_ok=True)
+            cfg_path = os.path.join(cfg_dir, CONFIG_FILE)
+        else:
+            cfg_path = os.path.join(base_dir, CONFIG_FILE)
+
+        # ---------------- 1. Bestehende Config laden ----------------
         current_cfg = {}
-        if os.path.exists(CONFIG_FILE):
+        if os.path.exists(cfg_path):
             try:
-                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                with open(cfg_path, "r", encoding="utf-8") as f:
                     current_cfg = json.load(f)
-            except:
+            except Exception as e:
+                print(f"Warnung: Config konnte nicht geladen werden ({cfg_path}): {e}")
                 current_cfg = {}
 
-        # 2. Mergen der neuen Updates
+        # ---------------- 2. Neue Updates mergen ----------------
         current_cfg.update(cfg_updates)
 
-        # 3. System-Werte & Pfad-Synchronisation
+        # ---------------- 2b. theme_mode automatisch setzen ----------------
+        theme = current_cfg.get("theme", "").lower()
+        if "matrix" in theme:
+            current_cfg["theme_mode"] = "matrix"
+        else:
+            current_cfg["theme_mode"] = "standard"
+
+        # ---------------- 3. GUI-Synchronisation ----------------
         if gui_instance:
-            # S3 Standard Pfad synchronisieren
+            # S3 Pfad synchronisieren
             if "s3_custom_path" in cfg_updates:
                 gui_instance.S3_PATH = cfg_updates["s3_custom_path"]
-
-            # NCam Bonecrew Pfad synchronisieren
+            # NCam Pfad synchronisieren
             if "ncam_custom_path" in cfg_updates:
                 gui_instance.NCAM_PATH = cfg_updates["ncam_custom_path"]
 
-            # Timer-Logik für LEDs/Blinken
+            # Timer für LEDs/Blinken
             blink_speed = current_cfg.get("blink_speed", 500)
-            led_globally_on = current_cfg.get("led_enabled", True)
+            led_enabled = current_cfg.get("led_enabled", True)
 
-            timer = getattr(
-                gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None)
-            )
+            timer = getattr(gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None))
             if timer:
-                if (
-                    getattr(gui_instance, "is_loading", False)
-                    or blink_speed >= 950
-                    or not led_globally_on
-                ):
+                if getattr(gui_instance, "is_loading", False) or blink_speed >= 950 or not led_enabled:
                     timer.stop()
                     if hasattr(gui_instance, "force_user_leds_static"):
                         gui_instance.force_user_leds_static()
@@ -2379,78 +2393,71 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
                     if not timer.isActive():
                         timer.start()
 
-        # 4. Speichern in die Datei
-        with open(os.path.abspath(CONFIG_FILE), "w", encoding="utf-8") as f:
+        # ---------------- 4. Config speichern ----------------
+        with open(cfg_path, "w", encoding="utf-8") as f:
             json.dump(current_cfg, f, indent=4, ensure_ascii=False)
 
-        # 5. UI & Feedback Logik
+        # ---------------- 5. GUI Feedback & ProgressBar ----------------
         if gui_instance:
             gui_instance.current_config = current_cfg
             is_loading = getattr(gui_instance, "is_loading", False)
             is_closing = getattr(gui_instance, "is_closing", False)
 
             if not is_loading and not silent:
+                # Sound abspielen
                 if "safe_play" in globals() and not is_closing:
                     safe_play("dialog-information.oga")
 
                 lang = getattr(gui_instance, "LANG", "de").lower()[:2]
-                rainbow = (
-                    "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                    "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                    "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-                )
 
+                # ProgressBar Text & Farben
                 if is_closing:
-                    msg = (
-                        "✅ Beendet & Gespeichert"
-                        if lang == "de"
-                        else "✅ Exit & Saved"
-                    )
+                    msg = "✅ Beendet & Gespeichert" if lang == "de" else "✅ Exit & Saved"
                     log_color = "#FFD700"
+                    rainbow = (
+                        "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+                        "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
+                        "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+                    )
                     pbar_style = f"QProgressBar::chunk {{ background: {rainbow}; border-radius: 5px; }}"
                 else:
-                    msg = (
-                        "✅ Einstellungen gespeichert"
-                        if lang == "de"
-                        else "✅ Settings saved"
+                    msg = "✅ Einstellungen gespeichert" if lang == "de" else "✅ Settings saved"
+                    # theme_mode check für Matrix-Style
+                    theme_mode = current_cfg.get("theme_mode", "standard")
+                    log_color = "#00FF41" if theme_mode == "matrix" else "#00FFFF"
+                    pbar_style = (
+                        "QProgressBar::chunk { background-color: #2ecc71; border-radius: 5px; }"
                     )
-                    log_color = (
-                        "#00FF41"
-                        if current_cfg.get("theme_mode") == "matrix"
-                        else "#00FFFF"
-                    )
-                    pbar_style = "QProgressBar::chunk { background-color: #2ecc71; border-radius: 5px; }"
 
-                # Progressbar Update
+                # ProgressBar updaten
                 pbar = getattr(gui_instance, "progress_bar", None)
                 if pbar:
                     pbar.setValue(100)
                     pbar.setFormat(msg)
                     pbar.setStyleSheet(
                         f"""
-                        QProgressBar {{ 
-                            text-align: center; color: black; font-weight: 900; 
-                            background: #111; border: 1px solid #333; 
+                        QProgressBar {{
+                            text-align: center; color: black; font-weight: 900;
+                            background: #111; border: 1px solid #333;
                         }}
                         {pbar_style}
-                    """
+                        """
                     )
 
+                    # ProgressBar Reset nach 3 Sekunden, falls nicht schließen
                     if not is_closing:
-                        from PyQt6.QtCore import QTimer
+                        QTimer.singleShot(
+                            3000, getattr(gui_instance, "pbar_idle", lambda: pbar.setStyleSheet(""))
+                        )
 
-                        if hasattr(gui_instance, "pbar_idle"):
-                            QTimer.singleShot(3000, gui_instance.pbar_idle)
-                        else:
-                            QTimer.singleShot(3000, lambda: pbar.setStyleSheet(""))
-
+                # Log Nachricht anzeigen
                 if hasattr(gui_instance, "log_message"):
                     gui_instance.log_message(
                         f"<span style='color:{log_color}; font-weight:700;'><b>{msg}</b></span>"
                     )
 
     except Exception as e:
-        print(f"Fehler beim Speichern: {e}")
+        print(f"Fehler beim Speichern ({cfg_path}): {e}")
 
 
 # ===================== CONFIG =====================
@@ -5934,6 +5941,8 @@ class PatchManagerGUI(QWidget):
             QVariantAnimation,
         )
         from PyQt6.QtGui import QFont, QFontInfo, QColor
+        from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer
+        from PyQt6.QtGui import QFont, QColor
 
         # 1. Cleanup
         if hasattr(self, "text_label") and self.text_label:
@@ -5967,14 +5976,18 @@ class PatchManagerGUI(QWidget):
         self.text_label.show()
 
         # 3. Flag Label Setup (Slide & Fade)
+        from PyQt6.QtGui import QFont
+
         self.flag_label = QLabel(flag_char, self)
-        f_font = (
-            QFont("Noto Color Emoji", 70)
-            if QFontInfo(QFont("Noto Color Emoji")).family().lower()
-            == "noto color emoji"
-            else QFont("Segoe UI", 52, QFont.Weight.Bold)
-        )
-        self.flag_label.setFont(f_font)
+
+        font = QFont("Noto Color Emoji", 64)
+        font.setFamily("NotoColorEmoji")
+        font.setPointSize(64)
+
+        self.flag_label.setFont(font)
+        self.flag_label.adjustSize()
+        
+        
         self.flag_label.adjustSize()
         f_x, f_y = (
             self.width() - self.flag_label.width()
@@ -12709,12 +12722,16 @@ class PatchManagerGUI(QWidget):
 
     def change_language(self):
         """
-        Sprachwechsel Ablauf:
-        Overlay → Flaggen Animation → UI Update → Systemcheck → Autor Ansicht → Overlay schließen
-        OSCam-Version blinkt → Final-Label blinkt → ProgressBar fertig
+        Sprachwechsel Ablauf mit ProgressBar Text in DE/EN:
+        1. Overlay anzeigen
+        2. Texte laden
+        3. UI + Buttons aktualisieren
+        4. Flaggenanimation + Systemcheck
+        5. Final blink & Overlay ausblenden
         """
         from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel
         from PyQt6.QtCore import QTimer, QRect, Qt
+        from PyQt6.QtGui import QFont, QColor, QPixmap
         import os, platform, re
 
         # ---------------- Schutz vor mehrfacher Ausführung ----------------
@@ -12751,12 +12768,22 @@ class PatchManagerGUI(QWidget):
             "de" if any(x in selected for x in ["DE", "DEU", "DEUTSCH"]) else "en"
         )
         is_de = self.LANG == "de"
-        wait_text = "Sprache wird angepasst..." if is_de else "Switching language..."
+
+        # ---------------- ProgressBar vorbereiten ----------------
+        pbar = getattr(self, "progress_bar", None)
+
+        def update_pbar(value, text):
+            if pbar:
+                pbar.setValue(value)
+                pbar.setFormat(f"{text} %p%")
+                QApplication.processEvents()
 
         # ---------------- Overlay ----------------
-        if hasattr(self, "loading_overlay"):
+        overlay_text = "Sprache wird angepasst..." if is_de else "Switching language..."
+        update_pbar(10, f"⏳ {overlay_text}")
+        if hasattr(self, "loading_overlay") and hasattr(self, "loading_label"):
             self.loading_overlay.setGeometry(self.rect())
-            self.loading_label.setText(f"⏳ {wait_text}")
+            self.loading_label.setText(overlay_text)
             self.loading_overlay.show()
             self.loading_overlay.raise_()
             QApplication.processEvents()
@@ -12767,37 +12794,30 @@ class PatchManagerGUI(QWidget):
             safe_play_func("service-logout.oga")
 
         # ---------------- Texte laden ----------------
+        load_text = "Texte werden geladen..." if is_de else "Loading texts..."
+        update_pbar(30, f"⏳ {load_text}")
+
         all_texts = globals().get("TEXTS", {})
-        
-        # NEU: Falls TEXTS leer ist oder nicht existiert, rufe die Funktion direkt auf
         if not all_texts:
             try:
-                # Hier rufen wir die Funktion auf, die die Dictionarys zurückgibt
-                all_texts = ensure_dependencies() 
+                all_texts = ensure_dependencies()
             except:
                 all_texts = {}
-
         self.TEXT = all_texts.get(self.LANG, {})
         lang_dict = self.TEXT
 
-        # ---------------- ProgressBar Start ----------------
-        pbar = getattr(self, "progress_bar", None)
-        if pbar:
-            pbar.setValue(20)
-            pbar.setFormat(f"⏳ {wait_text} %p%")
-            QApplication.processEvents()
+        # ---------------- UI + Buttons ----------------
+        ui_text = "UI wird aktualisiert..." if is_de else "Updating UI..."
+        update_pbar(50, f"⏳ {ui_text}")
 
-        # ---------------- UI Update ----------------
         if hasattr(self, "update_language"):
             self.update_language()
 
-        # ---------------- Buttons aktualisieren ----------------
+        # Buttons aktualisieren
         for btn_attr, default_label in [("btn_s3", "S3"), ("btn_ncam", "NCam")]:
             btn = getattr(self, btn_attr, None)
             if not btn:
                 continue
-
-            # Executable bestimmen
             exe = (
                 "s3.exe"
                 if btn_attr == "btn_s3" and platform.system() == "Windows"
@@ -12806,21 +12826,15 @@ class PatchManagerGUI(QWidget):
             if btn_attr == "btn_ncam":
                 exe = "ncam.exe" if platform.system() == "Windows" else "ncam"
 
-            # Pfad prüfen
             path_attr = "S3_PATH" if btn_attr == "btn_s3" else "NCAM_PATH"
             default_path = "/opt/s3" if btn_attr == "btn_s3" else "/opt/ncam"
             path = getattr(self, path_attr, default_path)
             exists = os.path.exists(os.path.join(path, exe))
 
-            # Button-Label & Farbe
             label = (
                 f"{default_label} OK"
                 if exists
-                else (
-                    f"{default_label} Installieren"
-                    if is_de
-                    else f"Install {default_label}"
-                )
+                else (f"{default_label} Installieren" if is_de else f"Install {default_label}")
             )
             color = "#00FF00" if exists else "orange"
 
@@ -12828,55 +12842,41 @@ class PatchManagerGUI(QWidget):
             btn.setStyleSheet(
                 f"""
                 QPushButton {{
-                    text-align:left; 
-                    padding-left:8px; 
-                    font-weight:bold; 
-                    color:{color}; 
-                    background-color:#3d3d3d; 
-                    border:1px solid {color}; 
+                    text-align:left;
+                    padding-left:8px;
+                    font-weight:bold;
+                    color:{color};
+                    background-color:#3d3d3d;
+                    border:1px solid {color};
                     border-radius:8px;
                 }}
                 QPushButton:hover {{
-                    background-color:{color}; 
+                    background-color:{color};
                     color:black;
                 }}
                 """
             )
 
-        # ---------------- Flaggen Animation + Callback ----------------
+        # ---------------- Flaggen Animation + Systemcheck ----------------
+        anim_text = "Animation & Systemcheck..." if is_de else "Animation & system check..."
+        update_pbar(80, f"⏳ {anim_text}")
+
         def after_animation():
             # Labels aktualisieren
             if hasattr(self, "commit_label"):
-                self.commit_label.setText(
-                    lang_dict.get("commit_count_label", "Commits:")
-                )
+                self.commit_label.setText(lang_dict.get("commit_count_label", "Commits:"))
             if hasattr(self, "color_label"):
-                self.color_label.setText(
-                    lang_dict.get("color_label", "Farbe:" if is_de else "Color:")
-                )
+                self.color_label.setText(lang_dict.get("color_label", "Farbe:" if is_de else "Color:"))
             if hasattr(self, "log_button"):
-                self.log_button.setText(
-                    lang_dict.get(
-                        "log_button_text", " Log speichern" if is_de else " Save Log"
-                    )
-                )
+                self.log_button.setText(lang_dict.get("log_button_text", " Log speichern" if is_de else " Save Log"))
             if hasattr(self, "header_label"):
-                self.header_label.setText(
-                    strip_icons(
-                        lang_dict.get(
-                            "settings_header", "Einstellungen" if is_de else "Settings"
-                        )
-                    )
-                )
+                self.header_label.setText(strip_icons(lang_dict.get("settings_header", "Einstellungen" if is_de else "Settings")))
 
             # OSCam Status blink
             if hasattr(self, "status_label") and self.status_label:
                 rev = getattr(self, "current_rev", "----")
                 timestamp = getattr(self, "last_timestamp", "--:--:--")
-                msg = lang_dict.get(
-                    "oscam_uptodate",
-                    "OSCam ist aktuell." if is_de else "OSCam is up to date.",
-                )
+                msg = lang_dict.get("oscam_uptodate", "OSCam ist aktuell." if is_de else "OSCam is up to date.")
                 state = [0]
 
                 def blink_status():
@@ -12898,49 +12898,33 @@ class PatchManagerGUI(QWidget):
                 title = box.title()
                 if any(x in title for x in ["Settings", "Einstellungen"]):
                     box.setTitle("Einstellungen" if is_de else "Settings")
-                if any(
-                    x in title for x in ["Configuration", "Konfiguration", "GitHub"]
-                ):
-                    box.setTitle(
-                        "GitHub Konfiguration" if is_de else "GitHub Configuration"
-                    )
+                if any(x in title for x in ["Configuration", "Konfiguration", "GitHub"]):
+                    box.setTitle("GitHub Konfiguration" if is_de else "GitHub Configuration")
 
             # Autor Ansicht vorbereiten
             if hasattr(self, "btn_modifier"):
-                self.btn_modifier.setText(
-                    f"👤 {strip_icons(lang_dict.get('modifier_button_text', 'Patch Autor' if is_de else 'Patch Author'))}"
-                )
+                self.btn_modifier.setText(f"👤 {strip_icons(lang_dict.get('modifier_button_text','Patch Autor' if is_de else 'Patch Author'))}")
             if hasattr(self, "btn_patch_online"):
-                self.btn_patch_online.setText(
-                    f"🌐 {strip_icons(lang_dict.get('patch_online_download', 'Patch Online' if is_de else 'Load Patch'))}"
-                )
+                self.btn_patch_online.setText(f"🌐 {strip_icons(lang_dict.get('patch_online_download','Patch Online' if is_de else 'Load Patch'))}")
 
             # Final Label vorbereiten & verstecken
             if hasattr(self, "final_label") and self.final_label:
-                self.final_label.setText(
-                    lang_dict.get("final_label", "🛠️ Was bauen wir heute?")
-                )
+                self.final_label.setText(lang_dict.get("final_label","🛠️ Was bauen wir heute?"))
                 self.final_label.hide()
 
             # ---------------- Systemcheck starten ----------------
             if hasattr(self, "run_full_system_check"):
-                QTimer.singleShot(
-                    200, lambda: self.run_full_system_check(clear_log=True)
-                )
+                QTimer.singleShot(200, lambda: self.run_full_system_check(clear_log=True))
 
             # ---------------- Finale Blink-Sequenz ----------------
             def final_blink():
                 final_geom = pbar.geometry() if pbar else QRect(20, 20, 400, 40)
                 final_label = getattr(self, "final_label", None)
                 if not final_label:
-                    final_label = QLabel(
-                        lang_dict.get("final_label", "🛠️ Was bauen wir heute?"), self
-                    )
+                    final_label = QLabel(lang_dict.get("final_label", "🛠️ Was bauen wir heute?"), self)
                     self.final_label = final_label
 
-                final_label.setAlignment(
-                    Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
-                )
+                final_label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
                 final_label.setGeometry(final_geom)
                 final_label.setStyleSheet(
                     f"""
@@ -12959,21 +12943,14 @@ class PatchManagerGUI(QWidget):
                 final_label.raise_()
 
                 # Final Label blinkt 3x
-                blink_colors = [
-                    "transparent",
-                    "cyan",
-                    "transparent",
-                    "cyan",
-                    "transparent",
-                    "cyan",
-                ]
+                blink_colors = ["transparent","cyan","transparent","cyan","transparent","cyan"]
                 for i, delay in enumerate([0, 300, 600, 900, 1200, 1500]):
                     QTimer.singleShot(
                         delay,
                         lambda c=blink_colors[i]: final_label.setStyleSheet(
                             f"""
                             QLabel {{
-                                 border: 2px solid cyan;
+                                border: 2px solid cyan;
                                 background-color: black;
                                 color: {c};
                                 font-weight: bold;
@@ -12982,7 +12959,7 @@ class PatchManagerGUI(QWidget):
                                 border-radius: 6px;
                             }}
                             """
-                        ),
+                        )
                     )
 
                 # ProgressBar fertig
@@ -13003,31 +12980,6 @@ class PatchManagerGUI(QWidget):
         else:
             after_animation()
 
-            QTimer.singleShot(
-                1200,
-                lambda: (
-                    self.progress_bar.setValue(100)
-                    if hasattr(self, "progress_bar")
-                    else None
-                ),
-            )
-            QTimer.singleShot(
-                1400,
-                lambda: (
-                    self.progress_bar.setFormat("✅ OK")
-                    if hasattr(self, "progress_bar")
-                    else None
-                ),
-            )
-            QTimer.singleShot(3500, final_blink_sequence)
-            QTimer.singleShot(
-                4000,
-                lambda: (
-                    self.progress_bar.setFormat("%p%")
-                    if hasattr(self, "progress_bar")
-                    else None
-                ),
-            )
         # ---------------- Cleanup ----------------
         self._block_language_change = False
         QApplication.processEvents()
