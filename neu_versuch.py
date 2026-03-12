@@ -14251,6 +14251,22 @@ class PatchManagerGUI(QWidget):
 if __name__ == "__main__":
     import os, sys, platform, traceback
     from pathlib import Path
+
+    # ---------------- 0. QT PLATFORM FIX (LINUX / WINDOWS) ----------------
+    try:
+        from PyQt6.QtCore import QLibraryInfo
+
+        if platform.system() == "Linux":
+            os.environ["QT_QPA_PLATFORM"] = "xcb"
+
+        os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = QLibraryInfo.path(
+            QLibraryInfo.LibraryPath.PluginsPath
+        )
+
+    except Exception as e:
+        print("QT FIX ERROR:", e)
+
+    # ---------------- IMPORTS ----------------
     from PyQt6.QtWidgets import QApplication, QMessageBox
     from PyQt6.QtCore import QTimer
 
@@ -14258,6 +14274,7 @@ if __name__ == "__main__":
     if platform.system() == "Windows":
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
+
         extra_paths = [
             r"C:\Program Files\Git\usr\bin",
             r"C:\Program Files\Git\bin",
@@ -14266,6 +14283,7 @@ if __name__ == "__main__":
             r"C:\Program Files\Wireshark",
             r"C:\Windows\System32"
         ]
+
         path_env = os.environ.get("PATH", "")
         for p in extra_paths:
             if os.path.exists(p) and p not in path_env:
@@ -14274,35 +14292,36 @@ if __name__ == "__main__":
     # ---------------- 2. HIGH DPI POLICY ----------------
     try:
         from PyQt6.QtCore import Qt
+
         if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
             QApplication.setHighDpiScaleFactorRoundingPolicy(
                 Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
             )
+
     except Exception as e:
         print(f"DPI Policy Error: {e}")
 
-    # ---------------- 3. QAPPLICATION ERSTELLEN ----------------
+    # ---------------- 3. QAPPLICATION ----------------
     os.environ["NO_AT_BRIDGE"] = "1"
+
     app = QApplication.instance() or QApplication(sys.argv)
     app.setStyle("Fusion")
 
     # ---------------- 4. DEPENDENCIES CHECK ----------------
     try:
-        ensure_dependencies()  # Muss vorher definiert sein
+        ensure_dependencies()
     except Exception as e:
         print(f"Dependency-Check: {e}")
 
     # ---------------- 5. SPLASHSCREEN ----------------
-    splash_logo = "logo.png"  # Optionales Logo
-    lang = "de"  # Kann aus Config automatisch kommen
+    splash_logo = "logo.png"
+    lang = "de"
 
-    # Start- und End-Sound Pfade
     start_sound_file = str(Path("start.wav").resolve())
     end_sound_file   = str(Path("end.wav").resolve())
 
-    # SplashScreen starten
     splash = CinematicMatrixSplash(
-        duration=5000,       # 5 Sekunden
+        duration=5000,
         logo_path=splash_logo,
         lang=lang,
         start_sound=start_sound_file,
@@ -14311,33 +14330,39 @@ if __name__ == "__main__":
 
     # ---------------- 6. GUI START ----------------
     main_window = None
+
     def start_gui():
         global main_window
         try:
             main_window = PatchManagerGUI()
             main_window.showMaximized()
+
         except Exception:
             error_details = traceback.format_exc()
+
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.setWindowTitle("Startup Error")
             msg.setText("Kritischer Fehler beim Start der GUI.")
             msg.setDetailedText(error_details)
             msg.exec()
+
             sys.exit(1)
 
-    # GUI starten, sobald der Splash fertig ist
     splash.finished.connect(start_gui)
 
-    # ---------------- 7. APP EXEC ----------------
+    # ---------------- 7. EXEC ----------------
     try:
         sys.exit(app.exec())
+
     except Exception:
         error_details = traceback.format_exc()
+
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Critical)
         msg.setWindowTitle("Startup Error")
         msg.setText("Kritischer Fehler beim Start.")
         msg.setDetailedText(error_details)
         msg.exec()
+
         sys.exit(1)
