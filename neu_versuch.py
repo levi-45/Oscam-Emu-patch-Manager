@@ -4590,9 +4590,63 @@ class PatchManagerGUI(QWidget):
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
     # =====================================================================
     def pbar_idle(self):
-        """Setzt die ProgressBar nach kurzer Verzögerung zurück oder blendet sie aus."""
-        if hasattr(self, "progress_bar") and self.progress_bar:
-            self.progress_bar.hide()
+        """
+        Pulsier-Logik für die ProgressBar im Leerlauf.
+        Features: Akku-Erkennung, Sleep-Timer (10 Min), Dynamic Style.
+        """
+        import psutil
+        from PyQt6.QtCore import QVariantAnimation, QEasingCurve, QTimer
+        
+        pb = getattr(self, "progress_bar", None)
+        if not pb or pb.value() > 0:
+            return
+
+        # 1. Energie-Status & Geschwindigkeit festlegen
+        battery = psutil.sensors_battery()
+        is_on_battery = battery.power_plugged is False if battery else False
+        duration = 2800 if is_on_battery else 1500 # Langsamer im Akku-Modus
+
+        # 2. Alte Animation & Timer säubern
+        if hasattr(self, "_idle_anim"): self._idle_anim.stop()
+        if hasattr(self, "_idle_sleep_timer"): self._idle_sleep_timer.stop()
+
+        # 3. Sleep-Timer: Schaltet Animation nach 10 Min Inaktivität aus
+        self._idle_sleep_timer = QTimer(self)
+        self._idle_sleep_timer.setSingleShot(True)
+        self._idle_sleep_timer.timeout.connect(lambda: self._idle_anim.stop() if hasattr(self, "_idle_anim") else None)
+        self._idle_sleep_timer.start(600000) # 10 Minuten (600.000 ms)
+
+        # 4. Animation erstellen
+        self._idle_anim = QVariantAnimation(self)
+        self._idle_anim.setStartValue(30) # Start-Helligkeit
+        self._idle_anim.setEndValue(85)   # Ziel-Helligkeit
+        self._idle_anim.setDuration(duration)
+        self._idle_anim.setEasingCurve(QEasingCurve.Type.InOutSine)
+        self._idle_anim.setLoopCount(-1)
+
+        def update_style(value):
+            if pb.value() == 0:
+                color = current_diff_colors.get("fg", "#00FF00")
+                pb.setStyleSheet(f"""
+                    QProgressBar {{
+                        border: 1px solid {color};
+                        border-radius: 8px;
+                        background-color: #000;
+                        text-align: center;
+                        color: {color};
+                        font-weight: bold;
+                    }}
+                    QProgressBar::chunk {{
+                        background-color: {color};
+                        opacity: {value / 100.0};
+                        border-radius: 7px;
+                    }}
+                """)
+            else:
+                self._idle_anim.stop() # Sofort-Stop bei Fortschritt
+
+        self._idle_anim.valueChanged.connect(update_style)
+        self._idle_anim.start()
     
     def check_ncam_updates(self):
         """Startet den Update-Check speziell für NCam Bonecrew."""
@@ -10111,11 +10165,13 @@ class PatchManagerGUI(QWidget):
         import psutil
         import urllib3 
         from datetime import datetime, timedelta
+        from PyQt6.QtGui import QTextCursor
         from PyQt6.QtWidgets import QApplication
 
         # --- 1. UI Reset & Vorbereitung ---
         if hasattr(self, "hide_final_label"): self.hide_final_label()
-        if clear_log: self.log_window.clear()
+        if clear_log and hasattr(self, "log_window"):
+            self.log_window.clear()
         
         pbar = getattr(self, "progress_bar", None)
         html = []
@@ -10150,23 +10206,31 @@ class PatchManagerGUI(QWidget):
         </style>
         """)
         # --- Funktion für flüssige ProgressBar ---
-        def smooth_set_value(pbar, target, step=1, delay=0.005):
+        def smooth_set_value(pbar, target, text=None, step=1, delay=0.004):
             """
-            Bewegt die ProgressBar flüssig von aktuellem Wert bis target.
-            Schrittweite step und delay zwischen Updates können angepasst werden.
+            Bewegt ProgressBar flüssig und zeigt Status Text + Prozent an
             """
+
             if not pbar:
                 return
+
+            if text:
+                pbar.setFormat(f"{text}   %p%")
+
             current = pbar.value()
+
             if target < current:
                 current = target
+
             while current < target:
                 current += step
                 if current > target:
                     current = target
+
                 pbar.setValue(current)
                 QApplication.processEvents()
                 time.sleep(delay)
+
             pbar.setValue(target)
 
         try:
@@ -10242,6 +10306,20 @@ class PatchManagerGUI(QWidget):
                 "stats_github": "GitHub:",
                 "stats_local": "Local:",
                 "stats_total": "Total:",
+                # Progressbar
+                "prog_init": "Initialisiere System..." if is_de else "Initializing system...",
+                "prog_finish": "Finalisiere System Check" if is_de else "Finalizing system check",
+                "prog_header": "Lade Programm Header" if is_de else "Loading program header",
+                "prog_version": "Lade Versionsinformationen" if is_de else "Loading version info",
+                "prog_check": "Initialisiere System Check" if is_de else "Initializing system check",
+                "prog_sysinfo": "Lese System Informationen" if is_de else "Reading system information",
+                "prog_tool": "Prüfe Tool" if is_de else "Checking tool",
+                "prog_network": "Teste Netzwerk Verbindung" if is_de else "Testing network connection",
+                "prog_repo": "Prüfe Repository" if is_de else "Checking repository",
+                "prog_stats": "Lade GitHub Statistiken" if is_de else "Loading GitHub statistics",
+                "prog_finish": "Finalisiere System Check" if is_de else "Finalizing system check",
+                "prog_done": "System Check abgeschlossen ✔" if is_de else "System check completed ✔",
+
                 # --- Footer Labels ---
                 "foot_ok": "Alles OK",
                 "foot_ready": "Bereit",
@@ -10351,11 +10429,15 @@ class PatchManagerGUI(QWidget):
                     }}
                     """
                 )
-            pbar.setRange(0, 100)
-            pbar.setValue(0)
-            pbar.setTextVisible(True)
-            pbar.show()
-            smooth_set_value(pbar, 5)
+            if pbar:
+                pbar.setRange(0, 100)
+                pbar.setValue(0)
+                pbar.setTextVisible(True)
+                pbar.setFormat(f"{T['prog_init']} %p%")
+                smooth_set_value(pbar, 5, f"🚀 {T['prog_init']}")
+                pbar.show()
+
+            
 
             html.append(
                 f'<div style="text-align:center; width:100%; font-family:sans-serif;">'
@@ -10390,7 +10472,7 @@ class PatchManagerGUI(QWidget):
 
             refresh_ui()
             if pbar:
-                smooth_set_value(pbar, 10)
+                smooth_set_value(pbar, 10, f"📋 {T['prog_header']}")
 
             # --- Autor / Version ---
             html.append(
@@ -10403,7 +10485,7 @@ class PatchManagerGUI(QWidget):
             )
             refresh_ui()
             if pbar:
-                smooth_set_value(pbar, 15)
+                smooth_set_value(pbar, 15, f"📦 {T['prog_version']}")
 
             html.append(
                 f'<div style="text-align:center; line-height:1.5; margin-bottom:12px;">'
@@ -10448,7 +10530,7 @@ class PatchManagerGUI(QWidget):
             )
             refresh_ui()
             if pbar:
-                smooth_set_value(pbar, 20)
+                smooth_set_value(pbar, 20, f"⚙️ {T['prog_check']}")
 
             # --- System-Identifikation (Windows & Arch/Linux) ---
             os_type = platform.system()
@@ -10500,7 +10582,7 @@ class PatchManagerGUI(QWidget):
             
             html.append(make_safe_row("⏱️", "Uptime", uptime_str, C_GREEN, C_BLUE))
 
-            if pbar: smooth_set_value(pbar, 30)
+            if pbar: smooth_set_value(pbar, 30, f"💻 {T['prog_sysinfo']}")
 
             # --- Tools (Status mit schlichten Emojis) ---
             tool_list = ["pacman", "yay", "git", "patch", "zip", "nmap", "hydra", "john", "python3", "pip", "ssh", "sqlmap", "wireshark", "nikto", "tcpdump", "aircrack-ng", "hashcat"]
@@ -10523,12 +10605,12 @@ class PatchManagerGUI(QWidget):
 
                 html.append(make_safe_row(status_icon, t.capitalize(), info, C_GREEN if ok else C_RED, C_BLUE if ok else C_RED))
                 if i % 4 == 0: QApplication.processEvents() # UI flüssig halten
-                if pbar: smooth_set_value(pbar, 30 + (i + 1) * 2)
+                if pbar: smooth_set_value(pbar,30 + int((i+1) * 20 / len(tool_list)),f"🔍 {T['prog_tool']}: {t}")
 
             # --- Python Pakete ---
             for pkg in ["PyQt6", "requests"]:
                 ok = importlib.util.find_spec(pkg) is not None
-                html.append(make_safe_row("📦", pkg.capitalize(), "OK" if ok else "Missing", C_GREEN if ok else C_RED, C_BLUE))
+                html.append(make_safe_row("📦", pkg.capitalize(), T["ok"] if ok else T["missing"], C_GREEN if ok else C_RED, C_BLUE))
 
             # --- Live Netzwerk Check (Ersetzt urllib3 durch socket/requests) ---
             try:
@@ -10544,7 +10626,7 @@ class PatchManagerGUI(QWidget):
             except:
                 html.append(make_safe_row("❌", T["network"], "Offline", C_RED, C_RED))
             if pbar:
-                smooth_set_value(pbar, 65)
+                smooth_set_value(pbar, 65, f"🌐 {T['prog_network']}")
 
             # --- Repos prüfen ---
             repo_list = [
@@ -10566,7 +10648,7 @@ class PatchManagerGUI(QWidget):
                         make_safe_row(icon, r_name, T["offline"], C_RED, C_RED, S_REPO)
                     )
                 if pbar:
-                    smooth_set_value(pbar, 70 + (i + 1) * 2)
+                    smooth_set_value(pbar,70 + int((i + 1) * 15 / len(repo_list)),f"📡 {T['prog_repo']}: {r_name}")
 
             # --- Statistik ---
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -10606,7 +10688,7 @@ class PatchManagerGUI(QWidget):
             total_stats += install_count
             usage_count = str(total_stats)
             if pbar:
-                smooth_set_value(pbar, 85)
+                smooth_set_value(pbar, 88, f"📊 {T['prog_stats']}")
 
             # --- Statistik HTML ---
             html.append(
@@ -10637,7 +10719,7 @@ class PatchManagerGUI(QWidget):
                 f"</div>"
             )
             if pbar:
-                smooth_set_value(pbar, 90)
+                smooth_set_value(pbar, 90, f"⚙️ {T['prog_finish']}")
 
             # --- Footer ---
             footer_html = (
@@ -10661,7 +10743,7 @@ class PatchManagerGUI(QWidget):
             self.is_loading = False
             self._checking_active = False
             if pbar:
-                smooth_set_value(pbar, 100)
+                smooth_set_value(pbar, 100, f"✅ {T['prog_done']}")
             QApplication.processEvents()
         # =====================
         # INIT UI
@@ -12214,22 +12296,24 @@ class PatchManagerGUI(QWidget):
                 )
 
     def repaint_ui_colors(self):
-        """Aktualisiert ALLE GUI-Elemente basierend auf dem gewählten Farbschema."""
+        """
+        Aktualisiert ALLE GUI-Elemente basierend auf dem gewählten Farbschema.
+        Inklusive Übergabe an die dynamische pbar_idle Animation.
+        """
+        from PyQt6.QtWidgets import QPushButton, QCheckBox, QProgressBar, QLabel
         global current_diff_colors
 
-        # Farben zentral definieren
-        text_color = current_diff_colors.get("fg", "#FFFFFF")
-        bg_color = current_diff_colors.get("bg", "#2F2F2F")
-        hover_color = current_diff_colors.get("hover", "#444444")
+        # 1. Farben zentral definieren
+        text_color   = current_diff_colors.get("fg", "#FFFFFF")
+        bg_color     = current_diff_colors.get("bg", "#2F2F2F")
+        hover_color  = current_diff_colors.get("hover", "#444444")
         active_color = current_diff_colors.get("active", "#666666")
 
         # A) ALLE Buttons im Fenster automatisch finden und stylen
-        all_widgets = self.findChildren(QPushButton)
-        for btn in all_widgets:
+        for btn in self.findChildren(QPushButton):
             try:
                 btn.setGraphicsEffect(None)
-                btn.setStyleSheet(
-                    f"""
+                btn.setStyleSheet(f"""
                     QPushButton {{
                         background-color: {bg_color};
                         color: {text_color};
@@ -12249,19 +12333,14 @@ class PatchManagerGUI(QWidget):
                         background-color: {active_color};
                         padding-top: 2px;
                     }}
-                """
-                )
-            except RuntimeError:
-                continue
+                """)
+            except RuntimeError: continue
 
-        # --- NEU: STATS-CHECKBOX (TELEMETRIE) AN DAS SCHEMA ANPASSEN ---
+        # B) STATS-CHECKBOX (TELEMETRIE)
         cb = getattr(self, "telemetry_cb", None)
         if cb:
             try:
-                # Wir stylen die Checkbox exakt wie die Buttons oben
-                # Nutzt die Variablen aus dem aktuellen Theme-Zweig (Gold/Matrix/Light)
-                cb.setStyleSheet(
-                    f"""
+                cb.setStyleSheet(f"""
                     QCheckBox {{
                         background-color: {bg_color};
                         color: {text_color};
@@ -12270,7 +12349,7 @@ class PatchManagerGUI(QWidget):
                         padding: 2px 12px;
                         font-size: 13px;
                         border: 1px solid #444;
-                       min-height: 35px;
+                        min-height: 35px;
                     }}
                     QCheckBox:hover {{
                         background-color: {hover_color};
@@ -12281,58 +12360,64 @@ class PatchManagerGUI(QWidget):
                         height: 16px;
                         border: 1px solid {text_color};
                         border-radius: 4px;
-                       background: #111; /* Dunkler Kontrast für die Box */
+                        background: #111;
                     }}
                     QCheckBox::indicator:checked {{
-                        background-color: {text_color}; /* Füllt sich in Gold oder Matrix-Grün */
-                        image: url(no_icon); /* Entfernt Standard-Haken für cleanen Look */
+                        background-color: {text_color};
+                        image: none;
                         border: 1.5px solid white;
                     }}
-                    QCheckBox::indicator:unchecked:hover {{
-                        border: 1px solid white;
-                    }}
-                """
-                )
-            except Exception as e:
-                # Falls die Checkbox noch nicht existiert oder gelöscht wurde
-                pass
+                    QCheckBox::indicator:unchecked:hover {{ border: 1px solid white; }}
+                """)
+            except: pass
 
-        # B) ProgressBar Style (Standard-Zustand)
+        # C) PROGRESS BAR (Zustandssteuerung für Idle-Animation)
         pb = getattr(self, "progress_bar", None)
         if pb:
             try:
-                if pb.value() == 0 or pb.value() == 100:
-                    pb.setStyleSheet(
-                        f"QProgressBar {{ border: 1px solid {bg_color}; border-radius: 7px; background-color: #1a1a1a; text-align: center; color: {text_color}; font-weight: 700; }}"
-                        f"QProgressBar::chunk {{ background-color: {bg_color}; border-radius: 6px; }}"
-                    )
-            except RuntimeError:
-                pass
+                if pb.value() == 0:
+                    # Falls Wert 0, stoppe altes Stylesheet und starte Pulsieren
+                    if hasattr(self, "pbar_idle"):
+                        self.pbar_idle()
+                else:
+                    # Falls Wert > 0 (z.B. 100 oder während Check), stoppe Animation
+                    if hasattr(self, "_idle_anim"):
+                        self._idle_anim.stop()
+                    
+                    # Festes Stylesheet für Fortschritt/Abschluss
+                    pb.setStyleSheet(f"""
+                        QProgressBar {{ 
+                            border: 1px solid {bg_color}; 
+                            border-radius: 7px; 
+                            background-color: #1a1a1a; 
+                            text-align: center; 
+                            color: {text_color}; 
+                            font-weight: 700; 
+                        }}
+                        QProgressBar::chunk {{ 
+                            background-color: {bg_color}; 
+                            border-radius: 6px; 
+                        }}
+                    """)
+            except RuntimeError: pass
 
-        # C) Labels & Header
-        for lbl_name in [
-            "lang_label",
-            "color_label",
-            "commit_label",
-            "controls_header",
-        ]:
+        # D) Labels & Header
+        labels = ["lang_label", "color_label", "commit_label", "controls_header", "github_header"]
+        for lbl_name in labels:
             lbl = getattr(self, lbl_name, None)
             if lbl:
                 try:
-                    bg = bg_color if lbl_name == "controls_header" else "transparent"
-                    lbl.setStyleSheet(
-                        f"color: {text_color}; font-weight: 700; font-size: 18px; background: {bg}; border-radius: 6px;"
-                    )
-                except RuntimeError:
-                    pass
+                    bg = bg_color if "header" in lbl_name else "transparent"
+                    lbl.setStyleSheet(f"color: {text_color}; font-weight: 700; font-size: 18px; background: {bg}; border-radius: 6px;")
+                except RuntimeError: pass
 
-        # 5. Hauptfenster Hintergrund
+        # E) Hauptfenster Hintergrund & Finalisierung
         try:
             self.setStyleSheet("background-color: #2F2F2F;")
-            if hasattr(self, "pbar_idle") and (not pb or pb.value() == 0):
+            # Falls kein Fortschritt da ist, Animation sicherstellen
+            if pb and pb.value() == 0 and hasattr(self, "pbar_idle"):
                 self.pbar_idle()
-        except RuntimeError:
-            pass
+        except RuntimeError: pass
 
     def setup_grid_buttons(self):
         """
@@ -12683,6 +12768,15 @@ class PatchManagerGUI(QWidget):
 
         # ---------------- Texte laden ----------------
         all_texts = globals().get("TEXTS", {})
+        
+        # NEU: Falls TEXTS leer ist oder nicht existiert, rufe die Funktion direkt auf
+        if not all_texts:
+            try:
+                # Hier rufen wir die Funktion auf, die die Dictionarys zurückgibt
+                all_texts = ensure_dependencies() 
+            except:
+                all_texts = {}
+
         self.TEXT = all_texts.get(self.LANG, {})
         lang_dict = self.TEXT
 
@@ -12927,7 +13021,7 @@ class PatchManagerGUI(QWidget):
             )
             QTimer.singleShot(3500, final_blink_sequence)
             QTimer.singleShot(
-                5000,
+                4000,
                 lambda: (
                     self.progress_bar.setFormat("%p%")
                     if hasattr(self, "progress_bar")
@@ -13906,106 +14000,65 @@ class PatchManagerGUI(QWidget):
 
 # ===================== __main__ =====================
 if __name__ == "__main__":
-    import os, sys, platform, traceback, shutil
+    import os, sys, platform, shutil, traceback
+    from PyQt6.QtWidgets import QApplication, QMessageBox
+    from PyQt6.QtCore import Qt
 
-    # -------- Global Exception Hook --------
-    def global_exception_hook(exctype, value, tb):
-        print("\n" + "!"*60)
-        print("UNHANDLED EXCEPTION:")
-        traceback.print_exception(exctype, value, tb)
-        print("!"*60)
-        try:
-            from PyQt6.QtWidgets import QMessageBox
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Icon.Critical)
-            msg.setWindowTitle("Application Crash")
-            msg.setText(str(value))
-            msg.exec()
-        except:
-            pass
-    sys.excepthook = global_exception_hook
-
-    # -------- Windows PATH Fix --------
-    def fix_windows_path():
-        if platform.system() != "Windows":
-            return
+    # 1. WINDOWS & GRAFIK FIXES (Muss vor der App-Erstellung passieren!)
+    if platform.system() == "Windows":
+        # UTF-8 für Emojis in der Konsole
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        
+        # PATH-Erweiterungen für Tools
         extra_paths = [
             r"C:\Program Files\Git\usr\bin",
             r"C:\Program Files\Git\bin",
             r"C:\Program Files\7-Zip",
             r"C:\Program Files (x86)\Nmap",
             r"C:\Program Files\Wireshark",
-            r"C:\Program Files\Git\cmd",
-            r"C:\Windows\System32",
-            r"C:\Program Files\hashcat"
+            r"C:\Windows\System32"
         ]
+        path_env = os.environ.get("PATH", "")
         for p in extra_paths:
-            if os.path.exists(p) and p not in os.environ.get("PATH", ""):
+            if os.path.exists(p) and p not in path_env:
                 os.environ["PATH"] += os.pathsep + p
 
-    fix_windows_path()
+    # --- WICHTIG: POLICY VOR DER APP-INSTANZ SETZEN ---
+    try:
+        if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
+            QApplication.setHighDpiScaleFactorRoundingPolicy(
+                Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+            )
+    except Exception as e:
+        print(f"DPI Policy Error: {e}")
 
-    # -------- QT / Grafik Fix für Windows --------
-    if platform.system() == "Windows":
-        os.environ["QT_QUICK_BACKEND"] = "software"
-        os.environ["QT_OPENGL"] = "software"
-        os.environ["QT_QPA_PLATFORM"] = "windows"
-        os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
-        os.environ["QT_SCALE_FACTOR"] = "1"
-        os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false"
-        if hasattr(sys.stdout, "reconfigure"):
-            sys.stdout.reconfigure(encoding="utf-8")
+    # 2. QAPPLICATION ERSTELLEN
     os.environ["NO_AT_BRIDGE"] = "1"
+    app = QApplication.instance()
+    if not app:
+        app = QApplication(sys.argv)
+    
+    app.setStyle("Fusion")
 
-    # -------- Dependency Check --------
+    # 3. DEPENDENCIES PRÜFEN
     try:
-        #from your_module import ensure_dependencies, check_system_tools, PatchManagerGUI  # passe Modulnamen an
-        TEXTS = ensure_dependencies()
-        check_system_tools()
-        if TEXTS is None or not isinstance(TEXTS, dict):
-            TEXTS = {"sys_t": "Error", "sys_txt": "Dependency Check failed"}
+        ensure_dependencies() 
     except Exception as e:
-        print("\n" + "!"*60)
-        print(f"FEHLER BEIM DEPENDENCY CHECK: {e}")
-        traceback.print_exc()
-        print("!"*60)
-        input("Drücke Enter zum Beenden...")
-        sys.exit(1)
+        print(f"Dependency-Check: {e}")
 
-    # -------- Start PyQt6 GUI --------
+    # 4. GUI START
     try:
-        from PyQt6.QtWidgets import QApplication, QMessageBox
-        app = QApplication.instance() or QApplication(sys.argv)
-        app.setStyle("Fusion")
-        try:
-            window = PatchManagerGUI()
-            window.showMaximized()
-            sys.exit(app.exec())
-        except Exception as gui_err:
-            print("\n" + "!"*60)
-            print("FEHLER IN DER INITIALISIERUNG DER GUI-KLASSE:")
-            traceback.print_exc()
-            print("!"*60)
-            try:
-                msg_box = QMessageBox()
-                msg_box.setIcon(QMessageBox.Icon.Critical)
-                msg_box.setWindowTitle(TEXTS.get("sys_t", "Startup Error"))
-                msg_box.setText(str(gui_err))
-                msg_box.setInformativeText("Bitte prüfe die Konsole für Details.")
-                msg_box.exec()
-            except:
-                pass
-            input("Drücke Enter zum Beenden...")
-            sys.exit(1)
-    except ImportError:
-        print("\n[KRITISCH] PyQt6 konnte nicht geladen werden.")
-        print("Befehl: pip install PyQt6 requests psutil packaging urllib3")
-        input("Drücke Enter zum Beenden...")
-        sys.exit(1)
+        window = PatchManagerGUI()
+        window.showMaximized()
+        sys.exit(app.exec())
     except Exception as e:
-        print("\n" + "!"*60)
-        print(f"SYSTEM-ABSTURZ BEIM START: {e}")
-        traceback.print_exc()
-        print("!"*60)
-        input("Drücke Enter zum Beenden...")
+        error_details = traceback.format_exc()
+        if QApplication.instance():
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.setWindowTitle("Startup Error")
+            msg.setText("Kritischer Fehler beim Start.")
+            msg.setDetailedText(error_details)
+            msg.exec()
         sys.exit(1)
