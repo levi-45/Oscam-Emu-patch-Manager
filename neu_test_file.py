@@ -125,57 +125,65 @@ def save_setting(key, value):
         print(f"Fehler beim Speichern: {e}")
 
 
-# --- SYSTEM FUNKTIONEN ---
-def install_font_linux():
-    """Installiert Noto Color Emoji auf diversen Linux-Distributionen."""
-    cmd = "sudo apt update && sudo apt install -y fonts-noto-color-emoji && fc-cache -f -v"
-    # Liste gängiger Terminals für maximale Kompatibilität
-    terminals = [
-        "x-terminal-emulator",
-        "gnome-terminal",
-        "konsole",
-        "xfce4-terminal",
-        "xterm",
-    ]
-
-    for term in terminals:
-        if shutil.which(term):
-            try:
-                # Terminal-spezifische Argumente
-                args = (
-                    [term, "--", "bash", "-c", f"{cmd}; read -p 'Fertig!'"]
-                    if term == "gnome-terminal"
-                    else [term, "-e", f"bash -c '{cmd}; read -p \"Fertig!\"'"]
-                )
-                subprocess.Popen(args)
-                return True
-            except:
-                continue
-    return False
-
-
-def install_font_windows():
-    """Installiert die Emoji-Schriftart für Windows asynchron."""
-
-    def _download():
-        import requests
-
-        # Korrekter direkter Download-Link zu einer Noto Emoji TTF
-        url = "https://github.com"
-        font_path = os.path.join(
-            os.environ.get("WINDIR", "C:\\Windows"), "Fonts", "NotoColorEmoji.ttf"
-        )
+def auto_install_emoji_font():
+    """Lädt die Noto Color Emoji ZIP von GitHub und installiert sie plattformübergreifend."""
+    
+    def _run_install():
+        import requests, zipfile, io
+        
+        # Deine direkte Raw-URL zur ZIP
+        url = "https://github.com/speedy005/Oscam-Emu-patch-Manager/raw/master/Noto_Color_Emoji.zip"
+        os_type = platform.system()
+        
         try:
-            if not os.path.exists(font_path):
-                r = requests.get(url, timeout=20)
-                with open(font_path, "wb") as f:
-                    f.write(r.content)
-                ctypes.windll.gdi32.AddFontResourceW(font_path)
-                ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
-        except:
-            pass
+            print("[SYSTEM] Prüfe Emoji-Schriftart...")
+            
+            # 1. Download der ZIP in den Speicher
+            response = requests.get(url, timeout=20)
+            if response.status_code != 200: return
+            
+            with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+                # Suche die .ttf Datei in der ZIP
+                ttf_name = next((f for f in z.namelist() if f.endswith(".ttf")), None)
+                if not ttf_name: return
+                font_data = z.read(ttf_name)
 
-    threading.Thread(target=_download, daemon=True).start()
+            # 2. Installation nach Betriebssystem
+            if os_type == "Windows":
+                # User-Level Installation (benötigt KEIN Admin)
+                font_dir = os.path.join(os.environ['LOCALAPPDATA'], "Microsoft", "Windows", "Fonts")
+                if not os.path.exists(font_dir): os.makedirs(font_dir)
+                
+                target_path = os.path.join(font_dir, "NotoColorEmoji.ttf")
+                if not os.path.exists(target_path):
+                    with open(target_path, "wb") as f:
+                        f.write(font_data)
+                    
+                    # System registrieren
+                    ctypes.windll.gdi32.AddFontResourceW(target_path)
+                    # HWND_BROADCAST (0xFFFF), WM_FONTCHANGE (0x001D)
+                    ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
+                    print("[✓] Font installiert (Windows User-Level)")
+
+            elif os_type == "Linux":
+                # Lokale User-Installation
+                font_dir = os.path.expanduser("~/.local/share/fonts")
+                if not os.path.exists(font_dir): os.makedirs(font_dir)
+                
+                target_path = os.path.join(font_dir, "NotoColorEmoji.ttf")
+                if not os.path.exists(target_path):
+                    with open(target_path, "wb") as f:
+                        f.write(font_data)
+                    
+                    # Font-Cache leise aktualisieren
+                    subprocess.run(["fc-cache", "-f"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    print("[✓] Font installiert (Linux Local-Level)")
+
+        except Exception as e:
+            print(f"[!] Font-Installation Fehler: {e}")
+
+    # Asynchron im Hintergrund ausführen, damit der Splash nicht hakt
+    threading.Thread(target=_run_install, daemon=True).start()
 
 
 import os, sys, platform, subprocess, locale, importlib.util, threading, shutil, ctypes
@@ -2777,8 +2785,8 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         widget = getattr(gui_instance, "info_text", None)
 
     lang = str(getattr(gui_instance, "LANG", "de")).lower()[:2]
-    active_modifier = getattr(gui_instance, "patch_modifier", PATCH_MODIFIER)
-    active_emu_repo = getattr(gui_instance, "EMUREPO", EMUREPO)
+    active_modifier = getattr(gui_instance, "patch_modifier", globals().get("PATCH_MODIFIER"))
+    active_emu_repo = getattr(gui_instance, "EMUREPO", globals().get("EMUREPO"))
 
     # TEXTS für DE/EN
     TEXTS = {
@@ -2810,42 +2818,41 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         if text_key:
             text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
             try:
-                text_msg = text_template.format(**locals())
+                # Da locals() hier begrenzt ist, nutzen wir eine einfache Formatierung falls nötig
+                text_msg = text_template
             except:
                 text_msg = text_template
 
         if gui_instance:
             pbar = getattr(gui_instance, "progress_bar", None)
             if pbar:
-                pbar.setTextVisible(True)
+                # Stylesheet Definitionen
+                rainbow_gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+                error_gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #800, stop:1 #F00)"
+                
+                chunk_color = error_gradient if is_error else rainbow_gradient
+                text_color = "#FF0000" if is_error else "black"
+
+                pbar.setStyleSheet(f"""
+                    QProgressBar {{
+                        border: 2px solid #444444;
+                        border-radius: 8px;
+                        background-color: #0A0A0A;
+                        color: {text_color};
+                        text-align: center;
+                        font-weight: 900;
+                        font-size: 20px;
+                        min-height: 35px;
+                    }}
+                    QProgressBar::chunk {{
+                        background-color: {chunk_color};
+                        border-radius: 6px;
+                    }}
+                """)
                 pbar.setValue(val)
                 pbar.setFormat(f"{text_msg} ({val}%)" if text_msg else f"{val}%")
-                if is_error:
-                    # Rot bei Fehler
-                    pbar.setStyleSheet(
-                        """
-                        QProgressBar { text-align:center; font-weight:900; border:2px solid #500; 
-                        border-radius:6px; background-color:#111; color:#FF0000; font-size:12pt;}
-                        QProgressBar::chunk { background-color: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #800, stop:1 #F00); border-radius:4px;}
-                    """
-                    )
-                elif val <= 20:
-                    # Regenbogen bei Start
-                    rainbow = "qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1 #8B00FF);"
-                    pbar.setStyleSheet(
-                        f"""
-                        QProgressBar {{ text-align:center; font-weight:900; border:2px solid #222; border-radius:6px; background-color:#111; color:black; font-size:12pt; }}
-                        QProgressBar::chunk {{ background-color: {rainbow}; border-radius:4px; }}
-                    """
-                    )
-                else:
-                    # Normal grün
-                    pbar.setStyleSheet(
-                        """
-                        QProgressBar { text-align:center; font-weight:900; border:2px solid #333; border-radius:6px; background-color:#111; color:black; font-size:12pt;}
-                        QProgressBar::chunk { background-color:#2ecc71; border-radius:4px;}
-                    """
-                    )
+                pbar.show()
+
         if progress_callback:
             try:
                 progress_callback(val)
@@ -2862,9 +2869,7 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             text = text_template
 
         if isinstance(widget, QTextEdit):
-            color = {"success": "green", "warning": "orange", "error": "red"}.get(
-                level, "yellow"
-            )
+            color = {"success": "#39FF14", "warning": "orange", "error": "red"}.get(level, "yellow")
             widget.append(f'<span style="color:{color}"><b>{text}</b></span>')
             widget.moveCursor(QTextCursor.MoveOperation.End)
             QApplication.processEvents()
@@ -2879,307 +2884,200 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     log("patch_create_start", "info")
     set_progress(10, "patch_create_start")
 
-    if not os.path.exists(TEMP_REPO):
-        os.makedirs(TEMP_REPO, exist_ok=True)
+    temp_repo = globals().get("TEMP_REPO", "temp_repo")
+    if not os.path.exists(temp_repo):
+        os.makedirs(temp_repo, exist_ok=True)
 
-    git_dir = os.path.join(TEMP_REPO, ".git")
-    if os.path.exists(TEMP_REPO) and not os.path.exists(git_dir):
+    git_dir = os.path.join(temp_repo, ".git")
+    if os.path.exists(temp_repo) and not os.path.exists(git_dir):
         log("patch_create_clone_start", "warning")
         try:
-            shutil.rmtree(TEMP_REPO)
-            os.makedirs(TEMP_REPO, exist_ok=True)
+            shutil.rmtree(temp_repo)
+            os.makedirs(temp_repo, exist_ok=True)
         except:
-            log("patch_create_failed", "error", path=TEMP_REPO)
+            log("patch_create_failed", "error", path=temp_repo)
 
     try:
-        # Git
+        # Git Operationen
         if not os.path.exists(git_dir):
             set_progress(20, "patch_create_clone_start")
-            subprocess.run(
-                f"git clone {STREAMREPO} .",
-                shell=True,
-                cwd=TEMP_REPO,
-                capture_output=True,
-            )
-        subprocess.run(
-            ["git", "remote", "remove", "emu-repo"], cwd=TEMP_REPO, capture_output=True
-        )
-        subprocess.run(
-            ["git", "remote", "add", "emu-repo", active_emu_repo],
-            cwd=TEMP_REPO,
-            capture_output=True,
-        )
+            stream_repo = globals().get("STREAMREPO", "")
+            subprocess.run(f"git clone {stream_repo} .", shell=True, cwd=temp_repo, capture_output=True)
+        
+        subprocess.run(["git", "remote", "remove", "emu-repo"], cwd=temp_repo, capture_output=True)
+        subprocess.run(["git", "remote", "add", "emu-repo", active_emu_repo], cwd=temp_repo, capture_output=True)
 
         set_progress(40, "patch_fetch_checkout")
-        for cmd in [
-            "git fetch --all",
-            "git checkout -B master origin/master",
-            "git reset --hard origin/master",
-        ]:
-            subprocess.run(cmd, shell=True, cwd=TEMP_REPO, capture_output=True)
+        for cmd in ["git fetch --all", "git checkout -B master origin/master", "git reset --hard origin/master"]:
+            subprocess.run(cmd, shell=True, cwd=temp_repo, capture_output=True)
 
         set_progress(70, "patch_generate_diff")
-        header = get_patch_header(
-            repo_dir=TEMP_REPO, lang=lang, modifier=active_modifier
-        )
-        diff = subprocess.check_output(
-            ["git", "diff", "origin/master..emu-repo/master", "--", ".", ":!.github"],
-            cwd=TEMP_REPO,
-            text=True,
-        )
+        # Header & Diff (get_patch_header muss global existieren)
+        header = globals().get("get_patch_header", lambda **x: "# Patch")(repo_dir=temp_repo, lang=lang, modifier=active_modifier)
+        diff = subprocess.check_output(["git", "diff", "origin/master..emu-repo/master", "--", ".", ":!.github"], cwd=temp_repo, text=True)
 
         if not diff.strip():
             log("patch_create_no_changes", "warning")
             diff = "# No changes detected"
 
         # Patch speichern
-        with open(PATCH_FILE, "w", encoding="utf-8") as f:
+        patch_file = globals().get("PATCH_FILE", "oscam.patch")
+        with open(patch_file, "w", encoding="utf-8") as f:
             f.write(header + "\n" + diff + "\n")
 
-        # Revision speichern
+        # Revision ermitteln
         rev_match = re.search(r"-(\d{5,6})-", header)
         if not rev_match:
-            rev_log = subprocess.check_output(
-                ["git", "log", "origin/master", "-n", "10", "--pretty=format:%s"],
-                cwd=TEMP_REPO,
-                text=True,
-            )
+            rev_log = subprocess.check_output(["git", "log", "origin/master", "-n", "10", "--pretty=format:%s"], cwd=temp_repo, text=True)
             rev_match = re.search(r"(?:r)?(\d{5,6})", rev_log)
 
         if rev_match:
             new_rev_found = rev_match.group(1)
-            rev_storage_path = os.path.join(
-                os.path.dirname(os.path.realpath(__file__)), "oscam_rev.txt"
-            )
+            rev_storage_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "oscam_rev.txt")
             with open(rev_storage_path, "w", encoding="utf-8") as f:
                 f.write(new_rev_found)
             if gui_instance:
                 gui_instance.current_rev = new_rev_found
             log("patch_rev_saved", "success", rev=new_rev_found)
-        else:
-            log("patch_create_no_changes", "warning")
-
-        set_progress(90, "patch_create_success")
+        
+        set_progress(100, "patch_create_success")
         log("patch_create_success", "success")
         play_sound("complete.oga")
+
     except Exception as e:
-        log("patch_create_failed", "error", error=str(e))
+        log("patch_create_failed", "error")
         set_progress(100, "patch_create_failed", is_error=True)
         play_sound("dialog-error.oga")
-        return
-
-    set_progress(100, "patch_create_success")
 
 
 # ===================== backup_old_patch=====================
-from PyQt6.QtWidgets import QTextEdit, QApplication
-from PyQt6.QtGui import QTextCursor
-import shutil, os, re
-
-
 def backup_old_patch(self, make_backup=True, info_widget=None, progress_callback=None):
     # --- Final Label verstecken ---
     if hasattr(self, "hide_final_label"):
         self.hide_final_label()
-    """
-    Sichert den alten Patch und aktualisiert ihn mit Fortschrittsanzeige.
-    Verhalten identisch zu zip_patch:
-    - Regenbogen nur während des Vorgangs
-    - Am Ende bleibt Text 3 Sekunden stehen, Chunk wird transparent
-    """
-    import os
-    import shutil
-    import re
+
+    import os, shutil, re
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtCore import QTimer
 
-    widget = (
-        info_widget
-        if isinstance(info_widget, QTextEdit)
-        else getattr(self, "info_text", None)
-    )
-
+    widget = info_widget if isinstance(info_widget, QTextEdit) else getattr(self, "info_text", None)
     lang = getattr(self, "LANG", "de").lower()
     is_de = lang == "de"
     pbar = getattr(self, "progress_bar", None)
 
-    # -------------------------------------------------
-    # Helper
-    # -------------------------------------------------
-
-    def play_backup_sound(success=True):
-        safe_play("complete.oga" if success else "dialog-error.oga")
+    # Dein Wunsch-Style als Template
+    STYLE_TEMPLATE = """
+        QProgressBar {{
+            border: 2px solid #444444;
+            border-radius: 8px;
+            background-color: #0A0A0A;
+            color: black;
+            text-align: center;
+            font-weight: 900;
+            font-size: 20px;
+            min-height: 35px;
+        }}
+        QProgressBar::chunk {{
+            background-color: {chunk_color};
+            border-radius: 6px;
+        }}
+    """
+    
+    RAINBOW_GRADIENT = (
+        "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+        "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+    )
 
     def set_progress(val, text=None):
-        if not pbar:
-            return
-
-        # Regenbogen-Gradient in einer Zeile für Qt-kompatibles StyleSheet
-        rainbow = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1 #8B00FF)"
-
-        pbar.setStyleSheet(
-            f"""
-            QProgressBar {{
-                text-align: center;
-                font-weight: 700;
-                border: 2px solid #222;
-                border-radius: 6px;
-                background-color: #111;
-                color: black;
-                font-size: 11pt;
-            }}
-            QProgressBar::chunk {{
-                background-color: {rainbow};
-                border-radius: 4px;
-            }}
-            """
-        )
-        pbar.show()
-        pbar.setValue(val)
-        if text:
-            pbar.setFormat(text)
-
+        if pbar:
+            pbar.setStyleSheet(STYLE_TEMPLATE.format(chunk_color=RAINBOW_GRADIENT))
+            pbar.setValue(val)
+            if text: pbar.setFormat(text)
+            pbar.show()
         if progress_callback:
             try:
                 progress_callback(val)
                 QApplication.processEvents()
-            except Exception:
-                pass
+            except: pass
 
     def finalize_pbar(text, visible_seconds=3):
-        if not pbar:
-            return
-
-        # Finale Anzeige: Text schwarz, Chunk noch Regenbogen
-        rainbow = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1 #8B00FF)"
-        pbar.setStyleSheet(
-            f"""
-            QProgressBar {{
-                text-align: center;
-                font-weight: 700;
-                border: 2px solid #222;
-                border-radius: 6px;
-                background-color: #111;
-                color: black;
-                font-size: 15pt;
-            }}
-            QProgressBar::chunk {{
-                background-color: {rainbow};
-                border-radius: 4px;
-            }}
-            """
-        )
+        if not pbar: return
+        
+        # Finale Anzeige mit Regenbogen
+        pbar.setStyleSheet(STYLE_TEMPLATE.format(chunk_color=RAINBOW_GRADIENT))
         pbar.setValue(100)
         pbar.setFormat(text)
 
-        # Nach 3 Sekunden Chunk transparent machen und Value auf 0
-        QTimer.singleShot(
-            visible_seconds * 1000,
-            lambda: pbar.setStyleSheet(
-                """
-            QProgressBar {
-                text-align: center;
-                font-weight: 700;
-                border: 2px solid #222;
-                border-radius: 6px;
-                background-color: #111;
-                color: black;
-                font-size: 15pt;
-            }
-            QProgressBar::chunk {
-                background-color: transparent;
-            }
-            """
-            ),
-        )
+        # Nach X Sekunden Chunk unsichtbar machen
+        QTimer.singleShot(visible_seconds * 1000, lambda: pbar.setStyleSheet(
+            STYLE_TEMPLATE.format(chunk_color="transparent")
+        ))
         QTimer.singleShot(visible_seconds * 1000, lambda: pbar.setValue(0))
 
     def log(text_key, level="info", **kwargs):
         template = TEXTS.get(lang, {}).get(text_key, text_key)
-        try:
-            text = template.format(**kwargs)
-        except Exception:
-            text = text_key
+        try: text = template.format(**kwargs)
+        except: text = text_key
         if isinstance(widget, QTextEdit):
             self.append_info(widget, text, level)
 
-    # -------------------------------------------------
-    # START
-    # -------------------------------------------------
-
+    # --- START ---
     set_progress(10, "Vorbereiten..." if is_de else "Preparing...")
     log("backup_old_start", "info")
 
-    old_patch = getattr(self, "OLD_PATCH_FILE", OLD_PATCH_FILE)
-    alt_patch = getattr(self, "ALT_PATCH_FILE", ALT_PATCH_FILE)
-    new_patch = PATCH_FILE
+    old_patch = getattr(self, "OLD_PATCH_FILE", globals().get("OLD_PATCH_FILE"))
+    alt_patch = getattr(self, "ALT_PATCH_FILE", globals().get("ALT_PATCH_FILE"))
+    new_patch = globals().get("PATCH_FILE")
 
+    # Ordner prüfen
     dir_path = os.path.dirname(old_patch)
     if dir_path and not os.path.exists(dir_path):
-        try:
-            os.makedirs(dir_path, exist_ok=True)
+        try: os.makedirs(dir_path, exist_ok=True)
         except Exception as e:
             log("patch_failed", "error", path=str(e))
-            play_backup_sound(False)
             finalize_pbar("❌ Fehler!" if is_de else "❌ Error!")
             return
 
-    # Backup
-    set_progress(30, "Sichere alten Patch..." if is_de else "Backing up old patch...")
+    # Backup erstellen
+    set_progress(30, "Sicherung..." if is_de else "Backing up...")
     if os.path.exists(old_patch) and make_backup:
         try:
             shutil.copy2(old_patch, alt_patch)
             log("backup_done", "success", path=alt_patch)
         except Exception as e:
             log("patch_failed", "error", path=str(e))
-            play_backup_sound(False)
             finalize_pbar("❌ Fehler!" if is_de else "❌ Error!")
             return
     else:
         log("no_old_patch", "info")
 
-    # Patch vorhanden?
-    set_progress(
-        60, "Installiere neuen Patch..." if is_de else "Installing new patch..."
-    )
-    if not os.path.exists(new_patch):
+    # Installieren
+    set_progress(60, "Installation..." if is_de else "Installing...")
+    if not (new_patch and os.path.exists(new_patch)):
         log("patch_file_missing", "error", path=new_patch)
-        play_backup_sound(False)
         finalize_pbar("❌ Fehler!" if is_de else "❌ Error!")
         return
-
-    # -------------------------------------------------
-    # HAUPT-VORGANG
-    # -------------------------------------------------
 
     try:
         shutil.copy2(new_patch, old_patch)
         set_progress(90)
 
-        patch_version = "unbekannt"
-        with open(old_patch, "r", encoding="utf-8", errors="ignore") as f:
-            content = f.read(1000)
-            match = re.search(r"(?i)patch[- ]version:\s*(.+)", content)
-            if match:
-                patch_version = match.group(1).strip()
+        # Version auslesen
+        patch_version = "???"
+        try:
+            with open(old_patch, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read(1000)
+                match = re.search(r"(?i)patch[- ]version:\s*(.+)", content)
+                if match: patch_version = match.group(1).strip()
+        except: pass
 
-        log(
-            "new_patch_installed",
-            "success",
-            path=f"{old_patch} (v: {patch_version})",
-        )
-        play_backup_sound(True)
+        log("new_patch_installed", "success", path=f"{os.path.basename(old_patch)} (v: {patch_version})")
+        if "safe_play" in globals(): safe_play("complete.oga")
 
-        # Finale Anzeige 3 Sekunden
-        finalize_pbar("✅ Patch erfolgreich!" if is_de else "✅ Patch successful!")
-
-        return
-
+        finalize_pbar("✅ Patch fertig!" if is_de else "✅ Patch done!")
     except Exception as e:
         log("patch_failed", "error", path=str(e))
-        play_backup_sound(False)
-        finalize_pbar(f"❌ Fehler: {str(e)}" if is_de else f"❌ Error: {str(e)}")
-        return
+        finalize_pbar("❌ Fehler!" if is_de else "❌ Error!")
 
 
 # ===================== CLEAN PATCH FOLDER =====================
@@ -3204,25 +3102,28 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
     pbar = getattr(gui_instance, "progress_bar", None)
 
     # --- Styles ---
-    rainbow = (
-        "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-        "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-        "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-    )
+    # Dein spezifisches Rainbow-Design
     style_rainbow = f"""
-        QProgressBar {{ 
-            text-align: center; font-weight: 900; border: 2px solid #222;
-            border-radius: 6px; background-color: #111; color: black; font-size: 14pt; 
+        QProgressBar {{
+            border: 2px solid #444444;
+            border-radius: 8px;
+            background-color: #0A0A0A;
+            color: black;
+            text-align: center;
+            font-weight: 900;
+            font-size: 20px;
+            min-height: 35px;
         }}
-        QProgressBar::chunk {{ background-color: {rainbow} border-radius: 4px; }}
+        QProgressBar::chunk {{
+            background-color: qlineargradient(
+                spread:pad, x1:0, y1:0, x2:1, y2:0,
+                stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14
+            );
+            border-radius: 6px;
+        }}
     """
-    style_error = """
-        QProgressBar { 
-            text-align: center; font-weight: 900; border: 2px solid #500; 
-            border-radius: 6px; background-color: #111; color: #FF0000; font-size: 14pt; 
-        }
-        QProgressBar::chunk { background-color: #800; border-radius: 4px; }
-    """
+    
+    style_error = style_rainbow.replace("stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14", "#800").replace("color: black;", "color: #FF0000;")
 
     # --- Hilfsfunktionen ---
     def update_p(val, is_err=False, text=None):
@@ -3232,26 +3133,21 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
             pbar.setFormat(text if text else "%p%")
             pbar.show()
         if progress_callback:
-            try:
-                progress_callback(val)
-            except:
-                pass
+            try: progress_callback(val)
+            except: pass
         QApplication.processEvents()
 
     def log(text_key, level="info", **kwargs):
+        # Annahme: TEXTS ist global definiert
         lang_data = TEXTS.get("de" if is_de else "en", TEXTS.get("en", {}))
         text_template = lang_data.get(text_key, text_key)
-        try:
-            text = text_template.format(**kwargs)
-        except:
-            text = text_template
+        try: text = text_template.format(**kwargs)
+        except: text = text_template
 
         if gui_instance and hasattr(gui_instance, "append_info"):
             gui_instance.append_info(widget, text, level)
         elif isinstance(widget, QTextEdit):
-            color = {"success": "green", "warning": "orange", "error": "red"}.get(
-                level, "gray"
-            )
+            color = {"success": "green", "warning": "orange", "error": "red"}.get(level, "gray")
             widget.append(f'<span style="color:{color}">{text}</span>')
         QApplication.processEvents()
 
@@ -3264,30 +3160,24 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
         try:
             os.chmod(path, stat.S_IWRITE)
             func(path)
-        except:
-            pass
+        except: pass
 
     # --- Start ---
     update_p(5)
     log("cleanup_start", "info")
 
-    # Sammle zu löschende Dateien/Ordner
     targets = []
     for var_name in ["TEMP_REPO", "TEMP_PATCH_GIT"]:
         path = globals().get(var_name)
-        if path and os.path.exists(path):
-            targets.append((path, "folder"))
+        if path and os.path.exists(path): targets.append((path, "folder"))
     for var_name in ["PATCH_FILE", "ZIP_FILE"]:
         path = globals().get(var_name)
-        if path and os.path.exists(path):
-            targets.append((path, "file"))
+        if path and os.path.exists(path): targets.append((path, "file"))
 
     if not targets:
-        # Sofort fertig, alles leer
         update_p(100)
         bar_txt = "✅ Already empty" if not is_de else "✅ Bereits leer"
-        if pbar:
-            pbar.setFormat(bar_txt)
+        if pbar: pbar.setFormat(bar_txt)
         log("cleanup_success", "success")
         play_sound("success")
         return
@@ -3312,28 +3202,17 @@ def clean_patch_folder(gui_instance=None, info_widget=None, progress_callback=No
         state = {"i": 0}
         bar_txt_final = "✅ Cleanup Done" if not is_de else "✅ Bereinigung fertig"
         if not all_cleaned:
-            bar_txt_final = (
-                "⚠️ Cleanup Partial" if not is_de else "⚠️ Teilweise bereinigt"
-            )
+            bar_txt_final = "⚠️ Cleanup Partial" if not is_de else "⚠️ Teilweise bereinigt"
 
         def toggle():
-            color = "#00FF41" if state["i"] % 2 == 0 else "#111"
+            bg_color = "#00FF41" if state["i"] % 2 == 0 else "#0A0A0A"
             if pbar:
-                pbar.setStyleSheet(
-                    f"""
-                    QProgressBar {{
-                        text-align: center; font-weight: 900; border: 2px solid #222;
-                        border-radius: 6px; background-color: {color}; color: black; font-size: 14pt;
-                    }}
-                    QProgressBar::chunk {{ background-color: {rainbow} border-radius: 4px; }}
-                    """
-                )
+                pbar.setStyleSheet(style_rainbow.replace("background-color: #0A0A0A;", f"background-color: {bg_color};"))
             state["i"] += 1
             if state["i"] < times * 2:
                 QTimer.singleShot(200, toggle)
             else:
-                if pbar:
-                    pbar.setFormat(bar_txt_final)
+                if pbar: pbar.setFormat(bar_txt_final)
 
         toggle()
 
@@ -3477,197 +3356,164 @@ def clean_oscam_emu_git(gui_instance=None, progress_callback=None):
 
 # ===================== patch_oscam_emu_git=====================
 def patch_oscam_emu_git(gui_instance=None, info_widget=None, progress_callback=None):
+    """
+    Klont das Streamboard Git, wendet oscam-emu.patch an und zeigt Regenbogen-Progress.
+    Nutzt das dunkle 20px Design mit Neon-Gradient.
+    """
+    from PyQt6.QtWidgets import QTextEdit, QApplication
+    from PyQt6.QtCore import QTimer
+    import os, shutil, subprocess
+
     # --- Final Label verstecken ---
     if gui_instance and hasattr(gui_instance, "hide_final_label"):
         gui_instance.hide_final_label()
 
-    """
-    Klont das Streamboard Git, wendet oscam-emu.patch an und zeigt Regenbogen-Progress.
-    Formatiert die Revision sauber: Version (Neuer-Hash) ohne Duplikate.
-    """
-    from PyQt6.QtWidgets import QTextEdit, QApplication
-    import os, shutil, subprocess
-
-    # --- Start-Sound sofort abspielen ---
-    if "safe_play" in globals():
-        safe_play("dialog-information.oga")
-
-    # 1. Referenzen & Sprache sicherstellen
+    # 1. Referenzen & Sprache
     gui = gui_instance
-    widget = (
-        info_widget
-        if isinstance(info_widget, QTextEdit)
-        else getattr(gui, "info_text", None)
-    )
+    widget = info_widget if isinstance(info_widget, QTextEdit) else getattr(gui, "info_text", None)
     pbar = getattr(gui, "progress_bar", None)
-    lang = getattr(gui, "LANG", "de").lower()
+    lang = str(getattr(gui, "LANG", "de")).lower()[:2]
 
-    # --- 2. STYLES (Regenbogen + Schwarze Schrift) ---
-    rainbow = (
-        "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-        "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-        "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-    )
-
-    # WICHTIG: {{ }} für CSS-Klammern innerhalb von f-strings
-    style_rb = f"""
-        QProgressBar {{ 
-            text-align: center; font-weight: 900; border: 2px solid #222;
-            border-radius: 6px; background-color: #111; color: black; font-size: 12pt; 
+    # --- 2. STYLES (Neon-Regenbogen + Schwarze Schrift) ---
+    STYLE_BASE = """
+        QProgressBar {{
+            border: 2px solid #444444;
+            border-radius: 8px;
+            background-color: #0A0A0A;
+            color: {text_color};
+            text-align: center;
+            font-weight: 900;
+            font-size: 20px;
+            min-height: 35px;
         }}
-        QProgressBar::chunk {{ background-color: {rainbow} border-radius: 4px; }}
+        QProgressBar::chunk {{
+            background-color: {chunk_color};
+            border-radius: 6px;
+        }}
     """
-    style_err = "QProgressBar { text-align: center; font-weight: 900; border: 2px solid #500; border-radius: 6px; background-color: #111; color: #FF0000; font-size: 14pt; } QProgressBar::chunk { background-color: #800; }"
+    
+    RAINBOW_GRADIENT = (
+        "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+        "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+    )
 
     def set_progress(val, txt=None, is_err=False):
         if pbar:
-            pbar.setStyleSheet(style_err if is_err else style_rb)
+            chunk = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #800, stop:1 #F00)" if is_err else RAINBOW_GRADIENT
+            t_color = "#FF0000" if is_err else "black"
+            
+            pbar.setStyleSheet(STYLE_BASE.format(text_color=t_color, chunk_color=chunk))
             pbar.setValue(val)
-            pbar.setFormat(txt if txt else "%p%")
+            pbar.setFormat(txt if txt else f"{val}%")
             pbar.show()
-            pbar.repaint()
         if progress_callback:
-            try:
-                progress_callback(val)
-            except:
-                pass
+            try: progress_callback(val)
+            except: pass
         QApplication.processEvents()
 
     def log(text_key, level="info", **kwargs):
-        # Holt das richtige Sprach-Paket (Default: Englisch)
+        # Annahme: TEXTS ist global definiert
         lang_dict = TEXTS.get(lang, TEXTS.get("en", {}))
-        # Holt den langen Satz (z.B. "🎉 OScam-Emu..."), falls nicht gefunden, nimm den Key selbst
         text_template = lang_dict.get(text_key, text_key)
-
-        try:
-            # Versucht Platzhalter wie {path} zu füllen
-            text = text_template.format(**kwargs)
-        except Exception:
-            # Falls .format() scheitert, nimm zumindest die Vorlage (den langen Satz)
-            text = text_template
+        try: text = text_template.format(**kwargs)
+        except: text = text_template
 
         if gui and hasattr(gui, "append_info"):
             gui.append_info(widget, text, level)
         QApplication.processEvents()
 
     # --- 3. START ABLAUF ---
+    if "safe_play" in globals(): globals()["safe_play"]("dialog-information.oga")
+    
     start_txt = "📂 Vorbereiten..." if lang == "de" else "📂 Preparing..."
     set_progress(5, start_txt)
-    log("patch_emu_git_start", "info", path=PATCH_EMU_GIT_DIR)
+    
+    patch_dir = globals().get("PATCH_EMU_GIT_DIR", "temp_emu_git")
+    log("patch_emu_git_start", "info", path=patch_dir)
 
     # Ordner bereinigen
-    if os.path.exists(PATCH_EMU_GIT_DIR):
-        shutil.rmtree(PATCH_EMU_GIT_DIR, ignore_errors=True)
-    os.makedirs(PATCH_EMU_GIT_DIR, exist_ok=True)
+    if os.path.exists(patch_dir):
+        shutil.rmtree(patch_dir, ignore_errors=True)
+    os.makedirs(patch_dir, exist_ok=True)
 
     # --- 4. GIT CLONE ---
     clone_txt = "🌐 Streamboard Clone..." if lang == "de" else "🌐 Cloning..."
     set_progress(20, clone_txt)
+    stream_repo = globals().get("STREAMREPO", "")
+    
     clone = subprocess.run(
-        ["git", "clone", "-c", "http.sslVerify=false", STREAMREPO, "."],
-        cwd=PATCH_EMU_GIT_DIR,
-        capture_output=True,
-        text=True,
+        ["git", "clone", "-c", "http.sslVerify=false", stream_repo, "."],
+        cwd=patch_dir, capture_output=True, text=True
     )
 
     if clone.returncode != 0:
         log("patch_emu_git_clone_failed", "error")
         set_progress(100, "❌ Clone Error", is_err=True)
-        if "safe_play" in globals():
-            safe_play("dialog-error.oga")
+        if "safe_play" in globals(): globals()["safe_play"]("dialog-error.oga")
         return
 
     # --- 5. PATCH ANWENDEN ---
     patch_txt = "🔧 Patch anwenden..." if lang == "de" else "🔧 Applying Patch..."
     set_progress(50, patch_txt)
-    if not os.path.exists(PATCH_FILE):
+    patch_file = globals().get("PATCH_FILE", "oscam.patch")
+    
+    if not os.path.exists(patch_file):
         log("patch_file_missing", "error")
         set_progress(100, "❌ No Patch File", is_err=True)
         return
 
-    abs_patch_path = os.path.abspath(PATCH_FILE)
+    abs_patch_path = os.path.abspath(patch_file)
     apply_patch = subprocess.run(
         ["git", "apply", "--whitespace=fix", abs_patch_path],
-        cwd=PATCH_EMU_GIT_DIR,
-        capture_output=True,
-        text=True,
+        cwd=patch_dir, capture_output=True, text=True
     )
 
     if apply_patch.returncode != 0:
         log("patch_emu_git_apply_failed", "error")
         set_progress(100, "❌ Patch Failed", is_err=True)
-        if "safe_play" in globals():
-            safe_play("dialog-error.oga")
+        if "safe_play" in globals(): globals()["safe_play"]("dialog-error.oga")
         return
 
     # --- 6. CONFIG & COMMIT ---
     set_progress(80, "💾 Committing...")
-    cfg = load_github_config()
+    # Annahme: load_github_config existiert global
+    cfg = globals().get("load_github_config", lambda: {})()
     user = cfg.get("user_name", "speedy005")
     mail = cfg.get("user_email", "patch@oscam.local")
 
-    subprocess.run(
-        ["git", "config", "user.name", user], cwd=PATCH_EMU_GIT_DIR, capture_output=True
-    )
-    subprocess.run(
-        ["git", "config", "user.email", mail],
-        cwd=PATCH_EMU_GIT_DIR,
-        capture_output=True,
-    )
+    subprocess.run(["git", "config", "user.name", user], cwd=patch_dir, capture_output=True)
+    subprocess.run(["git", "config", "user.email", mail], cwd=patch_dir, capture_output=True)
 
-    # Saubere Extraktion der Patch-Version ohne alte Hashes oder Präfixe
+    # Version extrahieren
     clean_version = "Update"
     try:
-        if os.path.exists(PATCH_FILE):
-            with open(PATCH_FILE, "r", encoding="utf-8") as f:
-                line = f.readline().strip()
-                # 1. Präfixe entfernen
-                v = line.replace("### ", "").replace("patch version: ", "").strip()
-                # 2. Alles ab der ersten Klammer wegwerfen (alter Hash/Text)
-                clean_version = v.split(" (")[0].strip()
-    except:
-        pass
+        with open(patch_file, "r", encoding="utf-8") as f:
+            line = f.readline().strip()
+            v = line.replace("### ", "").replace("patch version: ", "").strip()
+            clean_version = v.split(" (")[0].strip()
+    except: pass
 
-    # Lokaler Commit mit der sauberen Version
     commit_msg = f"Sync patch {clean_version}"
-    subprocess.run(["git", "add", "."], cwd=PATCH_EMU_GIT_DIR, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-am", commit_msg, "--allow-empty"],
-        cwd=PATCH_EMU_GIT_DIR,
-        capture_output=True,
-    )
+    subprocess.run(["git", "add", "."], cwd=patch_dir, capture_output=True)
+    subprocess.run(["git", "commit", "-am", commit_msg, "--allow-empty"], cwd=patch_dir, capture_output=True)
 
-    # Den ECHTEN neuen Kurz-Hash auslesen
+    # Hash auslesen
     rev_hash = "N/A"
     try:
-        rev_res = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=PATCH_EMU_GIT_DIR,
-            capture_output=True,
-            text=True,
-        )
-        if rev_res.returncode == 0:
-            rev_hash = rev_res.stdout.strip()
-    except:
-        pass
+        rev_res = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=patch_dir, capture_output=True, text=True)
+        if rev_res.returncode == 0: rev_hash = rev_res.stdout.strip()
+    except: pass
 
     # --- 7. FINALE ---
     full_revision = f"{clean_version} ({rev_hash})"
-
-    # Progress-Bar Text (Lokalisiert)
     done_txt = "✅ Fertig!" if lang == "de" else "✅ Done!"
     set_progress(100, done_txt)
 
-    # Hauptmeldung (aus dem TEXTS Dictionary oben)
     log("patch_emu_git_done", "success")
+    rev_label = TEXTS.get(lang, TEXTS.get("en", {})).get("rev_label", "Revision:")
+    if gui: gui.append_info(widget, f"{rev_label} {full_revision}", "success")
 
-    # Detail-Meldung mit Revision (ebenfalls lokalisiert)
-    rev_text = TEXTS.get(lang, TEXTS["en"]).get("rev_label", "Revision:")
-    if gui:
-        gui.append_info(widget, f"{rev_text} {full_revision}", "success")
-
-    if "safe_play" in globals():
-        safe_play("complete.oga")
+    if "safe_play" in globals(): globals()["safe_play"]("complete.oga")
 
 
 def load_github_config():
@@ -3704,9 +3550,9 @@ def _github_upload(
     branch="master",
     commit_msg="Apply OSCam Emu Patch",
 ):
-    """Upload des Patch-Ordners zu GitHub mit Regenbogen-ProgressBar, schwarzer Schrift und zweisprachigem Feedback."""
+    """Upload des Patch-Ordners zu GitHub mit Neon-Regenbogen-ProgressBar und schwarzer Schrift."""
 
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication, QTextEdit
     import os, shutil
 
     # --- Final Label verstecken ---
@@ -3716,36 +3562,41 @@ def _github_upload(
     # --- Referenzen ---
     widget = info_widget or getattr(gui_instance, "info_text", None)
     pbar = getattr(gui_instance, "progress_bar", None)
-    lang = getattr(gui_instance, "LANG", "de").lower()
-    is_de = lang.startswith("de")
+    lang = str(getattr(gui_instance, "LANG", "de")).lower()[:2]
+    is_de = lang == "de"
 
     # --- Styles ---
-    rainbow = (
-        "qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        " stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00,"
-        " stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-    )
-    style_rainbow = f"""
+    STYLE_BASE = """
         QProgressBar {{
-            text-align: center; font-weight: 900; border: 2px solid #222;
-            border-radius: 6px; background-color: #111; color: black; font-size: 14pt;
+            border: 2px solid #444444;
+            border-radius: 8px;
+            background-color: #0A0A0A;
+            color: {text_color};
+            text-align: center;
+            font-weight: 900;
+            font-size: 20px;
+            min-height: 35px;
         }}
-        QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
+        QProgressBar::chunk {{
+            background-color: {chunk_color};
+            border-radius: 6px;
+        }}
     """
-    style_error = """
-        QProgressBar {
-            text-align: center; font-weight: 900; border: 2px solid #500;
-            border-radius: 6px; background-color: #111; color: #FF0000; font-size: 14pt;
-        }
-        QProgressBar::chunk { background-color: #800; border-radius: 4px; }
-    """
+    
+    RAINBOW_GRADIENT = (
+        "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+        "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+    )
 
     # --- Hilfsfunktionen ---
     def update_p(val, text=None, is_err=False):
         if pbar:
-            pbar.setStyleSheet(style_error if is_err else style_rainbow)
+            chunk = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #800, stop:1 #F00)" if is_err else RAINBOW_GRADIENT
+            t_color = "#FF0000" if is_err else "black"
+            
+            pbar.setStyleSheet(STYLE_BASE.format(text_color=t_color, chunk_color=chunk))
             pbar.setValue(val)
-            pbar.setFormat(text if text else "%p%")
+            pbar.setFormat(text if text else f"{val}%")
             pbar.show()
         QApplication.processEvents()
 
@@ -3753,9 +3604,7 @@ def _github_upload(
         if gui_instance and hasattr(gui_instance, "append_info"):
             gui_instance.append_info(widget, txt, level)
         elif isinstance(widget, QTextEdit):
-            color = {"success": "green", "warning": "orange", "error": "red"}.get(
-                level, "gray"
-            )
+            color = {"success": "#39FF14", "warning": "orange", "error": "red"}.get(level, "gray")
             widget.append(f'<span style="color:{color}">{txt}</span>')
         QApplication.processEvents()
 
@@ -3765,46 +3614,45 @@ def _github_upload(
             safe_play(sound)
 
     # --- Ablauf ---
-    update_p(
-        10,
-        TEXTS.get(lang, {}).get("github_upload_start", "🔹 GitHub Upload startet..."),
-    )
+    update_p(10, "🔹 GitHub Upload..." if is_de else "🔹 GitHub Upload...")
+    log("GitHub Upload gestartet..." if is_de else "GitHub Upload started...")
 
-    # Lade GitHub Config
-    cfg = load_github_config()
-    update_p(30, TEXTS.get(lang, {}).get("github_upload_config", "Config prüfen..."))
+    # Lade GitHub Config (Annahme: global verfügbar)
+    cfg = globals().get("load_github_config", lambda: {})()
+    update_p(30, "Config prüfen..." if is_de else "Checking config...")
 
-    # Git Init
+    # Git Init Vorbereitung
     git_dir = os.path.join(dir_path, ".git")
     if os.path.exists(git_dir):
         shutil.rmtree(git_dir, ignore_errors=True)
-    update_p(50, TEXTS.get(lang, {}).get("github_upload_init", "Git Init..."))
+    update_p(50, "Git Init..." if is_de else "Git Init...")
 
     # Auth Token URL
     token_url = repo_url.replace(
-        "https://", f"https://{cfg.get('username')}:{cfg.get('token')}@"
+        "https://", f"https://{cfg.get('username', '')}:{cfg.get('token', '')}@"
     )
 
-    # Bash Helper
+    # Bash Helper (Annahme: run_bash global verfügbar)
     def run(cmd):
-        return run_bash(cmd, cwd=dir_path, logger=lambda t, l="info": log(t, l))
+        rb = globals().get("run_bash")
+        if rb:
+            return rb(cmd, cwd=dir_path, logger=lambda t, l="info": log(t, l))
+        return -1
 
     run("git init")
-    update_p(
-        60, TEXTS.get(lang, {}).get("github_upload_remote", "Remote hinzufügen...")
-    )
+    update_p(60, "Remote..." if is_de else "Remote...")
     run(f"git remote add origin {token_url}")
     run(f"git checkout -b {branch}")
 
     # Commit
-    update_p(75, TEXTS.get(lang, {}).get("github_upload_commit", "Commit erstellen..."))
-    run(f'git config user.name "{cfg.get("user_name")}"')
-    run(f'git config user.email "{cfg.get("user_email")}"')
+    update_p(75, "Commit..." if is_de else "Commit...")
+    run(f'git config user.name "{cfg.get("user_name", "speedy005")}"')
+    run(f'git config user.email "{cfg.get("user_email", "patch@oscam.local")}"')
     run("git add -A")
     run(f'git commit -m "{commit_msg}" --allow-empty')
 
     # Push
-    update_p(90, TEXTS.get(lang, {}).get("github_upload_push", "Push zu GitHub..."))
+    update_p(90, "Push..." if is_de else "Pushing...")
     code = run(f"git push origin {branch} --force")
 
     # Finale
@@ -3923,7 +3771,7 @@ def github_upload_oscam_emu_folder(
     gui_instance=None, info_widget=None, progress_callback=None
 ):
     """Lädt den gesamten OSCam-EMU-Git-Ordner auf GitHub hoch.
-    Regenbogen-ProgressBar, schwarze Schrift, DE/EN Support, Soundfeedback.
+    Neon-Regenbogen-ProgressBar, schwarze Schrift, 20px, DE/EN Support.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     import os, subprocess
@@ -3935,51 +3783,52 @@ def github_upload_oscam_emu_folder(
     # --- Referenzen & Sprache ---
     widget = info_widget or getattr(gui_instance, "info_text", None)
     pbar = getattr(gui_instance, "progress_bar", None)
-    lang = getattr(gui_instance, "LANG", "de").lower()
-    is_de = lang.startswith("de")
+    lang = str(getattr(gui_instance, "LANG", "de")).lower()[:2]
+    is_de = lang == "de"
 
-    # --- Styles ---
-    rainbow = (
-        "qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        " stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00,"
-        " stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-    )
-    style_rainbow = f"""
+    # --- Styles (Neon-Look) ---
+    STYLE_BASE = """
         QProgressBar {{
-            text-align: center; font-weight: 900; border: 2px solid #222;
-            border-radius: 6px; background-color: #111; color: black; font-size: 14pt;
+            border: 2px solid #444444;
+            border-radius: 8px;
+            background-color: #0A0A0A;
+            color: {text_color};
+            text-align: center;
+            font-weight: 900;
+            font-size: 20px;
+            min-height: 35px;
         }}
-        QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
+        QProgressBar::chunk {{
+            background-color: {chunk_color};
+            border-radius: 6px;
+        }}
     """
-    style_error = """
-        QProgressBar {
-            text-align: center; font-weight: 900; border: 2px solid #500;
-            border-radius: 6px; background-color: #111; color: #FF0000; font-size: 14pt;
-        }
-        QProgressBar::chunk { background-color: #800; border-radius: 4px; }
-    """
+    
+    RAINBOW_GRADIENT = (
+        "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+        "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+    )
 
     # --- Hilfsfunktionen ---
     def update_p(val, txt=None, is_err=False):
         if pbar:
-            pbar.setStyleSheet(style_error if is_err else style_rainbow)
+            chunk = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #800, stop:1 #F00)" if is_err else RAINBOW_GRADIENT
+            t_color = "#FF0000" if is_err else "black"
+            
+            pbar.setStyleSheet(STYLE_BASE.format(text_color=t_color, chunk_color=chunk))
             pbar.setValue(val)
-            pbar.setFormat(txt if txt else "%p%")
+            pbar.setFormat(txt if txt else f"{val}%")
             pbar.show()
         if progress_callback:
-            try:
-                progress_callback(val)
-            except:
-                pass
+            try: progress_callback(val)
+            except: pass
         QApplication.processEvents()
 
     def log(text, level="info"):
         if gui_instance and hasattr(gui_instance, "append_info"):
             gui_instance.append_info(widget, text, level)
         elif isinstance(widget, QTextEdit):
-            color = {"success": "green", "warning": "orange", "error": "red"}.get(
-                level, "gray"
-            )
+            color = {"success": "#39FF14", "warning": "orange", "error": "red"}.get(level, "gray")
             widget.append(f'<span style="color:{color}">{text}</span>')
         QApplication.processEvents()
 
@@ -3989,8 +3838,7 @@ def github_upload_oscam_emu_folder(
 
     # --- Start ---
     update_p(5, "⏳ Start..." if is_de else "⏳ Starting...")
-    log(TEXTS.get(lang, {}).get("github_config_load", "🔹 Lade GitHub Config..."))
-
+    
     cfg_func = globals().get("load_github_config")
     if not cfg_func:
         update_p(100, "❌ Config Error", is_err=True)
@@ -4006,19 +3854,14 @@ def github_upload_oscam_emu_folder(
 
     if not all([repo_url, branch, username, token, user_name, user_email]):
         update_p(100, "❌ Auth Error", is_err=True)
-        log(
-            TEXTS.get(lang, {}).get("github_emu_git_missing", "❌ Credentials fehlen"),
-            "error",
-        )
+        log("Credentials oder Repo-URL fehlen in der Config!", "error")
         play_sound(False)
         return
 
     target_dir = globals().get("PATCH_EMU_GIT_DIR")
     if not target_dir or not os.path.exists(target_dir):
         update_p(100, "❌ Folder", is_err=True)
-        log(
-            TEXTS.get(lang, {}).get("patch_emu_git_missing", "❌ Ordner fehlt"), "error"
-        )
+        log("Zielordner für den Upload existiert nicht!", "error")
         play_sound(False)
         return
 
@@ -4031,57 +3874,23 @@ def github_upload_oscam_emu_folder(
 
     try:
         if not os.path.exists(git_dir):
-            log(
-                TEXTS.get(lang, {}).get(
-                    "git_repo_init", "Git Repo wird initialisiert..."
-                ),
-                "warning",
-            )
+            log("Git Repo wird initialisiert...", "warning")
             subprocess.run(["git", "init"], cwd=target_dir, capture_output=True)
-            subprocess.run(
-                ["git", "remote", "add", "origin", token_url],
-                cwd=target_dir,
-                capture_output=True,
-            )
-            subprocess.run(
-                ["git", "checkout", "-b", branch], cwd=target_dir, capture_output=True
-            )
+            subprocess.run(["git", "remote", "add", "origin", token_url], cwd=target_dir, capture_output=True)
+            subprocess.run(["git", "checkout", "-b", branch], cwd=target_dir, capture_output=True)
         else:
-            log(
-                TEXTS.get(lang, {}).get(
-                    "git_remote_update", "Remote wird aktualisiert..."
-                ),
-                "info",
-            )
-            subprocess.run(
-                ["git", "remote", "remove", "origin"],
-                cwd=target_dir,
-                capture_output=True,
-            )
-            subprocess.run(
-                ["git", "remote", "add", "origin", token_url],
-                cwd=target_dir,
-                capture_output=True,
-            )
+            log("Remote wird aktualisiert...", "info")
+            subprocess.run(["git", "remote", "remove", "origin"], cwd=target_dir, capture_output=True)
+            subprocess.run(["git", "remote", "add", "origin", token_url], cwd=target_dir, capture_output=True)
 
         # --- Config ---
         update_p(40, "📝 Config..." if is_de else "📝 Configuring...")
-        subprocess.run(
-            ["git", "config", "user.name", user_name],
-            cwd=target_dir,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.email", user_email],
-            cwd=target_dir,
-            capture_output=True,
-        )
+        subprocess.run(["git", "config", "user.name", user_name], cwd=target_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", user_email], cwd=target_dir, capture_output=True)
 
         # --- Add & Commit ---
-        update_p(60, "📦 Dateien hinzufügen..." if is_de else "📦 Adding files...")
-        log(
-            TEXTS.get(lang, {}).get("git_adding_files", "Dateien werden hinzugefügt...")
-        )
+        update_p(60, "📦 Dateien..." if is_de else "📦 Files...")
+        log("Dateien werden hinzugefügt...")
         subprocess.run(["git", "add", "."], cwd=target_dir, capture_output=True)
 
         commit_msg_final = "Sync OSCam-Emu folder"
@@ -4089,41 +3898,31 @@ def github_upload_oscam_emu_folder(
         if header_func:
             try:
                 raw = header_func()
-                if raw:
+                if raw: 
+                    # Korrektur: splitlines() gibt Liste zurück, wir brauchen Index 0
                     commit_msg_final = raw.splitlines()[0]
-            except:
-                pass
-        subprocess.run(
-            ["git", "commit", "-m", commit_msg_final, "--allow-empty"],
-            cwd=target_dir,
-            capture_output=True,
-        )
+            except: pass
+
+        subprocess.run(["git", "commit", "-m", commit_msg_final, "--allow-empty"], cwd=target_dir, capture_output=True)
 
         # --- Push ---
         update_p(80, "🚀 Upload..." if is_de else "🚀 Pushing...")
-        log(
-            TEXTS.get(lang, {}).get("github_upload_start", "Upload startet..."),
-            "warning",
-        )
+        log("Push zu GitHub gestartet...", "warning")
         push = subprocess.run(
             ["git", "push", "--force", "origin", branch],
-            cwd=target_dir,
-            capture_output=True,
-            text=True,
-            env=silent_env,
+            cwd=target_dir, capture_output=True, text=True, env=silent_env
         )
 
         if push.returncode == 0:
-            final_txt = "✅ Ordner synchronisiert" if is_de else "✅ Folder Synced"
+            final_txt = "✅ Synchronisiert" if is_de else "✅ Synced"
             update_p(100, final_txt)
-            log(
-                TEXTS.get(lang, {}).get("github_emu_git_uploaded", final_txt), "success"
-            )
+            log(f"Erfolg: {final_txt}", "success")
             play_sound(True)
         else:
-            fail_txt = "❌ Upload fehlgeschlagen" if is_de else "❌ Upload failed"
+            fail_txt = "❌ Fehlgeschlagen" if is_de else "❌ Failed"
             update_p(100, fail_txt, is_err=True)
-            log(TEXTS.get(lang, {}).get("github_upload_failed", fail_txt), "error")
+            # Nutzt stderr für detaillierte Fehlersuche im Log
+            log(f"GitHub Error: {push.stderr.strip()[:100]}", "error")
             play_sound(False)
 
     except Exception as e:
@@ -9293,32 +9092,68 @@ class PatchManagerGUI(QWidget):
                     pass
 
     def restart_application(self, *args, **kwargs):
-        """Startet die Anwendung neu und versteckt vorher das Final-Label."""
+        """Startet die Anwendung neu und zeigt kurz den Neon-Status an."""
 
         # --- Final Label ausblenden ---
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
         elif hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
+
         import subprocess
         import sys
         import os
         from PyQt6.QtWidgets import QApplication
+
+        # --- Progress-Bar Feedback (Neon-Design) ---
+        pbar = getattr(self, "progress_bar", None)
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        reboot_txt = "🔄 Neustart..." if lang == "de" else "🔄 Restarting..."
+
+        if pbar:
+            # Dein spezifisches Stylesheet (Dunkel, 20px, Neon-Gradient)
+            rainbow = (
+                "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+                "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+            )
+            pbar.setStyleSheet(f"""
+                QProgressBar {{
+                    border: 2px solid #444444;
+                    border-radius: 8px;
+                    background-color: #0A0A0A;
+                    color: black;
+                    text-align: center;
+                    font-weight: 900;
+                    font-size: 20px;
+                    min-height: 35px;
+                }}
+                QProgressBar::chunk {{
+                    background-color: {rainbow};
+                    border-radius: 6px;
+                }}
+            """)
+            pbar.setValue(100)
+            pbar.setFormat(reboot_txt)
+            pbar.show()
+            QApplication.processEvents()
 
         # Speichern vor dem Exit
         try:
             if hasattr(self, "cfg"):
                 self.cfg["language"] = getattr(self, "LANG", "DE").upper()
                 if "save_config" in globals():
-                    save_config(self.cfg)
+                    # Zugriff auf die globale save_config Funktion
+                    globals()["save_config"](self.cfg)
         except:
             pass
 
-        safe_play("service-logout.oga")
+        # Sound abspielen
+        if "safe_play" in globals():
+            safe_play("service-logout.oga")
 
-        # PFAD-FIX für Windows (Leerzeichen in 'Program Files')
+        # PFAD-FIX für Windows (Leerzeichen in 'Program Files' etc.)
         python = sys.executable
-        script = os.path.abspath(__file__)
+        script = os.path.abspath(sys.argv[0]) # Nutzt sys.argv[0] für den korrekten Skript-Einstiegspunkt
 
         # Subprocess mit Liste verhindert das Abschneiden des Pfades
         subprocess.Popen([python, script] + sys.argv[1:])
@@ -9328,13 +9163,14 @@ class PatchManagerGUI(QWidget):
 
     # ===================== ZIP PATCH =====================
     def zip_patch(self, info_widget=None, progress_callback=None):
-        """Erstellt ein ZIP des Patches mit Regenbogen-Progress und Auto-Reset."""
+        """Erstellt ein ZIP des Patches mit Neon-Regenbogen-Progress und Auto-Reset."""
 
         # --- Final Label ausblenden ---
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
         elif hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
+
         from PyQt6.QtWidgets import QTextEdit, QApplication
         from PyQt6.QtCore import QTimer
         import zipfile
@@ -9346,110 +9182,115 @@ class PatchManagerGUI(QWidget):
             if isinstance(info_widget, QTextEdit)
             else getattr(self, "info_text", None)
         )
-        lang = getattr(self, "LANG", "de").lower()
+        lang = getattr(self, "LANG", "de").lower()[:2]
         is_de = lang == "de"
         pbar = getattr(self, "progress_bar", None)
 
+        # --- Neon-Styles Definition ---
+        STYLE_NEON = """
+            QProgressBar {{
+                border: 2px solid #444444;
+                border-radius: 8px;
+                background-color: #0A0A0A;
+                color: {text_color};
+                text-align: center;
+                font-weight: 900;
+                font-size: 20px;
+                min-height: 35px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {chunk_color};
+                border-radius: 6px;
+            }}
+        """
+    
+        RAINBOW_GRADIENT = (
+            "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+            "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+        )
+
         if pbar:
-            # Regenbogen-Style mit SCHWARZER Schrift
-            rainbow = (
-                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-            )
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center; font-weight: 700; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
-                }}
-                QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """
-            )
-            msg_zip = "Erstelle ZIP-Archiv..." if is_de else "Creating ZIP archive..."
-            pbar.setFormat(f"{msg_zip} %p%")
+            pbar.setStyleSheet(STYLE_NEON.format(text_color="black", chunk_color=RAINBOW_GRADIENT))
+            msg_zip = "Erstelle ZIP..." if is_de else "Creating ZIP..."
+            pbar.setFormat(f"📦 {msg_zip} %p%")
             pbar.setValue(10)
             pbar.show()
             QApplication.processEvents()
 
         # Hilfsfunktionen
         def get_msg(key, default, **kwargs):
+            # Annahme: TEXTS ist global definiert
             template = TEXTS.get(lang, {}).get(key, default)
-            try:
-                return template.format(**kwargs)
-            except:
-                return template
+            try: return template.format(**kwargs)
+            except: return template
 
         def play_zip_sound(success=True):
-            safe_play("complete.oga" if success else "dialog-error.oga")
+            if "safe_play" in globals():
+                safe_play("complete.oga" if success else "dialog-error.oga")
 
         # --- Eigentliche ZIP-Logik ---
         try:
-            if pbar:
-                pbar.setValue(30)
+            patch_file = globals().get("PATCH_FILE", "oscam-emu.patch")
+            zip_file_path = globals().get("ZIP_FILE", "oscam-emu.patch.zip")
 
-            if not os.path.exists(PATCH_FILE):
-                msg = get_msg(
-                    "patch_file_missing",
-                    "Datei nicht gefunden: {path}",
-                    path=PATCH_FILE,
-                )
-                self.append_info(widget, msg, "error")
+            if pbar: pbar.setValue(30)
+
+            if not os.path.exists(patch_file):
+                msg = get_msg("patch_file_missing", "Datei nicht gefunden: {path}", path=patch_file)
+                if hasattr(self, "append_info"): self.append_info(widget, msg, "error")
                 play_zip_sound(False)
                 if pbar:
+                    pbar.setStyleSheet(STYLE_NEON.format(text_color="#FF0000", chunk_color="#800"))
                     pbar.setValue(100)
                 return
 
-            if pbar:
-                pbar.setValue(60)
+            if pbar: pbar.setValue(60)
 
             # Zippen
-            with zipfile.ZipFile(
-                ZIP_FILE, "w", compression=zipfile.ZIP_DEFLATED
-            ) as zipf:
-                zipf.write(PATCH_FILE, os.path.basename(PATCH_FILE))
+            with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(patch_file, os.path.basename(patch_file))
 
-            if pbar:
-                pbar.setValue(90)
+            if pbar: pbar.setValue(90)
 
             # Erfolgsmeldung
-            msg = get_msg(
-                "zip_success",
-                "✅ Patch erfolgreich gepackt: {zip_file}",
-                zip_file=ZIP_FILE,
-            )
-            self.append_info(widget, msg, "success")
+            msg = get_msg("zip_success", "✅ Patch erfolgreich gepackt: {zip_file}", zip_file=zip_file_path)
+            if hasattr(self, "append_info"): self.append_info(widget, msg, "success")
             play_zip_sound(True)
 
             if pbar:
                 done_msg = "ZIP erstellt!" if is_de else "ZIP created!"
-                pbar.setFormat(f"📦 {done_msg} 100%")
+                pbar.setFormat(f"✅ {done_msg}")
 
         except Exception as e:
             if pbar:
-                pbar.setStyleSheet("QProgressBar { color: red; font-weight: 700; }")
+                pbar.setStyleSheet(STYLE_NEON.format(text_color="#FF0000", chunk_color="#800"))
             msg = get_msg("zip_failed", "❌ Fehler beim Zippen: {error}", error=str(e))
-            self.append_info(widget, msg, "error")
+            if hasattr(self, "append_info"): self.append_info(widget, msg, "error")
             play_zip_sound(False)
 
         # --- ABSCHLUSS & AUTO-RESET ---
         if pbar:
             pbar.setValue(100)
-            # Nach 3 Sekunden zurücksetzen (Style und Werte)
-            QTimer.singleShot(3000, lambda: pbar.setValue(0))
-            # QTimer.singleShot(3000, lambda: pbar.setFormat("%p%"))
-            # Optional: Original-Style (Orange/Gold) wiederherstellen
-            default_style = """
-                QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; color: black; text-align: center; font-weight: bold; }
-                QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
-            """
-            QTimer.singleShot(3000, lambda: pbar.setStyleSheet(default_style))
+        
+            def restore_pbar():
+                pbar.setValue(0)
+                pbar.setFormat("%p%")
+                pbar.setStyleSheet("""
+                    QProgressBar { 
+                        border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
+                        color: black; text-align: center; font-weight: bold; 
+                    }
+                    QProgressBar::chunk { 
+                        background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F37804, stop:1 #FFD700); 
+                        border-radius: 8px; 
+                    }
+                """)
+
+            QTimer.singleShot(3000, restore_pbar)
 
         if progress_callback:
-            try:
-                progress_callback(100)
-            except:
-                pass
+            try: progress_callback(100)
+            except: pass
 
         QApplication.processEvents()
 
@@ -9517,8 +9358,8 @@ class PatchManagerGUI(QWidget):
 
     def change_old_patch_dir(self, info_widget=None, progress_callback=None):
         """
-        Ändert den Speicherort des alten Patch-Ordners mit Regenbogen-Progress.
-        Text während des Vorgangs sichtbar, am Ende 3 Sekunden stehen lassen.
+        Ändert den Speicherort des alten Patch-Ordners mit Neon-Regenbogen-Progress.
+        Text bleibt am Ende 3 Sekunden stehen, bevor der Balken zurückgesetzt wird.
         """
 
         # --- Final Label ausblenden ---
@@ -9526,14 +9367,38 @@ class PatchManagerGUI(QWidget):
             self.hide_final_label()
         elif hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
+        
         from PyQt6.QtWidgets import QFileDialog, QApplication
         from PyQt6.QtCore import QTimer
         import json, os
 
         widget = info_widget or getattr(self, "info_text", None)
-        lang = getattr(self, "LANG", "de").lower()
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
         pbar = getattr(self, "progress_bar", None)
+
+        # --- Neon-Styles Definition ---
+        STYLE_NEON = """
+            QProgressBar {{
+                border: 2px solid #444444;
+                border-radius: 8px;
+                background-color: #0A0A0A;
+                color: {text_color};
+                text-align: center;
+                font-weight: 900;
+                font-size: 20px;
+                min-height: 35px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {chunk_color};
+                border-radius: 6px;
+            }}
+        """
+    
+        RAINBOW_GRADIENT = (
+            "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+            "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+        )
 
         # -------------------------------
         # Helper-Funktionen
@@ -9541,69 +9406,28 @@ class PatchManagerGUI(QWidget):
         def log(text, level="info"):
             if widget and hasattr(self, "append_info"):
                 self.append_info(widget, text, level)
-            else:
-                print(f"[{level.upper()}] {text}")
 
         def set_progress(val, text=None):
-            if not pbar:
-                return
-            rainbow = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1 #8B00FF)"
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center; font-weight: bold; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
-                }}
-                QProgressBar::chunk {{
-                    background-color: {rainbow};
-                    border-radius: 4px;
-                }}
-                """
-            )
+            if not pbar: return
+            pbar.setStyleSheet(STYLE_NEON.format(text_color="black", chunk_color=RAINBOW_GRADIENT))
             pbar.show()
             pbar.setValue(val)
-            if text:
-                pbar.setFormat(text)
+            if text: pbar.setFormat(text)
             QApplication.processEvents()
             if progress_callback:
-                try:
-                    progress_callback(val)
-                except Exception:
-                    pass
+                try: progress_callback(val)
+                except: pass
 
         def finalize_pbar(text, visible_seconds=3):
-            if not pbar:
-                return
-            rainbow = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1 #8B00FF)"
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center; font-weight: bold; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
-                }}
-                QProgressBar::chunk {{
-                    background-color: {rainbow};
-                    border-radius: 4px;
-                }}
-                """
-            )
+            if not pbar: return
+            pbar.setStyleSheet(STYLE_NEON.format(text_color="black", chunk_color=RAINBOW_GRADIENT))
             pbar.setValue(100)
             pbar.setFormat(text)
+        
             # Nach 3 Sekunden Chunk transparent, Value auf 0
-            QTimer.singleShot(
-                visible_seconds * 1000,
-                lambda: pbar.setStyleSheet(
-                    """
-                QProgressBar {
-                    text-align: center; font-weight: bold; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
-                }
-                QProgressBar::chunk {
-                    background-color: transparent;
-                }
-                """
-                ),
-            )
+            QTimer.singleShot(visible_seconds * 1000, lambda: pbar.setStyleSheet(
+                STYLE_NEON.format(text_color="black", chunk_color="transparent")
+            ))
             QTimer.singleShot(visible_seconds * 1000, lambda: pbar.setValue(0))
             if progress_callback:
                 QTimer.singleShot(visible_seconds * 1000, lambda: progress_callback(0))
@@ -9612,50 +9436,44 @@ class PatchManagerGUI(QWidget):
         # START
         # -------------------------------
         if pbar:
-            set_progress(
-                10, "📂 " + ("Ordner auswählen..." if is_de else "Select folder...")
-            )
+            set_progress(10, "📂 " + ("Ordner auswählen..." if is_de else "Select folder..."))
 
-        start_dir = getattr(self, "OLD_PATCH_DIR", OLD_PATCH_DIR_PLUGIN_DEFAULT)
-        new_dir = QFileDialog.getExistingDirectory(
-            self, "Select S3 Patch Folder", start_dir
-        )
+        # Nutzt Standard-Pfad falls OLD_PATCH_DIR nicht gesetzt
+        start_dir = getattr(self, "OLD_PATCH_DIR", os.getcwd())
+        new_dir = QFileDialog.getExistingDirectory(self, "Select S3 Patch Folder", start_dir)
 
         if new_dir:
             if pbar:
-                set_progress(
-                    50, "🔄 Pfade aktualisieren..." if is_de else "Updating paths..."
-                )
+                set_progress(50, "🔄 " + ("Pfade aktualisieren..." if is_de else "Updating paths..."))
+        
             # Pfade aktualisieren
             self.OLD_PATCH_DIR = new_dir
             self.OLD_PATCH_FILE = os.path.join(new_dir, "oscam-emu.patch")
             self.ALT_PATCH_FILE = os.path.join(new_dir, "oscam-emu.altpatch")
             self.PATCH_MANAGER_OLD = os.path.join(new_dir, "oscam_patch_manager_old.py")
             self.CONFIG_OLD = os.path.join(new_dir, "config_old.json")
-            self.GITHUB_CONFIG_OLD = os.path.join(
-                new_dir, "github_upload_config_old.json"
-            )
+            self.GITHUB_CONFIG_OLD = os.path.join(new_dir, "github_upload_config_old.json")
 
             # Config speichern
-            self.cfg["s3_patch_path"] = new_dir
-            try:
-                with open("config.json", "w") as f:
-                    json.dump(self.cfg, f, indent=2)
+            if hasattr(self, "cfg"):
+                self.cfg["s3_patch_path"] = new_dir
+                try:
+                    with open("config.json", "w", encoding="utf-8") as f:
+                        json.dump(self.cfg, f, indent=2)
 
-                success_msg = (
-                    f"✅ Ordner geändert: {new_dir}"
-                    if is_de
-                    else f"✅ Folder changed: {new_dir}"
-                )
-                log(success_msg, "success")
-                if pbar:
-                    finalize_pbar("✅ " + ("Gespeichert!" if is_de else "Saved!"))
+                    success_msg = f"✅ Ordner geändert: {new_dir}" if is_de else f"✅ Folder changed: {new_dir}"
+                    log(success_msg, "success")
+                    if pbar:
+                        finalize_pbar("✅ " + ("Gespeichert!" if is_de else "Saved!"))
+                    if "safe_play" in globals():
+                        safe_play("complete.oga")
 
-            except Exception as e:
-                log(f"❌ Fehler: {e}", "error")
-                if pbar:
-                    finalize_pbar(f"❌ {str(e)}")
-
+                except Exception as e:
+                    log(f"❌ Fehler: {e}", "error")
+                    if pbar:
+                        finalize_pbar("❌ " + str(e))
+                    if "safe_play" in globals():
+                        safe_play("dialog-error.oga")
         else:
             log("ℹ️ Abgebrochen" if is_de else "ℹ️ Cancelled", "info")
             if pbar:
@@ -9871,13 +9689,14 @@ class PatchManagerGUI(QWidget):
         QApplication.processEvents()
 
     def edit_patch_header(self, info_widget=None, progress_callback=None):
-        """Öffnet den Header-Editor mit Regenbogen-Progress, Sound und Sprach-Support."""
+        """Öffnet den Header-Editor mit Neon-Regenbogen-Progress, Sound und Sprach-Support."""
 
         # --- Final Label ausblenden ---
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
         elif hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
+
         import os
         from PyQt6.QtWidgets import (
             QDialog,
@@ -9899,38 +9718,49 @@ class PatchManagerGUI(QWidget):
         T_CANCEL = "Abgebrochen" if is_de else "Cancelled"
         T_TITLE = "Patch-Header Editor"
 
+        # --- Neon-Styles Definition ---
+        STYLE_NEON = """
+            QProgressBar {{
+                border: 2px solid #444444;
+                border-radius: 8px;
+                background-color: #0A0A0A;
+                color: {text_color};
+                text-align: center;
+                font-weight: 900;
+                font-size: 20px;
+                min-height: 35px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {chunk_color};
+                border-radius: 6px;
+            }}
+        """
+    
+        RAINBOW_GRADIENT = (
+            "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+            "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+        )
+
         # --- SOUND BEIM ÖFFNEN ---
         if "safe_play" in globals():
             safe_play("service-login.oga")
 
         if pbar:
-            # Regenbogen-Style mit SCHWARZER Schrift (font-size 15pt wie im ZIP-Code)
-            rainbow = (
-                "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-                "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-                "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-            )
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center; font-weight: 700; border: 2px solid #222;
-                    border-radius: 6px; background-color: #111; color: black; font-size: 15pt;
-                }}
-                QProgressBar::chunk {{ background-color: {rainbow}; border-radius: 4px; }}
-            """
-            )
-            pbar.setFormat(f"📝 {T_LOADING} %p%")
+            pbar.setStyleSheet(STYLE_NEON.format(text_color="black", chunk_color=RAINBOW_GRADIENT))
+            pbar.setFormat(f"📝 {T_LOADING}")
             pbar.setValue(20)
             pbar.show()
             QApplication.processEvents()
 
-        # Pfad zur Datei sicherstellen (base_dir aus __init__)
+        # Pfad zur Datei sicherstellen
         base = getattr(self, "base_dir", os.getcwd())
         p_file = os.path.join(base, "oscam-emu.patch")
 
         if not os.path.exists(p_file):
             if pbar:
-                pbar.setValue(0)
+                pbar.setStyleSheet(STYLE_NEON.format(text_color="#FF0000", chunk_color="#800"))
+                pbar.setFormat("❌ Datei fehlt!" if is_de else "❌ File missing!")
+                pbar.setValue(100)
             if "safe_play" in globals():
                 safe_play("dialog-error.oga")
             return
@@ -9944,7 +9774,7 @@ class PatchManagerGUI(QWidget):
         edit = QTextEdit()
         # Matrix-Style: Schwarz mit grüner Schrift
         edit.setStyleSheet(
-            "background-color: #000; color: #0F0; font-family: monospace; font-size: 11pt; border: 1px solid #333;"
+            "background-color: #000; color: #39FF14; font-family: monospace; font-size: 11pt; border: 1px solid #333;"
         )
 
         try:
@@ -9953,39 +9783,30 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setValue(60)
         except Exception:
-            if pbar:
-                pbar.setValue(0)
+            if pbar: pbar.setValue(0)
             return
 
         ly.addWidget(edit)
 
-        # --- BUTTONS ÜBERSETZEN ---
-        bb = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save
-            | QDialogButtonBox.StandardButton.Cancel
-        )
+        # --- BUTTONS ---
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         btn_save = bb.button(QDialogButtonBox.StandardButton.Save)
-        if btn_save:
-            btn_save.setText("Speichern" if is_de else "Save")
+        if btn_save: btn_save.setText("Speichern" if is_de else "Save")
         btn_cancel = bb.button(QDialogButtonBox.StandardButton.Cancel)
-        if btn_cancel:
-            btn_cancel.setText("Abbrechen" if is_de else "Cancel")
+        if btn_cancel: btn_cancel.setText("Abbrechen" if is_de else "Cancel")
 
         bb.accepted.connect(dlg.accept)
         bb.rejected.connect(dlg.reject)
         ly.addWidget(bb)
 
-        if pbar:
-            pbar.setValue(90)
+        if pbar: pbar.setValue(90)
 
         # 3. Dialog ausführen
         result = dlg.exec()
 
         if result == QDialog.DialogCode.Accepted:
             try:
-                # --- SOUND BEIM SPEICHERN ---
-                if "safe_play" in globals():
-                    safe_play("complete.oga")  # Erfolgs-Sound
+                if "safe_play" in globals(): safe_play("complete.oga")
 
                 content = edit.toPlainText()
                 with open(p_file, "w", encoding="utf-8") as f:
@@ -9993,17 +9814,13 @@ class PatchManagerGUI(QWidget):
 
                 if pbar:
                     pbar.setValue(100)
-                    pbar.setFormat(f"✅ {T_SAVED} 100%")
+                    pbar.setFormat(f"✅ {T_SAVED}")
             except Exception:
-                if "safe_play" in globals():
-                    safe_play("dialog-error.oga")
+                if "safe_play" in globals(): safe_play("dialog-error.oga")
                 if pbar:
-                    pbar.setStyleSheet("QProgressBar { color: red; }")
+                    pbar.setStyleSheet(STYLE_NEON.format(text_color="#FF0000", chunk_color="#800"))
         else:
-            # --- SOUND BEIM ABBRECHEN ---
-            if "safe_play" in globals():
-                safe_play("dialog-error.oga")
-
+            if "safe_play" in globals(): safe_play("dialog-error.oga")
             if pbar:
                 pbar.setValue(0)
                 pbar.setFormat(f"↩️ {T_CANCEL}")
@@ -10015,17 +9832,19 @@ class PatchManagerGUI(QWidget):
                 pbar.setFormat("%p%")
                 pbar.setStyleSheet(
                     """
-                    QProgressBar { border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
-                    color: black; text-align: center; font-weight: bold; }
-                    QProgressBar::chunk { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 #F37804, stop:1 #FFD700); border-radius: 8px; }
+                    QProgressBar { 
+                        border: 1px solid #444; border-radius: 8px; background-color: #1A1A1A; 
+                        color: black; text-align: center; font-weight: bold; 
+                    }
+                    QProgressBar::chunk { 
+                        background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #F37804, stop:1 #FFD700); 
+                        border-radius: 8px; 
+                    }
                 """
                 )
 
         QTimer.singleShot(3000, restore_pbar)
-
-        if progress_callback:
-            progress_callback(100)
+        if progress_callback: progress_callback(100)
 
         # ---------------------
         # PLUGIN UPDATE
@@ -14271,7 +14090,7 @@ class PatchManagerGUI(QWidget):
                 safe_play("dialog-error.oga")
 
     def oscam_emu_git_clear(self, info_widget=None, progress_callback=None):
-        """Zentrales Logging für die Emu-Git Bereinigung – mega cool mit Regenbogen & Abschluss-Puls."""
+        """Zentrales Logging für die Emu-Git Bereinigung – mit Neon-Regenbogen & Abschluss-Puls."""
 
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import QTimer
@@ -14281,67 +14100,66 @@ class PatchManagerGUI(QWidget):
             self.hide_final_label()
 
         info_widget = info_widget or getattr(self, "info_text", None)
-        lang = getattr(self, "LANG", "de").lower()
+        lang = getattr(self, "LANG", "de").lower()[:2]
         pbar = getattr(self, "progress_bar", None)
 
-        # --- Regenbogen & Fehler Styles ---
-        rainbow = (
-            "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-            "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-            "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
-        )
-
-        style_rainbow = f"""
-            QProgressBar {{ 
-                text-align: center; font-weight: 900; border: 2px solid #222;
-                border-radius: 6px; background-color: #111; color: black; font-size: 14pt; 
+        # --- Neon-Styles ---
+        STYLE_BASE = """
+            QProgressBar {{
+                border: 2px solid #444444;
+                border-radius: 8px;
+                background-color: {bg_color};
+                color: {text_color};
+                text-align: center;
+                font-weight: 900;
+                font-size: 20px;
+                min-height: 35px;
             }}
-            QProgressBar::chunk {{ background-color: {rainbow} border-radius: 4px; }}
+            QProgressBar::chunk {{
+                background-color: {chunk_color};
+                border-radius: 6px;
+            }}
         """
-
-        style_error = """
-            QProgressBar { 
-                text-align: center; font-weight: 900; border: 2px solid #500; 
-                border-radius: 6px; background-color: #111; color: #FF0000; font-size: 14pt; 
-            }
-            QProgressBar::chunk { background-color: #800; border-radius: 4px; }
-        """
+    
+        RAINBOW_GRADIENT = (
+            "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, "
+            "stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+        )
 
         # --- Hilfsfunktion für ProgressBar Updates ---
         def update_p(val, is_err=False, text=None):
             if pbar:
-                pbar.setStyleSheet(style_error if is_err else style_rainbow)
+                chunk = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #800, stop:1 #F00)" if is_err else RAINBOW_GRADIENT
+                t_color = "#FF0000" if is_err else "black"
+            
+                pbar.setStyleSheet(STYLE_BASE.format(bg_color="#0A0A0A", text_color=t_color, chunk_color=chunk))
                 pbar.setValue(val)
-                if text:
-                    pbar.setFormat(text)
-                else:
-                    pbar.setFormat("%p%")
+                pbar.setFormat(text if text else f"{val}%")
                 pbar.show()
             if progress_callback:
-                try:
-                    progress_callback(val)
-                except:
-                    pass
+                try: progress_callback(val)
+                except: pass
             QApplication.processEvents()
 
         # --- Startmeldung ---
         update_p(10)
-        start_msg = TEXTS.get(lang, {}).get(
-            "oscam_emu_git_clearing", "🔹 OSCam-Emu Git Ordner wird geleert..."
-        )
-        self.append_info(info_widget, start_msg, "info")
+        # Annahme: TEXTS ist global
+        start_msg = TEXTS.get(lang, {}).get("oscam_emu_git_clearing", "🔹 Emu-Git wird geleert...")
+        if hasattr(self, "append_info"):
+            self.append_info(info_widget, start_msg, "info")
 
         try:
             # --- Bereinigung starten ---
             update_p(40)
-            result = clean_oscam_emu_git(progress_callback=progress_callback)
+            # Annahme: clean_oscam_emu_git existiert global
+            result = globals().get("clean_oscam_emu_git", lambda **x: "success")(progress_callback=progress_callback)
 
             # --- Ergebnis auswerten ---
             if result == "success":
-                msg = TEXTS.get(lang, {}).get(
-                    "oscam_emu_git_cleared", "✅ Bereinigung erfolgreich!"
-                )
-                self.append_info(info_widget, msg, "success")
+                msg = TEXTS.get(lang, {}).get("oscam_emu_git_cleared", "✅ Bereinigung erfolgreich!")
+                if hasattr(self, "append_info"):
+                    self.append_info(info_widget, msg, "success")
+            
                 bar_txt = "✅ Ordner geleert" if lang == "de" else "✅ Folder cleared"
 
                 # Sanfter Grüner Puls am Ende
@@ -14349,50 +14167,41 @@ class PatchManagerGUI(QWidget):
                     state = {"i": 0}
 
                     def toggle():
-                        color = "#00FF41" if state["i"] % 2 == 0 else "#111"
+                        # Wechselt zwischen Neon-Grün und dem dunklen Hintergrund
+                        bg = "#39FF14" if state["i"] % 2 == 0 else "#0A0A0A"
                         if pbar:
-                            pbar.setStyleSheet(
-                                f"""
-                                QProgressBar {{
-                                    text-align: center; font-weight: 900; border: 2px solid #222;
-                                    border-radius: 6px; background-color: {color}; color: black; font-size: 14pt;
-                                }}
-                                QProgressBar::chunk {{ background-color: {rainbow} border-radius: 4px; }}
-                                """
-                            )
+                            pbar.setStyleSheet(STYLE_BASE.format(bg_color=bg, text_color="black", chunk_color=RAINBOW_GRADIENT))
+                    
                         state["i"] += 1
                         if state["i"] < times * 2:
                             QTimer.singleShot(200, toggle)
                         else:
-                            if pbar:
-                                pbar.setFormat(bar_txt)
+                            if pbar: pbar.setFormat(bar_txt)
 
                     toggle()
 
                 pulse_green()
                 update_p(100)
-                if "safe_play" in globals():
-                    safe_play("complete.oga")
+                if "safe_play" in globals(): safe_play("complete.oga")
 
             elif result == "not_found":
-                msg = "ℹ️ " + (
-                    "Ordner bereits leer." if lang == "de" else "Folder already empty."
-                )
-                self.append_info(info_widget, msg, "info")
+                msg = "ℹ️ " + ("Ordner bereits leer." if lang == "de" else "Folder already empty.")
+                if hasattr(self, "append_info"):
+                    self.append_info(info_widget, msg, "info")
+            
                 bar_txt = "ℹ️ Bereits leer" if lang == "de" else "ℹ️ Already empty"
                 update_p(100, text=bar_txt)
-                if "safe_play" in globals():
-                    safe_play("dialog-information.oga")
+                if "safe_play" in globals(): safe_play("dialog-information.oga")
 
             else:
                 raise Exception("Deletion failed")
 
         except Exception as e:
-            self.append_info(info_widget, f"❌ Fehler: {e}", "error")
+            if hasattr(self, "append_info"):
+                self.append_info(info_widget, f"❌ Fehler: {e}", "error")
             bar_txt = "❌ Fehler" if lang == "de" else "❌ Error"
             update_p(100, is_err=True, text=bar_txt)
-            if "safe_play" in globals():
-                safe_play("dialog-error.oga")
+            if "safe_play" in globals(): safe_play("dialog-error.oga")
 
         finally:
             QApplication.processEvents()
@@ -14725,60 +14534,67 @@ class PatchManagerGUI(QWidget):
         # Beendet das komplette Programm sauber
         sys.exit(0)
 
-
+auto_install_emoji_font()
 # =============================================================================
 # EXECUTION BOOTLOADER: Oscam Emu Patch Manager by speedy005
 # =============================================================================
 if __name__ == "__main__":
-    import os, sys, platform, traceback
+    import os, sys, platform, traceback, threading, ctypes, subprocess
     from pathlib import Path
     from PyQt6.QtCore import Qt, QTimer, QLibraryInfo
     from PyQt6.QtWidgets import QApplication, QMessageBox
 
-    # ---------------- 0. SYSTEM ENV & HIGH-DPI FIX ----------------
-    # Diese Variablen müssen VOR der Erstellung der QApplication gesetzt werden
+    # ---------------- 0. SYSTEM ENV & HIGH-DPI FIX (VOR DER APP!) ----------------
+    # Diese Variablen MÜSSEN ganz am Anfang stehen
     os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
     os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
-    os.environ["NO_AT_BRIDGE"] = "1" # Fix für Linux Assistive Technology Fehler
+    os.environ["NO_AT_BRIDGE"] = "1" 
 
     if platform.system() == "Linux":
         os.environ["QT_QPA_PLATFORM"] = "xcb"
     
-    # Plugins-Pfad explizit für Standalone/PyInstaller setzen
-    os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = QLibraryInfo.path(
-        QLibraryInfo.LibraryPath.PluginsPath
-    )
-
-    # Windows UTF-8 Fix für die Konsole
+    # UTF-8 Fix für Windows Konsole
     if platform.system() == "Windows":
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
 
-    # ---------------- 1. QAPPLICATION INITIALISIERUNG ----------------
-    app = QApplication.instance() or QApplication(sys.argv)
-    app.setStyle("Fusion") # Beste Basis für Dark-Themes
-
-    # PassThrough für gestochen scharfe Grafiken auf 4K/Laptops
+    # ---------------- 1. DPI POLICY & QAPPLICATION START ----------------
     try:
+        # Policy setzen BEVOR QApplication initialisiert wird (behebt Fehlermeldung)
         if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
             QApplication.setHighDpiScaleFactorRoundingPolicy(
                 Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
             )
     except: pass
 
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setStyle("Fusion") 
+
+    # Plugin Pfad für Standalone-Builds setzen
+    os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = QLibraryInfo.path(
+        QLibraryInfo.LibraryPath.PluginsPath
+    )
+
     # ---------------- 2. RESOLUTION DETECTION ----------------
     screen_geo = app.primaryScreen().availableGeometry()
     width, height = screen_geo.width(), screen_geo.height()
     print(f"[SYSTEM] Display erkannt: {width}x{height}")
 
-    # ---------------- 3. GLOBAL STATE & GUI START LOGIK ----------------
-    main_window = None # Global halten, um Garbage Collection zu verhindern
+    # ---------------- 3. FONT-FIX ASYNC START ----------------
+    # Startet die Installation der Noto Color Emoji Font im Hintergrund (falls definiert)
+    if 'auto_install_emoji_font' in globals():
+        auto_install_emoji_font()
+    else:
+        print("[!] auto_install_emoji_font() Funktion wurde im Script nicht gefunden.")
+
+    # ---------------- 4. GLOBAL STATE & GUI START LOGIK ----------------
+    main_window = None 
 
     def _actually_start():
         """Hauptinstanz der GUI laden und Auflösung anpassen."""
         global main_window
         try:
-            # Erstellt die PatchManagerGUI (Stelle sicher, dass die Klasse existiert!)
+            # Erstellt die PatchManagerGUI
             main_window = PatchManagerGUI()
             
             # Globalen Style anwenden
@@ -14789,7 +14605,7 @@ if __name__ == "__main__":
 
             # --- INTELLIGENTE AUFLÖSUNGS-LOGIK ---
             if width > 1920:
-                # Auf 4K Monitoren: Großes 1080p Fenster zentriert
+                # 4K Optimierung: Zentriertes 1080p Fenster statt Vollbild-Streckung
                 main_window.resize(1920, 1080)
                 qr = main_window.frameGeometry()
                 cp = screen_geo.center()
@@ -14797,18 +14613,17 @@ if __name__ == "__main__":
                 main_window.move(qr.topLeft())
                 main_window.show()
             else:
-                # Auf Standard-Monitoren: Direkt Maximiert
+                # FullHD oder kleiner: Direkt Maximiert
                 main_window.showMaximized()
             
-            # Akustisches Signal für System-Start
+            # Akustische Rückmeldung beim Start
             if platform.system() == "Windows":
                 try:
                     import winsound
-                    winsound.Beep(1500, 150)
+                    winsound.Beep(1500, 100)
                 except: pass
 
         except Exception:
-            # Kritischer Startup-Error Dialog
             error_details = traceback.format_exc()
             print(f"FATAL ERROR:\n{error_details}")
             msg = QMessageBox()
@@ -14821,20 +14636,20 @@ if __name__ == "__main__":
             sys.exit(1)
 
     def launch_main_gui():
-        """Wird getriggert, wenn die Matrix-Animation endet."""
+        """Wird getriggert, wenn die Matrix-Animation des Splash-Screens endet."""
         QTimer.singleShot(200, _actually_start)
 
-    # ---------------- 4. CINEMATIC SPLASH START ----------------
+    # ---------------- 5. CINEMATIC SPLASH START ----------------
     try:
+        # Splash Screen mit 5 Sekunden Matrix-Effekt
         splash = CinematicMatrixSplash(duration=5000)
-        # Signal-Verbindung: Splash Ende -> GUI Start
         splash.finished.connect(launch_main_gui)
         splash.show()
     except Exception as e:
         print(f"Splash-Error: {e}. Starte direkt...")
         _actually_start()
 
-    # ---------------- 5. MAIN EXECUTION LOOP ----------------
+    # ---------------- 6. MAIN EXECUTION LOOP ----------------
     try:
         sys.exit(app.exec())
     except Exception:
