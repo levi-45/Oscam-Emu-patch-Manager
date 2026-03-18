@@ -2494,7 +2494,7 @@ def load_config(gui_instance=None):
             gui_instance.current_config = cfg
 
             # Buttons direkt auf gespeicherte Höhe setzen
-            button_height = getattr(gui_instance, "BUTTON_HEIGHT", 50)
+            button_height = getattr(gui_instance, "BUTTON_HEIGHT", 40)
             if hasattr(gui_instance, "all_buttons"):
                 for btn in gui_instance.all_buttons:
                     btn.setFixedHeight(button_height)
@@ -4431,91 +4431,55 @@ def verify_tools(tools):
         except:
             print(f"[!] {t} kritischer Fehler!"); winsound.Beep(500, 200)
 
-# =============================================================================
-# 2. CINEMATIC MATRIX SPLASH (Cyberpunk UI)
-# =============================================================================
-import os, sys, platform, subprocess, locale, importlib.util, threading, shutil, ctypes, random, winreg, winsound, traceback
-from pathlib import Path
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, 
-                             QProgressBar, QMessageBox, QMainWindow, QTextEdit)
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QLibraryInfo
+# Splash intro
+import os, threading, random, time, platform, subprocess
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QProgressBar
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QPainter, QColor
 
-# =============================================================================
-# 1. CYBER STYLE CONFIG (speedy005 Design)
-# =============================================================================
-# Dieser Style sorgt für den Neon-Matrix-Look im gesamten Hauptprogramm.
+# Windows-spezifischer Sound-Import
+if platform.system() == "Windows":
+    import winsound
+
+# --- DESIGN-KONSTANTE ---
 CYBER_STYLE = """
-QMainWindow, QDialog { 
-    background-color: #050505; 
-    color: #00FF41; 
-}
-QLabel { 
-    color: #00FF41; 
-    font-family: 'Consolas'; 
-    font-weight: bold; 
-}
-QLineEdit, QTextEdit { 
-    background-color: #0A0A0A; 
-    border: 1px solid #008800; 
-    border-radius: 2px; 
-    color: #00FF41; 
-    padding: 5px; 
-    font-family: 'Consolas';
-}
-QPushButton { 
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #003300, stop:1 #001100);
-    border: 1px solid #00FF41; 
-    color: #00FF41; 
-    padding: 8px; 
-    font-weight: bold; 
-    text-transform: uppercase;
-}
-QPushButton:hover { 
-    background-color: #004400; 
-    color: white; 
-    border: 1px solid white; 
-}
-QProgressBar { 
-    border: 1px solid #00FF41; 
-    background: #111; 
-    text-align: center; 
-    color: white; 
-    height: 12px; 
-}
-QProgressBar::chunk { 
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #005500, stop:1 #00FF41); 
-}
+QMainWindow, QWidget#MainWin { background-color: #050505; color: #00FF41; font-family: 'Consolas', 'Courier New', monospace; }
+QProgressBar { border: 1px solid #00FF41; background-color: #001100; text-align: center; height: 4px; }
+QProgressBar::chunk { background-color: #00FF41; }
 """
+
 class CinematicMatrixSplash(QWidget):
-    """
-    High-End Cyberpunk Splash Screen für den OSCam Emu Patch Manager.
-    Design & Logic by speedy005.
-    """
     finished = pyqtSignal()
 
-    def __init__(self, duration=4500):
+    def __init__(self, duration=5000):
         super().__init__()
-        self.is_closing = False  
+        self.is_closing = False
+        self.os_type = platform.system()
         
-        self.setWindowFlags(
-            Qt.WindowType.SplashScreen | 
-            Qt.WindowType.FramelessWindowHint | 
-            Qt.WindowType.WindowStaysOnTopHint
-        )
+        # --- UI SETUP ---
+        self.setWindowFlags(Qt.WindowType.SplashScreen | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(1000, 600)
+        self.resize(1000, 650)
 
+        # LOGO (Cyber-Hex Edition)
         self.logo_text = [
-            " ██████╗ ███████╗ ██████╗ █████╗ ███╗   ███╗",
-            "██╔═══██╗██╔════╝██╔════╝██╔══██╗████╗ ████║",
-            "██║   ██║███████╗██║     ███████║██╔████╔██║",
-            "██║   ██║╚════██║██║     ██╔══██║██║╚██╔╝██║",
-            "╚██████╔╝███████║╚██████╗██║  ██║██║ ╚═╝ ██║",
-            " ╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝",
-            "   >> OSCAM EMU PATCH MANAGER by speedy005 <<  "
+            r" ◢◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥◣ ",
+            r" █  _______  _______  _______  _______  __   __             █ ",
+            r" █ |       ||       ||   _   ||       ||  |_|  |            █ ",
+            r" █ |   _   ||  _____||  |_|  ||       ||       |            █ ",
+            r" █ |  | |  || |_____ |       ||       ||       |            █ ",
+            r" █ |  |_|  ||_____  ||       ||      _||       |            █ ",
+            r" █ |       | _____| ||   _   ||     |_ | ||_|| |            █ ",
+            r" █ |_______||_______||__| |__||_______||_|   |_|            █ ",
+            r" █                                                          █ ",
+            r" █─────────── [ SYSTEM: NEURAL_LINK OPERATIONAL ] ──────────█ ",
+            r" █            >> OSCAM EMU PATCH MANAGER v4.0 <<            █ ",
+            r" █            >> CODENAME: SPEEDY_LEGACY   <<            █ ",
+            r" ◥◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢◤ ",
+            r"    [ STATUS: INJECTING PATCHES... 100% SUCCESS ]             "
         ]
 
+        # Matrix Regen Setup
         self.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+=-"
         self.columns = self.width() // 15
         self.drops = [random.randint(-50, 0) for _ in range(self.columns)]
@@ -4524,7 +4488,7 @@ class CinematicMatrixSplash(QWidget):
         layout.addStretch(1)
         
         self.lbl_logo = QLabel("\n".join(self.logo_text))
-        self.lbl_logo.setFont(QFont("Courier New", 11, QFont.Weight.Bold))
+        self.lbl_logo.setFont(QFont("Consolas", 10, QFont.Weight.Bold))
         self.lbl_logo.setStyleSheet("color: #00FF41; background: transparent;")
         self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_logo)
@@ -4532,79 +4496,65 @@ class CinematicMatrixSplash(QWidget):
         layout.addStretch(1)
 
         self.pbar = QProgressBar()
-        self.pbar.setFixedSize(600, 2)
+        self.pbar.setFixedSize(600, 4)
         self.pbar.setTextVisible(False)
-        self.pbar.setStyleSheet("""
-            QProgressBar { border: none; background: rgba(0,20,0,100); }
-            QProgressBar::chunk { background: #00FF41; }
-        """)
+        self.pbar.setStyleSheet("QProgressBar { border: none; background: rgba(0,20,0,100); } QProgressBar::chunk { background: #00FF41; }")
         layout.addWidget(self.pbar, 0, Qt.AlignmentFlag.AlignCenter)
-        layout.addSpacing(30)
+        layout.addSpacing(40)
 
-        self.timer_draw = QTimer(self)
-        self.timer_draw.timeout.connect(self.update)
-        self.timer_draw.start(35) 
-
-        self.timer_glitch = QTimer(self)
-        self.timer_glitch.timeout.connect(self.glitch_effect)
-        self.timer_glitch.start(150) 
+        # Timers
+        self.timer_draw = QTimer(self); self.timer_draw.timeout.connect(self.update); self.timer_draw.start(35)
+        self.timer_glitch = QTimer(self); self.timer_glitch.timeout.connect(self.glitch_effect); self.timer_glitch.start(120)
         
         self.prog = 0
-        self.timer_prog = QTimer(self)
-        self.timer_prog.timeout.connect(self.update_progress)
-        self.timer_prog.start(duration // 100)
+        self.timer_prog = QTimer(self); self.timer_prog.timeout.connect(self.upd_prog); self.timer_prog.start(duration // 100)
 
+        self.play_sys_sound("start")
         QTimer.singleShot(duration, self.finish_anim)
 
+    def play_sys_sound(self, trigger):
+        """Plattformunabhängige Sounds ohne externe Dateien."""
+        def run():
+            try:
+                if self.os_type == "Windows":
+                    if trigger == "glitch": winsound.Beep(random.randint(1200, 2500), 15)
+                    elif trigger == "start": winsound.Beep(600, 80); winsound.Beep(1200, 100)
+                    elif trigger == "end": winsound.MessageBeep(winsound.MB_OK)
+                else: # Linux
+                    if trigger == "glitch": print('\a', end='', flush=True)
+                    elif trigger == "end": subprocess.run(["paplay", "/usr/share/sounds/freedesktop/stereo/complete.oga"], stderr=subprocess.DEVNULL)
+            except: pass
+        threading.Thread(target=run, daemon=True).start()
+
     def paintEvent(self, event):
-        p = QPainter(self)
-        p.fillRect(self.rect(), QColor(0, 0, 0, 230)) 
-        p.setFont(QFont("Consolas", 9))
+        p = QPainter(self); p.fillRect(self.rect(), QColor(0, 0, 0, 240))
+        p.setFont(QFont("Consolas", 8))
         for i in range(len(self.drops)):
             char = random.choice(self.chars)
             x, y = i * 15, self.drops[i] * 15
-            p.setPen(QColor(140, 255, 140) if random.random() > 0.9 else QColor(0, 100, 0, 150))
+            p.setPen(QColor(0, 255, 65, 180) if random.random() > 0.9 else QColor(0, 80, 0, 120))
             p.drawText(x, y, char)
-            if y > self.height() or (y > 0 and random.random() > 0.98):
-                self.drops[i] = 0
+            if y > self.height() or random.random() > 0.98: self.drops[i] = 0
             self.drops[i] += 1
-        p.setPen(QColor(0, 255, 0, 15))
-        for i in range(0, self.height(), 3):
-            p.drawLine(0, i, self.width(), i)
 
     def glitch_effect(self):
         if self.is_closing: return
-        if random.random() > 0.85:
-            self.lbl_logo.setStyleSheet(f"color: {random.choice(['#FFFFFF', '#FF0000', '#00FF41'])};")
-            self.lbl_logo.setContentsMargins(random.randint(-3, 3), 0, 0, 0)
-            try: winsound.Beep(random.randint(1000, 2500), 20)
-            except: pass
+        if random.random() > 0.92:
+            self.lbl_logo.setStyleSheet(f"color: {random.choice(['#00FF41', '#00FFFF', '#FFFFFF'])}; margin-left: {random.randint(-3,3)}px;")
+            self.play_sys_sound("glitch")
         else:
-            self.lbl_logo.setStyleSheet("color: #00FF41;")
-            self.lbl_logo.setContentsMargins(0, 0, 0, 0)
+            self.lbl_logo.setStyleSheet("color: #00FF41; margin-left: 0px;")
 
-    # DIESE METHODE HAT GEFEHLT:
-    def update_progress(self):
-        """Aktualisiert den Ladebalken."""
+    def upd_prog(self):
         self.prog += 1
-        if self.prog <= 100:
-            self.pbar.setValue(self.prog)
+        if self.prog <= 100: self.pbar.setValue(self.prog)
 
-    # DIESE METHODE HAT GEFEHLT:
     def finish_anim(self):
-        """Beendet alle Prozesse und schließt den Splash sauber."""
         self.is_closing = True
-        self.timer_glitch.stop()
-        self.timer_draw.stop()
-        self.timer_prog.stop()
+        self.play_sys_sound("end")
+        QTimer.singleShot(400, lambda: [self.finished.emit(), self.close()])
 
-        try:
-            winsound.Beep(2000, 150)
-        except: pass
-
-        self.finished.emit() # Signal an Hauptprogramm senden
-        self.close()
-
+    
     # ---------------- Matrix Update ----------------
     def matrix_update(self):
         for col in range(self.cols):
@@ -11313,10 +11263,10 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         # 1. Grundwerte & Hauptlayout
         # ---------------------------------------------------------
-        self.UI_BUTTON_H = 50
-        self.UI_BADGE_H = 50
-        self.UI_PROGRESS_H = 50
-        self.UI_STATUS_H = 50
+        self.UI_BUTTON_H = 40
+        self.UI_BADGE_H = 40
+        self.UI_PROGRESS_H = 540
+        self.UI_STATUS_H = 40
         self.UI_RADIUS = 10
 
         B_HEIGHT = self.UI_BUTTON_H
@@ -14776,114 +14726,117 @@ class PatchManagerGUI(QWidget):
         sys.exit(0)
 
 
-# ===================== __main__ =====================
 # =============================================================================
 # EXECUTION BOOTLOADER: Oscam Emu Patch Manager by speedy005
 # =============================================================================
 if __name__ == "__main__":
-    import os, sys, platform, traceback, shutil
+    import os, sys, platform, traceback
     from pathlib import Path
+    from PyQt6.QtCore import Qt, QTimer, QLibraryInfo
+    from PyQt6.QtWidgets import QApplication, QMessageBox
 
-    # ---------------- 0. QT PLATFORM & ENV FIXES ----------------
-    os.environ["NO_AT_BRIDGE"] = "1"
-    try:
-        from PyQt6.QtCore import QLibraryInfo, Qt, QTimer
-        from PyQt6.QtWidgets import QApplication, QMessageBox
+    # ---------------- 0. SYSTEM ENV & HIGH-DPI FIX ----------------
+    # Diese Variablen müssen VOR der Erstellung der QApplication gesetzt werden
+    os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
+    os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
+    os.environ["NO_AT_BRIDGE"] = "1" # Fix für Linux Assistive Technology Fehler
 
-        if platform.system() == "Linux":
-            os.environ["QT_QPA_PLATFORM"] = "xcb"
-        
-        # Plugins-Pfad explizit setzen für Standalone-Betrieb
-        os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = QLibraryInfo.path(
-            QLibraryInfo.LibraryPath.PluginsPath
-        )
-    except Exception as e:
-        print(f"QT Initialisierungs-Fehler: {e}")
+    if platform.system() == "Linux":
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
+    
+    # Plugins-Pfad explizit für Standalone/PyInstaller setzen
+    os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = QLibraryInfo.path(
+        QLibraryInfo.LibraryPath.PluginsPath
+    )
 
-    # ---------------- 1. WINDOWS PATH & ENCODING HEILUNG ----------------
+    # Windows UTF-8 Fix für die Konsole
     if platform.system() == "Windows":
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
-        
-        # Heilt PATH für Git, Patch und Hashcat vor dem ersten Tool-Check
-        try:
-            fix_windows_path()
-        except Exception as e:
-            print(f"Path-Fix Error: {e}")
 
-    # ---------------- 2. HIGH DPI & STYLE POLICY ----------------
+    # ---------------- 1. QAPPLICATION INITIALISIERUNG ----------------
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setStyle("Fusion") # Beste Basis für Dark-Themes
+
+    # PassThrough für gestochen scharfe Grafiken auf 4K/Laptops
     try:
-        # PassThrough für gestochen scharfe Matrix-Animation auf 4K/Laptops
         if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
             QApplication.setHighDpiScaleFactorRoundingPolicy(
                 Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
             )
-    except Exception as e:
-        print(f"DPI Policy Error: {e}")
+    except: pass
 
-    # ---------------- 3. QAPPLICATION INITIALISIERUNG ----------------
-    app = QApplication.instance() or QApplication(sys.argv)
-    # Fusion ist die beste Basis für Dark-Themes
-    app.setStyle("Fusion") 
+    # ---------------- 2. RESOLUTION DETECTION ----------------
+    screen_geo = app.primaryScreen().availableGeometry()
+    width, height = screen_geo.width(), screen_geo.height()
+    print(f"[SYSTEM] Display erkannt: {width}x{height}")
 
-    # ---------------- 4. DEPENDENCIES CHECK ----------------
-    try:
-        # Prüft Python-Pakete und System-Tools
-        ensure_dependencies()
-    except Exception as e:
-        print(f"Dependency-Check Error: {e}")
-
-    # ---------------- 5. CINEMATIC SPLASH START ----------------
-    # High-Tech Splash Screen initialisieren
-    splash = CinematicMatrixSplash(duration=5000)
-    
-    # ---------------- 6. GUI START LOGIK (Der Übergang) ----------------
-    main_window = None
-
-    def launch_main_gui():
-        """Wird aufgerufen, wenn die Matrix-Animation endet."""
-        # 200ms Delay für sauberen Sound-Abschluss und visuelles Fade-Out
-        QTimer.singleShot(200, _actually_start)
+    # ---------------- 3. GLOBAL STATE & GUI START LOGIK ----------------
+    main_window = None # Global halten, um Garbage Collection zu verhindern
 
     def _actually_start():
+        """Hauptinstanz der GUI laden und Auflösung anpassen."""
         global main_window
         try:
-            # Hauptinstanz erstellen
+            # Erstellt die PatchManagerGUI (Stelle sicher, dass die Klasse existiert!)
             main_window = PatchManagerGUI()
             
-            # Globalen Cyber-Style von speedy005 anwenden
-            main_window.setStyleSheet(CYBER_STYLE)
+            # Globalen Style anwenden
+            if 'CYBER_STYLE' in globals():
+                main_window.setStyleSheet(CYBER_STYLE)
             
-            # Branding & Show
-            main_window.setWindowTitle("OSCam Emu Patch Manager v3.0 - by speedy005")
-            main_window.showMaximized()
+            main_window.setWindowTitle("OSCam Emu Patch Manager v4.0 - by speedy005")
+
+            # --- INTELLIGENTE AUFLÖSUNGS-LOGIK ---
+            if width > 1920:
+                # Auf 4K Monitoren: Großes 1080p Fenster zentriert
+                main_window.resize(1920, 1080)
+                qr = main_window.frameGeometry()
+                cp = screen_geo.center()
+                qr.moveCenter(cp)
+                main_window.move(qr.topLeft())
+                main_window.show()
+            else:
+                # Auf Standard-Monitoren: Direkt Maximiert
+                main_window.showMaximized()
             
-            # Kurzer System-Ready Beep
-            try:
-                import winsound
-                winsound.Beep(2000, 50)
-            except: pass
+            # Akustisches Signal für System-Start
+            if platform.system() == "Windows":
+                try:
+                    import winsound
+                    winsound.Beep(1500, 150)
+                except: pass
 
         except Exception:
-            # Kritischer Startup-Error Dialog im Matrix-Style
+            # Kritischer Startup-Error Dialog
             error_details = traceback.format_exc()
+            print(f"FATAL ERROR:\n{error_details}")
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.setWindowTitle("SYSTEM FAILURE")
             msg.setText("Kritischer Fehler beim Laden des Kern-Moduls.")
             msg.setDetailedText(error_details)
-            msg.setStyleSheet("background-color: #050505; color: #00ff00; font-family: 'Consolas';")
+            msg.setStyleSheet("background-color: #050505; color: #00ff41; font-family: 'Consolas';")
             msg.exec()
             sys.exit(1)
 
-    # Signal-Verbindung: Splash Ende -> GUI Start
-    splash.finished.connect(launch_main_gui)
-    splash.show()
+    def launch_main_gui():
+        """Wird getriggert, wenn die Matrix-Animation endet."""
+        QTimer.singleShot(200, _actually_start)
 
-    # ---------------- 7. MAIN EXECUTION LOOP ----------------
+    # ---------------- 4. CINEMATIC SPLASH START ----------------
+    try:
+        splash = CinematicMatrixSplash(duration=5000)
+        # Signal-Verbindung: Splash Ende -> GUI Start
+        splash.finished.connect(launch_main_gui)
+        splash.show()
+    except Exception as e:
+        print(f"Splash-Error: {e}. Starte direkt...")
+        _actually_start()
+
+    # ---------------- 5. MAIN EXECUTION LOOP ----------------
     try:
         sys.exit(app.exec())
     except Exception:
-        print("Fataler Laufzeitfehler im Haupt-Thread:")
         traceback.print_exc()
         sys.exit(1)
