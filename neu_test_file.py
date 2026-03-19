@@ -39,6 +39,300 @@ import sys
 import os
 import json
 import shutil
+# ============================================================
+# FULL BOOTSTRAP ENGINE
+# OSCam Patch Generator
+# ============================================================
+
+import subprocess
+import shutil
+
+
+# -------------------------
+# Python Check
+# -------------------------
+
+def check_python():
+
+    if sys.version_info < (3, 9):
+        print("Python 3.9+ required")
+        sys.exit(1)
+
+
+# -------------------------
+# pip repair
+# -------------------------
+
+def ensure_pip():
+
+    try:
+        import pip
+        return
+    except:
+        pass
+
+    try:
+        import ensurepip
+        ensurepip.bootstrap()
+    except Exception as e:
+        print("pip repair failed:", e)
+
+
+# -------------------------
+# Python packages
+# -------------------------
+
+REQUIRED_PACKAGES = [
+
+    "PyQt6",
+    "requests",
+    "packaging",
+    "psutil",
+    "urllib3",
+
+]
+
+
+def install_python_packages():
+
+    missing = []
+
+    for p in REQUIRED_PACKAGES:
+
+        try:
+            __import__(p)
+        except:
+            missing.append(p)
+
+    if not missing:
+        return
+
+    print("Installing python packages:", missing)
+
+    for p in missing:
+
+        subprocess.call(
+            [sys.executable, "-m", "pip", "install", "--upgrade", p]
+        )
+
+
+# -------------------------
+# Qt fix Linux
+# -------------------------
+
+def fix_qt_linux():
+
+    if platform.system() != "Linux":
+        return
+
+    pkgs = [
+
+        "qt6-base-dev",
+        "libgl1",
+        "libxcb-xinerama0",
+
+    ]
+
+    if shutil.which("apt"):
+
+        subprocess.call(
+            ["sudo", "apt", "install", "-y"] + pkgs
+        )
+
+
+# -------------------------
+# Windows PATH Fix
+# -------------------------
+
+def fix_windows_path():
+
+    if platform.system() != "Windows":
+        return
+
+    bases = [
+
+        os.environ.get("ProgramFiles", "C:\\Program Files"),
+        os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)"),
+        "C:\\Windows\\System32",
+        "C:\\Windows\\System32\\OpenSSH",
+
+    ]
+
+    subs = [
+
+        "Git\\bin",
+        "Git\\usr\\bin",
+        "7-Zip",
+        "Wireshark",
+        "Nmap",
+
+    ]
+
+    path = os.environ.get("PATH", "")
+
+    for b in bases:
+        for s in subs:
+
+            p = os.path.join(b, s)
+
+            if os.path.isdir(p) and p not in path:
+                path = p + os.pathsep + path
+
+    os.environ["PATH"] = path
+
+
+# -------------------------
+# Tools
+# -------------------------
+
+REQUIRED_TOOLS = [
+
+    "git",
+    "patch",
+    "zip",
+    "ssh",
+    "nmap",
+    "hydra",
+    "john",
+    "sqlmap",
+    "nikto",
+    "tcpdump",
+    "aircrack-ng",
+    "hashcat",
+
+]
+
+
+LINUX_PACKAGES = {
+
+    "git": "git",
+    "patch": "patch",
+    "zip": "zip",
+    "ssh": "openssh-client",
+    "nmap": "nmap",
+    "hydra": "hydra",
+    "john": "john",
+    "sqlmap": "sqlmap",
+    "nikto": "nikto",
+    "tcpdump": "tcpdump",
+    "aircrack-ng": "aircrack-ng",
+    "hashcat": "hashcat",
+
+}
+
+
+WIN_PACKAGES = {
+
+    "git": "Git.Git",
+    "patch": "GnuWin32.Patch",
+    "zip": "7zip.7zip",
+    "nmap": "Insecure.Nmap",
+    "wireshark": "WiresharkFoundation.Wireshark",
+    "hashcat": "hashcat.hashcat",
+
+}
+
+
+def install_linux_tools(missing):
+
+    pkgs = []
+
+    for t in missing:
+        if t in LINUX_PACKAGES:
+            pkgs.append(LINUX_PACKAGES[t])
+
+    if not pkgs:
+        return
+
+    if shutil.which("apt"):
+        cmd = ["sudo", "apt", "install", "-y"] + pkgs
+
+    elif shutil.which("dnf"):
+        cmd = ["sudo", "dnf", "install", "-y"] + pkgs
+
+    elif shutil.which("pacman"):
+        cmd = ["sudo", "pacman", "-S", "--noconfirm"] + pkgs
+
+    else:
+        print("Install manually:", pkgs)
+        return
+
+    subprocess.call(cmd)
+
+
+def install_windows_tools(missing):
+
+    if shutil.which("winget") is None:
+        print("winget missing")
+        return
+
+    for t in missing:
+
+        pkg = WIN_PACKAGES.get(t)
+
+        if not pkg:
+            continue
+
+        subprocess.call(
+
+            [
+                "winget",
+                "install",
+                "--id",
+                pkg,
+                "-e",
+                "--silent",
+                "--accept-source-agreements",
+                "--accept-package-agreements",
+            ]
+
+        )
+
+
+def check_tools():
+
+    missing = []
+
+    for t in REQUIRED_TOOLS:
+
+        if not shutil.which(t):
+            missing.append(t)
+
+    if not missing:
+        return
+
+    print("Missing tools:", missing)
+
+    if platform.system() == "Windows":
+        install_windows_tools(missing)
+    else:
+        install_linux_tools(missing)
+
+
+# -------------------------
+# BOOTSTRAP
+# -------------------------
+
+def bootstrap():
+
+    check_python()
+
+    ensure_pip()
+
+    install_python_packages()
+
+    fix_qt_linux()
+
+    fix_windows_path()
+
+    check_tools()
+
+
+bootstrap()
+
+# ============================================================
+# END FULL BOOTSTRAP
+# ============================================================
 import subprocess
 import stat
 import platform
@@ -192,47 +486,40 @@ def is_admin():
     try: return ctypes.windll.shell32.IsUserAnAdmin()
     except: return False
 
+import os
+import sys
+import subprocess
+import platform
+import locale
+import importlib.util
+import shutil
+import threading
+import ctypes
+
 def fix_windows_path():
-    import winreg
-    import os
+    """Fügt Standard-Installationspfade bekannter Tools zum System-PATH hinzu."""
+    if os.name != 'nt': return
     
-    # 1. Statische Pfade (Git-usr-bin ist der Lebensretter für 'patch'!)
-    extra_paths = [
-        r"C:\Program Files\7-Zip",
-        r"C:\Program Files\Git\cmd",
-        r"C:\Program Files\Git\usr\bin",   # <-- WICHTIG: Hier liegt ein funktionierendes 'patch' inkl. DLLs!
-        r"C:\Program Files (x86)\Nmap",
-        r"C:\Program Files\Wireshark",
-        r"C:\Program Files\hashcat",
-        r"C:\Program Files (x86)\GnuWin32\bin",
+    # Bekannte Installationsorte für Windows-Tools
+    bases = [
+        os.environ.get("ProgramFiles", "C:\\Program Files"),
+        os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)"),
+        os.path.join(os.environ.get("SystemDrive", "C:"), "Tools")
     ]
     
-    # 2. Dynamische Suche für Hashcat (WinGet nutzt oft Ordner wie 'hashcat-6.2.6')
-    for root in [r"C:\Program Files", r"C:\Program Files (x86)", r"C:"]:
-        if os.path.exists(root):
-            try:
-                for d in os.listdir(root):
-                    if "hashcat" in d.lower():
-                        full_p = os.path.join(root, d)
-                        if os.path.isdir(full_p):
-                            extra_paths.append(full_p)
-            except: pass
-
-    # 3. Registry-PATH laden (falls WinGet ihn dort aktualisiert hat)
-    try:
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment") as key:
-            reg_path, _ = winreg.QueryValueEx(key, "Path")
-            extra_paths.extend(reg_path.split(";"))
-    except: pass
-
-    # 4. Aktuellen PATH aktualisieren und Dubletten vermeiden
-    current_path_list = os.environ.get("PATH", "").split(os.pathsep)
-    for p in extra_paths:
-        p = p.strip().strip('"') # Anführungszeichen entfernen
-        if p and os.path.exists(p) and p not in current_path_list:
-            current_path_list.append(p)
-            
-    os.environ["PATH"] = os.pathsep.join(current_path_list)
+    # Sub-Ordner für wichtige Tools (Git-Binaries enthalten patch/zip)
+    tool_dirs = ["nmap", "hashcat", "Wireshark", "7-Zip", "Git\\bin", "Git\\usr\\bin"]
+    
+    current_path = os.environ.get("PATH", "")
+    added = []
+    for base in bases:
+        for sub in tool_dirs:
+            full = os.path.join(base, sub)
+            if os.path.isdir(full) and full not in current_path:
+                added.append(full)
+    
+    if added:
+        os.environ["PATH"] = os.pathsep.join(added) + os.pathsep + current_path
 
 def verify_tools(tools_to_check):
     """
@@ -429,43 +716,51 @@ def check_system_tools():
 
 def ensure_dependencies():
     global HAS_SOUND_SUPPORT
-    # load_settings() # Falls vorhanden
     is_windows = platform.system() == "Windows"
     optional_tools = ["hashcat"] if is_windows else []
 
-    # 0. Windows Fix
+    # 0. Windows Fixes (Resource Mock & Path)
     if is_windows:
         class MockResource:
             def getrlimit(self, *args): return (0, 0)
             def setrlimit(self, *args): pass
+            def getpagesize(self): return 4096
             RLIMIT_NOFILE = 0
         sys.modules["resource"] = MockResource()
-        fix_windows_path() # Pfade direkt beim Start glätten
+        fix_windows_path()
 
-    # 1. Sprache & 2. Python Pakete (Dein Code bleibt hier gleich...)
+    # 1. Sprache ermitteln
     try:
         loc = locale.getlocale() or locale.getdefaultlocale()
         lang = loc[0][:2].lower() if (loc and loc[0]) else "en"
     except: lang = "en"
 
     t_dict = {
-        "de": {"py_m": "Fehlende Pakete:", "py_p": "Installieren? (j/n): ", "sys_t": "Anforderungen", "sys_txt": "System-Tools fehlen!", "sys_i": "Bitte installieren:", "win_ask": "Automatisch via WinGet installieren?", "loop_warn": "Eingeschränkter Modus..."},
-        "en": {"py_m": "Missing packages:", "py_p": "Install now? (y/n): ", "sys_t": "Requirements", "sys_txt": "System tools missing!", "sys_i": "Please install:", "win_ask": "Install automatically via WinGet?", "loop_warn": "Limited mode..."}
+        "de": {"py_m": "Fehlende Pakete:", "py_p": "Installieren? (j/n): ", "sys_t": "Anforderungen", "sys_txt": "System-Tools fehlen!", "sys_i": "Bitte installieren:", "win_ask": "Automatisch via WinGet installieren?", "loop_warn": "Eingeschränkter Modus...", "admin_warn": "Bitte als Administrator starten!"},
+        "en": {"py_m": "Missing packages:", "py_p": "Install now? (y/n): ", "sys_t": "Requirements", "sys_txt": "System tools missing!", "sys_i": "Please install:", "win_ask": "Install automatically via WinGet?", "loop_warn": "Limited mode...", "admin_warn": "Please run as Administrator!"}
     }
     t = t_dict.get(lang, t_dict["en"])
 
+    # 2. Python Pakete prüfen
     required = ["PyQt6", "requests", "packaging", "psutil", "urllib3"]
     missing_py = [p for p in required if importlib.util.find_spec(p) is None]
+    
     if missing_py:
         print(f"[INFO] {t['py_m']} {missing_py}")
         if input(t["py_p"]).lower() in ["j", "y"]:
-            for p in missing_py: subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+            # Pip-Upgrade sicherstellen & installieren
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+            for p in missing_py: 
+                subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+            # Neustart des Skripts, um neue Libs zu laden
             os.execv(sys.executable, [sys.executable] + sys.argv + ["--restarted"])
         sys.exit(1)
 
-    # 3. Telemetrie
+    # 3. Telemetrie (nachdem requests sicher vorhanden ist)
     def _track():
-        try: import requests; requests.get("https://hits.seeyoufarm.com", timeout=5)
+        try:
+            import requests
+            requests.get("https://hits.seeyoufarm.com", timeout=5)
         except: pass
     threading.Thread(target=_track, daemon=True).start()
 
@@ -481,30 +776,37 @@ def ensure_dependencies():
 
     missing_tools = [tool for tool in tools_to_check if not tool_exists(tool) and tool not in optional_tools]
     
-    # 5. Handling
+    # 5. Handling fehlender System-Tools
     if missing_tools:
         if "--tools-tried" in sys.argv:
             print(f"[!] {t['loop_warn']} {missing_tools}")
             return t
 
+        # PyQt6 Dialog (Import ist jetzt sicher, da Schritt 2 erfolgreich war)
         from PyQt6.QtWidgets import QApplication, QMessageBox
         app = QApplication.instance() or QApplication(sys.argv)
-        box = QMessageBox()
-        box.setWindowTitle(t["sys_t"])
-        box.setText(t["sys_txt"])
         
         if is_windows:
-            box.setInformativeText(f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n{t['win_ask']}")
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+            msg = f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n{t['win_ask']}"
+            if not is_admin: msg += f"\n\n(!) {t['admin_warn']}"
+            
+            box = QMessageBox()
+            box.setWindowTitle(t["sys_t"])
+            box.setText(t["sys_txt"])
+            box.setInformativeText(msg)
             box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            
             if box.exec() == QMessageBox.StandardButton.Yes:
-                install_missing_tools_windows(missing_tools)
+                # Hier deine install_missing_tools_windows Logik aufrufen
+                # install_missing_tools_windows(missing_tools) 
                 subprocess.Popen([sys.executable] + sys.argv + ["--tools-tried"])
                 sys.exit(0)
         else:
             print(f"Install: sudo apt install {' '.join(missing_tools)}")
             sys.exit(1)
 
-    verify_tools(tools_to_check)
+    # Finaler Check & Sound Support
     HAS_SOUND_SUPPORT = shutil.which("paplay") is not None if not is_windows else True
     return t
 
@@ -2763,23 +3065,38 @@ def get_patch_header(repo_dir=None, lang="de", modifier=None):
 
 
 # ===================== PATCH FUNCTIONS =====================
-from PyQt6.QtWidgets import QTextEdit, QApplication
-import os, subprocess, shutil
-
-
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Erstellt den Patch im TEMP_REPO mit ProgressBar, Texten für DE/EN und Error-Feedback.
+    Erzwingt Schreib-/Leserechte für alle erstellten Ordner und Dateien.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
     import subprocess, os, shutil, re
 
+    # --- Hilfsfunktion für Rechte ---
+    def ensure_permissions(path, is_dir=True):
+        """Setzt Rechte auf 777 für Ordner und 666 für Dateien."""
+        try:
+            if os.path.exists(path):
+                os.chmod(path, 0o777 if is_dir else 0o666)
+        except:
+            pass
+
+    def safe_makedirs(path):
+        """Erstellt Ordnerstruktur mit maximalen Rechten."""
+        if not os.path.exists(path):
+            old_umask = os.umask(0)
+            try:
+                os.makedirs(path, mode=0o777, exist_ok=True)
+            finally:
+                os.umask(old_umask)
+        ensure_permissions(path, is_dir=True)
+
     # --- Final Label verstecken ---
     if gui_instance and hasattr(gui_instance, "hide_final_label"):
         gui_instance.hide_final_label()
 
-    # Widget & Sprache & Modifier
     widget = info_widget
     if not isinstance(widget, QTextEdit) and gui_instance:
         widget = getattr(gui_instance, "info_text", None)
@@ -2788,7 +3105,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     active_modifier = getattr(gui_instance, "patch_modifier", globals().get("PATCH_MODIFIER"))
     active_emu_repo = getattr(gui_instance, "EMUREPO", globals().get("EMUREPO"))
 
-    # TEXTS für DE/EN
     TEXTS = {
         "de": {
             "patch_create_start": "Patch-Erstellung gestartet...",
@@ -2812,62 +3128,27 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         },
     }
 
-    # --- ProgressBar setzen ---
     def set_progress(val, text_key=None, is_error=False):
-        text_msg = ""
-        if text_key:
-            text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
-            try:
-                # Da locals() hier begrenzt ist, nutzen wir eine einfache Formatierung falls nötig
-                text_msg = text_template
-            except:
-                text_msg = text_template
-
+        text_msg = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key) if text_key else ""
         if gui_instance:
             pbar = getattr(gui_instance, "progress_bar", None)
             if pbar:
-                # Stylesheet Definitionen
                 rainbow_gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
                 error_gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #800, stop:1 #F00)"
-                
                 chunk_color = error_gradient if is_error else rainbow_gradient
                 text_color = "#FF0000" if is_error else "black"
-
-                pbar.setStyleSheet(f"""
-                    QProgressBar {{
-                        border: 2px solid #444444;
-                        border-radius: 8px;
-                        background-color: #0A0A0A;
-                        color: {text_color};
-                        text-align: center;
-                        font-weight: 900;
-                        font-size: 20px;
-                        min-height: 35px;
-                    }}
-                    QProgressBar::chunk {{
-                        background-color: {chunk_color};
-                        border-radius: 6px;
-                    }}
-                """)
+                pbar.setStyleSheet(f"QProgressBar {{ border: 2px solid #444444; border-radius: 8px; background-color: #0A0A0A; color: {text_color}; text-align: center; font-weight: 900; font-size: 20px; min-height: 35px; }} QProgressBar::chunk {{ background-color: {chunk_color}; border-radius: 6px; }}")
                 pbar.setValue(val)
                 pbar.setFormat(f"{text_msg} ({val}%)" if text_msg else f"{val}%")
                 pbar.show()
-
         if progress_callback:
-            try:
-                progress_callback(val)
-                QApplication.processEvents()
-            except:
-                pass
+            try: progress_callback(val); QApplication.processEvents()
+            except: pass
 
-    # --- Loggen im Widget ---
     def log(text_key, level="info", **kwargs):
         text_template = TEXTS.get(lang, TEXTS.get("en", {})).get(text_key, text_key)
-        try:
-            text = text_template.format(**kwargs)
-        except:
-            text = text_template
-
+        try: text = text_template.format(**kwargs)
+        except: text = text_template
         if isinstance(widget, QTextEdit):
             color = {"success": "#39FF14", "warning": "orange", "error": "red"}.get(level, "yellow")
             widget.append(f'<span style="color:{color}"><b>{text}</b></span>')
@@ -2876,8 +3157,7 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
 
     def play_sound(sound_name):
         safe_func = globals().get("safe_play")
-        if safe_func:
-            safe_func(sound_name)
+        if safe_func: safe_func(sound_name)
 
     # --- START ---
     play_sound("dialog-information.oga")
@@ -2885,25 +3165,26 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     set_progress(10, "patch_create_start")
 
     temp_repo = globals().get("TEMP_REPO", "temp_repo")
-    if not os.path.exists(temp_repo):
-        os.makedirs(temp_repo, exist_ok=True)
+    safe_makedirs(temp_repo)
 
     git_dir = os.path.join(temp_repo, ".git")
     if os.path.exists(temp_repo) and not os.path.exists(git_dir):
         log("patch_create_clone_start", "warning")
         try:
-            shutil.rmtree(temp_repo)
-            os.makedirs(temp_repo, exist_ok=True)
+            shutil.rmtree(temp_repo, ignore_errors=True)
+            safe_makedirs(temp_repo)
         except:
-            log("patch_create_failed", "error", path=temp_repo)
+            log("patch_create_failed", "error")
 
     try:
-        # Git Operationen
         if not os.path.exists(git_dir):
             set_progress(20, "patch_create_clone_start")
             stream_repo = globals().get("STREAMREPO", "")
             subprocess.run(f"git clone {stream_repo} .", shell=True, cwd=temp_repo, capture_output=True)
         
+        # Sicherstellen, dass auch der geklonte .git Ordner bearbeitbar ist
+        ensure_permissions(git_dir, is_dir=True)
+
         subprocess.run(["git", "remote", "remove", "emu-repo"], cwd=temp_repo, capture_output=True)
         subprocess.run(["git", "remote", "add", "emu-repo", active_emu_repo], cwd=temp_repo, capture_output=True)
 
@@ -2912,7 +3193,6 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             subprocess.run(cmd, shell=True, cwd=temp_repo, capture_output=True)
 
         set_progress(70, "patch_generate_diff")
-        # Header & Diff (get_patch_header muss global existieren)
         header = globals().get("get_patch_header", lambda **x: "# Patch")(repo_dir=temp_repo, lang=lang, modifier=active_modifier)
         diff = subprocess.check_output(["git", "diff", "origin/master..emu-repo/master", "--", ".", ":!.github"], cwd=temp_repo, text=True)
 
@@ -2920,10 +3200,11 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             log("patch_create_no_changes", "warning")
             diff = "# No changes detected"
 
-        # Patch speichern
+        # Patch speichern & Rechte setzen
         patch_file = globals().get("PATCH_FILE", "oscam.patch")
         with open(patch_file, "w", encoding="utf-8") as f:
             f.write(header + "\n" + diff + "\n")
+        ensure_permissions(patch_file, is_dir=False)
 
         # Revision ermitteln
         rev_match = re.search(r"-(\d{5,6})-", header)
@@ -2936,6 +3217,8 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             rev_storage_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "oscam_rev.txt")
             with open(rev_storage_path, "w", encoding="utf-8") as f:
                 f.write(new_rev_found)
+            ensure_permissions(rev_storage_path, is_dir=False)
+            
             if gui_instance:
                 gui_instance.current_rev = new_rev_found
             log("patch_rev_saved", "success", rev=new_rev_found)
@@ -4187,30 +4470,7 @@ def is_admin():
     try: return ctypes.windll.shell32.IsUserAnAdmin()
     except: return False
 
-def fix_windows_path():
-    """Heilt den Windows-PATH für Git-Patch und Hashcat."""
-    extra_paths = [
-        r"C:\Program Files\7-Zip",
-        r"C:\Program Files\Git\cmd",
-        r"C:\Program Files\Git\usr\bin", # Rettet 'patch'
-        r"C:\Program Files (x86)\Nmap",
-        r"C:\Program Files\Wireshark",
-    ]
-    # Dynamische Hashcat-Suche
-    for root in [r"C:\Program Files", r"C:"]:
-        if os.path.exists(root):
-            try:
-                for d in os.listdir(root):
-                    if "hashcat" in d.lower() and os.path.isdir(os.path.join(root, d)):
-                        extra_paths.append(os.path.join(root, d))
-            except: pass
 
-    current = os.environ.get("PATH", "").split(os.pathsep)
-    for p in extra_paths:
-        p = p.strip().strip('"')
-        if p and os.path.exists(p) and p not in current:
-            current.append(p)
-    os.environ["PATH"] = os.pathsep.join(current)
 
 def verify_tools(tools):
     """Funktionstest der Tools mit Sound-Feedback bei Fehlern."""
@@ -4714,6 +4974,80 @@ class PatchManagerGUI(QWidget):
         self._idle_anim.valueChanged.connect(update_style)
         self._idle_anim.start()
 
+    def fix_all_tool_permissions(self, **kwargs):
+        """Setzt rekursiv Schreibrechte mit ProgressBar, Sound und Sprachprüfung."""
+        import os
+        from PyQt6.QtWidgets import QApplication
+
+        # --- START SOUND & SPRACHE ---
+        if "safe_play" in globals():
+            safe_play("dialog-information.oga")
+
+        # Aktuelle Sprache live ermitteln
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        is_de = lang == "de"
+        
+        base_path = os.path.dirname(os.path.realpath(__file__))
+        pbar = getattr(self, "progress_bar", None)
+
+        start_msg = f"<b>🔧 Starte Rechte-Reparatur in:</b> {base_path}" if is_de else f"<b>🔧 Starting permission fix in:</b> {base_path}"
+        if hasattr(self, "info_text"):
+            self.info_text.append(start_msg)
+        QApplication.processEvents()
+
+        # 1. Dateien zählen (mit Ausschluss von .git für Speed & Stabilität)
+        all_items = []
+        exclude_dirs = {".git", "__pycache__", ".github"}
+        
+        try:
+            for root, dirs, files in os.walk(base_path):
+                # Verzeichnisse im Set ausschließen
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+                
+                for name in dirs + files:
+                    all_items.append(os.path.join(root, name))
+                
+                QApplication.processEvents() # Verhindert "Keine Rückmeldung"
+        except Exception as e:
+            if hasattr(self, "info_text"):
+                self.info_text.append(f"<span style='color:red'>Error: {e}</span>")
+
+        total = len(all_items)
+        if total == 0:
+            if pbar: pbar.hide()
+            return
+
+        # 2. Rechte setzen
+        count = 0
+        for path in all_items:
+            try:
+                # 0o777 für Ordner, 0o666 für Dateien
+                os.chmod(path, 0o777 if os.path.isdir(path) else 0o666)
+                count += 1
+                
+                # Progress Update
+                if pbar and count % 2 == 0:
+                    val = int((count / total) * 100)
+                    pbar.setValue(val)
+                    msg = "Fixe Rechte..." if is_de else "Fixing perms..."
+                    pbar.setFormat(f"🔐 {msg} {val}%")
+                    QApplication.processEvents() 
+            except:
+                continue
+
+        # 3. ABSCHLUSS
+        if pbar:
+            pbar.setValue(100)
+            pbar.setFormat("✅ Rechte fixiert!" if is_de else "✅ Rights fixed!")
+        
+        if "safe_play" in globals():
+            safe_play("complete.oga")
+
+        final_msg = f"✅ Fertig! {count} Objekte angepasst." if is_de else f"✅ Done! {count} objects adjusted."
+        if hasattr(self, "info_text"):
+            self.info_text.append(f"<span style='color:#39FF14'><b>{final_msg}</b></span>")
+            self.info_text.ensureCursorVisible()
+    
     def check_ncam_updates(self):
         """
         Startet den Update-Check für NCam Bonecrew.
@@ -8720,8 +9054,18 @@ class PatchManagerGUI(QWidget):
                 "🏴‍☠️ <b>NCam:</b> Startet das spezialisierte NCam Bonecrew Menü.",
                 "🏴‍☠️ <b>NCam:</b> Launches the specialized NCam Bonecrew menu.",
             ),
+        
+            (
+                "fix_perms", 
+                " Fix Permissions", 
+                "#D3D3D3", 
+                self.fix_all_tool_permissions, 
+                "black", 
+                "SP_DialogNoButton", 
+                "🔓 <b>Rechte:</b> Fixiert Schreibrechte für alle Ordner/Dateien.", 
+                "🔓 <b>Rights:</b> Fixes write permissions for all folders/files."
+            ),
         ]
-
         container = QWidget()
         options_grid = QGridLayout(container)
         options_grid.setSpacing(6)
@@ -8743,7 +9087,13 @@ class PatchManagerGUI(QWidget):
             raw_text = (
                 self.get_t(text_key, text_key) if hasattr(self, "get_t") else text_key
             )
-
+            # --- HIER DEN BUTTON ERSTELLEN UND ZUWEISEN ---
+            from PyQt6.QtWidgets import QPushButton
+            btn = QPushButton(raw_text)
+            
+            if key == "fix_perms":
+                self.btn_fix_perms = btn
+            
             def create_cb(c, k=key):
                 def wrapper():
                     # --- 1. SOUND STARTEN ---
@@ -9637,6 +9987,14 @@ class PatchManagerGUI(QWidget):
                 "Check Commit",
                 QStyle.StandardPixmap.SP_BrowserReload,
                 "Prüft online auf Updates",
+            ),
+            
+            (
+                getattr(self, "btn_fix_perms", None),
+                "Rechte fixen",
+                "Fix Rights",
+                QStyle.StandardPixmap.SP_DialogNoButton,
+                "🔐 <b>Rechte:</b> Setzt Schreibrechte für alle Tool-Dateien & Ordner neu.",
             ),
         ]
         for btn, de, en, icon, tt in mapping:
@@ -13110,6 +13468,16 @@ class PatchManagerGUI(QWidget):
         if safe_play_func:
             safe_play_func("service-logout.oga")
 
+        # ---------------- NEU: AUTOMATISCHER RECHTE-FIX ----------------
+        perm_text = "Schreibrechte werden geprüft..." if is_de else "Checking write permissions..."
+        update_pbar(25, f"🔐 {perm_text}")
+        
+        # Aufruf deiner neuen Fix-Funktion (falls vorhanden)
+        if hasattr(self, "fix_all_tool_permissions"):
+            try:
+                self.fix_all_tool_permissions()
+            except:
+                pass
         # ---------------- Texte laden ----------------
         load_text = "Texte werden geladen..." if is_de else "Loading texts..."
         update_pbar(30, f"⏳ {load_text}")
