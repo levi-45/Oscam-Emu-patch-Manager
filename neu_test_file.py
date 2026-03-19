@@ -40,361 +40,147 @@ import os
 import json
 import shutil
 # ============================================================
-# FULL BOOTSTRAP ENGINE
-# OSCam Patch Generator
+# FULL BOOTSTRAP CLEAN VERSION
 # ============================================================
 
+import sys
+import os
+import platform
 import subprocess
 import shutil
-
-
-# -------------------------
-# Python Check
-# -------------------------
-
-def check_python():
-
-    if sys.version_info < (3, 9):
-        print("Python 3.9+ required")
-        sys.exit(1)
-
-
-# -------------------------
-# pip repair
-# -------------------------
-
-def ensure_pip():
-
-    try:
-        import pip
-        return
-    except:
-        pass
-
-    try:
-        import ensurepip
-        ensurepip.bootstrap()
-    except Exception as e:
-        print("pip repair failed:", e)
-
-
-# -------------------------
-# Python packages
-# -------------------------
-
-REQUIRED_PACKAGES = [
-
-    "PyQt6",
-    "requests",
-    "packaging",
-    "psutil",
-    "urllib3",
-
-]
-
-
-def install_python_packages():
-
-    missing = []
-
-    for p in REQUIRED_PACKAGES:
-
-        try:
-            __import__(p)
-        except:
-            missing.append(p)
-
-    if not missing:
-        return
-
-    print("Installing python packages:", missing)
-
-    for p in missing:
-
-        subprocess.call(
-            [sys.executable, "-m", "pip", "install", "--upgrade", p]
-        )
-
-
-# -------------------------
-# Qt fix Linux
-# -------------------------
-
-def fix_qt_linux():
-
-    if platform.system() != "Linux":
-        return
-
-    pkgs = [
-
-        "qt6-base-dev",
-        "libgl1",
-        "libxcb-xinerama0",
-
-    ]
-
-    if shutil.which("apt"):
-
-        subprocess.call(
-            ["sudo", "apt", "install", "-y"] + pkgs
-        )
-
-
-# -------------------------
-# Windows PATH Fix
-# -------------------------
-
-def fix_windows_path():
-
-    if platform.system() != "Windows":
-        return
-
-    bases = [
-
-        os.environ.get("ProgramFiles", "C:\\Program Files"),
-        os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)"),
-        "C:\\Windows\\System32",
-        "C:\\Windows\\System32\\OpenSSH",
-
-    ]
-
-    subs = [
-
-        "Git\\bin",
-        "Git\\usr\\bin",
-        "7-Zip",
-        "Wireshark",
-        "Nmap",
-
-    ]
-
-    path = os.environ.get("PATH", "")
-
-    for b in bases:
-        for s in subs:
-
-            p = os.path.join(b, s)
-
-            if os.path.isdir(p) and p not in path:
-                path = p + os.pathsep + path
-
-    os.environ["PATH"] = path
-
-
-# -------------------------
-# Tools
-# -------------------------
-
-REQUIRED_TOOLS = [
-
-    "git",
-    "patch",
-    "zip",
-    "ssh",
-    "nmap",
-    "hydra",
-    "john",
-    "sqlmap",
-    "nikto",
-    "tcpdump",
-    "aircrack-ng",
-    "hashcat",
-
-]
-
-
-LINUX_PACKAGES = {
-
-    "git": "git",
-    "patch": "patch",
-    "zip": "zip",
-    "ssh": "openssh-client",
-    "nmap": "nmap",
-    "hydra": "hydra",
-    "john": "john",
-    "sqlmap": "sqlmap",
-    "nikto": "nikto",
-    "tcpdump": "tcpdump",
-    "aircrack-ng": "aircrack-ng",
-    "hashcat": "hashcat",
-
-}
-
-
-WIN_PACKAGES = {
-
-    "git": "Git.Git",
-    "patch": "GnuWin32.Patch",
-    "zip": "7zip.7zip",
-    "nmap": "Insecure.Nmap",
-    "wireshark": "WiresharkFoundation.Wireshark",
-    "hashcat": "hashcat.hashcat",
-
-}
-
-
-def install_linux_tools(missing):
-
-    pkgs = []
-
-    for t in missing:
-        if t in LINUX_PACKAGES:
-            pkgs.append(LINUX_PACKAGES[t])
-
-    if not pkgs:
-        return
-
-    if shutil.which("apt"):
-        cmd = ["sudo", "apt", "install", "-y"] + pkgs
-
-    elif shutil.which("dnf"):
-        cmd = ["sudo", "dnf", "install", "-y"] + pkgs
-
-    elif shutil.which("pacman"):
-        cmd = ["sudo", "pacman", "-S", "--noconfirm"] + pkgs
-
-    else:
-        print("Install manually:", pkgs)
-        return
-
-    subprocess.call(cmd)
-
-
-def install_windows_tools(missing):
-
-    if shutil.which("winget") is None:
-        print("winget missing")
-        return
-
-    for t in missing:
-
-        pkg = WIN_PACKAGES.get(t)
-
-        if not pkg:
-            continue
-
-        subprocess.call(
-
-            [
-                "winget",
-                "install",
-                "--id",
-                pkg,
-                "-e",
-                "--silent",
-                "--accept-source-agreements",
-                "--accept-package-agreements",
-            ]
-
-        )
-
-
-def check_tools():
-
-    missing = []
-
-    for t in REQUIRED_TOOLS:
-
-        if not shutil.which(t):
-            missing.append(t)
-
-    if not missing:
-        return
-
-    print("Missing tools:", missing)
-
-    if platform.system() == "Windows":
-        install_windows_tools(missing)
-    else:
-        install_linux_tools(missing)
-
-
-# -------------------------
-# BOOTSTRAP
-# -------------------------
-
-def bootstrap():
-
-    check_python()
-
-    ensure_pip()
-
-    install_python_packages()
-
-    fix_qt_linux()
-
-    fix_windows_path()
-
-    check_tools()
-
-
-bootstrap()
-
-# ============================================================
-# END FULL BOOTSTRAP
-# ============================================================
-import subprocess
-import stat
-import platform
-import re
-import locale
-import importlib.util
 import threading
 import ctypes
-from datetime import datetime, timezone
+import json
+import zipfile
+import io
 
-try:
-    import resource
-except ImportError:
-    # Dummy-Klasse für Windows, damit das Skript nicht abstürzt
-    class resource:
-        RLIMIT_NOFILE = 0
-
-        @staticmethod
-        def getrlimit(*args):
-            return (0, 0)
-
-        @staticmethod
-        def setrlimit(*args):
-            pass
-
-
-try:
-    import psutil
-except ImportError:
-    psutil = None
-
-
-def raise_file_limit():
-    """Erhöht das Limit für gleichzeitig geöffnete Dateien."""
-    try:
-        # Aktuelles Limit abfragen (soft, hard)
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        # Ziel: 4096 oder das Maximum, was das System erlaubt
-        target = min(4096, hard)
-        if soft < target:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
-            print(f"[SYSTEM] File-Limit von {soft} auf {target} erhöht.")
-    except Exception as e:
-        print(f"[WARNUNG] Konnte File-Limit nicht erhöhen: {e}")
-
-
-# Direkt ausführen
-if platform.system() == "Linux":
-    raise_file_limit()
 # --- GLOBALE VARIABLEN & CONFIG ---
 HAS_SOUND_SUPPORT = False
 CONFIG_FILE = "config.json"
 _SETTINGS_CACHE = {}  # Speicher-Cache für bessere Performance
-
 
 ONLINE_PATCHES = {
     "speedy005 (Master)": "https://raw.githubusercontent.com/speedy005/oscam-emu-patch/refs/heads/master/oscam-emu.patch",
     "OSCam-Mirror (Master)": "https://raw.githubusercontent.com/oscam-mirror/oscam-emu-patch/refs/heads/master/oscam-emu.patch",
 }
 
+REQUIRED_PACKAGES = [
+    "PyQt6",
+    "requests",
+    "packaging",
+    "psutil",
+    "urllib3",
+]
 
-# --- SETTINGS LOGIK (Effizient) ---
+REQUIRED_TOOLS = [
+    "git",
+    "patch",
+    "zip",
+    "ssh",
+]
+
+# ============================================================
+# SYSTEM & ENVIRONMENT
+# ============================================================
+
+def check_python():
+    if sys.version_info < (3, 9):
+        print("Python 3.9+ required")
+        sys.exit(1)
+
+
+def ensure_pip():
+    try:
+        import pip
+    except ImportError:
+        import ensurepip
+        ensurepip.bootstrap()
+
+
+def install_python_packages():
+    missing = []
+    for p in REQUIRED_PACKAGES:
+        if importlib.util.find_spec(p) is None:
+            missing.append(p)
+
+    if not missing:
+        return
+
+    print("Installing missing Python packages:", missing)
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+    for p in missing:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+
+    # Restart script after installing packages
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+
+def fix_windows_path():
+    """Fügt Standard-Installationspfade bekannter Tools zum System-PATH hinzu (Windows)."""
+    if platform.system() != "Windows":
+        return
+
+    bases = [
+        os.environ.get("ProgramFiles", "C:\\Program Files"),
+        os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)"),
+        "C:\\Windows\\System32",
+    ]
+    subs = ["Git\\bin", "7-Zip", "Wireshark", "Nmap"]
+
+    path = os.environ.get("PATH", "")
+    added = []
+
+    for b in bases:
+        for s in subs:
+            full = os.path.join(b, s)
+            if os.path.isdir(full) and full not in path:
+                added.append(full)
+
+    if added:
+        os.environ["PATH"] = os.pathsep.join(added) + os.pathsep + path
+
+
+def check_tools():
+    missing = []
+    for t in REQUIRED_TOOLS:
+        if not shutil.which(t):
+            missing.append(t)
+    if missing:
+        print("Missing tools:", missing)
+
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except Exception:
+        return False
+
+
+def raise_file_limit():
+    """Erhöht das Limit für gleichzeitig geöffnete Dateien (Linux)."""
+    try:
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        target = min(4096, hard)
+        if soft < target:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+            print(f"[SYSTEM] File-Limit von {soft} auf {target} erhöht.")
+    except ImportError:
+        # Dummy-Klasse für Windows
+        class resource:
+            RLIMIT_NOFILE = 0
+            @staticmethod
+            def getrlimit(*args): return (0, 0)
+            @staticmethod
+            def setrlimit(*args): pass
+    except Exception as e:
+        print(f"[WARNUNG] Konnte File-Limit nicht erhöhen: {e}")
+
+
+# ============================================================
+# SETTINGS
+# ============================================================
+
 def load_settings():
     """Lädt die Einstellungen einmalig in den Cache."""
     global _SETTINGS_CACHE
@@ -402,7 +188,7 @@ def load_settings():
         try:
             with open(CONFIG_FILE, "r") as f:
                 _SETTINGS_CACHE = json.load(f)
-        except:
+        except Exception:
             _SETTINGS_CACHE = {}
 
 
@@ -419,396 +205,140 @@ def save_setting(key, value):
         print(f"Fehler beim Speichern: {e}")
 
 
+# ============================================================
+# FONT INSTALLER
+# ============================================================
+
 def auto_install_emoji_font():
-    """Lädt die Noto Color Emoji ZIP von GitHub und installiert sie plattformübergreifend."""
-    
+    """Installiert Noto Color Emoji plattformübergreifend."""
     def _run_install():
-        import requests, zipfile, io
-        
-        # Deine direkte Raw-URL zur ZIP
         url = "https://github.com/speedy005/Oscam-Emu-patch-Manager/raw/master/Noto_Color_Emoji.zip"
         os_type = platform.system()
-        
         try:
             print("[SYSTEM] Prüfe Emoji-Schriftart...")
-            
-            # 1. Download der ZIP in den Speicher
+            import requests
+
             response = requests.get(url, timeout=20)
-            if response.status_code != 200: return
-            
+            if response.status_code != 200:
+                return
+
             with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-                # Suche die .ttf Datei in der ZIP
                 ttf_name = next((f for f in z.namelist() if f.endswith(".ttf")), None)
                 if not ttf_name: return
                 font_data = z.read(ttf_name)
 
-            # 2. Installation nach Betriebssystem
             if os_type == "Windows":
-                # User-Level Installation (benötigt KEIN Admin)
                 font_dir = os.path.join(os.environ['LOCALAPPDATA'], "Microsoft", "Windows", "Fonts")
-                if not os.path.exists(font_dir): os.makedirs(font_dir)
-                
+                os.makedirs(font_dir, exist_ok=True)
                 target_path = os.path.join(font_dir, "NotoColorEmoji.ttf")
                 if not os.path.exists(target_path):
                     with open(target_path, "wb") as f:
                         f.write(font_data)
-                    
-                    # System registrieren
                     ctypes.windll.gdi32.AddFontResourceW(target_path)
-                    # HWND_BROADCAST (0xFFFF), WM_FONTCHANGE (0x001D)
                     ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
                     print("[✓] Font installiert (Windows User-Level)")
 
             elif os_type == "Linux":
-                # Lokale User-Installation
                 font_dir = os.path.expanduser("~/.local/share/fonts")
-                if not os.path.exists(font_dir): os.makedirs(font_dir)
-                
+                os.makedirs(font_dir, exist_ok=True)
                 target_path = os.path.join(font_dir, "NotoColorEmoji.ttf")
                 if not os.path.exists(target_path):
                     with open(target_path, "wb") as f:
                         f.write(font_data)
-                    
-                    # Font-Cache leise aktualisieren
                     subprocess.run(["fc-cache", "-f"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     print("[✓] Font installiert (Linux Local-Level)")
 
         except Exception as e:
             print(f"[!] Font-Installation Fehler: {e}")
 
-    # Asynchron im Hintergrund ausführen, damit der Splash nicht hakt
     threading.Thread(target=_run_install, daemon=True).start()
 
 
-import os, sys, platform, subprocess, locale, importlib.util, threading, shutil, ctypes
-
-def is_admin():
-    try: return ctypes.windll.shell32.IsUserAnAdmin()
-    except: return False
-
-import os
-import sys
-import subprocess
-import platform
-import locale
-import importlib.util
-import shutil
-import threading
-import ctypes
-
-def fix_windows_path():
-    """Fügt Standard-Installationspfade bekannter Tools zum System-PATH hinzu."""
-    if os.name != 'nt': return
-    
-    # Bekannte Installationsorte für Windows-Tools
-    bases = [
-        os.environ.get("ProgramFiles", "C:\\Program Files"),
-        os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)"),
-        os.path.join(os.environ.get("SystemDrive", "C:"), "Tools")
-    ]
-    
-    # Sub-Ordner für wichtige Tools (Git-Binaries enthalten patch/zip)
-    tool_dirs = ["nmap", "hashcat", "Wireshark", "7-Zip", "Git\\bin", "Git\\usr\\bin"]
-    
-    current_path = os.environ.get("PATH", "")
-    added = []
-    for base in bases:
-        for sub in tool_dirs:
-            full = os.path.join(base, sub)
-            if os.path.isdir(full) and full not in current_path:
-                added.append(full)
-    
-    if added:
-        os.environ["PATH"] = os.pathsep.join(added) + os.pathsep + current_path
+# ============================================================
+# TOOL VERIFICATION
+# ============================================================
 
 def verify_tools(tools_to_check):
-    """
-    Prüft Tools und fängt Windows-spezifische DLL/Pfad-Fehler ab.
-    """
+    """Prüft Tools auf PATH und Startbarkeit."""
     results = {}
     is_win = platform.system() == "Windows"
-
-    # Spezial-Logik für Windows-Binaries (Hashcat kann hashcat.exe oder hashcat64.exe sein)
-    def get_hashcat_cmd():
-        if not is_win: return ["hashcat", "--version"]
-        return ["hashcat", "--version"] if shutil.which("hashcat") else ["hashcat64", "--version"]
 
     check_commands = {
         "git": ["git", "--version"],
         "nmap": ["nmap", "--version"],
-        "wireshark": ["capinfos", "-h"], 
+        "wireshark": ["capinfos", "-h"],
         "7z": ["7z", "-h"],
         "zip": ["7z", "-h"],
-        "hashcat": get_hashcat_cmd(),
         "patch": ["patch", "--version"],
-        "ssh": ["ssh", "-V"]
+        "ssh": ["ssh", "-V"],
+        "hashcat": ["hashcat", "--version"] if shutil.which("hashcat") else ["hashcat64", "--version"]
     }
 
     print("\n[ ] Starte Funktionstest der Tools...")
-    
+
     for tool in tools_to_check:
         cmd = check_commands.get(tool, [tool, "--version"])
-        
-        # WICHTIG: shutil.which braucht den Befehl (cmd[0]), nicht die ganze Liste
         if not shutil.which(cmd[0]):
             results[tool] = False
             print(f"[!] {tool} nicht im PATH gefunden.")
             continue
-
         try:
             process = subprocess.run(
-                cmd, 
-                stdout=subprocess.DEVNULL, 
-                stderr=subprocess.DEVNULL, 
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 timeout=5,
                 creationflags=subprocess.CREATE_NO_WINDOW if is_win else 0
             )
-            # Viele Tools geben 0 zurück, manche (wie capinfos) bei Hilfe/Version auch 1
-            is_ok = process.returncode in [0, 1]
-            results[tool] = is_ok
-            print(f"{'[✓]' if is_ok else '[!]'} {tool}")
-            
+            results[tool] = process.returncode in [0, 1]
+            print(f"{'[✓]' if results[tool] else '[!]'} {tool}")
         except (subprocess.TimeoutExpired, OSError):
             results[tool] = False
-            print(f"[!] {tool} Fehler: Start fehlgeschlagen (DLL fehlt oder falsche Architektur).")
-            
+            print(f"[!] {tool} Fehler: Start fehlgeschlagen.")
     return results
 
 
-def get_tools_for_platform():
-    import platform
+# ============================================================
+# DEPENDENCIES & SOUND
+# ============================================================
 
-    if platform.system() == "Windows":
-        return ["git", "patch", "nmap", "ssh", "wireshark", "hashcat"]
+def ensure_dependencies():
+    """Installiert fehlende Python-Pakete und prüft optional Sound."""
+    global HAS_SOUND_SUPPORT
 
-    return [
-        "git",
-        "patch",
-        "zip",
-        "nmap",
-        "hydra",
-        "john",
-        "ssh",
-        "sqlmap",
-        "wireshark",
-        "nikto",
-        "tcpdump",
-        "aircrack-ng",
-        "hashcat",
-    ]
+    missing = [p for p in REQUIRED_PACKAGES if importlib.util.find_spec(p) is None]
+    if missing:
+        print("Missing python packages:", missing)
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+        for p in missing:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", p])
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
+    # optional sound
+    if platform.system() == "Linux":
+        HAS_SOUND_SUPPORT = shutil.which("paplay") is not None
+    else:
+        HAS_SOUND_SUPPORT = True
 
-def tool_exists(name):
-    import shutil
-    import platform
-
-    if platform.system() == "Windows":
-
-        if name == "zip":
-            return shutil.which("7z") or shutil.which("zip")
-
-        if name == "patch":
-            return shutil.which("patch") or shutil.which("patch.exe")
-
-    return shutil.which(name)
-
-
-def install_missing_tools_windows(missing_tools):
-    """
-    Installiert bekannte Windows-Tools via WinGet und passt PATH an.
-    """
-    if shutil.which("winget") is None:
-        print(
-            "[!] WinGet nicht gefunden. Bitte Tools manuell installieren:",
-            missing_tools,
-        )
-        return False
-
-    winget_ids = {
-        "git": "Git.Git",
-        "nmap": "Insecure.Nmap",
-        "zip": "7zip.7zip",
-        "wireshark": "WiresharkFoundation.Wireshark",
-        "ssh": "Microsoft.OpenSSH.Beta",
-        "patch": "GnuWin32.Patch",
-        "hashcat": "hashcat.hashcat",
-    }
-
-    for tool in missing_tools:
-        pkg = winget_ids.get(tool)
-        if not pkg:
-            print(
-                f"[!] Kein WinGet-Paket für {tool} bekannt. Bitte manuell installieren."
-            )
-            continue
-
-        if shutil.which(tool):
-            print(f"[✓] {tool} ist bereits installiert.")
-            continue
-
-        print(f"[*] Installiere {tool} via WinGet...")
-        try:
-            subprocess.run(
-                [
-                    "winget",
-                    "install",
-                    "--id",
-                    pkg,
-                    "-e",
-                    "--silent",
-                    "--accept-source-agreements",
-                    "--accept-package-agreements",
-                ],
-                check=False,
-                timeout=300,
-            )
-        except Exception as e:
-            print(f"[!] Fehler bei Installation von {tool}: {e}")
-
-    fix_windows_path()
     return True
 
 
-def get_tools_for_platform():
-    """
-    Liefert die Standard-Tools je Plattform.
-    """
-    if platform.system() == "Windows":
-        return ["git", "patch", "zip", "nmap", "ssh", "wireshark", "hashcat"]
-    else:
-        return [
-            "git",
-            "patch",
-            "zip",
-            "nmap",
-            "hydra",
-            "john",
-            "ssh",
-            "sqlmap",
-            "wireshark",
-            "nikto",
-            "tcpdump",
-            "aircrack-ng",
-            "hashcat",
-        ]
+# ============================================================
+# MAIN BOOTSTRAP
+# ============================================================
 
-
-def check_system_tools():
-    """
-    Prüft, welche Systemtools fehlen, und bietet Windows-Installation via WinGet an.
-    """
-    tools = get_tools_for_platform()
-    missing = [t for t in tools if not tool_exists(t)]
-
-    if missing:
-        print("[!] Fehlende Tools:", ", ".join(missing))
-        if platform.system() == "Windows" and shutil.which("winget"):
-            ans = input("Automatisch via WinGet installieren? (y/n): ")
-            if ans.lower() in ["y", "j"]:
-                install_missing_tools_windows(missing)
-                print("[*] Installation abgeschlossen. Neustart empfohlen.")
-        else:
-            print("\nInstalliere sie mit:")
-            print(f"sudo apt install {' '.join(missing)}")
-    else:
-        print("[✓] Alle Systemtools vorhanden.")
-
-
-def ensure_dependencies():
-    global HAS_SOUND_SUPPORT
-    is_windows = platform.system() == "Windows"
-    optional_tools = ["hashcat"] if is_windows else []
-
-    # 0. Windows Fixes (Resource Mock & Path)
-    if is_windows:
-        class MockResource:
-            def getrlimit(self, *args): return (0, 0)
-            def setrlimit(self, *args): pass
-            def getpagesize(self): return 4096
-            RLIMIT_NOFILE = 0
-        sys.modules["resource"] = MockResource()
-        fix_windows_path()
-
-    # 1. Sprache ermitteln
-    try:
-        loc = locale.getlocale() or locale.getdefaultlocale()
-        lang = loc[0][:2].lower() if (loc and loc[0]) else "en"
-    except: lang = "en"
-
-    t_dict = {
-        "de": {"py_m": "Fehlende Pakete:", "py_p": "Installieren? (j/n): ", "sys_t": "Anforderungen", "sys_txt": "System-Tools fehlen!", "sys_i": "Bitte installieren:", "win_ask": "Automatisch via WinGet installieren?", "loop_warn": "Eingeschränkter Modus...", "admin_warn": "Bitte als Administrator starten!"},
-        "en": {"py_m": "Missing packages:", "py_p": "Install now? (y/n): ", "sys_t": "Requirements", "sys_txt": "System tools missing!", "sys_i": "Please install:", "win_ask": "Install automatically via WinGet?", "loop_warn": "Limited mode...", "admin_warn": "Please run as Administrator!"}
-    }
-    t = t_dict.get(lang, t_dict["en"])
-
-    # 2. Python Pakete prüfen
-    required = ["PyQt6", "requests", "packaging", "psutil", "urllib3"]
-    missing_py = [p for p in required if importlib.util.find_spec(p) is None]
+def bootstrap():
+    check_python()
+    ensure_pip()
+    ensure_dependencies()
+    fix_windows_path()
+    check_tools()
+    load_settings()
+    auto_install_emoji_font()
+    if platform.system() == "Linux":
+        raise_file_limit()
+    print("[SYSTEM] Bootstrap abgeschlossen ✅")
     
-    if missing_py:
-        print(f"[INFO] {t['py_m']} {missing_py}")
-        if input(t["py_p"]).lower() in ["j", "y"]:
-            # Pip-Upgrade sicherstellen & installieren
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
-            for p in missing_py: 
-                subprocess.check_call([sys.executable, "-m", "pip", "install", p])
-            # Neustart des Skripts, um neue Libs zu laden
-            os.execv(sys.executable, [sys.executable] + sys.argv + ["--restarted"])
-        sys.exit(1)
-
-    # 3. Telemetrie (nachdem requests sicher vorhanden ist)
-    def _track():
-        try:
-            import requests
-            requests.get("https://hits.seeyoufarm.com", timeout=5)
-        except: pass
-    threading.Thread(target=_track, daemon=True).start()
-
-    # 4. System Tools prüfen
-    tools_to_check = ["git", "patch", "zip", "nmap", "ssh", "wireshark", "hashcat"] if is_windows else \
-                     ["git", "patch", "zip", "nmap", "hydra", "john", "ssh", "wireshark", "hashcat"]
-
-    def tool_exists(name):
-        if is_windows:
-            if name == "zip": return shutil.which("7z") or shutil.which("zip")
-            if name == "patch": return shutil.which("patch") or shutil.which("patch.exe")
-        return shutil.which(name)
-
-    missing_tools = [tool for tool in tools_to_check if not tool_exists(tool) and tool not in optional_tools]
-    
-    # 5. Handling fehlender System-Tools
-    if missing_tools:
-        if "--tools-tried" in sys.argv:
-            print(f"[!] {t['loop_warn']} {missing_tools}")
-            return t
-
-        # PyQt6 Dialog (Import ist jetzt sicher, da Schritt 2 erfolgreich war)
-        from PyQt6.QtWidgets import QApplication, QMessageBox
-        app = QApplication.instance() or QApplication(sys.argv)
-        
-        if is_windows:
-            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
-            msg = f"{t['sys_i']}\n{', '.join(missing_tools)}\n\n{t['win_ask']}"
-            if not is_admin: msg += f"\n\n(!) {t['admin_warn']}"
-            
-            box = QMessageBox()
-            box.setWindowTitle(t["sys_t"])
-            box.setText(t["sys_txt"])
-            box.setInformativeText(msg)
-            box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            
-            if box.exec() == QMessageBox.StandardButton.Yes:
-                # Hier deine install_missing_tools_windows Logik aufrufen
-                # install_missing_tools_windows(missing_tools) 
-                subprocess.Popen([sys.executable] + sys.argv + ["--tools-tried"])
-                sys.exit(0)
-        else:
-            print(f"Install: sudo apt install {' '.join(missing_tools)}")
-            sys.exit(1)
-
-    # Finaler Check & Sound Support
-    HAS_SOUND_SUPPORT = shutil.which("paplay") is not None if not is_windows else True
-    return t
 
 
 from datetime import datetime, timezone
@@ -14912,68 +14442,62 @@ if __name__ == "__main__":
     from PyQt6.QtCore import Qt, QTimer, QLibraryInfo
     from PyQt6.QtWidgets import QApplication, QMessageBox
 
-    # ---------------- 0. SYSTEM ENV & HIGH-DPI FIX (VOR DER APP!) ----------------
-    # Diese Variablen MÜSSEN ganz am Anfang stehen
+    # ---------------- 0. SYSTEM ENV & HIGH-DPI FIX ----------------
     os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
     os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
-    os.environ["NO_AT_BRIDGE"] = "1" 
+    os.environ["NO_AT_BRIDGE"] = "1"
 
     if platform.system() == "Linux":
         os.environ["QT_QPA_PLATFORM"] = "xcb"
-    
-    # UTF-8 Fix für Windows Konsole
-    if platform.system() == "Windows":
+    elif platform.system() == "Windows":
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
 
     # ---------------- 1. DPI POLICY & QAPPLICATION START ----------------
     try:
-        # Policy setzen BEVOR QApplication initialisiert wird (behebt Fehlermeldung)
         if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
             QApplication.setHighDpiScaleFactorRoundingPolicy(
                 Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
             )
-    except: pass
+    except Exception:
+        pass
 
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setStyle("Fusion") 
-
-    # Plugin Pfad für Standalone-Builds setzen
+    app.setStyle("Fusion")
     os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = QLibraryInfo.path(
         QLibraryInfo.LibraryPath.PluginsPath
     )
 
-    # ---------------- 2. RESOLUTION DETECTION ----------------
+    # ---------------- 2. DISPLAY / RESOLUTION DETECTION ----------------
     screen_geo = app.primaryScreen().availableGeometry()
     width, height = screen_geo.width(), screen_geo.height()
     print(f"[SYSTEM] Display erkannt: {width}x{height}")
 
     # ---------------- 3. FONT-FIX ASYNC START ----------------
-    # Startet die Installation der Noto Color Emoji Font im Hintergrund (falls definiert)
     if 'auto_install_emoji_font' in globals():
         auto_install_emoji_font()
     else:
-        print("[!] auto_install_emoji_font() Funktion wurde im Script nicht gefunden.")
+        print("[!] auto_install_emoji_font() Funktion wurde nicht gefunden.")
 
     # ---------------- 4. GLOBAL STATE & GUI START LOGIK ----------------
-    main_window = None 
+    main_window = None
 
     def _actually_start():
         """Hauptinstanz der GUI laden und Auflösung anpassen."""
         global main_window
         try:
-            # Erstellt die PatchManagerGUI
+            # GUI laden
             main_window = PatchManagerGUI()
-            
-            # Globalen Style anwenden
+
+            # Optionaler globaler Style
             if 'CYBER_STYLE' in globals():
                 main_window.setStyleSheet(CYBER_STYLE)
-            
+
             main_window.setWindowTitle("OSCam Emu Patch Manager v4.0 - by speedy005")
 
             # --- INTELLIGENTE AUFLÖSUNGS-LOGIK ---
             if width > 1920:
-                # 4K Optimierung: Zentriertes 1080p Fenster statt Vollbild-Streckung
+                # 4K Optimierung: 1080p Fenster zentrieren
                 main_window.resize(1920, 1080)
                 qr = main_window.frameGeometry()
                 cp = screen_geo.center()
@@ -14981,15 +14505,16 @@ if __name__ == "__main__":
                 main_window.move(qr.topLeft())
                 main_window.show()
             else:
-                # FullHD oder kleiner: Direkt Maximiert
+                # FullHD oder kleiner: Maximiert
                 main_window.showMaximized()
-            
-            # Akustische Rückmeldung beim Start
+
+            # Akustische Rückmeldung beim Start (Windows)
             if platform.system() == "Windows":
                 try:
                     import winsound
                     winsound.Beep(1500, 100)
-                except: pass
+                except Exception:
+                    pass
 
         except Exception:
             error_details = traceback.format_exc()
@@ -14999,22 +14524,23 @@ if __name__ == "__main__":
             msg.setWindowTitle("SYSTEM FAILURE")
             msg.setText("Kritischer Fehler beim Laden des Kern-Moduls.")
             msg.setDetailedText(error_details)
-            msg.setStyleSheet("background-color: #050505; color: #00ff41; font-family: 'Consolas';")
+            msg.setStyleSheet(
+                "background-color: #050505; color: #00ff41; font-family: 'Consolas';"
+            )
             msg.exec()
             sys.exit(1)
 
     def launch_main_gui():
-        """Wird getriggert, wenn die Matrix-Animation des Splash-Screens endet."""
+        """Wird getriggert, wenn Splash-Screen endet."""
         QTimer.singleShot(200, _actually_start)
 
-    # ---------------- 5. CINEMATIC SPLASH START ----------------
+    # ---------------- 5. CINEMATIC SPLASH ----------------
     try:
-        # Splash Screen mit 5 Sekunden Matrix-Effekt
         splash = CinematicMatrixSplash(duration=5000)
         splash.finished.connect(launch_main_gui)
         splash.show()
     except Exception as e:
-        print(f"Splash-Error: {e}. Starte direkt...")
+        print(f"[!] Splash-Error: {e}. Starte direkt...")
         _actually_start()
 
     # ---------------- 6. MAIN EXECUTION LOOP ----------------
