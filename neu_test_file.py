@@ -4456,7 +4456,7 @@ class PatchManagerGUI(QWidget):
         QTimer.singleShot(4000, self.check_for_update_on_start)
 
         # 4. OSCam Monitor (8500ms)
-        QTimer.singleShot(6500, self.start_oscam_update_check)
+        QTimer.singleShot(4500, self.start_oscam_update_check)
         self.init_button_signals()
 
         self.is_loading = False  # Initialisierung abgeschlossen
