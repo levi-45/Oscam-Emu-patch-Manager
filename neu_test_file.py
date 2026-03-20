@@ -485,86 +485,109 @@ def safe_play(sound_name):
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QApplication
 import os, platform, shutil, subprocess, tempfile
-
+import os, shutil, platform, subprocess, tempfile, re
+from PyQt6.QtCore import QThread, pyqtSignal
+import os, shutil, platform, subprocess, tempfile, re
 
 class S3InstallWorker(QThread):
     finished_signal = pyqtSignal(bool, str)
 
-    def __init__(self, target_dir):
+    def __init__(self, base_target_dir):
         super().__init__()
-        self.target_dir = target_dir
+        # Das ist der vom User gewählte Basis-Pfad (z.B. C:\opt oder /opt)
+        self.base_target_dir = os.path.normpath(base_target_dir)
 
     def run(self):
         import os, shutil, platform, subprocess, tempfile
 
+        temp_clone = None
+        proj_name = "S3 Standard"
+        
         try:
-            if "ncam" in self.target_dir.lower():
+            # 1. Projekt-Differenzierung & Unterordner festlegen
+            # Wir prüfen anhand des Pfades oder Typs, was installiert werden soll
+            if "ncam" in self.base_target_dir.lower() or "bonecrew" in self.base_target_dir.lower():
                 repo_url = "https://github.com/speedy005/s3_ncam_bonecrew_test"
+                sub_folder = "s3_ncam_bonecrew_test"
                 proj_name = "NCam Bonecrew"
             else:
                 repo_url = "https://github.com/gorgone/s3_releases"
+                sub_folder = "s3"
                 proj_name = "S3 Standard"
 
-            # Temporärer Clone im Benutzer-TEMP
-            temp_clone = tempfile.mkdtemp(prefix="s3_clone_")
+            # Das finale Ziel: Basis-Pfad + Unterordner
+            final_destination = os.path.join(self.base_target_dir, sub_folder)
 
-            # Git Clone mit --depth 1
+            # 2. Temporärer Clone im Benutzer-TEMP
+            temp_clone = tempfile.mkdtemp(prefix="s3_clone_gen_")
+
+            # 3. Git Clone mit --depth 1
+            is_win = platform.system() == "Windows"
             subprocess.check_call(
-                ["git", "clone", "--depth", "1", repo_url, temp_clone]
+                ["git", "clone", "--depth", "1", repo_url, temp_clone],
+                shell=is_win
             )
 
-            # Zielordner erstellen (falls nicht vorhanden)
-            os.makedirs(self.target_dir, exist_ok=True)
+            # 4. FIX FÜR PERMISSION DENIED (Windows):
+            # .git Ordner säubern, damit er beim Kopieren in geschützte Bereiche nicht blockiert
+            git_dir = os.path.join(temp_clone, ".git")
+            if os.path.exists(git_dir):
+                if is_win:
+                    # Schreibschutz rekursiv aufheben
+                    subprocess.run(['attrib', '-R', os.path.join(git_dir, '*'), '/S', '/D'], 
+                                   shell=True, capture_output=True)
+                shutil.rmtree(git_dir, ignore_errors=True)
 
-            # Inhalte kopieren
+            # 5. Ziel-Unterordner erstellen (falls er schon existiert, ist das ok)
+            os.makedirs(final_destination, exist_ok=True)
+
+            # 6. Inhalte aus dem Temp-Clone in den UNTERORDNER kopieren
             for item in os.listdir(temp_clone):
                 s = os.path.join(temp_clone, item)
-                d = os.path.join(self.target_dir, item)
+                d = os.path.join(final_destination, item)
+                
                 if os.path.isdir(s):
+                    # Mergen erlaubt (dirs_exist_ok)
                     shutil.copytree(s, d, dirs_exist_ok=True)
                 else:
                     shutil.copy2(s, d)
 
-            # Linux: Rechte setzen, nur für Benutzer, keine Admin-Rechte
+            # 7. Linux Rechte im Unterordner setzen
             if platform.system() == "Linux":
-                subprocess.call(["chmod", "-R", "755", self.target_dir])
+                try:
+                    subprocess.call(["chmod", "-R", "755", final_destination])
+                except:
+                    pass
 
-            shutil.rmtree(temp_clone)
-            self.finished_signal.emit(True, f"{proj_name} erfolgreich installiert!")
+            self.finished_signal.emit(True, f"{proj_name} erfolgreich in '{sub_folder}' installiert!")
 
         except Exception as e:
-            if os.path.exists(temp_clone):
+            error_msg = str(e)
+            if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
+                error_msg += "\n\nTipp: Starten Sie das Programm als Admin oder wählen Sie einen anderen Installationsort."
+            
+            self.finished_signal.emit(False, f"{proj_name} Fehler: {error_msg}")
+
+        finally:
+            # Sauber aufräumen
+            if temp_clone and os.path.exists(temp_clone):
                 shutil.rmtree(temp_clone, ignore_errors=True)
-            self.finished_signal.emit(
-                False, f"{proj_name} Installation fehlgeschlagen: {str(e)}"
-            )
 
-
-# ===================== VERSION HANDLING =====================
+# ===================== VERSION HANDLING (Optimiert) =====================
 try:
     from packaging.version import Version, InvalidVersion
 except (ImportError, ModuleNotFoundError):
-
     class Version:
         def __init__(self, vstring):
-            self.v = [
-                int(x) for x in re.sub(r"[^0-9.]", "", str(vstring)).split(".") if x
-            ]
+            # Extrahiert Versionen wie 'v1.2.3' -> [1, 2, 3]
+            cleaned = "".join(re.findall(r'[0-9.]', str(vstring)))
+            self.v = [int(x) for x in cleaned.split(".") if x.isdigit()]
 
-        def __gt__(self, other):
-            return self.v > other.v
-
-        def __lt__(self, other):
-            return self.v < other.v
-
-        def __ge__(self, other):
-            return self.v >= other.v
-
-        def __le__(self, other):
-            return self.v <= other.v
-
-        def __eq__(self, other):
-            return self.v == other.v
+        def __gt__(self, other): return self.v > other.v
+        def __lt__(self, other): return self.v < other.v
+        def __ge__(self, other): return self.v >= other.v
+        def __le__(self, other): return self.v <= other.v
+        def __eq__(self, other): return self.v == other.v
 
     class InvalidVersion(Exception):
         pass
@@ -2255,24 +2278,30 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
 # ===================== CONFIG =====================
 def load_config(gui_instance=None):
     """
-    Lädt die Config, ergänzt fehlende Keys, stellt S3/NCam Pfade wieder her,
-    synchronisiert globale Variablen und wendet optional das Theme auf die GUI an.
+    Lädt die Config, korrigiert Pfade für Windows/Linux, ergänzt fehlende Keys
+    und synchronisiert die GUI. Optimiert für Oracle VM & Windows.
     """
-    import os, json
+    import os, json, platform
 
+    is_win = platform.system() == "Windows"
     CORRECT_URL = "https://github.com/oscam-mirror/oscam-emu.git"
+    CONFIG_FILE = globals().get("CONFIG_FILE", "config.json")
+    
     base_patch_dir = globals().get(
         "OLD_PATCH_DIR", os.path.dirname(os.path.abspath(__file__))
     )
 
-    # --- Standard-Konfiguration ---
+    # --- Dynamische Standard-Pfade je nach OS ---
+    default_s3 = "C:\\s3" if is_win else "/opt/s3"
+    default_ncam = "C:\\opt\\ncam" if is_win else "/opt/s3_ncam_bonecrew_test"
+
     default_cfg = {
         "commit_count": 5,
         "color": "Classics",
         "language": "de",
-        "s3_patch_path": base_patch_dir,
-        "s3_custom_path": "/opt/s3",
-        "ncam_custom_path": "/opt/s3_ncam_bonecrew_test",
+        "s3_patch_path": os.path.normpath(base_patch_dir),
+        "s3_custom_path": default_s3,
+        "ncam_custom_path": default_ncam,
         "patch_modifier": "speedy005",
         "EMUREPO": CORRECT_URL,
         "theme_mode": "standard",
@@ -2297,12 +2326,20 @@ def load_config(gui_instance=None):
         if not isinstance(cfg, dict):
             cfg = default_cfg.copy()
 
-        # --- Fehlende Keys ergänzen ---
+        # --- Fehlende Keys ergänzen & Pfade normalisieren ---
         needs_save = False
         for key, value in default_cfg.items():
             if key not in cfg:
                 cfg[key] = value
                 needs_save = True
+            
+            # WICHTIG: Bestehende Pfade aus der Config an das aktuelle OS anpassen
+            # (Verhindert Fehler, wenn die config.json von Linux auf Windows kopiert wurde)
+            if key in ["s3_custom_path", "ncam_custom_path", "s3_patch_path"]:
+                old_path = cfg[key]
+                cfg[key] = os.path.normpath(cfg[key])
+                if cfg[key] != old_path:
+                    needs_save = True
 
         # --- Korrektur der EMUREPO URL ---
         current_repo = str(cfg.get("EMUREPO", "")).strip()
@@ -2322,40 +2359,34 @@ def load_config(gui_instance=None):
         globals()["PATCH_MODIFIER"] = cfg["patch_modifier"]
         globals()["THEME_MODE"] = cfg.get("theme_mode", "standard")
         globals()["BLINK_SPEED"] = cfg.get("blink_speed", 500)
-        globals()["S3_PATH"] = cfg.get("s3_custom_path", "/opt/s3")
-        globals()["NCAM_PATH"] = cfg.get(
-            "ncam_custom_path", "/opt/s3_ncam_bonecrew_test"
-        )
+        globals()["S3_PATH"] = cfg["s3_custom_path"]
+        globals()["NCAM_PATH"] = cfg["ncam_custom_path"]
 
         # --- GUI-Integration ---
         if gui_instance:
-            gui_instance.S3_PATH = globals()["S3_PATH"]
-            gui_instance.NCAM_PATH = globals()["NCAM_PATH"]
+            gui_instance.S3_PATH = cfg["s3_custom_path"]
+            gui_instance.NCAM_PATH = cfg["ncam_custom_path"]
             gui_instance.current_config = cfg
 
-            # Buttons direkt auf gespeicherte Höhe setzen
+            # Buttons Höhe setzen
             button_height = getattr(gui_instance, "BUTTON_HEIGHT", 40)
             if hasattr(gui_instance, "all_buttons"):
                 for btn in gui_instance.all_buttons:
                     btn.setFixedHeight(button_height)
 
-            # Theme anwenden, ohne automatisch Matrix zu aktivieren
+            # Theme anwenden
             theme = cfg.get("theme_mode", "standard")
-            if theme == "matrix" and hasattr(gui_instance, "enable_standard_theme"):
-                # Standard zuerst setzen, Matrix wird nur aktiv bei Button-Klick
-                gui_instance.enable_standard_theme()
-            else:
-                if hasattr(gui_instance, "enable_standard_theme"):
-                    gui_instance.enable_standard_theme()
+            if hasattr(gui_instance, "enable_standard_theme"):
+                gui_instance.enable_standard_theme() # Erstmal sauberer Standard-State
 
             # LEDs / Blink-Timer synchronisieren
             led_enabled = cfg.get("led_enabled", True)
             if hasattr(gui_instance, "toggle_leds"):
                 gui_instance.toggle_leds(led_enabled)
+            
             blink_speed = cfg.get("blink_speed", 500)
-            timer = getattr(
-                gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None)
-            )
+            timer = getattr(gui_instance, "master_timer", getattr(gui_instance, "blink_timer", None))
+            
             if timer:
                 timer.setInterval(max(10, blink_speed))
                 if led_enabled and not timer.isActive():
@@ -2598,32 +2629,40 @@ def get_patch_header(repo_dir=None, lang="de", modifier=None):
 def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
     """
     Erstellt den Patch im TEMP_REPO mit ProgressBar, Texten für DE/EN und Error-Feedback.
-    Erzwingt Schreib-/Leserechte für alle erstellten Ordner und Dateien.
+    Optimiert für Oracle VM & Windows: Nutzt System-Temp und sichert Schreibrechte.
     """
     from PyQt6.QtWidgets import QTextEdit, QApplication
     from PyQt6.QtGui import QTextCursor
-    import subprocess, os, shutil, re
+    import subprocess, os, shutil, re, platform
 
-    # --- Hilfsfunktion für Rechte ---
-    def ensure_permissions(path, is_dir=True):
-        """Setzt Rechte auf 777 für Ordner und 666 für Dateien."""
+    is_linux = platform.system() == "Linux"
+
+    # --- Hilfsfunktionen für maximale Kompatibilität ---
+    def ensure_permissions(path):
+        """Erzwingt Schreibrechte, sofern das System es erlaubt."""
         try:
             if os.path.exists(path):
-                os.chmod(path, 0o777 if is_dir else 0o666)
-        except:
-            pass
+                # Linux: 777/666 | Windows: ignoriert chmod meist, schadet aber nicht
+                mode = 0o777 if os.path.isdir(path) else 0o666
+                os.chmod(path, mode)
+        except: pass
 
     def safe_makedirs(path):
-        """Erstellt Ordnerstruktur mit maximalen Rechten."""
+        """Erstellt Ordnerstruktur sicher und fängt Windows-Sudo-Fehler ab."""
         if not os.path.exists(path):
-            old_umask = os.umask(0)
             try:
+                old_umask = os.umask(0) if is_linux else None
                 os.makedirs(path, mode=0o777, exist_ok=True)
-            finally:
-                os.umask(old_umask)
-        ensure_permissions(path, is_dir=True)
+                if old_umask is not None: os.umask(old_umask)
+            except Exception:
+                # Sudo nur unter Linux als Fallback nutzen
+                if is_linux:
+                    subprocess.run(["sudo", "mkdir", "-p", path], check=False)
+                else:
+                    raise # Unter Windows direkt Fehler werfen
+        ensure_permissions(path)
 
-    # --- Final Label verstecken ---
+    # --- UI & Sprach-Setup ---
     if gui_instance and hasattr(gui_instance, "hide_final_label"):
         gui_instance.hide_final_label()
 
@@ -2632,30 +2671,31 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         widget = getattr(gui_instance, "info_text", None)
 
     lang = str(getattr(gui_instance, "LANG", "de")).lower()[:2]
-    active_modifier = getattr(gui_instance, "patch_modifier", globals().get("PATCH_MODIFIER"))
-    active_emu_repo = getattr(gui_instance, "EMUREPO", globals().get("EMUREPO"))
+    active_modifier = getattr(gui_instance, "patch_modifier", globals().get("PATCH_MODIFIER", "speedy005"))
+    active_emu_repo = getattr(gui_instance, "EMUREPO", globals().get("EMUREPO", ""))
+    stream_repo = globals().get("STREAMREPO", "https://git.streamboard.tv/common/oscam.git")
 
     TEXTS = {
         "de": {
             "patch_create_start": "Patch-Erstellung gestartet...",
-            "patch_create_clone_start": "Repository wird geklont...",
-            "patch_fetch_checkout": "Repository wird synchronisiert...",
-            "patch_generate_diff": "Diff wird erstellt...",
+            "patch_create_clone_start": "Repository wird vorbereitet...",
+            "patch_fetch_checkout": "Synchronisierung (Git Fetch)...",
+            "patch_generate_diff": "Erstelle Diff (Emu vs. Master)...",
             "patch_create_no_changes": "Keine Änderungen gefunden.",
             "patch_create_success": "Patch erfolgreich erstellt!",
-            "patch_create_failed": "Fehler bei der Patch-Erstellung!",
-            "patch_rev_saved": "Revision {rev} erfolgreich gespeichert.",
+            "patch_create_failed": "Fehler: Schreibrechte prüfen!",
+            "patch_rev_saved": "Revision {rev} erkannt.",
         },
         "en": {
             "patch_create_start": "Patch creation started...",
-            "patch_create_clone_start": "Cloning repository...",
-            "patch_fetch_checkout": "Synchronizing repository...",
+            "patch_create_clone_start": "Preparing repository...",
+            "patch_fetch_checkout": "Synchronizing (Git Fetch)...",
             "patch_generate_diff": "Generating diff...",
             "patch_create_no_changes": "No changes detected.",
             "patch_create_success": "Patch successfully created!",
-            "patch_create_failed": "Patch creation failed!",
-            "patch_rev_saved": "Revision {rev} successfully saved.",
-        },
+            "patch_create_failed": "Error: Check permissions!",
+            "patch_rev_saved": "Revision {rev} detected.",
+        }
     }
 
     def set_progress(val, text_key=None, is_error=False):
@@ -2663,13 +2703,11 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
         if gui_instance:
             pbar = getattr(gui_instance, "progress_bar", None)
             if pbar:
-                rainbow_gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
-                error_gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #800, stop:1 #F00)"
-                chunk_color = error_gradient if is_error else rainbow_gradient
-                text_color = "#FF0000" if is_error else "black"
-                pbar.setStyleSheet(f"QProgressBar {{ border: 2px solid #444444; border-radius: 8px; background-color: #0A0A0A; color: {text_color}; text-align: center; font-weight: 900; font-size: 20px; min-height: 35px; }} QProgressBar::chunk {{ background-color: {chunk_color}; border-radius: 6px; }}")
+                rainbow = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #FF00FF, stop:0.5 #00FFFF, stop:1 #39FF14)"
+                error_grad = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #800, stop:1 #F00)"
+                pbar.setStyleSheet(f"QProgressBar {{ border: 2px solid #444; border-radius: 8px; background: #0A0A0A; color: {'red' if is_error else 'black'}; text-align: center; font-weight: bold; }} QProgressBar::chunk {{ background: {error_grad if is_error else rainbow}; }}")
                 pbar.setValue(val)
-                pbar.setFormat(f"{text_msg} ({val}%)" if text_msg else f"{val}%")
+                pbar.setFormat(f"{text_msg} ({val}%)")
                 pbar.show()
         if progress_callback:
             try: progress_callback(val); QApplication.processEvents()
@@ -2685,82 +2723,69 @@ def create_patch(gui_instance=None, info_widget=None, progress_callback=None):
             widget.moveCursor(QTextCursor.MoveOperation.End)
             QApplication.processEvents()
 
-    def play_sound(sound_name):
-        safe_func = globals().get("safe_play")
-        if safe_func: safe_func(sound_name)
-
-    # --- START ---
-    play_sound("dialog-information.oga")
-    log("patch_create_start", "info")
-    set_progress(10, "patch_create_start")
-
-    temp_repo = globals().get("TEMP_REPO", "temp_repo")
-    safe_makedirs(temp_repo)
-
-    git_dir = os.path.join(temp_repo, ".git")
-    if os.path.exists(temp_repo) and not os.path.exists(git_dir):
-        log("patch_create_clone_start", "warning")
-        try:
-            shutil.rmtree(temp_repo, ignore_errors=True)
-            safe_makedirs(temp_repo)
-        except:
-            log("patch_create_failed", "error")
-
+    # --- HAUPTPROZESS ---
     try:
-        if not os.path.exists(git_dir):
-            set_progress(20, "patch_create_clone_start")
-            stream_repo = globals().get("STREAMREPO", "")
-            subprocess.run(f"git clone {stream_repo} .", shell=True, cwd=temp_repo, capture_output=True)
+        play_sound = globals().get("safe_play")
+        if play_sound: play_sound("dialog-information.oga")
         
-        # Sicherstellen, dass auch der geklonte .git Ordner bearbeitbar ist
-        ensure_permissions(git_dir, is_dir=True)
+        log("patch_create_start", "info")
+        set_progress(5, "patch_create_start")
 
-        subprocess.run(["git", "remote", "remove", "emu-repo"], cwd=temp_repo, capture_output=True)
-        subprocess.run(["git", "remote", "add", "emu-repo", active_emu_repo], cwd=temp_repo, capture_output=True)
+        # VM/Windows FIX: Nutze lokales Temp-Verzeichnis
+        work_dir = "/tmp/oscam_patch_work" if is_linux else os.path.join(os.environ.get("TEMP", "."), "oscam_patch_work")
+        
+        if os.path.exists(work_dir):
+            shutil.rmtree(work_dir, ignore_errors=True)
+        
+        safe_makedirs(work_dir)
+        set_progress(15, "patch_create_clone_start")
 
-        set_progress(40, "patch_fetch_checkout")
-        for cmd in ["git fetch --all", "git checkout -B master origin/master", "git reset --hard origin/master"]:
-            subprocess.run(cmd, shell=True, cwd=temp_repo, capture_output=True)
+        # Git-Operationen (capture_output=True verhindert Terminal-Popups)
+        subprocess.run(["git", "init"], cwd=work_dir, capture_output=True)
+        subprocess.run(["git", "remote", "add", "origin", stream_repo], cwd=work_dir, capture_output=True)
+        subprocess.run(["git", "remote", "add", "emu-repo", active_emu_repo], cwd=work_dir, capture_output=True)
 
-        set_progress(70, "patch_generate_diff")
-        header = globals().get("get_patch_header", lambda **x: "# Patch")(repo_dir=temp_repo, lang=lang, modifier=active_modifier)
-        diff = subprocess.check_output(["git", "diff", "origin/master..emu-repo/master", "--", ".", ":!.github"], cwd=temp_repo, text=True)
+        set_progress(30, "patch_fetch_checkout")
+        subprocess.run(["git", "fetch", "origin", "master"], cwd=work_dir, capture_output=True)
+        subprocess.run(["git", "fetch", "emu-repo", "master"], cwd=work_dir, capture_output=True)
+        subprocess.run(["git", "checkout", "-B", "master", "origin/master"], cwd=work_dir, capture_output=True)
 
-        if not diff.strip():
+        set_progress(60, "patch_generate_diff")
+        diff_output = subprocess.check_output(["git", "diff", "origin/master..emu-repo/master", "--", ".", ":!.github"], cwd=work_dir, text=True)
+
+        if not diff_output.strip():
             log("patch_create_no_changes", "warning")
-            diff = "# No changes detected"
+            diff_output = "# No changes detected"
 
-        # Patch speichern & Rechte setzen
-        patch_file = globals().get("PATCH_FILE", "oscam.patch")
-        with open(patch_file, "w", encoding="utf-8") as f:
-            f.write(header + "\n" + diff + "\n")
-        ensure_permissions(patch_file, is_dir=False)
+        header_func = globals().get("get_patch_header")
+        header = header_func(repo_dir=work_dir, lang=lang, modifier=active_modifier) if header_func else "# OSCam Emu Patch"
 
-        # Revision ermitteln
-        rev_match = re.search(r"-(\d{5,6})-", header)
-        if not rev_match:
-            rev_log = subprocess.check_output(["git", "log", "origin/master", "-n", "10", "--pretty=format:%s"], cwd=temp_repo, text=True)
-            rev_match = re.search(r"(?:r)?(\d{5,6})", rev_log)
-
-        if rev_match:
-            new_rev_found = rev_match.group(1)
-            rev_storage_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "oscam_rev.txt")
-            with open(rev_storage_path, "w", encoding="utf-8") as f:
-                f.write(new_rev_found)
-            ensure_permissions(rev_storage_path, is_dir=False)
-            
-            if gui_instance:
-                gui_instance.current_rev = new_rev_found
-            log("patch_rev_saved", "success", rev=new_rev_found)
+        # Finale Datei schreiben (newline='\n' erzwingt Linux-Format auch unter Windows)
+        patch_file_path = os.path.abspath(globals().get("PATCH_FILE", "oscam-emu.patch"))
+        with open(patch_file_path, "w", encoding="utf-8", newline='\n') as f:
+            f.write(header + "\n" + diff_output + "\n")
         
+        ensure_permissions(patch_file_path)
+
+        # Revision ermitteln & speichern
+        rev_match = re.search(r"-(\d{5,6})-", header) or re.search(r"r(\d{5,6})", diff_output[:1000])
+        if rev_match:
+            new_rev = rev_match.group(1)
+            rev_txt = os.path.join(os.path.dirname(os.path.abspath(__file__)), "oscam_rev.txt")
+            with open(rev_txt, "w", encoding="utf-8") as f: f.write(new_rev)
+            if gui_instance: gui_instance.current_rev = new_rev
+            log("patch_rev_saved", "success", rev=new_rev)
+
         set_progress(100, "patch_create_success")
         log("patch_create_success", "success")
-        play_sound("complete.oga")
+        if play_sound: play_sound("complete.oga")
 
     except Exception as e:
         log("patch_create_failed", "error")
+        if isinstance(widget, QTextEdit):
+            widget.append(f'<span style="color:red"><i>Detail: {str(e)}</i></span>')
         set_progress(100, "patch_create_failed", is_error=True)
-        play_sound("dialog-error.oga")
+        if play_sound: play_sound("dialog-error.oga")
 
 
 # ===================== backup_old_patch=====================
@@ -4668,26 +4693,61 @@ class PatchManagerGUI(QWidget):
             QApplication.processEvents()
 
     # ========================== NCam ==========================
+    import os
+    import platform
+    import shutil
+
     def auto_detect_ncam_path(self):
         """Sucht den NCam Bonecrew Pfad automatisch auf Linux & Windows."""
-        import os, platform
-
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
+        is_win = platform.system() == "Windows"
         project = "s3_ncam_bonecrew_test"
-        base = "/opt" if platform.system() != "Windows" else "C:\\opt"
-        search_paths = [
-            os.path.join(base, project),
-            os.path.join(os.path.expanduser("~"), project),
-            os.path.join(os.getcwd(), project),
-        ]
+    
+        # Basis-Pfade definieren
+        if is_win:
+            base_candidates = ["C:\\opt", "D:\\opt", os.path.expanduser("~")]
+        else:
+            base_candidates = ["/opt", os.path.expanduser("~")]
 
-        found = self.find_existing_path([os.path.join(p, "s3") for p in search_paths])
-        if found:
-            self.NCAM_PATH = os.path.dirname(found)
-            print(f"[AUTO-DETECT] NCam gefunden: {self.NCAM_PATH}")
-            return True
+        search_paths = [os.path.join(b, project) for b in base_candidates]
+        search_paths.append(os.getcwd()) # Aktuelles Verzeichnis einbeziehen
+
+        # Suche nach der 's3' Datei (mit .exe unter Windows)
+        binary = "s3.exe" if is_win else "s3"
+    
+        for p in search_paths:
+            full_binary_path = os.path.normpath(os.path.join(p, binary))
+            if os.path.exists(full_binary_path):
+                self.NCAM_PATH = os.path.normpath(p)
+                print(f"[AUTO-DETECT] NCam gefunden: {self.NCAM_PATH}")
+                return True
+            
+        print("[AUTO-DETECT] NCam konnte nicht gefunden werden.")
+        return False
+
+    def auto_detect_s3_path(self):
+        """Sucht S3 Installation automatisch auf Linux & Windows."""
+        is_win = platform.system() == "Windows"
+        binary = "s3.exe" if is_win else "s3"
+
+        # Standard-Installationsorte
+        if is_win:
+            candidates = ["C:\\s3", "C:\\opt\\s3", os.path.join(os.path.expanduser("~"), "s3")]
+        else:
+            candidates = ["/opt/s3", "/usr/local/bin", "/usr/bin", os.path.expanduser("~/s3")]
+
+        for c in candidates:
+            # 1. Pfad ist ein Ordner, der die Binary enthält
+            if os.path.isdir(c) and os.path.exists(os.path.join(c, binary)):
+                self.S3_PATH = os.path.normpath(c)
+                return True
+            # 2. Pfad ist direkt die Binary selbst
+            if os.path.isfile(c) and (c.endswith(binary)):
+                self.S3_PATH = os.path.normpath(os.path.dirname(c))
+                return True
+
         return False
 
     def find_existing_path(possible_paths):
@@ -4732,90 +4792,93 @@ class PatchManagerGUI(QWidget):
             QMessageBox.warning(self, "Error", "Datei 's3' nicht im Ordner gefunden!")
 
     def start_ncam_install(self):
-        """Startet die NCam Installation über Worker, Pfad wählbar."""
+        """Startet die NCam Installation."""
+        from PyQt6.QtWidgets import QFileDialog
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
         is_de = getattr(self, "LANG", "de") == "de"
+        # Windows-tauglicher Startpfad für den Dialog
+        default_start = "C:\\" if platform.system() == "Windows" else "/opt"
+        start_path = getattr(self, "NCAM_PATH", default_start)
 
-        # Pfad wählen
-        start_path = getattr(self, "NCAM_PATH", os.path.expanduser("~"))
         chosen_dir = QFileDialog.getExistingDirectory(
-            self,
-            (
-                "Wähle NCam Installationsordner"
-                if is_de
-                else "Select NCam Installation Folder"
-            ),
-            start_path,
+            self, 
+            "Installationsordner wählen" if is_de else "Select Installation Folder",
+            start_path
         )
 
         if not chosen_dir:
-            return  # Abbruch, falls Nutzer nichts wählt
+            return 
 
-        self.NCAM_PATH = chosen_dir
-        os.makedirs(self.NCAM_PATH, exist_ok=True)
+        # Pfad säubern (Wichtig für Windows!)
+        self.NCAM_PATH = os.path.normpath(chosen_dir)
+    
+        try:
+            os.makedirs(self.NCAM_PATH, exist_ok=True)
+            self.btn_ncam.setEnabled(False)
+            self.btn_ncam.setText("⏳ ..." if is_de else "⏳ Busy...")
 
-        # UI Feedback
-        self.btn_ncam.setEnabled(False)
-        self.btn_ncam.setText("⏳ ..." if is_de else "⏳ Busy...")
-
-        # Worker starten
-        self.ncam_worker = S3InstallWorker(self.NCAM_PATH)
-        self.ncam_worker.finished_signal.connect(self.on_ncam_finished)
-        self.ncam_worker.start()
+            # Worker starten (Stelle sicher, dass S3InstallWorker Pfade in "" setzt!)
+            self.ncam_worker = S3InstallWorker(self.NCAM_PATH)
+            self.ncam_worker.finished_signal.connect(self.on_ncam_finished)
+            self.ncam_worker.start()
+        except Exception as e:
+            self.on_ncam_finished(False, f"Fehler beim Erstellen des Ordners: {str(e)}")
 
     def on_ncam_finished(self, success, message):
         """Nach Abschluss des Workers für NCam."""
+        import os
+        from PyQt6.QtWidgets import QMessageBox
+
         is_de = getattr(self, "LANG", "de") == "de"
         self.btn_ncam.setEnabled(True)
 
         if success:
+            # 1. Pfad-Logik: Der Worker hat den spezifischen NCam-Unterordner erstellt
+            sub_folder = "s3_ncam_bonecrew_test"
+            
+            # Wir prüfen, ob der aktuelle NCAM_PATH den Unterordner bereits enthält
+            current_base = getattr(self, "NCAM_PATH", "")
+            if not current_base.lower().endswith(sub_folder.lower()):
+                new_path = os.path.normpath(os.path.join(current_base, sub_folder))
+            else:
+                new_path = os.path.normpath(current_base)
+
+            # 2. Instanz-Variable und Config permanent aktualisieren
+            self.NCAM_PATH = new_path
+            # Speichert den Pfad in der json, damit er beim nächsten Start direkt da ist
+            save_config({"ncam_custom_path": self.NCAM_PATH}, gui_instance=self)
+
+            # 3. Visuelles Feedback
             self.btn_ncam.setStyleSheet(
-                "background-color: green; color: white; font-weight: bold;"
+                "background-color: green; color: white; font-weight: bold; border-radius: 5px;"
             )
             self.btn_ncam.setText("✅ Fertig" if is_de else "✅ Done")
+            
+            # UI-Texte (Labels etc.) aktualisieren, falls die Funktion existiert
+            if hasattr(self, "update_ui_texts"):
+                self.update_ui_texts()
+
             QMessageBox.information(
-                self, "NCam Installation" if is_de else "NCam Setup", message
+                self, 
+                "NCam Installation" if is_de else "NCam Setup", 
+                f"{message}\n\nPfad: {self.NCAM_PATH}" if is_de else f"{message}\n\nPath: {self.NCAM_PATH}"
             )
         else:
+            # Fehler-Zustand
             self.btn_ncam.setStyleSheet(
-                "background-color: red; color: white; font-weight: bold;"
+                "background-color: #e74c3c; color: white; font-weight: bold; border-radius: 5px;"
             )
             self.btn_ncam.setText("❌ Fehler" if is_de else "❌ Error")
             QMessageBox.critical(
-                self, "NCam Installation" if is_de else "NCam Setup", message
+                self, 
+                "NCam Installation" if is_de else "NCam Setup", 
+                message
             )
 
     # ========================== S3 ==========================
-    def auto_detect_s3_path(self):
-        """Sucht S3 Installation automatisch auf Linux & Windows."""
-        import os, platform
-
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
-
-        is_windows = platform.system() == "Windows"
-        search_base = "C:\\opt" if is_windows else "/opt"
-
-        search_paths = [
-            getattr(self, "S3_PATH", search_base),
-            os.path.join(os.path.expanduser("~"), "s3"),
-            os.path.join(os.getcwd(), "s3"),
-            # Direkte Pfade zu den Binaries
-            "C:\\s3\\s3.exe" if is_windows else "/usr/local/bin/s3",
-            "C:\\s3" if is_windows else "/usr/bin/s3",
-        ]
-
-        found = self.find_existing_path([os.path.join(p, "s3") for p in search_paths])
-        if found:
-            # Falls eine Datei gefunden wurde, nehmen wir den Ordner davon
-            self.S3_PATH = os.path.dirname(found) if os.path.isfile(found) else found
-            print(f"[AUTO-DETECT] S3 Pfad gesetzt auf: {self.S3_PATH}")
-            return True
-
-        print("[AUTO-DETECT] S3 konnte nicht gefunden werden.")
-        return False
+    
 
     def select_s3_path_manually(self):
         """Dialog zur manuellen Auswahl des S3 Pfads."""
@@ -4837,32 +4900,68 @@ class PatchManagerGUI(QWidget):
             QMessageBox.warning(self, "Fehler", "Keine 's3' Startdatei gefunden!")
 
     def start_s3_install(self):
-        """Startet die S3 Installation über Worker, Pfad wählbar."""
+        """Startet die S3 Installation über Worker, Pfad wählbar und OS-optimiert."""
+        import os, platform
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
         is_de = getattr(self, "LANG", "de") == "de"
+        is_win = platform.system() == "Windows"
 
-        # 1. Zielpfad auswählen (Windows / Linux)
+        # 1. Intelligenten Startpfad für den Dialog wählen
+        # Falls S3_PATH noch nicht gesetzt ist, nehmen wir einen sinnvollen Standard
+        default_base = "C:\\opt" if is_win else "/opt"
         start_path = getattr(self, "S3_PATH", os.path.expanduser("~"))
+    
+        # Falls der aktuelle Pfad nicht existiert, nimm die Basis
+        if not os.path.exists(start_path):
+            start_path = default_base if os.path.exists(default_base) else os.path.expanduser("~")
+
         chosen_dir = QFileDialog.getExistingDirectory(
             self,
-            "Wähle Installationsordner" if is_de else "Select Installation Folder",
+            "Wähle S3 Installationsordner" if is_de else "Select S3 Installation Folder",
             start_path,
         )
 
         if not chosen_dir:
-            # Abbruch, falls Nutzer nichts wählt
-            return
+            return  # Abbruch durch Nutzer
 
-        self.S3_PATH = chosen_dir
-        os.makedirs(self.S3_PATH, exist_ok=True)
+        # --- WINDOWS & VM FIX: Pfad normalisieren ---
+        # Macht aus / und \ den jeweils richtigen Trenner für das OS
+        self.S3_PATH = os.path.normpath(chosen_dir)
+
+        try:
+            # Ordner erstellen (Dank deines Admin-Elevators klappt das auch auf C:\)
+            os.makedirs(self.S3_PATH, exist_ok=True)
+        
+            # Test-Schreibzugriff (nur um sicherzugehen)
+            test_file = os.path.join(self.S3_PATH, ".permissions_test")
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, 
+                "Error", 
+                f"Keine Schreibrechte in diesem Ordner!\n{str(e)}" if is_de 
+                else f"No write permissions in this folder!\n{str(e)}"
+            )
+            return
 
         # 2. UI Feedback
         self.btn_s3.setEnabled(False)
-        self.btn_s3.setText("⏳ ..." if is_de else "⏳ Busy...")
+        # Nutze ein Icon oder Text-Update
+        busy_text = "⏳ Installation läuft..." if is_de else "⏳ Installing..."
+        self.btn_s3.setText(busy_text)
+    
+        if hasattr(self, "log"): # Falls deine GUI eine Log-Funktion hat
+            self.log("patch_create_clone_start", "info") 
 
         # 3. Worker starten
+        # WICHTIG: Der S3InstallWorker muss intern os.path.join nutzen!
         self.s3_worker = S3InstallWorker(self.S3_PATH)
         self.s3_worker.finished_signal.connect(self.on_s3_finished)
         self.s3_worker.start()
@@ -4891,6 +4990,16 @@ class PatchManagerGUI(QWidget):
 
         from PyQt6.QtCore import QTimer
 
+    def check_git_installed():
+        """Prüft, ob Git im System-Pfad verfügbar ist."""
+        git_path = shutil.which("git")
+        if git_path:
+            print(f"[SYSTEM] Git gefunden: {git_path}")
+            return True
+        else:
+            print("[!] FEHLER: Git ist nicht installiert oder nicht im PATH.")
+            return False
+    
     def smooth_progress(pbar, start, end, duration=500):
         """
         Animiert die ProgressBar von start bis end in `duration` ms.
@@ -14436,13 +14545,44 @@ auto_install_emoji_font()
 # =============================================================================
 # EXECUTION BOOTLOADER: Oscam Emu Patch Manager by speedy005
 # =============================================================================
+
 if __name__ == "__main__":
-    import os, sys, platform, traceback, threading, ctypes, subprocess
+    import os, sys, platform, traceback, threading, ctypes, subprocess, shutil
     from pathlib import Path
     from PyQt6.QtCore import Qt, QTimer, QLibraryInfo
     from PyQt6.QtWidgets import QApplication, QMessageBox
 
-    # ---------------- 0. SYSTEM ENV & HIGH-DPI FIX ----------------
+    # ---------------- 0. ADMIN / ROOT ELEVATION (VM & WINDOWS FIX) ----------------
+    def elevate_privileges():
+        """Prüft auf Admin/Root und fordert diese grafisch an, falls nötig."""
+        # Verhindert Endlosschleife, falls Elevation fehlschlägt
+        if "--elevated" in sys.argv:
+            return
+
+        system = platform.system()
+        try:
+            if system == "Windows":
+                if not ctypes.windll.shell32.IsUserAnAdmin():
+                    print("[SYSTEM] Fordere Windows-Admin-Rechte an...")
+                    params = " ".join(sys.argv + ["--elevated"])
+                    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
+                    sys.exit(0)
+            
+            elif system == "Linux":
+                if os.geteuid() != 0:
+                    print("[SYSTEM] Root-Rechte erforderlich für VM-Operationen...")
+                    # Versuche grafischen Passwort-Dialog (pkexec), sonst sudo
+                    launcher = shutil.which("pkexec") or shutil.which("sudo")
+                    if launcher:
+                        os.execv(launcher, [launcher, sys.executable] + sys.argv + ["--elevated"])
+                    sys.exit(1)
+        except Exception as e:
+            print(f"[!] Elevation-Error: {e}")
+
+    # Rechte prüfen, bevor die GUI geladen wird
+    elevate_privileges()
+
+    # ---------------- 1. SYSTEM ENV & HIGH-DPI FIX ----------------
     os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
     os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
     os.environ["NO_AT_BRIDGE"] = "1"
@@ -14453,7 +14593,7 @@ if __name__ == "__main__":
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
 
-    # ---------------- 1. DPI POLICY & QAPPLICATION START ----------------
+    # ---------------- 2. DPI POLICY & QAPPLICATION START ----------------
     try:
         if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
             QApplication.setHighDpiScaleFactorRoundingPolicy(
@@ -14464,30 +14604,35 @@ if __name__ == "__main__":
 
     app = QApplication.instance() or QApplication(sys.argv)
     app.setStyle("Fusion")
-    os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = QLibraryInfo.path(
-        QLibraryInfo.LibraryPath.PluginsPath
-    )
+    
+    # Plugin Pfad für Qt sicherstellen
+    plugin_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath)
+    if plugin_path:
+        os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = plugin_path
 
-    # ---------------- 2. DISPLAY / RESOLUTION DETECTION ----------------
+    # ---------------- 3. DISPLAY / RESOLUTION DETECTION ----------------
     screen_geo = app.primaryScreen().availableGeometry()
     width, height = screen_geo.width(), screen_geo.height()
-    print(f"[SYSTEM] Display erkannt: {width}x{height}")
+    print(f"[SYSTEM] Display erkannt: {width}x{height} | User: {os.getlogin() if platform.system() == 'Windows' else os.getenv('USER')}")
 
-    # ---------------- 3. FONT-FIX ASYNC START ----------------
+    # ---------------- 4. FONT-FIX ASYNC START ----------------
     if 'auto_install_emoji_font' in globals():
         auto_install_emoji_font()
     else:
         print("[!] auto_install_emoji_font() Funktion wurde nicht gefunden.")
 
-    # ---------------- 4. GLOBAL STATE & GUI START LOGIK ----------------
+    # ---------------- 5. GLOBAL STATE & GUI START LOGIK ----------------
     main_window = None
 
     def _actually_start():
         """Hauptinstanz der GUI laden und Auflösung anpassen."""
         global main_window
         try:
-            # GUI laden
-            main_window = PatchManagerGUI()
+            # GUI laden (Stelle sicher, dass PatchManagerGUI definiert ist)
+            if 'PatchManagerGUI' in globals():
+                main_window = PatchManagerGUI()
+            else:
+                raise NameError("Klasse 'PatchManagerGUI' nicht im globalen Scope gefunden.")
 
             # Optionaler globaler Style
             if 'CYBER_STYLE' in globals():
@@ -14508,13 +14653,12 @@ if __name__ == "__main__":
                 # FullHD oder kleiner: Maximiert
                 main_window.showMaximized()
 
-            # Akustische Rückmeldung beim Start (Windows)
+            # Akustische Rückmeldung beim Start
             if platform.system() == "Windows":
                 try:
                     import winsound
                     winsound.Beep(1500, 100)
-                except Exception:
-                    pass
+                except: pass
 
         except Exception:
             error_details = traceback.format_exc()
@@ -14524,9 +14668,7 @@ if __name__ == "__main__":
             msg.setWindowTitle("SYSTEM FAILURE")
             msg.setText("Kritischer Fehler beim Laden des Kern-Moduls.")
             msg.setDetailedText(error_details)
-            msg.setStyleSheet(
-                "background-color: #050505; color: #00ff41; font-family: 'Consolas';"
-            )
+            msg.setStyleSheet("background-color: #050505; color: #00ff41; font-family: 'Consolas';")
             msg.exec()
             sys.exit(1)
 
@@ -14534,16 +14676,20 @@ if __name__ == "__main__":
         """Wird getriggert, wenn Splash-Screen endet."""
         QTimer.singleShot(200, _actually_start)
 
-    # ---------------- 5. CINEMATIC SPLASH ----------------
+    # ---------------- 6. CINEMATIC SPLASH ----------------
     try:
-        splash = CinematicMatrixSplash(duration=5000)
-        splash.finished.connect(launch_main_gui)
-        splash.show()
+        # Falls CinematicMatrixSplash nicht definiert ist, direkt starten
+        if 'CinematicMatrixSplash' in globals():
+            splash = CinematicMatrixSplash(duration=5000)
+            splash.finished.connect(launch_main_gui)
+            splash.show()
+        else:
+            _actually_start()
     except Exception as e:
         print(f"[!] Splash-Error: {e}. Starte direkt...")
         _actually_start()
 
-    # ---------------- 6. MAIN EXECUTION LOOP ----------------
+    # ---------------- 7. MAIN EXECUTION LOOP ----------------
     try:
         sys.exit(app.exec())
     except Exception:
